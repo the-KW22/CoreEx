@@ -24,6 +24,11 @@ class UserRepository {
 				.optional();
 	}
 
+	boolean existsByEmail(String email) {
+		return jdbc.sql("select exists (select 1 from users where email = :email)").param("email", email)
+				.query(Boolean.class).single();
+	}
+
 	/** Does nothing if two first requests race; the loser then reads the winner's row. */
 	void insert(User user) {
 		jdbc.sql("insert into users (id, email, role, status) values (:id, :email, :role, :status) on conflict (id) do nothing")

@@ -1,19 +1,14 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { apiClient } from "@/lib/api/client";
-import { createSupabase } from "@/lib/supabase/server";
+import { getApi } from "@/lib/api/server";
 
 import { signOut } from "../actions";
 
 // Asks the API who is signed in; the API decides whether they may use CoreEx.
 export async function Shell({ children }: { children: React.ReactNode }) {
-  const supabase = await createSupabase();
-  const { data: auth } = await supabase.auth.getSession();
-  if (!auth.session) redirect("/login");
-
-  const result = await apiClient(auth.session.access_token)
-    .GET("/api/me")
-    .catch(() => null);
+  const api = await getApi();
+  const result = await api.GET("/api/me").catch(() => null);
 
   if (!result) {
     return (
@@ -41,6 +36,12 @@ export async function Shell({ children }: { children: React.ReactNode }) {
         <strong>CoreEx</strong>
         <ul>
           <li>Notes</li>
+          {/* Only a convenience: the API refuses non-admins on its own (ADR 0004). */}
+          {me.role === "ADMIN" && (
+            <li>
+              <Link href="/admin">Admin</Link>
+            </li>
+          )}
         </ul>
         <p>{me.email}</p>
         <form action={signOut}>

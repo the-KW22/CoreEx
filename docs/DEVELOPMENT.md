@@ -233,6 +233,7 @@ If `staging` holds nothing unreleased, use the normal flow and release immediate
 - **User scoping:** services receive the acting User from the security context. Repository methods include the owner id (`findByIdAndOwnerId`). There is no unscoped "find by id" for User content.
 - **Configuration** goes through typed `@ConfigurationProperties` (limits, quotas, retention), never magic numbers.
 - **Logging:** structured, at INFO for meaningful events and DEBUG for detail. Never log Note content, Asset URLs, tokens, or emails at INFO.
+- **Admin endpoints** live under `/api/admin/**`, the controller carries `@PreAuthorize("hasRole('ADMIN')")` (the role comes from our `users` table, set by `CurrentUserInterceptor`), and a test proves a non-admin gets `403 FORBIDDEN` on every one (ADR 0004).
 - **Scheduled jobs** (Trash purge, pending-upload cleanup) are idempotent and safe to run twice.
 
 **Database and migrations (Flyway)**

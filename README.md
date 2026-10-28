@@ -45,13 +45,9 @@ CoreEx's tables live in the `coreex` schema (ADR 0005). If you ran an older vers
 
 ### Inviting someone
 
-CoreEx is invite-only. Until the Admin screen exists, add an Invite in the database, then that person creates an account with the same email:
+CoreEx is invite-only. Sign in as the owner (`OWNER_EMAIL`), open **Admin** in the sidebar, enter the person's email and select **Create Invite**. Use **Copy sign-up link** and send it to them; the link opens the sign-up page with their email filled in. An Invite can be revoked while it is pending. Without a pending Invite a person sees the "invite-only" screen.
 
-```bash
-docker exec supabase_db_CoreEx psql -U postgres -c "insert into coreex.invites (email) values ('friend@example.com')"
-```
-
-Without an Invite they see the "invite-only" screen. To disable a User: `update coreex.users set status = 'DISABLED' where email = '...'`.
+To disable a User until there is an Admin screen for it: `update coreex.users set status = 'DISABLED' where email = '...'` (`docker exec supabase_db_CoreEx psql -U postgres -c "..."` for local Supabase).
 
 ## Deploying
 
