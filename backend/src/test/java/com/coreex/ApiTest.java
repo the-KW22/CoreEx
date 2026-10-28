@@ -34,6 +34,14 @@ public abstract class ApiTest {
 		return send("POST", path, token, json);
 	}
 
+	protected HttpResponse<String> put(String path, String token, String json) throws IOException, InterruptedException {
+		return send("PUT", path, token, json);
+	}
+
+	protected HttpResponse<String> delete(String path, String token) throws IOException, InterruptedException {
+		return send("DELETE", path, token, null);
+	}
+
 	private HttpResponse<String> send(String method, String path, String token, String json)
 			throws IOException, InterruptedException {
 		var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path)).method(method,

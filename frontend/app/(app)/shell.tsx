@@ -35,7 +35,9 @@ export async function Shell({ children }: { children: React.ReactNode }) {
       <nav aria-label="Main">
         <strong>CoreEx</strong>
         <ul>
-          <li>Notes</li>
+          <li>
+            <Link href="/">Notes</Link>
+          </li>
           {/* Only a convenience: the API refuses non-admins on its own (ADR 0004). */}
           {me.role === "ADMIN" && (
             <li>
