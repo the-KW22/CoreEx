@@ -68,6 +68,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/links/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/items/{id}/tags": {
         parameters: {
             query?: never;
@@ -196,6 +212,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/links/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["suggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/items": {
         parameters: {
             query?: never;
@@ -204,6 +236,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["list_4"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/items/{id}/backlinks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["backlinks"];
         put?: never;
         post?: never;
         delete?: never;
@@ -315,6 +363,21 @@ export interface components {
              */
             folderId?: string | null;
         };
+        ResolveRequest: {
+            ids: string[];
+        };
+        LinkTargetList: {
+            items: components["schemas"]["LinkTargetResponse"][];
+        };
+        LinkTargetResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "NOTE" | "ASSET";
+            title: string;
+            /** @description The Folder path such as "Work / CoreEx", null at the top level */
+            folderPath: string | null;
+        };
         AddTagRequest: {
             name: string;
         };
@@ -402,6 +465,16 @@ export interface components {
             items: components["schemas"]["ItemTagResponse"][];
             /** Format: int64 */
             total: number;
+        };
+        BacklinkList: {
+            items: components["schemas"]["BacklinkResponse"][];
+            /** Format: int64 */
+            total: number;
+        };
+        BacklinkResponse: {
+            /** Format: uuid */
+            id: string;
+            title: string;
         };
         Health: {
             status: string;
@@ -732,6 +805,39 @@ export interface operations {
             };
             /** @description Code NOT_FOUND: no such Folder */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    resolve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveRequest"];
+            };
+        };
+        responses: {
+            /** @description The ids that are live Items of the User */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkTargetList"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1111,6 +1217,28 @@ export interface operations {
             };
         };
     };
+    suggestions: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkTargetList"];
+                };
+            };
+        };
+    };
     list_4: {
         parameters: {
             query?: {
@@ -1135,6 +1263,37 @@ export interface operations {
                 };
             };
             /** @description Code NOT_FOUND: no such Folder or Tag */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    backlinks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Notes linking here */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BacklinkList"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Item) */
             404: {
                 headers: {
                     [name: string]: unknown;

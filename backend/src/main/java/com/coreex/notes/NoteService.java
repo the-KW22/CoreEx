@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.coreex.common.ApiException;
 import com.coreex.folders.FolderService;
+import com.coreex.links.LinkService;
 
 @Service
 class NoteService {
@@ -16,9 +17,12 @@ class NoteService {
 
 	private final FolderService folders;
 
-	NoteService(NoteRepository notes, FolderService folders) {
+	private final LinkService links;
+
+	NoteService(NoteRepository notes, FolderService folders, LinkService links) {
 		this.notes = notes;
 		this.folders = folders;
+		this.links = links;
 	}
 
 	@Transactional
@@ -26,7 +30,10 @@ class NoteService {
 		if (folderId != null) {
 			folders.requireLive(ownerId, folderId);
 		}
-		return get(ownerId, notes.insert(ownerId, folderId, title == null ? "" : title, body == null ? "" : body));
+		var text = links.rewriteTitles(ownerId, body == null ? "" : body);
+		var id = notes.insert(ownerId, folderId, title == null ? "" : title, text);
+		links.reindex(id, text);
+		return get(ownerId, id);
 	}
 
 	Note get(UUID ownerId, UUID id) {
@@ -35,12 +42,15 @@ class NoteService {
 
 	@Transactional
 	Note save(UUID ownerId, UUID id, String title, String body, int seenVersion) {
-		if (!notes.save(ownerId, id, title, body, seenVersion)) {
+		// Hand-typed [[Exact Title]] becomes [[id|Exact Title]] here, so the stored text is the rewritten one.
+		var text = links.rewriteTitles(ownerId, body);
+		if (!notes.save(ownerId, id, title, text, seenVersion)) {
 			// Missing (or someone else's) is 404; otherwise the Note moved on since the caller read it.
 			get(ownerId, id);
 			throw new ApiException(HttpStatus.CONFLICT, "VERSION_CONFLICT",
 					"This Note was changed somewhere else since you opened it.");
 		}
+		links.reindex(id, text);
 		return get(ownerId, id);
 	}
 

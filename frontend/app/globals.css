@@ -235,3 +235,44 @@ td {
   color: inherit;
   cursor: pointer;
 }
+
+/* Links in the Note editor. */
+.note-editor .cm-wikilink {
+  color: inherit;
+  font-weight: bold;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.note-editor .cm-wikilink-pending,
+.note-editor .cm-wikilink-unresolved {
+  font-style: italic;
+  cursor: default;
+}
+
+/* Not colour alone: unresolved Links are also dashed and italic. */
+.note-editor .cm-wikilink-unresolved {
+  text-decoration: underline dashed;
+  opacity: 0.75;
+}
+
+.note-editor .cm-wikilink-raw {
+  opacity: 0.8;
+}
+
+.note-editor .cm-tooltip.cm-tooltip-autocomplete {
+  color: #171717;
+  background: #ffffff;
+  border: 1px solid #d4d4d4;
+}
+
+.note-editor .cm-tooltip-autocomplete ul li[aria-selected] {
+  color: #ffffff;
+  background: #1d4ed8;
+}
+
+.note-editor .cm-completionDetail {
+  opacity: 0.7;
+  margin-left: 0.5rem;
+  font-style: normal;
+}

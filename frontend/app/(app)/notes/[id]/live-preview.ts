@@ -9,6 +9,8 @@ import {
   WidgetType,
 } from "@codemirror/view";
 
+import { LINK_TOKEN, type LinkTarget, linkField, readLink, setLinks } from "./links";
+
 // Live preview: the Markdown stays plain text, but headings, emphasis, bullets, checkboxes and code look
 // rendered. The markup itself shows only on the line the cursor is on.
 
@@ -51,6 +53,46 @@ class CheckboxWidget extends WidgetType {
   }
 }
 
+// A stored Link shows as the target's current title (a link to open it), or as an unresolved Link when the
+// target is missing, in the Trash or not the User's. Until the lookup answers it shows the text written when linking.
+class LinkWidget extends WidgetType {
+  constructor(
+    readonly id: string,
+    readonly text: string,
+    readonly info: LinkTarget | null | undefined,
+  ) {
+    super();
+  }
+
+  private get shown() {
+    return this.info === undefined ? `pending:${this.text}` : this.info ? `ok:${this.info.type}:${this.info.title}` : "unresolved";
+  }
+
+  eq(other: LinkWidget) {
+    return other.id === this.id && other.shown === this.shown;
+  }
+
+  toDOM() {
+    if (this.info) {
+      const link = document.createElement("a");
+      link.className = "cm-wikilink";
+      link.href = `${this.info.type === "NOTE" ? "/notes" : "/assets"}/${this.id}`;
+      link.textContent = this.info.title || "Untitled";
+      return link;
+    }
+    const span = document.createElement("span");
+    span.className = this.info === null ? "cm-wikilink cm-wikilink-unresolved" : "cm-wikilink cm-wikilink-pending";
+    span.textContent = this.text || "Link";
+    if (this.info === null) span.title = "This Link does not point at an Item you can open";
+    return span;
+  }
+
+  // The anchor handles its own clicks.
+  ignoreEvent() {
+    return true;
+  }
+}
+
 const hidden = Decoration.replace({});
 const bullet = Decoration.replace({ widget: new BulletWidget() });
 const checkboxes = [new CheckboxWidget(false), new CheckboxWidget(true)];
@@ -61,20 +103,30 @@ const inline = {
   InlineCode: Decoration.mark({ class: "cm-code" }),
 } as const;
 const codeLine = Decoration.line({ class: "cm-codeblock" });
+const unresolvedTitle = Decoration.mark({ class: "cm-wikilink cm-wikilink-unresolved" });
+const rawLink = Decoration.mark({ class: "cm-wikilink-raw" });
 
 function build(view: EditorView): DecorationSet {
   const { doc, selection } = view.state;
+  // The line being edited shows its raw markup. Without focus nothing is being edited, so everything renders.
   const cursorLines = new Set<number>();
-  for (const range of selection.ranges) {
-    for (let n = doc.lineAt(range.from).number; n <= doc.lineAt(range.to).number; n++) cursorLines.add(n);
+  if (view.hasFocus) {
+    for (const range of selection.ranges) {
+      for (let n = doc.lineAt(range.from).number; n <= doc.lineAt(range.to).number; n++) cursorLines.add(n);
+    }
   }
 
+  const known = view.state.field(linkField);
   const out: Range<Decoration>[] = [];
   for (const { from, to } of view.visibleRanges) {
+    const code: [number, number][] = [];
     syntaxTree(view.state).iterate({
       from,
       to,
       enter: (node) => {
+        if (node.name === "InlineCode" || node.name === "FencedCode" || node.name === "CodeBlock") {
+          code.push([node.from, node.to]);
+        }
         const line = doc.lineAt(node.from);
         const quiet = !cursorLines.has(line.number);
         const heading = /^ATXHeading([1-6])$/.exec(node.name);
@@ -101,6 +153,24 @@ function build(view: EditorView): DecorationSet {
         }
       },
     });
+
+    // Links ("[[...]]") outside code. On the cursor's line the text stays editable.
+    const start = doc.lineAt(from).from;
+    for (const match of doc.sliceString(start, doc.lineAt(to).to).matchAll(LINK_TOKEN)) {
+      const at = start + match.index;
+      const end = at + match[0].length;
+      if (code.some(([a, z]) => at < z && end > a)) continue;
+      const link = readLink(match[1]);
+      if (!link) continue;
+      if (cursorLines.has(doc.lineAt(at).number)) {
+        out.push(rawLink.range(at, end));
+      } else if ("id" in link) {
+        out.push(Decoration.replace({ widget: new LinkWidget(link.id, link.text, known[link.id]) }).range(at, end));
+      } else {
+        // A hand-typed title that the server has not turned into a Link (no match, or several).
+        out.push(unresolvedTitle.range(at, end));
+      }
+    }
   }
   return Decoration.set(out, true);
 }
@@ -118,6 +188,8 @@ export const livePreview = ViewPlugin.fromClass(
         update.docChanged ||
         update.viewportChanged ||
         update.selectionSet ||
+        update.focusChanged ||
+        update.transactions.some((tr) => tr.effects.some((effect) => effect.is(setLinks))) ||
         syntaxTree(update.startState) !== syntaxTree(update.state)
       ) {
         this.decorations = build(update.view);
