@@ -1,0 +1,1 @@
+-- Empty baseline: Flyway records version 1 so later migrations (V2, V3, ...) have a starting point.
