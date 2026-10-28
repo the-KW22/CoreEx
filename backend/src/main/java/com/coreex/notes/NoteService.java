@@ -7,19 +7,26 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.coreex.common.ApiException;
+import com.coreex.folders.FolderService;
 
 @Service
 class NoteService {
 
 	private final NoteRepository notes;
 
-	NoteService(NoteRepository notes) {
+	private final FolderService folders;
+
+	NoteService(NoteRepository notes, FolderService folders) {
 		this.notes = notes;
+		this.folders = folders;
 	}
 
 	@Transactional
-	Note create(UUID ownerId, String title, String body) {
-		return get(ownerId, notes.insert(ownerId, title == null ? "" : title, body == null ? "" : body));
+	Note create(UUID ownerId, UUID folderId, String title, String body) {
+		if (folderId != null) {
+			folders.requireLive(ownerId, folderId);
+		}
+		return get(ownerId, notes.insert(ownerId, folderId, title == null ? "" : title, body == null ? "" : body));
 	}
 
 	Note get(UUID ownerId, UUID id) {

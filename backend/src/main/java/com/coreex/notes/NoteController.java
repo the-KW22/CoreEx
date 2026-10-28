@@ -43,7 +43,8 @@ class NoteController {
 	private static final String NO_NUL = "[^\u0000]*";
 
 	record CreateNoteRequest(@Size(max = MAX_TITLE) @Pattern(regexp = NO_NUL) String title,
-			@Size(max = MAX_BODY) @Pattern(regexp = NO_NUL) String body) {
+			@Size(max = MAX_BODY) @Pattern(regexp = NO_NUL) String body,
+			@Schema(nullable = true, description = "The Folder to create the Note in; null is the top level") UUID folderId) {
 	}
 
 	/** Carries the version the client last saw; a newer stored version means 409 VERSION_CONFLICT. */
@@ -55,12 +56,13 @@ class NoteController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String body,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int version,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID folderId,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt) {
 
 		static NoteResponse of(Note note) {
-			return new NoteResponse(note.id(), note.title(), note.body(), note.version(), note.createdAt(),
-					note.updatedAt());
+			return new NoteResponse(note.id(), note.title(), note.body(), note.version(), note.folderId(),
+					note.createdAt(), note.updatedAt());
 		}
 
 	}
@@ -77,9 +79,11 @@ class NoteController {
 			schema = @Schema(implementation = NoteResponse.class)))
 	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST", content = @Content(mediaType = JSON,
 			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND: no such Folder", content = @Content(
+			mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
 	NoteResponse create(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@Valid @RequestBody CreateNoteRequest request) {
-		return NoteResponse.of(notes.create(user.id(), request.title(), request.body()));
+		return NoteResponse.of(notes.create(user.id(), request.folderId(), request.title(), request.body()));
 	}
 
 	@GetMapping("/{id}")

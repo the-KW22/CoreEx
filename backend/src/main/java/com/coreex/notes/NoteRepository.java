@@ -13,12 +13,12 @@ import org.springframework.stereotype.Repository;
 class NoteRepository {
 
 	private static final String SELECT = """
-			select i.id, i.title, c.body, c.version, i.created_at, i.updated_at
+			select i.id, i.title, c.body, c.version, i.folder_id, i.created_at, i.updated_at
 			from items i join note_contents c on c.item_id = i.id
 			where i.id = :id and i.owner_id = :owner and i.type = 'NOTE' and i.deleted_at is null""";
 
 	private static final RowMapper<Note> MAPPER = (rs, n) -> new Note(rs.getObject("id", UUID.class),
-			rs.getString("title"), rs.getString("body"), rs.getInt("version"),
+			rs.getString("title"), rs.getString("body"), rs.getInt("version"), rs.getObject("folder_id", UUID.class),
 			rs.getObject("created_at", OffsetDateTime.class).toInstant(),
 			rs.getObject("updated_at", OffsetDateTime.class).toInstant());
 
@@ -28,9 +28,11 @@ class NoteRepository {
 		this.jdbc = jdbc;
 	}
 
-	UUID insert(UUID ownerId, String title, String body) {
-		var id = jdbc.sql("insert into items (owner_id, type, title) values (:owner, 'NOTE', :title) returning id")
-				.param("owner", ownerId).param("title", title).query(UUID.class).single();
+	UUID insert(UUID ownerId, UUID folderId, String title, String body) {
+		var id = jdbc.sql("""
+				insert into items (owner_id, type, title, folder_id) values (:owner, 'NOTE', :title, :folder)
+				returning id""").param("owner", ownerId).param("title", title).param("folder", folderId)
+				.query(UUID.class).single();
 		jdbc.sql("insert into note_contents (item_id, body) values (:id, :body)").param("id", id).param("body", body)
 				.update();
 		return id;
