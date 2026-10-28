@@ -20,9 +20,9 @@ JDK 21, Node.js 24, Docker Desktop (running), and the [Supabase CLI](https://sup
    supabase start
    ```
 
-   Stop it with `supabase stop`. Postgres listens on `localhost:54322`.
+   Stop it with `supabase stop`. Postgres listens on `localhost:54322`. `supabase status` shows the local API URL and keys.
 
-2. **Start the backend** (port 8080). Copy `backend/.env.example` to `backend/.env`, load those variables into your shell, then run:
+2. **Start the backend** (port 8080). Copy `backend/.env.example` to `backend/.env`, set `OWNER_EMAIL` to the email you will sign up with, load those variables into your shell, then run:
 
    ```bash
    cd backend
@@ -31,7 +31,7 @@ JDK 21, Node.js 24, Docker Desktop (running), and the [Supabase CLI](https://sup
 
    Flyway migrates the database on start. Check it: <http://localhost:8080/api/health> and the spec at <http://localhost:8080/v3/api-docs>.
 
-3. **Start the frontend** (port 3000). Copy `frontend/.env.example` to `frontend/.env.local`, then:
+3. **Start the frontend** (port 3000). Copy `frontend/.env.example` to `frontend/.env.local` and put the Publishable key from `supabase status` in `SUPABASE_PUBLISHABLE_KEY`, then:
 
    ```bash
    cd frontend
@@ -39,7 +39,17 @@ JDK 21, Node.js 24, Docker Desktop (running), and the [Supabase CLI](https://sup
    npm run dev
    ```
 
-   Open <http://localhost:3000>. It shows the API's health status.
+4. **Sign in.** Open <http://localhost:3000>, choose **Create account** with the `OWNER_EMAIL` address, and you land in the app as Admin. Sign-in is email and password only for now.
+
+### Inviting someone
+
+CoreEx is invite-only. Until the Admin screen exists, add an Invite in the database, then that person creates an account with the same email:
+
+```bash
+docker exec supabase_db_CoreEx psql -U postgres -c "insert into invites (email) values ('friend@example.com')"
+```
+
+Without an Invite they see the "invite-only" screen. To disable a User: `update users set status = 'DISABLED' where email = '...'`.
 
 ## API client
 
