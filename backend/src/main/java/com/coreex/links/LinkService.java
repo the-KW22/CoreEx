@@ -26,6 +26,7 @@ public class LinkService {
 	public record Backlink(UUID id, String title) {
 	}
 
+	// shortcut: only the 100 most recently updated Backlinks are listed, add paging if an Item is linked from more.
 	private static final int MAX_BACKLINKS = 100;
 
 	private static final int MAX_SUGGESTIONS = 10;

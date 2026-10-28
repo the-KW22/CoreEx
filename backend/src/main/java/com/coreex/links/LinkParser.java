@@ -1,6 +1,7 @@
 package com.coreex.links;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -110,36 +111,37 @@ public final class LinkParser {
 				&& runLength(rest, 0, (char) fenceChar) == rest.length();
 	}
 
-	/** Inline code: a run of N backticks up to the next run of exactly N backticks; no closing run, no code. */
+	/**
+	 * Inline code: a run of N backticks up to the next run of exactly N backticks; no closing run, no code. The next
+	 * run of each length is worked out in one backwards pass, so a line full of unmatched runs stays linear.
+	 */
 	private static void maskInlineCode(String text, char[] out, int from, int to) {
-		var i = from;
-		while (i < to) {
-			if (text.charAt(i) != '`') {
-				i++;
-				continue;
-			}
-			var run = runLength(text, i, '`', to);
-			var j = i + run;
-			var close = -1;
-			while (j < to) {
-				if (text.charAt(j) == '`') {
-					var other = runLength(text, j, '`', to);
-					if (other == run) {
-						close = j;
-						break;
-					}
-					j += other;
-				}
-				else {
-					j++;
-				}
-			}
-			if (close < 0) {
+		var starts = new ArrayList<Integer>();
+		var lengths = new ArrayList<Integer>();
+		for (var i = from; i < to;) {
+			if (text.charAt(i) == '`') {
+				var run = runLength(text, i, '`', to);
+				starts.add(i);
+				lengths.add(run);
 				i += run;
 			}
 			else {
-				blank(out, i, close + run);
-				i = close + run;
+				i++;
+			}
+		}
+		var next = new int[starts.size()];
+		var latestOfLength = new HashMap<Integer, Integer>();
+		for (var r = starts.size() - 1; r >= 0; r--) {
+			next[r] = latestOfLength.getOrDefault(lengths.get(r), -1);
+			latestOfLength.put(lengths.get(r), r);
+		}
+		for (var r = 0; r < starts.size();) {
+			if (next[r] < 0) {
+				r++;
+			}
+			else {
+				blank(out, starts.get(r), starts.get(next[r]) + lengths.get(r));
+				r = next[r] + 1;
 			}
 		}
 	}

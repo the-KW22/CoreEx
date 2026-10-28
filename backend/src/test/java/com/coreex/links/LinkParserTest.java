@@ -114,6 +114,21 @@ class LinkParserTest {
 	}
 
 	@Test
+	void aLineOfUnmatchedBacktickRunsIsFast() {
+		var line = new StringBuilder();
+		for (var n = 1; n <= 1400; n++) {
+			line.append("`".repeat(n)).append(' ');
+		}
+		line.append("[[A]]");
+
+		var started = System.nanoTime();
+		var found = parse(line.toString());
+
+		assertThat(found).extracting(Occurrence::text).containsExactly("A");
+		assertThat((System.nanoTime() - started) / 1_000_000).as("milliseconds").isLessThan(500);
+	}
+
+	@Test
 	void positionsStayCorrectAfterCodeIsSkipped() {
 		var text = "`x` [[A]]\n```\ny\n```\n[[B]]";
 
