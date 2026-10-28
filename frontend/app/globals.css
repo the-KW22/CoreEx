@@ -206,3 +206,32 @@ td {
 .delete-folder {
   margin: 1.5rem 0;
 }
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.tag-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+}
+
+.tag-list form {
+  display: block;
+}
+
+.tag-list button {
+  padding: 0 0.4rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}

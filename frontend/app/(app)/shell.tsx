@@ -42,6 +42,9 @@ export async function Shell({ children }: { children: React.ReactNode }) {
           <li>
             <Link href="/">Notes</Link>
           </li>
+          <li>
+            <Link href="/tags">Tags</Link>
+          </li>
           {/* Only a convenience: the API refuses non-admins on its own (ADR 0004). */}
           {me.role === "ADMIN" && (
             <li>
