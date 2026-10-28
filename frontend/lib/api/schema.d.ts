@@ -20,6 +20,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/folders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["rename"];
+        post?: never;
+        delete: operations["delete_1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notes": {
         parameters: {
             query?: never;
@@ -36,7 +52,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/invites": {
+    "/api/items/{id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["move"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/folders": {
         parameters: {
             query?: never;
             header?: never;
@@ -46,6 +78,38 @@ export interface paths {
         get: operations["list"];
         put?: never;
         post: operations["create_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/folders/{id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["move_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_1"];
+        put?: never;
+        post: operations["create_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -91,7 +155,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_1"];
+        get: operations["list_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -108,6 +172,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/folders/{id}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["summary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -133,6 +213,8 @@ export interface components {
             body: string;
             /** Format: int32 */
             version: number;
+            /** Format: uuid */
+            folderId: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -142,9 +224,57 @@ export interface components {
             code: string;
             message: string;
         };
+        RenameFolderRequest: {
+            name: string;
+        };
+        FolderResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            parentId: string | null;
+            name: string;
+        };
         CreateNoteRequest: {
             title?: string;
             body?: string;
+            /**
+             * Format: uuid
+             * @description The Folder to create the Note in; null is the top level
+             */
+            folderId?: string | null;
+        };
+        MoveItemRequest: {
+            /**
+             * Format: uuid
+             * @description Null moves the Item to the top level
+             */
+            folderId?: string | null;
+        };
+        ItemResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "NOTE" | "ASSET";
+            title: string;
+            /** Format: uuid */
+            folderId: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CreateFolderRequest: {
+            name: string;
+            /**
+             * Format: uuid
+             * @description Null puts the Folder at the top level
+             */
+            parentId?: string | null;
+        };
+        MoveFolderRequest: {
+            /**
+             * Format: uuid
+             * @description Null moves the Folder to the top level
+             */
+            parentId?: string | null;
         };
         CreateInviteRequest: {
             /** Format: email */
@@ -173,17 +303,19 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
-        ItemResponse: {
-            /** Format: uuid */
-            id: string;
-            /** @enum {string} */
-            type: "NOTE" | "ASSET";
-            title: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
         Health: {
             status: string;
+        };
+        FolderList: {
+            items: components["schemas"]["FolderResponse"][];
+            /** Format: int64 */
+            total: number;
+        };
+        FolderSummary: {
+            /** Format: int64 */
+            folderCount: number;
+            /** Format: int64 */
+            itemCount: number;
         };
         InvitePage: {
             items: components["schemas"]["InviteResponse"][];
@@ -312,6 +444,79 @@ export interface operations {
             };
         };
     };
+    rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameFolderRequest"];
+            };
+        };
+        responses: {
+            /** @description The renamed Folder */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Folder) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    delete_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Moved to the Trash */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND (also for another User's Folder) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     create: {
         parameters: {
             query?: never;
@@ -343,9 +548,159 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
+            /** @description Code NOT_FOUND: no such Folder */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    move: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveItemRequest"];
+            };
+        };
+        responses: {
+            /** @description The moved Item */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemResponse"];
+                };
+            };
+            /** @description Code NOT_FOUND: no such Item or Folder (also for another User's) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
         };
     };
     list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderList"];
+                };
+            };
+        };
+    };
+    create_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFolderRequest"];
+            };
+        };
+        responses: {
+            /** @description The new Folder */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND: no such parent Folder */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    move_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveFolderRequest"];
+            };
+        };
+        responses: {
+            /** @description The moved Folder */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderResponse"];
+                };
+            };
+            /** @description Code NOT_FOUND: no such Folder or target Folder */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code FOLDER_CYCLE */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_1: {
         parameters: {
             query?: {
                 page?: number;
@@ -368,7 +723,7 @@ export interface operations {
             };
         };
     };
-    create_1: {
+    create_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -479,9 +834,10 @@ export interface operations {
             };
         };
     };
-    list_1: {
+    list_2: {
         parameters: {
             query?: {
+                folderId?: string;
                 page?: number;
                 size?: number;
             };
@@ -491,13 +847,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
+            /** @description A page of Items */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ItemPage"];
+                };
+            };
+            /** @description Code NOT_FOUND: no such Folder */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -518,6 +883,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Counts of what the Folder holds */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderSummary"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Folder) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };

@@ -7,7 +7,11 @@ import { createNote } from "./notes/actions";
 export default async function Home({ searchParams }: PageProps<"/">) {
   const { failed } = await searchParams;
   const api = await getApi();
-  const result = await api.GET("/api/items").catch(() => null);
+  const [result, folders] = await Promise.all([
+    api.GET("/api/items").catch(() => null),
+    api.GET("/api/folders").catch(() => null),
+  ]);
+  const folderNames = new Map(folders?.data?.items.map((f) => [f.id, f.name]));
 
   if (!result) {
     return <p role="alert">Cannot reach the CoreEx API. Is the backend running?</p>;
@@ -21,6 +25,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <button type="submit">New Note</button>
       </form>
       {failed === "create" && <p role="alert">Could not create the Note. Try again.</p>}
+      {failed === "folder" && <p role="alert">Could not create the Folder. Try again.</p>}
 
       {!data ? (
         <p role="alert">Could not load your Items. Try again.</p>
@@ -33,6 +38,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             <thead>
               <tr>
                 <th scope="col">Title</th>
+                <th scope="col">Folder</th>
                 <th scope="col">Updated</th>
               </tr>
             </thead>
@@ -42,6 +48,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                   <td>
                     <Link href={`/notes/${item.id}`}>{item.title || "Untitled"}</Link>
                   </td>
+                  <td>{item.folderId ? (folderNames.get(item.folderId) ?? "") : "Top level"}</td>
                   <td>{item.updatedAt.slice(0, 10)}</td>
                 </tr>
               ))}
