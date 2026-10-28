@@ -51,6 +51,10 @@ docker exec supabase_db_CoreEx psql -U postgres -c "insert into invites (email) 
 
 Without an Invite they see the "invite-only" screen. To disable a User: `update users set status = 'DISABLED' where email = '...'`.
 
+## Deploying
+
+Staging (from `staging`) and production (from `main`) each have their own Vercel frontend, Render backend and Supabase project. See [docs/DEPLOY.md](docs/DEPLOY.md) for setup, variables and redeploying.
+
 ## API client
 
 The frontend client types are generated from `backend/openapi.json`. After changing the API, run the backend tests (they rewrite the spec), then regenerate the client and commit both:
