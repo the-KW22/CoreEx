@@ -45,13 +45,21 @@ CoreEx's tables live in the `coreex` schema (ADR 0005). If you ran an older vers
 
 ### Inviting someone
 
-CoreEx is invite-only. Until the Admin screen exists, add an Invite in the database, then that person creates an account with the same email:
+CoreEx is invite-only. Sign in as the owner (`OWNER_EMAIL`), open **Admin** in the sidebar, enter the person's email and select **Create Invite**. Use **Copy sign-up link** and send it to them; the link opens the sign-up page with their email filled in. An Invite can be revoked while it is pending. Without a pending Invite a person sees the "invite-only" screen.
 
-```bash
-docker exec supabase_db_CoreEx psql -U postgres -c "insert into coreex.invites (email) values ('friend@example.com')"
-```
+To disable a User until there is an Admin screen for it: `update coreex.users set status = 'DISABLED' where email = '...'` (`docker exec supabase_db_CoreEx psql -U postgres -c "..."` for local Supabase).
 
-Without an Invite they see the "invite-only" screen. To disable a User: `update coreex.users set status = 'DISABLED' where email = '...'`.
+### Writing Notes
+
+The home page lists your Items, newest first. **New Note** opens an editor where Markdown renders as you type (headings, emphasis, lists, checkboxes, code); the markup shows on the line your cursor is on. The Note saves by itself about a second after you stop typing. If it was changed somewhere else in the meantime, the editor offers to reload that version or overwrite it with yours. **Move to Trash** hides the Note; the Trash screen itself comes later.
+
+### Folders
+
+The sidebar shows your Folders as a tree; use the arrow to collapse one. Type a name under **Folders** to add a top-level Folder. A Folder's page lists its subfolders and Items, and lets you create a Note or subfolder there, rename it, move it (a Folder cannot go into itself or its own subfolders), or move it to the Trash. The Trash confirmation says how many Folders and Items go with it. To file a Note, use the **Folder** menu on its page; **Top level** takes it out of any Folder.
+
+### Tags
+
+On a Note's page, type a name under **Add a Tag**; your existing Tags are suggested as you type, and a new name creates a Tag. `Research` and `research` are the same Tag, shown with the casing it was first typed in. **×** takes a Tag off one Note. **Tags** in the sidebar lists every Tag with how many live Items use it; a Tag's page lists those Items and lets you rename it (to a name you already have is refused) or delete it from all Items at once. The Items themselves are never touched.
 
 ## Deploying
 
