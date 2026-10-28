@@ -38,6 +38,7 @@ class ItemRepository {
 		return withFilters(query, folderId, tagId).query(Long.class).single();
 	}
 
+	// The Tag filter reads item_tags directly: a join is the simple way to filter without loading ids into memory.
 	private static String where(UUID folderId, UUID tagId) {
 		return "owner_id = :owner and deleted_at is null" + (folderId == null ? "" : " and folder_id = :folder")
 				+ (tagId == null ? "" : " and exists (select 1 from item_tags it where it.item_id = items.id and it.tag_id = :tag)");

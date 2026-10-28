@@ -37,7 +37,10 @@ class TagRepository {
 				.param("owner", ownerId).query(MAPPER).optional();
 	}
 
-	/** Each Tag with the number of live Items using it; Items in the Trash do not count. */
+	/**
+	 * Each Tag with the number of live Items using it; Items in the Trash do not count. It reads items directly: a
+	 * join is the simple way to count without loading ids into memory.
+	 */
 	List<TagCount> listWithCounts(UUID ownerId) {
 		return jdbc.sql("""
 				select t.id, t.name,
