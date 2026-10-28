@@ -1,20 +1,38 @@
 "use client";
 
+import { autocompletion } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { loadNote, saveNote } from "../actions";
+import { loadNote, resolveLinks, saveNote, suggestLinks } from "../actions";
+import { linkCompletion, linkField, linkIds, setLinks } from "./links";
 import { livePreview } from "./live-preview";
 
 const DEBOUNCE_MS = 1000;
+const LINK_LOOKUP_MS = 500;
 
 type Status = "saved" | "unsaved" | "saving" | "conflict" | "error";
 type Text = { title: string; body: string };
 
 const same = (a: Text, b: Text) => a.title === b.title && a.body === b.body;
+
+// The smallest single edit that turns `before` into `after`, so the cursor keeps its place around it.
+function smallestEdit(before: string, after: string) {
+  let start = 0;
+  while (start < before.length && start < after.length && before[start] === after[start]) start++;
+  let end = 0;
+  while (
+    end < before.length - start &&
+    end < after.length - start &&
+    before[before.length - 1 - end] === after[after.length - 1 - end]
+  ) {
+    end++;
+  }
+  return { from: start, to: before.length - end, insert: after.slice(start, after.length - end) };
+}
 
 export function NoteEditor({
   id,
@@ -37,6 +55,10 @@ export function NoteEditor({
   const conflict = useRef(false);
   const external = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const linkTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // The text the editor opened with. A later re-render of the page (after adding a Tag, say) brings a newer body
+  // in `initial`, which must not rebuild the editor and drop the cursor and what was typed since.
+  const initialBody = useRef(initial.body);
 
   // One save at a time. Text typed while a save is in flight is picked up by the next loop turn.
   // shortcut: back-to-back saves while someone types without pause, add a minimum gap if API load matters.
@@ -61,6 +83,15 @@ export function NoteEditor({
             version.current = result.version;
             saved.current = snapshot;
             setSavedAt(result.updatedAt);
+            // The server may have turned a hand-typed [[Exact Title]] into a Link. Show that, unless more was typed.
+            const editor = view.current;
+            if (editor && result.body !== snapshot.body && latest.current.body === snapshot.body) {
+              external.current = true;
+              editor.dispatch({ changes: smallestEdit(snapshot.body, result.body) });
+              external.current = false;
+              latest.current.body = result.body;
+              saved.current = { title: snapshot.title, body: result.body };
+            }
           } else if (result.status === "conflict") {
             conflict.current = true;
             setStatus("conflict");
@@ -89,19 +120,43 @@ export function NoteEditor({
     timer.current = setTimeout(() => void flush(), DEBOUNCE_MS);
   }, [flush]);
 
+  // Looks up the Links in the text that are not known yet, and tells the editor what they point at.
+  const lookUpLinks = useCallback(async () => {
+    const editor = view.current;
+    if (!editor) return;
+    const known = editor.state.field(linkField);
+    const missing = linkIds(editor.state.doc.toString()).filter((linkId) => !(linkId in known));
+    for (let i = 0; i < missing.length; i += 100) {
+      const batch = missing.slice(i, i + 100);
+      const found = await resolveLinks(batch);
+      // A failed lookup says nothing: leave those Links alone rather than call them unresolved.
+      if (!found || view.current !== editor) return;
+      const byId = new Map(found.map((target) => [target.id, target]));
+      editor.dispatch({
+        effects: setLinks.of(Object.fromEntries(batch.map((linkId) => [linkId, byId.get(linkId) ?? null]))),
+      });
+    }
+  }, []);
+
   useEffect(() => {
     const editor = new EditorView({
       parent: host.current!,
       state: EditorState.create({
-        doc: initial.body,
+        doc: initialBody.current,
         extensions: [
           history(),
           keymap.of([...defaultKeymap, ...historyKeymap]),
           markdown({ base: markdownLanguage }),
+          linkField,
           livePreview,
+          autocompletion({ override: [linkCompletion(suggestLinks)] }),
           EditorView.lineWrapping,
           EditorView.contentAttributes.of({ "aria-label": "Note content" }),
           EditorView.updateListener.of((update) => {
+            if (update.docChanged) {
+              clearTimeout(linkTimer.current);
+              linkTimer.current = setTimeout(() => void lookUpLinks(), LINK_LOOKUP_MS);
+            }
             if (!update.docChanged || external.current) return;
             latest.current.body = update.state.doc.toString();
             changed();
@@ -110,11 +165,13 @@ export function NoteEditor({
       }),
     });
     view.current = editor;
+    void lookUpLinks();
     return () => {
+      clearTimeout(linkTimer.current);
       editor.destroy();
       view.current = null;
     };
-  }, [initial.body, changed]);
+  }, [changed, lookUpLinks]);
 
   // Leaving the page sends what is still waiting to be saved.
   useEffect(() => {

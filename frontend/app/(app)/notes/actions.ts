@@ -4,8 +4,10 @@ import { redirect } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
 
+import type { LinkTarget } from "./[id]/links";
+
 export type SaveResult =
-  | { status: "saved"; version: number; updatedAt: string }
+  | { status: "saved"; version: number; updatedAt: string; body: string }
   | { status: "conflict" }
   | { status: "error"; message: string };
 
@@ -42,7 +44,10 @@ export async function saveNote(
     .PUT("/api/notes/{id}", { params: { path: { id } }, body: { title, body, version: seen } })
     .catch(() => null);
   if (!result) return { status: "error", message: "Cannot reach the CoreEx API." };
-  if (result.data) return { status: "saved", version: result.data.version, updatedAt: result.data.updatedAt };
+  // The stored body can differ from what was sent: the server turns a hand-typed [[Exact Title]] into a Link.
+  if (result.data) {
+    return { status: "saved", version: result.data.version, updatedAt: result.data.updatedAt, body: result.data.body };
+  }
   if (result.response.status === 409) return { status: "conflict" };
   return { status: "error", message: result.error?.message ?? "Could not save the Note." };
 }
@@ -51,6 +56,23 @@ export async function loadNote(id: string): Promise<LoadedNote | null> {
   const api = await getApi();
   const result = await api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null);
   return result?.data ?? null;
+}
+
+// Autocomplete for "[[": the User's live Items whose title contains the text. Empty when the API is unreachable.
+export async function suggestLinks(text: string): Promise<LinkTarget[]> {
+  const api = await getApi();
+  const result = await api
+    .GET("/api/links/suggestions", { params: { query: { q: text.slice(0, 200) } } })
+    .catch(() => null);
+  return result?.data?.items ?? [];
+}
+
+// Current details of Link targets. Ids that are not live Items of the User are left out of the answer; null means
+// the lookup itself failed, which must not be mistaken for "unresolved".
+export async function resolveLinks(ids: string[]): Promise<LinkTarget[] | null> {
+  const api = await getApi();
+  const result = await api.POST("/api/links/resolve", { body: { ids: ids.slice(0, 100) } }).catch(() => null);
+  return result?.data?.items ?? null;
 }
 
 export async function deleteNote(formData: FormData) {

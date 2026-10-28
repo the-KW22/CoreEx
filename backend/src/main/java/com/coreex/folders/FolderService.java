@@ -1,6 +1,9 @@
 package com.coreex.folders;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -25,6 +28,22 @@ public class FolderService {
 	/** Other features call this to check a Folder exists, is live and is the User's; it is a 404 otherwise. */
 	public Folder requireLive(UUID ownerId, UUID id) {
 		return folders.findLive(ownerId, id).orElseThrow(FolderService::notFound);
+	}
+
+	/** Every live Folder's id with its path from the top level, such as "Work / CoreEx". */
+	public Map<UUID, String> paths(UUID ownerId) {
+		var byId = new HashMap<UUID, Folder>();
+		folders.listLive(ownerId).forEach(f -> byId.put(f.id(), f));
+		var paths = new HashMap<UUID, String>();
+		for (var folder : byId.values()) {
+			var names = new ArrayList<String>();
+			// A parent chain cannot loop (moves are checked), but stop anyway if bad data ever did.
+			for (var at = folder; at != null && names.size() <= byId.size(); at = byId.get(at.parentId())) {
+				names.add(0, at.name());
+			}
+			paths.put(folder.id(), String.join(" / ", names));
+		}
+		return paths;
 	}
 
 	Folder create(UUID ownerId, UUID parentId, String name) {
