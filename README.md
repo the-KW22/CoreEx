@@ -53,7 +53,7 @@ Without an Invite they see the "invite-only" screen. To disable a User: `update 
 
 ## Deploying
 
-Staging (from `staging`) and production (from `main`) each have their own Vercel frontend, Render backend and Supabase project. See [docs/DEPLOY.md](docs/DEPLOY.md) for setup, variables and redeploying.
+Production (from `main`) is the only cloud environment: a Vercel frontend, a Render backend and one Supabase project. `staging` is the integration branch, checked by CI and by running the stack locally. See [docs/DEPLOY.md](docs/DEPLOY.md) for setup, variables and redeploying.
 
 ## API client
 
