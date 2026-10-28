@@ -19,6 +19,7 @@ CoreEx is a personal knowledge base, built as a learning project that may later 
 - Note content is stored as Markdown (ADR 0002).
 - The frontend calls only the REST API, through the client generated from the OpenAPI spec (ADR 0003).
 - Admin endpoints never return another User's content (ADR 0004).
+- Tables live in the `coreex` schema, never `public`, and every table enables row level security (ADR 0005).
 
 ## How to code here
 

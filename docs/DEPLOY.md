@@ -57,6 +57,7 @@ Accounts, secrets and the first deploy are done by the owner in each dashboard.
 ## Things to know
 
 - **Use the Session pooler, not the direct connection.** Supabase's direct database host is IPv6-only and Render's free tier is IPv4-only. The Session pooler (port 5432) works with Flyway and prepared statements; the Transaction pooler (port 6543) does not suit them.
+- **Keep `coreex` out of Supabase's exposed schemas.** Project Settings > Data API > Exposed schemas must not list `coreex` (the default lists only `public` and `graphql_public`). The tables also have row level security on, as a second layer (ADR 0005).
 - **Cold starts.** Free Render services sleep after about 15 minutes idle, and the first request afterwards takes a minute while the JVM starts. The frontend shows "Cannot reach the CoreEx API" if it times out; reload.
 - **Confirmation emails.** Supabase's built-in email sender only delivers to addresses of your own organisation's members and is rate-limited (check the current Supabase docs). Before inviting other people, set up a custom SMTP sender in Authentication > Emails.
 - **Adding a staging environment later.** If a second Supabase project (or a separate schema) becomes available, add a `coreex-api-staging` service on branch `staging`, a second Vercel project, and update `docs/DEVELOPMENT.md` section 2.
