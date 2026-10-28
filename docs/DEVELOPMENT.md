@@ -87,7 +87,7 @@ Every piece of work has a GitHub issue. That's how both humans and agents know w
 7. **CI must be green.** Merge only when all checks pass.
 8. **Squash-merge into `staging`.** The PR description contains `Closes #<n>`, so the issue closes itself.
 9. **Verify on staging.** Click through the feature on the staging site. If it's broken there, reopen the issue or file a `fix/` issue.
-10. **Write it up.** Add a line to the wiki's `log.md`, and a concept page if you learned something worth keeping.
+10. **Record the session.** At the end of every work session, record it in `wiki-vault/raw/sessions/` and ingest it (see section 19).
 
 ---
 
@@ -304,7 +304,7 @@ Branch protection requires these checks to pass before merging. Deploys happen f
 | Hard-to-reverse decisions | `docs/adr/NNNN-*.md` | Before or with the PR that implements it |
 | How to run, test, deploy | `README.md`, `docs/` | When setup steps change |
 | Plans and progress | GitHub issues (plan comment, checkboxes), PRs | Every ticket |
-| What you learned, dev journal | CoreEx-Wiki vault (private) | After each ticket or study session |
+| What you learned, session history | `wiki-vault/` (local only, gitignored) | End of every work session |
 
 ---
 
@@ -318,7 +318,7 @@ Branch protection requires these checks to pass before merging. Deploys happen f
 | How was a ticket implemented? | The plan comment on the issue, then its merged PR |
 | What is on staging but not in production? | GitHub's compare view, `main...staging` |
 | What shortcuts are we carrying? | `/ponytail-debt` |
-| What did I learn or decide along the way? | The wiki's `log.md` and pages |
+| What did I learn or decide along the way? | `wiki-vault/wiki/log.md`, `wiki-vault/raw/sessions/`, and the wiki pages |
 
 ---
 
@@ -332,4 +332,17 @@ A ticket is done when **all** of these are true:
 - [ ] Migrations, `.env.example`, the README, and the OpenAPI client are updated where affected.
 - [ ] Glossary terms and ADRs are respected or updated.
 - [ ] It is merged into `staging`, and it works on the staging site.
-- [ ] The wiki log has an entry.
+- [ ] The session is recorded in `wiki-vault/raw/sessions/` and ingested.
+
+---
+
+## 19. Session records (wiki vault)
+
+`wiki-vault/` is a local-only LLM Wiki (Karpathy's pattern) inside this repo. It is gitignored, so it is never pushed. Its own `wiki-vault/AGENTS.md` is the full schema.
+
+**At the end of every work session**, whether coding, debugging, planning, or studying, an agent must:
+
+1. **Record:** write one new file, `wiki-vault/raw/sessions/YYYY-MM-DD-HHMM-<slug>.md`, using the session template in `wiki-vault/AGENTS.md`. Once written, it is never edited.
+2. **Ingest:** run the vault's ingest operation on that file. That means a source summary, updated concept and entity pages, `index.md`, and a `log.md` entry.
+
+If `wiki-vault/` doesn't exist (for example, in a fresh clone or a cloud session), say so at the end of the session and put the record in the final message, so the human can add it.

@@ -1,2 +1,5 @@
 # Local-only planning scratch (specs and tickets live in GitHub Issues)
 .scratch/
+
+# Local-only LLM Wiki vault (private learning notes and session records; never pushed)
+wiki-vault/
