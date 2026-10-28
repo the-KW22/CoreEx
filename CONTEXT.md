@@ -49,3 +49,19 @@ _Avoid_: Bin, archive, recycle bin
 **User**:
 A person with a CoreEx account. A User owns all of their Items, Folders, and Tags, and nothing they own is visible to anyone else.
 _Avoid_: Account, member, customer, owner
+
+**Admin**:
+A User who can also manage Invites, see Users and their storage use, change a User's Storage Quota, and disable Users. An Admin can never read another User's Items.
+_Avoid_: Superuser, moderator, operator
+
+**Invite**:
+Permission for one email address to create a CoreEx account. Sign-up is only possible with an Invite.
+_Avoid_: Allowlist entry, whitelist, access code
+
+**Disabled User**:
+A User who can no longer log in, but whose Items, Folders, and Tags are kept intact.
+_Avoid_: Banned, suspended, deleted, deactivated
+
+**Storage Quota**:
+The maximum total size of all Assets a single User may keep.
+_Avoid_: Storage limit, allowance, cap

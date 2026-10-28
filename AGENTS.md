@@ -4,7 +4,7 @@ CoreEx is a personal knowledge base, built as a learning project that may later 
 
 - **Glossary:** `CONTEXT.md`. Use its terms and avoid the synonyms it lists.
 - **Decisions:** `docs/adr/`. Don't contradict an ADR silently.
-- **V1 spec and tickets:** `.scratch/coreex-v1/`.
+- **V1 spec and tickets:** GitHub issue #1 and its sub-issues (#2–#14).
 
 ## Repo layout
 
@@ -23,7 +23,7 @@ CoreEx is a personal knowledge base, built as a learning project that may later 
 
 ### Issue tracker
 
-Issues and specs are local Markdown files under `.scratch/<feature>/`. There is no remote yet; this moves to GitHub Issues once the repo exists. See `docs/agents/issue-tracker.md`.
+GitHub Issues on `the-KW22/CoreEx`, using native sub-issues and "blocked by" dependencies. External PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
