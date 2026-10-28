@@ -34,7 +34,6 @@ class CheckboxWidget extends WidgetType {
     const box = document.createElement("input");
     box.type = "checkbox";
     box.checked = this.checked;
-    box.setAttribute("aria-label", "Task done");
     box.addEventListener("mousedown", (event) => event.preventDefault());
     box.addEventListener("click", () => {
       // The widget stands for "[ ]" or "[x]"; flip the middle character in the text.

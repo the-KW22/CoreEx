@@ -143,6 +143,10 @@ class NoteApiTest extends ApiTest {
 		assertThat(post("/api/notes", userA, "{\"title\":\"" + "x".repeat(201) + "\"}").statusCode()).isEqualTo(400);
 		assertThat(put("/api/notes/" + id, userA, "{\"title\":\"\",\"body\":\"\"}").statusCode()).isEqualTo(400);
 		assertThat(get("/api/notes/not-a-uuid", userA).statusCode()).isEqualTo(400);
+		// Postgres cannot store a NUL character.
+		assertThat(post("/api/notes", userA, "{\"body\":\"a\u0000b\"}").statusCode()).isEqualTo(400);
+		assertThat(put("/api/notes/" + id, userA, "{\"title\":\"a\u0000\",\"body\":\"\",\"version\":1}").statusCode())
+				.isEqualTo(400);
 	}
 
 	@Test

@@ -26,6 +26,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 @RestController
@@ -38,12 +39,16 @@ class NoteController {
 
 	private static final String JSON = MediaType.APPLICATION_JSON_VALUE;
 
-	record CreateNoteRequest(@Size(max = MAX_TITLE) String title, @Size(max = MAX_BODY) String body) {
+	// Postgres cannot store a NUL character in text.
+	private static final String NO_NUL = "[^\u0000]*";
+
+	record CreateNoteRequest(@Size(max = MAX_TITLE) @Pattern(regexp = NO_NUL) String title,
+			@Size(max = MAX_BODY) @Pattern(regexp = NO_NUL) String body) {
 	}
 
 	/** Carries the version the client last saw; a newer stored version means 409 VERSION_CONFLICT. */
-	record SaveNoteRequest(@NotNull @Size(max = MAX_TITLE) String title, @NotNull @Size(max = MAX_BODY) String body,
-			@NotNull Integer version) {
+	record SaveNoteRequest(@NotNull @Size(max = MAX_TITLE) @Pattern(regexp = NO_NUL) String title,
+			@NotNull @Size(max = MAX_BODY) @Pattern(regexp = NO_NUL) String body, @NotNull Integer version) {
 	}
 
 	record NoteResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,

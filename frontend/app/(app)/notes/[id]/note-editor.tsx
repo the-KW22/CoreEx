@@ -44,6 +44,8 @@ export function NoteEditor({
     async (overwrite = false) => {
       if (saving.current || (conflict.current && !overwrite)) return;
       saving.current = true;
+      // Overwriting settles the conflict even when the text turns out to match what was last saved.
+      if (overwrite) conflict.current = false;
       try {
         for (;;) {
           const snapshot = { ...latest.current };
@@ -69,6 +71,10 @@ export function NoteEditor({
             return;
           }
         }
+      } catch {
+        // The action itself failed (API asleep or down, network drop): say so, and let "Try again" retry.
+        setMessage("Cannot reach the CoreEx API. Your changes are not saved yet.");
+        setStatus("error");
       } finally {
         saving.current = false;
       }
