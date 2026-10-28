@@ -166,6 +166,7 @@ class AdminInviteApiTest extends ApiTest {
 		var firstPage = get(INVITES + "?page=0&size=2", admin).body();
 		var secondPage = get(INVITES + "?page=1&size=2", admin).body();
 
+		assertThat(get(INVITES + "?page=2147483647&size=100", admin).statusCode()).isEqualTo(200);
 		assertThat(firstPage).contains("\"total\":3").contains("c@example.com").contains("b@example.com")
 				.doesNotContain("a@example.com");
 		assertThat(secondPage).contains("\"total\":3").contains("a@example.com").doesNotContain("c@example.com");

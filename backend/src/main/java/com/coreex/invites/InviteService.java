@@ -36,7 +36,7 @@ class InviteService {
 	}
 
 	List<Invite> list(int page, int size) {
-		return invites.findPage(size, page * size);
+		return invites.findPage(size, (long) page * size);
 	}
 
 	long total() {

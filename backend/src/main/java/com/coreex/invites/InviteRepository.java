@@ -34,7 +34,7 @@ class InviteRepository {
 				.query(MAPPER).single();
 	}
 
-	List<Invite> findPage(int limit, int offset) {
+	List<Invite> findPage(int limit, long offset) {
 		return jdbc.sql("select " + COLUMNS + " from invites order by created_at desc, id limit :limit offset :offset")
 				.param("limit", limit).param("offset", offset).query(MAPPER).list();
 	}
