@@ -53,6 +53,10 @@ To disable a User until there is an Admin screen for it: `update coreex.users se
 
 The home page lists your Items, newest first. **New Note** opens an editor where Markdown renders as you type (headings, emphasis, lists, checkboxes, code); the markup shows on the line your cursor is on. The Note saves by itself about a second after you stop typing. If it was changed somewhere else in the meantime, the editor offers to reload that version or overwrite it with yours. **Move to Trash** hides the Note; the Trash screen itself comes later.
 
+### Folders
+
+The sidebar shows your Folders as a tree; use the arrow to collapse one. Type a name under **Folders** to add a top-level Folder. A Folder's page lists its subfolders and Items, and lets you create a Note or subfolder there, rename it, move it (a Folder cannot go into itself or its own subfolders), or move it to the Trash. The Trash confirmation says how many Folders and Items go with it. To file a Note, use the **Folder** menu on its page; **Top level** takes it out of any Folder.
+
 ## Deploying
 
 Production (from `main`) is the only cloud environment: a Vercel frontend, a Render backend and one Supabase project. `staging` is the integration branch, checked by CI and by running the stack locally. See [docs/DEPLOY.md](docs/DEPLOY.md) for setup, variables and redeploying.

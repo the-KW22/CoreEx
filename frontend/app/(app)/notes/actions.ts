@@ -11,10 +11,12 @@ export type SaveResult =
 
 export type LoadedNote = { title: string; body: string; version: number; updatedAt: string };
 
-export async function createNote() {
+// A Folder id in the form (the Folder being viewed) files the new Note there; without one it is top level.
+export async function createNote(formData: FormData) {
+  const folderId = String(formData.get("folderId") ?? "") || null;
   const api = await getApi();
-  const result = await api.POST("/api/notes", { body: {} }).catch(() => null);
-  if (!result?.data) redirect("/?failed=create");
+  const result = await api.POST("/api/notes", { body: { folderId } }).catch(() => null);
+  if (!result?.data) redirect(folderId ? `/folders/${folderId}?error=create` : "/?failed=create");
   redirect(`/notes/${result.data.id}`);
 }
 

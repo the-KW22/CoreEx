@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { getApi } from "@/lib/api/server";
 
 import { signOut } from "../actions";
+import { createFolder } from "./folders/actions";
+import { FolderTree } from "./folders/folder-tree";
 
 // Asks the API who is signed in; the API decides whether they may use CoreEx.
 export async function Shell({ children }: { children: React.ReactNode }) {
@@ -30,6 +32,8 @@ export async function Shell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const folders = await api.GET("/api/folders").catch(() => null);
+
   return (
     <div className="shell">
       <nav aria-label="Main">
@@ -45,6 +49,21 @@ export async function Shell({ children }: { children: React.ReactNode }) {
             </li>
           )}
         </ul>
+        <section aria-labelledby="folders-heading">
+          <h2 id="folders-heading">Folders</h2>
+          {folders?.data ? (
+            <FolderTree folders={folders.data.items} />
+          ) : (
+            <p role="alert">Could not load Folders.</p>
+          )}
+          <form action={createFolder} className="inline-form">
+            <label>
+              <span className="visually-hidden">New Folder name</span>
+              <input name="name" placeholder="New Folder" required maxLength={200} />
+            </label>
+            <button type="submit">Add</button>
+          </form>
+        </section>
         <p>{me.email}</p>
         <form action={signOut}>
           <button type="submit">Log out</button>

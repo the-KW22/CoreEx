@@ -176,3 +176,33 @@ td {
   background: color-mix(in srgb, var(--foreground) 10%, transparent);
 }
 .note-editor .cm-bullet { padding-right: 0.4em; }
+
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.inline-form label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.shell nav h2 {
+  font-size: 1rem;
+  margin: 1rem 0 0.25rem;
+}
+
+.shell nav ul ul {
+  padding-left: 0.75rem;
+}
+
+.shell nav .inline-form input {
+  width: 7rem;
+}
+
+.delete-folder {
+  margin: 1.5rem 0;
+}
