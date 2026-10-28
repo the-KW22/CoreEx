@@ -241,6 +241,8 @@ If `staging` holds nothing unreleased, use the normal flow and release immediate
 - Migrations must work on existing data. To add a NOT NULL column, add it nullable, backfill it, then constrain it.
 - Index foreign keys and every column you filter by, and always include the owner id.
 - Use `uuid` primary keys and `timestamptz` for all timestamps, stored in UTC.
+- **All tables live in the `coreex` schema, never `public`** (ADR 0005). Migrations write unqualified names; the connection's `search_path` puts them in `coreex`.
+- **Every new table enables row level security** in the same migration (`alter table <name> enable row level security;`, no policies). `SchemaApiTest` fails if one is missed.
 
 ---
 

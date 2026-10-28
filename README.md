@@ -41,15 +41,17 @@ JDK 21, Node.js 24, Docker Desktop (running), and the [Supabase CLI](https://sup
 
 4. **Sign in.** Open <http://localhost:3000>, choose **Create account** with the `OWNER_EMAIL` address, and you land in the app as Admin. Sign-in is email and password only for now.
 
+CoreEx's tables live in the `coreex` schema (ADR 0005). If you ran an older version, `public.users` and `public.invites` are unused leftovers; `supabase db reset` clears them.
+
 ### Inviting someone
 
 CoreEx is invite-only. Until the Admin screen exists, add an Invite in the database, then that person creates an account with the same email:
 
 ```bash
-docker exec supabase_db_CoreEx psql -U postgres -c "insert into invites (email) values ('friend@example.com')"
+docker exec supabase_db_CoreEx psql -U postgres -c "insert into coreex.invites (email) values ('friend@example.com')"
 ```
 
-Without an Invite they see the "invite-only" screen. To disable a User: `update users set status = 'DISABLED' where email = '...'`.
+Without an Invite they see the "invite-only" screen. To disable a User: `update coreex.users set status = 'DISABLED' where email = '...'`.
 
 ## Deploying
 
