@@ -51,6 +51,28 @@ class ItemRepository {
 		return tagId == null ? query : query.param("tag", tagId);
 	}
 
+	/** Live Items whose title contains the text (case-insensitive, % and _ literal), titles that start with it first. */
+	List<Item> suggest(UUID ownerId, String text, int limit) {
+		var escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+		return jdbc.sql("""
+				select %s from items
+				where owner_id = :owner and deleted_at is null and title <> '' and title ilike :contains escape '\\'
+				order by (case when title ilike :prefix escape '\\' then 0 else 1 end), updated_at desc, id
+				limit :limit""".formatted(COLUMNS)).param("owner", ownerId).param("contains", "%" + escaped + "%")
+				.param("prefix", escaped + "%").param("limit", limit).query(MAPPER).list();
+	}
+
+	List<Item> findLiveByIds(UUID ownerId, List<UUID> ids) {
+		return jdbc.sql("select " + COLUMNS + " from items where owner_id = :owner and deleted_at is null and id in (:ids)")
+				.param("owner", ownerId).param("ids", ids).query(MAPPER).list();
+	}
+
+	/** At most two ids: enough to tell "exactly one" from "none" or "several". */
+	List<UUID> liveIdsWithTitle(UUID ownerId, String title) {
+		return jdbc.sql("select id from items where owner_id = :owner and deleted_at is null and title = :title limit 2")
+				.param("owner", ownerId).param("title", title).query(UUID.class).list();
+	}
+
 	Optional<Item> findLive(UUID ownerId, UUID id) {
 		return jdbc.sql("select " + COLUMNS + " from items where id = :id and owner_id = :owner and deleted_at is null")
 				.param("id", id).param("owner", ownerId).query(MAPPER).optional();

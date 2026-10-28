@@ -1,6 +1,7 @@
 package com.coreex.items;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -37,6 +38,22 @@ public class ItemService {
 
 	long total(UUID ownerId, UUID folderId, UUID tagId) {
 		return items.countLive(ownerId, folderId, tagId);
+	}
+
+	/** Live Items whose title contains the text, titles starting with it first. */
+	public List<Item> suggest(UUID ownerId, String text, int limit) {
+		return items.suggest(ownerId, text, limit);
+	}
+
+	/** The User's live Items among these ids; others (missing, trashed, not theirs) are simply left out. */
+	public List<Item> findLive(UUID ownerId, List<UUID> ids) {
+		return ids.isEmpty() ? List.of() : items.findLiveByIds(ownerId, ids);
+	}
+
+	/** The id of the User's one live Item with exactly this title, or empty when there is none or several. */
+	public Optional<UUID> soleLiveIdWithTitle(UUID ownerId, String title) {
+		var ids = items.liveIdsWithTitle(ownerId, title);
+		return ids.size() == 1 ? Optional.of(ids.get(0)) : Optional.empty();
 	}
 
 	/** Other features call this to check an Item is live and the User's; it is a 404 otherwise. */
