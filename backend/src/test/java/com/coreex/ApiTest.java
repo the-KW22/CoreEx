@@ -14,12 +14,13 @@ import org.springframework.context.annotation.Import;
 @Import({ TestcontainersConfiguration.class, TestSupportConfiguration.class })
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
 		"coreex.identity.owner-email=Owner@Example.com",
+		"coreex.cors.allowed-origins=https://app.example.com",
 		"spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://unused.invalid/jwks",
 		"spring.security.oauth2.resourceserver.jwt.issuer-uri=http://unused.invalid" })
 public abstract class ApiTest {
 
 	@LocalServerPort
-	int port;
+	protected int port;
 
 	protected HttpResponse<String> get(String path) throws IOException, InterruptedException {
 		return get(path, null);
