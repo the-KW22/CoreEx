@@ -75,4 +75,6 @@ Frontend checks: `npm run typecheck`, `npm run lint`, `npm run build` (in `front
 
 ## Configuration
 
+**Hosted Supabase projects (staging, production) must have "Confirm email" turned on** (Authentication > Providers > Email). The API trusts the token's email to recognise the owner and Invites, so without confirmation someone could sign up with an invited address before its owner does. Local Supabase has it off for convenience.
+
 No secrets are committed. Each app has an `.env.example` listing its variables. The local Supabase values in `backend/.env.example` are the fixed, public defaults of `supabase start`.
