@@ -1,0 +1,68 @@
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --border: #d4d4d4;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+    --border: #404040;
+  }
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.card {
+  max-width: 24rem;
+  margin: 4rem auto;
+  padding: 0 1rem;
+}
+
+form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+input,
+button {
+  font: inherit;
+  padding: 0.5rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+[role="alert"] {
+  color: #b91c1c;
+}
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.shell nav {
+  width: 14rem;
+  padding: 1rem;
+  border-right: 1px solid var(--border);
+}
+
+.shell ul {
+  padding-left: 1rem;
+}
+
+.shell main {
+  flex: 1;
+  padding: 1rem 2rem;
+}

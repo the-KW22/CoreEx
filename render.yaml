@@ -1,0 +1,29 @@
+# Render Blueprint: the backend API for production (docs/DEPLOY.md explains the setup).
+# Secret and environment-specific values are entered in the Render dashboard, never committed.
+# There is no staging service: CoreEx has one cloud Supabase project (docs/DEVELOPMENT.md, section 2).
+services:
+  - type: web
+    name: coreex-api-prod
+    runtime: docker
+    branch: main
+    autoDeploy: true
+    plan: free
+    region: singapore
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: DB_URL
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: SUPABASE_JWKS_URI
+        sync: false
+      - key: SUPABASE_JWT_ISSUER
+        sync: false
+      - key: OWNER_EMAIL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false

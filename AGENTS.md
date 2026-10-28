@@ -10,7 +10,8 @@ CoreEx is a personal knowledge base, built as a learning project that may later 
 
 - `frontend/`: Next.js (TypeScript) UI only. Never talks to the database directly.
 - `backend/`: Spring Boot REST API. Owns every business rule and is the only thing that touches Postgres.
-- `docs/`: ADRs and agent configuration.
+- `docs/`: ADRs, `DEVELOPMENT.md` (how we work), and agent configuration.
+- `wiki-vault/`: a local-only LLM Wiki of session records and learnings. It is gitignored and never pushed. Its schema is `wiki-vault/AGENTS.md`.
 
 ## Rules that are easy to break
 
@@ -27,11 +28,22 @@ CoreEx is a personal knowledge base, built as a learning project that may later 
 
 ## Workflow per ticket
 
-1. Pick an open GitHub issue with no open blockers and assign it to yourself.
-2. Start from an up-to-date `main` and create a branch named `<issue-number>-<short-slug>`, for example `2-walking-skeleton`.
-3. Build it, including the tests the ticket's acceptance criteria call for. Make small commits.
-4. Push the branch and open a pull request whose description contains `Closes #<issue-number>`.
-5. Run `/ponytail-review`, fix what it finds, then merge with a squash. The issue closes itself.
+**`docs/DEVELOPMENT.md` is the full guide.** It covers branching, commits, PRs, releases, testing, conventions, and the Definition of Done. Read it before your first change. In short:
+
+1. Pick an open issue with no open blockers, assign yourself, and post an implementation plan as an issue comment.
+2. Branch from an up-to-date `staging` as `<type>/<issue>-<slug>`, for example `feat/2-walking-skeleton`.
+3. Build test-first in small Conventional Commits.
+4. Open a PR **into `staging`** with `Closes #<issue>`, run `/ponytail-review`, get CI green, then squash-merge.
+5. Never commit to `staging` or `main` directly. `main` only receives release PRs from `staging`.
+
+## End of every session (mandatory)
+
+Before you finish **any** work session in this repo, record it and ingest it into the wiki vault (`docs/DEVELOPMENT.md` section 19):
+
+1. Write `wiki-vault/raw/sessions/YYYY-MM-DD-HHMM-<slug>.md` using the session template in `wiki-vault/AGENTS.md`.
+2. Ingest it, following `wiki-vault/AGENTS.md`: the source summary, the concept and entity pages, `index.md`, and `log.md`.
+
+Never `git add` anything under `wiki-vault/`.
 
 ## Agent skills
 
