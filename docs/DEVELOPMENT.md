@@ -12,7 +12,7 @@ Read first: `CONTEXT.md` (glossary) and `docs/adr/` (decisions). Use glossary te
 2. **The API owns the rules.** Business rules live in the Spring Boot backend only. The frontend displays and asks (ADR 0003).
 3. **Everything is scoped to the User.** Every query is filtered by the acting User, and another User's data returns 404 (ADR 0001).
 4. **Tests prove behaviour, not wiring.** Test through the public HTTP API, and test risky logic once, well.
-5. **Nothing reaches `main` without passing `staging`.** Production only receives code that already ran in staging.
+5. **Nothing reaches `main` without passing `staging`.** Production only receives code that already merged into `staging` with green CI and was checked locally. There is no cloud staging (see section 2).
 6. **Write it down when it's decided.** A new term goes into `CONTEXT.md`, a hard-to-reverse choice gets an ADR, and what you learned goes into the wiki.
 
 ---
@@ -22,13 +22,13 @@ Read first: `CONTEXT.md` (glossary) and `docs/adr/` (decisions). Use glossary te
 | Environment | Branch | Frontend | Backend | Supabase | Purpose |
 |---|---|---|---|---|---|
 | **Local** | your feature branch | `localhost:3000` | `localhost:8080` | Local Supabase (Supabase CLI in Docker) | Day-to-day development. Break things freely. |
-| **Staging** | `staging` | Vercel (staging) | JVM host (staging) | Cloud project `coreex-staging` | Check merged work in a production-like setup before release. |
-| **Production** | `main` | Vercel (production) | JVM host (production) | Cloud project `coreex-prod` | Real Users. |
+| **Staging** | `staging` | none | none | none | The integration branch only. CI must be green, and you check the merged work by running the full stack locally. **Nothing is deployed from it** (one Supabase project, see below). |
+| **Production** | `main` | Vercel | JVM host (Render) | Cloud project `coreex-prod` | Real Users. The only cloud environment. |
 
-- The Supabase free tier allows **2 active projects**, which is why local development runs Supabase in Docker and the two cloud projects are staging and production.
+- The Supabase free tier allows **2 active projects**, and another project already uses one, so CoreEx has **one cloud project (production)**. Local development runs Supabase in Docker. If a second cloud project (or a separate schema) becomes available, add a staging environment and update this section and `docs/DEPLOY.md`.
 - Automated tests use Testcontainers Postgres, never a cloud project.
 - Each environment has its own secrets, which are never shared or committed. Every app keeps an up-to-date `.env.example` that lists every variable with a fake value.
-- Free cloud Supabase projects pause after a week without traffic. If staging seems dead, open it once to wake it.
+- Free cloud Supabase projects pause after a week without traffic. If production seems dead, open it once to wake it.
 
 ---
 
@@ -43,7 +43,7 @@ feature/fix branches ──PR (squash)──▶ staging ──release PR (merge 
 | Branch | Role | Who writes to it |
 |---|---|---|
 | `main` | What is in production. Always releasable. | Only release PRs from `staging`, and hotfix PRs. |
-| `staging` | The integration branch and the **default branch**. What is on the staging site. | Only PRs from feature, fix, chore, and docs branches. |
+| `staging` | The integration branch and the **default branch**. What will be released next. | Only PRs from feature, fix, chore, and docs branches. |
 | `<type>/<issue>-<slug>` | One branch per issue, short-lived (days, not weeks). | You. |
 
 **Branch names:** `<type>/<issue-number>-<short-slug>`, using the same types as commits (section 5).
@@ -86,7 +86,7 @@ Every piece of work has a GitHub issue. That's how both humans and agents know w
    - Tick the acceptance criteria checkboxes in the issue as you confirm each one.
 7. **CI must be green.** Merge only when all checks pass.
 8. **Squash-merge into `staging`.** The PR description contains `Closes #<n>`, so the issue closes itself.
-9. **Verify on staging.** Click through the feature on the staging site. If it's broken there, reopen the issue or file a `fix/` issue.
+9. **Verify locally.** Pull `staging`, run the full stack locally (README), and click through the feature. If it's broken, reopen the issue or file a `fix/` issue.
 10. **Record the session.** At the end of every work session, record it in `wiki-vault/raw/sessions/` and ingest it (see section 19).
 
 ---
@@ -175,7 +175,7 @@ Closes #<issue>
 
 Release when `staging` holds a set of verified work worth shipping. For V1, about once every 1–3 merged tickets is fine.
 
-1. Check the staging site: the merged features work, and nothing obvious is broken.
+1. Pull `staging`, run the full stack locally, and check that the merged features work and nothing obvious is broken.
 2. Open a PR from `staging` into `main` titled `release: vX.Y.Z`. List the included issues; GitHub's "Generate release notes" helps.
 3. Merge with a **merge commit**, not a squash, so `main` and `staging` keep the same history.
 4. Tag the release: create a GitHub Release `vX.Y.Z` on `main` with release notes.
@@ -205,7 +205,7 @@ If `staging` holds nothing unreleased, use the normal flow and release immediate
 | **Unit tests** | Pure logic with many edge cases only: the Link parser, Markdown helpers | JUnit 5 | Same |
 | **Storage** | Replaced by the in-memory fake behind the Storage interface | — | Same |
 | **Frontend logic** | Only components with real logic (Link autocomplete, editor decorations) | Vitest + Testing Library | Every PR |
-| **Smoke / E2E** | Sign in, create a Note, link it, upload an Asset, search | Playwright | Against staging after deploy, and before each release |
+| **Smoke / E2E** | Sign in, create a Note, link it, upload an Asset, search | Playwright | Against the local stack, before each release |
 
 **Rules**
 
@@ -292,7 +292,7 @@ GitHub Actions run on every PR into `staging` and `main`:
 2. Frontend: install, typecheck, lint, tests, build.
 3. Check that the generated API client matches the current OpenAPI spec.
 
-Branch protection requires these checks to pass before merging. Deploys happen from the hosting providers on push to `staging` (staging environment) and `main` (production).
+Branch protection requires these checks to pass before merging. Production deploys from the hosting providers on push to `main`; nothing deploys from `staging`.
 
 ---
 
@@ -331,7 +331,7 @@ A ticket is done when **all** of these are true:
 - [ ] CI is green, and `/ponytail-review` has no open "Must fix" findings.
 - [ ] Migrations, `.env.example`, the README, and the OpenAPI client are updated where affected.
 - [ ] Glossary terms and ADRs are respected or updated.
-- [ ] It is merged into `staging`, and it works on the staging site.
+- [ ] It is merged into `staging`, and it works when run locally from `staging`.
 - [ ] The session is recorded in `wiki-vault/raw/sessions/` and ingested.
 
 ---
