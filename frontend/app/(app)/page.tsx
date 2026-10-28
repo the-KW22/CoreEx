@@ -25,6 +25,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <button type="submit">New Note</button>
       </form>
       {failed === "create" && <p role="alert">Could not create the Note. Try again.</p>}
+      {failed === "folder" && <p role="alert">Could not create the Folder. Try again.</p>}
 
       {!data ? (
         <p role="alert">Could not load your Items. Try again.</p>

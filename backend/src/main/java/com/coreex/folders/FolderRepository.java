@@ -53,12 +53,15 @@ class FolderRepository {
 				.param("id", id).param("owner", ownerId).update() > 0;
 	}
 
-	/** The Folder and all its live descendants, at any depth. Empty when the Folder is missing or deleted. */
+	/**
+	 * The Folder and all its live descendants, at any depth. Empty when the Folder is missing or deleted. "union"
+	 * (not "union all") makes the walk stop even if bad data ever formed a cycle.
+	 */
 	List<UUID> liveSubtreeIds(UUID ownerId, UUID id) {
 		return jdbc.sql("""
 				with recursive subtree as (
 				  select id from folders where id = :id and owner_id = :owner and deleted_at is null
-				  union all
+				  union
 				  select c.id from folders c join subtree s on c.parent_id = s.id
 				  where c.owner_id = :owner and c.deleted_at is null)
 				select id from subtree""").param("id", id).param("owner", ownerId).query(UUID.class).list();
