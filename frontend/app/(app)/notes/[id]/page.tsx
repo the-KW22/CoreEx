@@ -13,11 +13,12 @@ export default async function NotePage({ params, searchParams }: PageProps<"/not
   const { id } = await params;
   const { error } = await searchParams;
   const api = await getApi();
-  const [result, list, itemTags, allTags] = await Promise.all([
+  const [result, list, itemTags, allTags, backlinks] = await Promise.all([
     api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/folders").catch(() => null),
     api.GET("/api/items/{id}/tags", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/tags").catch(() => null),
+    api.GET("/api/items/{id}/backlinks", { params: { path: { id } } }).catch(() => null),
   ]);
 
   if (!result) {
@@ -83,6 +84,22 @@ export default async function NotePage({ params, searchParams }: PageProps<"/not
           </datalist>
           <button type="submit">Add</button>
         </form>
+      </section>
+      <section aria-labelledby="backlinks-heading">
+        <h2 id="backlinks-heading">Backlinks</h2>
+        {!backlinks?.data ? (
+          <p role="alert">Could not load the Backlinks.</p>
+        ) : backlinks.data.items.length === 0 ? (
+          <p>No Notes link here yet.</p>
+        ) : (
+          <ul>
+            {backlinks.data.items.map((backlink) => (
+              <li key={backlink.id}>
+                <Link href={`/notes/${backlink.id}`}>{backlink.title || "Untitled"}</Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
       <form action={deleteNote} className="delete-note">
         <input type="hidden" name="id" value={note.id} />

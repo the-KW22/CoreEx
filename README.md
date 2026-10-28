@@ -61,6 +61,10 @@ The sidebar shows your Folders as a tree; use the arrow to collapse one. Type a 
 
 On a Note's page, type a name under **Add a Tag**; your existing Tags are suggested as you type, and a new name creates a Tag. `Research` and `research` are the same Tag, shown with the casing it was first typed in. **×** takes a Tag off one Note. **Tags** in the sidebar lists every Tag with how many live Items use it; a Tag's page lists those Items and lets you rename it (to a name you already have is refused) or delete it from all Items at once. The Items themselves are never touched.
 
+### Links and Backlinks
+
+In a Note, type `[[` and your Items are suggested by title, with their type and Folder; choosing one inserts a Link. Links show the target's current title, so they keep working after a rename or a move, and clicking one opens it. You can also type `[[Exact Title]]`: when exactly one of your Items has that title, the next save turns it into a Link; with no match, several matches, or an Item in the Trash it stays as written and is shown as an unresolved Link (dashed). Links inside code are left alone. Under every Note, **Backlinks** lists the Notes that link to it. The text of a Link is stored as `[[<item-id>|<title>]]`, which is plain Markdown. Click into the editor to edit a Link's raw text on its line.
+
 ## Deploying
 
 Production (from `main`) is the only cloud environment: a Vercel frontend, a Render backend and one Supabase project. `staging` is the integration branch, checked by CI and by running the stack locally. See [docs/DEPLOY.md](docs/DEPLOY.md) for setup, variables and redeploying.
