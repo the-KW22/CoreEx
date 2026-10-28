@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.coreex.common.ApiException;
 
 @Service
-class IdentityService {
+public class IdentityService {
 
 	private final UserRepository users;
 
@@ -23,6 +23,11 @@ class IdentityService {
 		this.users = users;
 		this.properties = properties;
 		this.clock = clock;
+	}
+
+	/** Whether someone with this (lowercase) email already has an account. */
+	public boolean hasUser(String email) {
+		return users.existsByEmail(email);
 	}
 
 	/** The User behind a valid token. First sign-in provisions them, but only the owner or an invited person. */
