@@ -11,6 +11,7 @@ CoreEx is a personal knowledge base, built as a learning project that may later 
 - `frontend/`: Next.js (TypeScript) UI only. Never talks to the database directly.
 - `backend/`: Spring Boot REST API. Owns every business rule and is the only thing that touches Postgres.
 - `docs/`: ADRs, `DEVELOPMENT.md` (how we work), and agent configuration.
+- `wiki-vault/`: a local-only LLM Wiki of session records and learnings. It is gitignored and never pushed. Its schema is `wiki-vault/AGENTS.md`.
 
 ## Rules that are easy to break
 
@@ -34,6 +35,15 @@ CoreEx is a personal knowledge base, built as a learning project that may later 
 3. Build test-first in small Conventional Commits.
 4. Open a PR **into `staging`** with `Closes #<issue>`, run `/ponytail-review`, get CI green, then squash-merge.
 5. Never commit to `staging` or `main` directly. `main` only receives release PRs from `staging`.
+
+## End of every session (mandatory)
+
+Before you finish **any** work session in this repo, record it and ingest it into the wiki vault (`docs/DEVELOPMENT.md` section 19):
+
+1. Write `wiki-vault/raw/sessions/YYYY-MM-DD-HHMM-<slug>.md` using the session template in `wiki-vault/AGENTS.md`.
+2. Ingest it, following `wiki-vault/AGENTS.md`: the source summary, the concept and entity pages, `index.md`, and `log.md`.
+
+Never `git add` anything under `wiki-vault/`.
 
 ## Agent skills
 
