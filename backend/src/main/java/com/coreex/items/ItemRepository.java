@@ -25,20 +25,30 @@ class ItemRepository {
 		this.jdbc = jdbc;
 	}
 
-	/** All live Items, or only those in the given Folder when folderId is not null. */
-	List<Item> findLivePage(UUID ownerId, UUID folderId, int limit, long offset) {
-		var sql = "select " + COLUMNS + " from items where owner_id = :owner and deleted_at is null"
-				+ (folderId == null ? "" : " and folder_id = :folder")
-				+ " order by updated_at desc, id limit :limit offset :offset";
-		var query = jdbc.sql(sql).param("owner", ownerId).param("limit", limit).param("offset", offset);
-		return (folderId == null ? query : query.param("folder", folderId)).query(MAPPER).list();
+	/** All live Items, narrowed to one Folder and/or one Tag when those ids are not null. */
+	List<Item> findLivePage(UUID ownerId, UUID folderId, UUID tagId, int limit, long offset) {
+		var query = jdbc.sql("select " + COLUMNS + " from items where " + where(folderId, tagId)
+				+ " order by updated_at desc, id limit :limit offset :offset").param("owner", ownerId)
+				.param("limit", limit).param("offset", offset);
+		return withFilters(query, folderId, tagId).query(MAPPER).list();
 	}
 
-	long countLive(UUID ownerId, UUID folderId) {
-		var sql = "select count(*) from items where owner_id = :owner and deleted_at is null"
-				+ (folderId == null ? "" : " and folder_id = :folder");
-		var query = jdbc.sql(sql).param("owner", ownerId);
-		return (folderId == null ? query : query.param("folder", folderId)).query(Long.class).single();
+	long countLive(UUID ownerId, UUID folderId, UUID tagId) {
+		var query = jdbc.sql("select count(*) from items where " + where(folderId, tagId)).param("owner", ownerId);
+		return withFilters(query, folderId, tagId).query(Long.class).single();
+	}
+
+	// The Tag filter reads item_tags directly: a join is the simple way to filter without loading ids into memory.
+	private static String where(UUID folderId, UUID tagId) {
+		return "owner_id = :owner and deleted_at is null" + (folderId == null ? "" : " and folder_id = :folder")
+				+ (tagId == null ? "" : " and exists (select 1 from item_tags it where it.item_id = items.id and it.tag_id = :tag)");
+	}
+
+	private static JdbcClient.StatementSpec withFilters(JdbcClient.StatementSpec query, UUID folderId, UUID tagId) {
+		if (folderId != null) {
+			query = query.param("folder", folderId);
+		}
+		return tagId == null ? query : query.param("tag", tagId);
 	}
 
 	Optional<Item> findLive(UUID ownerId, UUID id) {

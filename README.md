@@ -57,6 +57,10 @@ The home page lists your Items, newest first. **New Note** opens an editor where
 
 The sidebar shows your Folders as a tree; use the arrow to collapse one. Type a name under **Folders** to add a top-level Folder. A Folder's page lists its subfolders and Items, and lets you create a Note or subfolder there, rename it, move it (a Folder cannot go into itself or its own subfolders), or move it to the Trash. The Trash confirmation says how many Folders and Items go with it. To file a Note, use the **Folder** menu on its page; **Top level** takes it out of any Folder.
 
+### Tags
+
+On a Note's page, type a name under **Add a Tag**; your existing Tags are suggested as you type, and a new name creates a Tag. `Research` and `research` are the same Tag, shown with the casing it was first typed in. **×** takes a Tag off one Note. **Tags** in the sidebar lists every Tag with how many live Items use it; a Tag's page lists those Items and lets you rename it (to a name you already have is refused) or delete it from all Items at once. The Items themselves are never touched.
+
 ## Deploying
 
 Production (from `main`) is the only cloud environment: a Vercel frontend, a Render backend and one Supabase project. `staging` is the integration branch, checked by CI and by running the stack locally. See [docs/DEPLOY.md](docs/DEPLOY.md) for setup, variables and redeploying.

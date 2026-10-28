@@ -4,6 +4,22 @@
  */
 
 export interface paths {
+    "/api/tags/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["rename"];
+        post?: never;
+        delete: operations["delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notes/{id}": {
         parameters: {
             query?: never;
@@ -14,7 +30,7 @@ export interface paths {
         get: operations["get"];
         put: operations["save"];
         post?: never;
-        delete: operations["delete"];
+        delete: operations["delete_1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -28,9 +44,9 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put: operations["rename"];
+        put: operations["rename_1"];
         post?: never;
-        delete: operations["delete_1"];
+        delete: operations["delete_2"];
         options?: never;
         head?: never;
         patch?: never;
@@ -46,6 +62,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/items/{id}/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list"];
+        put?: never;
+        post: operations["add"];
         delete?: never;
         options?: never;
         head?: never;
@@ -75,7 +107,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list"];
+        get: operations["list_1"];
         put?: never;
         post: operations["create_1"];
         delete?: never;
@@ -107,7 +139,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_1"];
+        get: operations["list_2"];
         put?: never;
         post: operations["create_2"];
         delete?: never;
@@ -126,6 +158,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_3"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -155,7 +203,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_2"];
+        get: operations["list_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -196,10 +244,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/items/{id}/tags/{tagId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        RenameTagRequest: {
+            name: string;
+        };
+        TagResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        ErrorBody: {
+            code: string;
+            message: string;
+        };
         SaveNoteRequest: {
             title: string;
             body: string;
@@ -220,10 +296,6 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
-        ErrorBody: {
-            code: string;
-            message: string;
-        };
         RenameFolderRequest: {
             name: string;
         };
@@ -242,6 +314,14 @@ export interface components {
              * @description The Folder to create the Note in; null is the top level
              */
             folderId?: string | null;
+        };
+        AddTagRequest: {
+            name: string;
+        };
+        ItemTagResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
         };
         MoveItemRequest: {
             /**
@@ -291,6 +371,21 @@ export interface components {
             /** Format: date-time */
             acceptedAt?: string;
         };
+        TagCountResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /**
+             * Format: int64
+             * @description Live Items with this Tag
+             */
+            itemCount: number;
+        };
+        TagList: {
+            items: components["schemas"]["TagCountResponse"][];
+            /** Format: int64 */
+            total: number;
+        };
         Me: {
             /** Format: uuid */
             id: string;
@@ -300,6 +395,11 @@ export interface components {
         };
         ItemPage: {
             items: components["schemas"]["ItemResponse"][];
+            /** Format: int64 */
+            total: number;
+        };
+        ItemTagList: {
+            items: components["schemas"]["ItemTagResponse"][];
             /** Format: int64 */
             total: number;
         };
@@ -331,6 +431,88 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameTagRequest"];
+            };
+        };
+        responses: {
+            /** @description The renamed Tag */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Tag) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code TAG_EXISTS: the User already has a Tag with this name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND (also for another User's Tag) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     get: {
         parameters: {
             query?: never;
@@ -415,7 +597,7 @@ export interface operations {
             };
         };
     };
-    delete: {
+    delete_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -444,7 +626,7 @@ export interface operations {
             };
         };
     };
-    rename: {
+    rename_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -488,7 +670,7 @@ export interface operations {
             };
         };
     };
-    delete_1: {
+    delete_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -559,6 +741,81 @@ export interface operations {
             };
         };
     };
+    list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Item's Tags */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemTagList"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Item) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddTagRequest"];
+            };
+        };
+        responses: {
+            /** @description The Tag now on the Item */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemTagResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Item) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     move: {
         parameters: {
             query?: never;
@@ -594,7 +851,7 @@ export interface operations {
             };
         };
     };
-    list: {
+    list_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -700,7 +957,7 @@ export interface operations {
             };
         };
     };
-    list_1: {
+    list_2: {
         parameters: {
             query?: {
                 page?: number;
@@ -805,6 +1062,26 @@ export interface operations {
             };
         };
     };
+    list_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagList"];
+                };
+            };
+        };
+    };
     me: {
         parameters: {
             query?: never;
@@ -834,10 +1111,11 @@ export interface operations {
             };
         };
     };
-    list_2: {
+    list_4: {
         parameters: {
             query?: {
                 folderId?: string;
+                tagId?: string;
                 page?: number;
                 size?: number;
             };
@@ -856,7 +1134,7 @@ export interface operations {
                     "application/json": components["schemas"]["ItemPage"];
                 };
             };
-            /** @description Code NOT_FOUND: no such Folder */
+            /** @description Code NOT_FOUND: no such Folder or Tag */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -908,6 +1186,36 @@ export interface operations {
                 };
             };
             /** @description Code NOT_FOUND (also for another User's Folder) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                tagId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Tag is no longer on the Item */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND: no such Item or Tag (also for another User's) */
             404: {
                 headers: {
                     [name: string]: unknown;

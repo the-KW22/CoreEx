@@ -56,18 +56,19 @@ class ItemController {
 		this.items = items;
 	}
 
-	/** The signed-in User's live Items, most recently updated first; folderId limits them to one Folder. */
+	/** The signed-in User's live Items, most recently updated first; folderId and tagId narrow them. */
 	@GetMapping
 	@ApiResponse(responseCode = "200", description = "A page of Items", content = @Content(mediaType = JSON,
 			schema = @Schema(implementation = ItemPage.class)))
-	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND: no such Folder", content = @Content(
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND: no such Folder or Tag", content = @Content(
 			mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
 	ItemPage list(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
-			@RequestParam(required = false) UUID folderId, @RequestParam(defaultValue = "0") int page,
+			@RequestParam(required = false) UUID folderId, @RequestParam(required = false) UUID tagId,
+			@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "50") int size) {
 		var safeSize = Math.min(MAX_PAGE_SIZE, Math.max(1, size));
-		var list = items.list(user.id(), folderId, Math.max(0, page), safeSize).stream().map(ItemResponse::of).toList();
-		return new ItemPage(list, items.total(user.id(), folderId));
+		var list = items.list(user.id(), folderId, tagId, Math.max(0, page), safeSize).stream().map(ItemResponse::of).toList();
+		return new ItemPage(list, items.total(user.id(), folderId, tagId));
 	}
 
 	@PostMapping(value = "/{id}/move", consumes = JSON)
