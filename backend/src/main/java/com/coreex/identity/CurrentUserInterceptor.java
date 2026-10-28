@@ -15,9 +15,9 @@ import jakarta.servlet.http.HttpServletResponse;
 
 /** Runs on every authenticated API call, so a Disabled or uninvited person is refused everywhere. */
 @Component
-class CurrentUserInterceptor implements HandlerInterceptor {
+public class CurrentUserInterceptor implements HandlerInterceptor {
 
-	static final String ATTRIBUTE = "currentUser";
+	public static final String ATTRIBUTE = "currentUser";
 
 	private final IdentityService identity;
 
