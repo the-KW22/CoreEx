@@ -78,7 +78,7 @@ export interface paths {
         get?: never;
         put: operations["setQuota"];
         post?: never;
-        delete?: never;
+        delete: operations["resetQuota"];
         options?: never;
         head?: never;
         patch?: never;
@@ -678,9 +678,9 @@ export interface components {
         SetQuotaRequest: {
             /**
              * Format: int64
-             * @description Bytes, 0 to 1 TB. Null puts the User back on the default quota
+             * @description Bytes, 0 to 1 TB
              */
-            storageQuotaBytes?: number | null;
+            storageQuotaBytes: number;
         };
         UserResponse: {
             /** Format: uuid */
@@ -1401,6 +1401,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    resetQuota: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The User on the default quota */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponse"];
                 };
             };
             /** @description Code NOT_FOUND */

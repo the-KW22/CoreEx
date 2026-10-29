@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,6 +27,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 
 /**
@@ -41,8 +43,9 @@ class AdminUserController {
 
 	private static final String JSON = MediaType.APPLICATION_JSON_VALUE;
 
+	/** Required, so a misspelled field is a 400 and never a silent reset: use DELETE to go back to the default. */
 	record SetQuotaRequest(
-			@Schema(nullable = true, description = "Bytes, 0 to 1 TB. Null puts the User back on the default quota") @PositiveOrZero @Max(1_000_000_000_000L) Long storageQuotaBytes) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Bytes, 0 to 1 TB") @NotNull @PositiveOrZero @Max(1_000_000_000_000L) Long storageQuotaBytes) {
 	}
 
 	record UserResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
@@ -96,6 +99,16 @@ class AdminUserController {
 			schema = @Schema(implementation = ErrorBody.class)))
 	UserResponse setQuota(@PathVariable UUID id, @Valid @RequestBody SetQuotaRequest request) {
 		return UserResponse.of(users.setQuota(id, request.storageQuotaBytes()));
+	}
+
+	/** Takes the custom quota away, so the configured default applies again. */
+	@DeleteMapping("/api/admin/users/{id}/quota")
+	@ApiResponse(responseCode = "200", description = "The User on the default quota", content = @Content(
+			mediaType = JSON, schema = @Schema(implementation = UserResponse.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	UserResponse resetQuota(@PathVariable UUID id) {
+		return UserResponse.of(users.setQuota(id, null));
 	}
 
 	/** Blocks the User from their next request on. Their data is kept. */

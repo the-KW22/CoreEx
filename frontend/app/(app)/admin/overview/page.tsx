@@ -16,7 +16,8 @@ export default async function AdminOverviewPage() {
     return <p role="alert">Could not load the overview. Try again.</p>;
   }
   const { totalUsers, disabledUsers, storageUsedBytes, hostingLimitBytes } = result.data;
-  const percent = hostingLimitBytes > 0 ? Math.round((storageUsedBytes / hostingLimitBytes) * 100) : 0;
+  const percent =
+    hostingLimitBytes > 0 ? Math.round((storageUsedBytes / hostingLimitBytes) * 100) : storageUsedBytes > 0 ? 100 : 0;
 
   return (
     <>

@@ -56,7 +56,13 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
         <tbody>
           {items.map((user) => {
             const yourself = user.id === me?.data?.id;
-            const percent = user.storageQuotaBytes > 0 ? Math.round((user.storageUsedBytes / user.storageQuotaBytes) * 100) : 0;
+            // A quota of 0 with files still stored is full, not empty.
+            const percent =
+              user.storageQuotaBytes > 0
+                ? Math.round((user.storageUsedBytes / user.storageQuotaBytes) * 100)
+                : user.storageUsedBytes > 0
+                  ? 100
+                  : 0;
             return (
               <tr key={user.id}>
                 <td>

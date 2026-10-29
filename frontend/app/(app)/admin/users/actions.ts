@@ -8,11 +8,14 @@ import { getApi } from "@/lib/api/server";
 const MIB = 1024 * 1024;
 const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim();
 
-async function saveQuota(id: string, bytes: number | null) {
+async function saveQuota(id: string, bytes: number | "default") {
   const api = await getApi();
-  const result = await api
-    .PUT("/api/admin/users/{id}/quota", { params: { path: { id } }, body: { storageQuotaBytes: bytes } })
-    .catch(() => null);
+  const result =
+    bytes === "default"
+      ? await api.DELETE("/api/admin/users/{id}/quota", { params: { path: { id } } }).catch(() => null)
+      : await api
+          .PUT("/api/admin/users/{id}/quota", { params: { path: { id } }, body: { storageQuotaBytes: bytes } })
+          .catch(() => null);
   if (!result?.data) redirect("/admin/users?error=quota");
   revalidatePath("/admin/users");
 }
@@ -28,7 +31,7 @@ export async function setQuota(formData: FormData) {
 
 export async function useDefaultQuota(formData: FormData) {
   const id = text(formData, "id");
-  if (id) await saveQuota(id, null);
+  if (id) await saveQuota(id, "default");
 }
 
 export async function setDisabled(formData: FormData) {

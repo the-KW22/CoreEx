@@ -156,8 +156,9 @@ class AdminUserApiTest extends ApiTest {
 		// Another User is not affected.
 		assertThat(row("c@example.com")).contains("\"storageQuotaBytes\":104857600");
 
-		// null puts the User back on the configured default; 0 is a quota too.
-		var reset = setQuota(bId, "{\"storageQuotaBytes\":null}");
+		// DELETE puts the User back on the configured default; 0 is a quota too.
+		var reset = delete("/api/admin/users/" + bId + "/quota", admin);
+		assertThat(reset.statusCode()).isEqualTo(200);
 		assertThat(reset.body()).contains("\"storageQuotaBytes\":104857600").contains("\"customQuota\":false");
 		assertThat(setQuota(bId, "{\"storageQuotaBytes\":0}").body()).contains("\"storageQuotaBytes\":0")
 				.contains("\"customQuota\":true");
@@ -168,6 +169,11 @@ class AdminUserApiTest extends ApiTest {
 		assertThat(setQuota(bId, "{\"storageQuotaBytes\":-1}").statusCode()).isEqualTo(400);
 		assertThat(setQuota(bId, "{\"storageQuotaBytes\":1000000000001}").statusCode()).isEqualTo(400);
 		assertThat(setQuota(bId, "{\"storageQuotaBytes\":\"lots\"}").statusCode()).isEqualTo(400);
+		// A missing or null value (or a misspelled field) is refused, never read as "reset".
+		for (var body : new String[] { "{}", "{\"storageQuotaBytes\":null}", "{\"quota\":5000}" }) {
+			assertThat(setQuota(bId, body).statusCode()).as(body).isEqualTo(400);
+		}
+		assertThat(delete("/api/admin/users/" + UUID.randomUUID() + "/quota", admin).statusCode()).isEqualTo(404);
 		assertThat(setQuota(UUID.randomUUID().toString(), "{\"storageQuotaBytes\":100}").statusCode())
 				.isEqualTo(404);
 		assertThat(row("b@example.com")).contains("\"customQuota\":false");
@@ -247,6 +253,7 @@ class AdminUserApiTest extends ApiTest {
 		responses.add(get("/api/admin/overview", admin));
 		responses.add(get("/api/admin/invites", admin));
 		responses.add(setQuota(bId, "{\"storageQuotaBytes\":50000}"));
+		responses.add(delete("/api/admin/users/" + bId + "/quota", admin));
 		responses.add(post("/api/admin/users/" + bId + "/disable", admin, null));
 		responses.add(post("/api/admin/users/" + bId + "/enable", admin, null));
 		// ... and the refusals say nothing about content either.
@@ -277,6 +284,7 @@ class AdminUserApiTest extends ApiTest {
 		var calls = List.<String[]>of(new String[] { "GET", "/api/admin/users" },
 				new String[] { "GET", "/api/admin/overview" },
 				new String[] { "PUT", "/api/admin/users/" + someone + "/quota" },
+				new String[] { "DELETE", "/api/admin/users/" + someone + "/quota" },
 				new String[] { "POST", "/api/admin/users/" + someone + "/disable" },
 				new String[] { "POST", "/api/admin/users/" + someone + "/enable" });
 
@@ -294,6 +302,7 @@ class AdminUserApiTest extends ApiTest {
 		return switch (method) {
 			case "GET" -> get(path, token);
 			case "PUT" -> put(path, token, "{\"storageQuotaBytes\":1}");
+			case "DELETE" -> delete(path, token);
 			default -> post(path, token, null);
 		};
 	}
