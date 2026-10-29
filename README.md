@@ -65,6 +65,12 @@ On a Note's page, type a name under **Add a Tag**; your existing Tags are sugges
 
 In a Note, type `[[` and your Items are suggested by title, with their type and Folder; choosing one inserts a Link. Links show the target's current title, so they keep working after a rename or a move, and clicking one opens it. You can also type `[[Exact Title]]`: when exactly one of your Items has that title, the next save turns it into a Link; with no match, several matches, or an Item in the Trash it stays as written and is shown as an unresolved Link (dashed). Links inside code are left alone. Under every Note, **Backlinks** lists the Notes that link to it. The text of a Link is stored as `[[<item-id>|<title>]]`, which is plain Markdown. Click into the editor to edit a Link's raw text on its line.
 
+### Assets
+
+On the home page or a Folder's page, drop images or PDFs (PNG, JPG, WebP, GIF, PDF; up to 5 MB each) on the upload box or choose them. The title starts as the file name. An Asset's page shows an image inline or a PDF in the viewer, offers **Download**, lets you rename it and add a description, and works like a Note for Folders, Tags, Links and Backlinks (`[[` suggests Assets too). **Move to Trash** hides it, but its file still counts toward your storage (100 MB by default) until the Trash is emptied. The home page shows how much you have used.
+
+Files live in a private Supabase Storage bucket. The browser uploads straight to Storage with a short-lived link from the API, and the API checks the stored file's real size and type before creating the Asset. To use Assets locally, `supabase start` creates the `assets` bucket from `supabase/config.toml`, and `backend/.env` needs `STORAGE_URL`, `STORAGE_SERVICE_KEY` and `STORAGE_BUCKET` (see `backend/.env.example`). Without them everything else works and Asset endpoints answer 503. Production setup is in `docs/DEPLOY.md`.
+
 ## Deploying
 
 Production (from `main`) is the only cloud environment: a Vercel frontend, a Render backend and one Supabase project. `staging` is the integration branch, checked by CI and by running the stack locally. See [docs/DEPLOY.md](docs/DEPLOY.md) for setup, variables and redeploying.

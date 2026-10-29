@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
+import { itemHref } from "@/lib/items";
 
 import { deleteTag, renameTag } from "../actions";
 
@@ -54,7 +55,7 @@ export default async function TagPage({ params, searchParams }: PageProps<"/tags
             {items.data.items.map((item) => (
               <tr key={item.id}>
                 <td>
-                  <Link href={`/notes/${item.id}`}>{item.title || "Untitled"}</Link>
+                  <Link href={itemHref(item)}>{item.title || "Untitled"}</Link>
                 </td>
                 <td>{item.updatedAt.slice(0, 10)}</td>
               </tr>

@@ -1,15 +1,20 @@
 import Link from "next/link";
 
 import { getApi } from "@/lib/api/server";
+import { itemHref } from "@/lib/items";
 
+import { formatBytes } from "@/lib/items";
+
+import { UploadBox } from "./assets/upload-box";
 import { createNote } from "./notes/actions";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const { failed } = await searchParams;
   const api = await getApi();
-  const [result, folders] = await Promise.all([
+  const [result, folders, usage] = await Promise.all([
     api.GET("/api/items").catch(() => null),
     api.GET("/api/folders").catch(() => null),
+    api.GET("/api/assets/usage").catch(() => null),
   ]);
   const folderNames = new Map(folders?.data?.items.map((f) => [f.id, f.name]));
 
@@ -26,6 +31,12 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       </form>
       {failed === "create" && <p role="alert">Could not create the Note. Try again.</p>}
       {failed === "folder" && <p role="alert">Could not create the Folder. Try again.</p>}
+      <UploadBox folderId={null} />
+      {usage?.data && (
+        <p>
+          Storage: {formatBytes(usage.data.usedBytes)} of {formatBytes(usage.data.quotaBytes)} used
+        </p>
+      )}
 
       {!data ? (
         <p role="alert">Could not load your Items. Try again.</p>
@@ -46,7 +57,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
               {data.items.map((item) => (
                 <tr key={item.id}>
                   <td>
-                    <Link href={`/notes/${item.id}`}>{item.title || "Untitled"}</Link>
+                    <Link href={itemHref(item)}>{item.title || "Untitled"}</Link>
                   </td>
                   <td>{item.folderId ? (folderNames.get(item.folderId) ?? "") : "Top level"}</td>
                   <td>{item.updatedAt.slice(0, 10)}</td>
