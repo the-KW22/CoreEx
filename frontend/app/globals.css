@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 /* Dark when the User picked dark, or when the OS is dark and they did not pick light (docs/DESIGN.md 5). */
 @custom-variant dark {
@@ -209,27 +210,6 @@ button {
   color: var(--destructive);
 }
 
-.shell {
-  display: flex;
-  min-height: 100vh;
-}
-
-.shell nav {
-  width: 14rem;
-  padding: 1rem;
-  border-right: 1px solid var(--border);
-}
-
-.shell ul {
-  padding-left: 1rem;
-}
-
-.shell main {
-  flex: 1;
-  min-width: 0;
-  padding: 1rem 2rem;
-}
-
 table {
   width: 100%;
   border-collapse: collapse;
@@ -346,19 +326,6 @@ td {
 .inline-form label {
   display: grid;
   gap: 0.25rem;
-}
-
-.shell nav h2 {
-  font-size: 1rem;
-  margin: 1rem 0 0.25rem;
-}
-
-.shell nav ul ul {
-  padding-left: 0.75rem;
-}
-
-.shell nav .inline-form input {
-  width: 7rem;
 }
 
 .delete-folder {
@@ -482,17 +449,6 @@ textarea {
 }
 
 /* Search and the quick switcher. */
-.nav-search {
-  display: flex;
-  gap: 0.25rem;
-  margin: 0.5rem 0 0;
-}
-
-.nav-search input {
-  width: 8rem;
-  min-width: 0;
-}
-
 .search-results {
   padding-left: 1.25rem;
 }
