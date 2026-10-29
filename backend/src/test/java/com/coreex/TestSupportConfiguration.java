@@ -27,6 +27,13 @@ public class TestSupportConfiguration {
 		return new TestStorage();
 	}
 
+	/** Replaces Supabase Auth's admin API, so no test deletes a real sign-in. */
+	@Bean
+	@Primary
+	public TestAuthAccounts testAuthAccounts() {
+		return new TestAuthAccounts();
+	}
+
 	@Bean
 	@Primary
 	public TestClock testClock() {

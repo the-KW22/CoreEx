@@ -124,4 +124,13 @@ class AssetRepository {
 				where i.owner_id = :owner""").param("owner", ownerId).query(Long.class).single();
 	}
 
+	/** Every stored file of this User: Assets (Trash included) and uploads that were never confirmed. */
+	List<String> storageKeysOf(UUID ownerId) {
+		return jdbc.sql("""
+				select f.storage_key from asset_files f join items i on i.id = f.item_id where i.owner_id = :owner
+				union all
+				select storage_key from pending_uploads where owner_id = :owner""").param("owner", ownerId)
+				.query(String.class).list();
+	}
+
 }
