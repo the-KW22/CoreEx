@@ -5,14 +5,12 @@ import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
-import { ChevronRightIcon, FileTextIcon, ImageIcon, PanelRightIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react";
-import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { FileTextIcon, ImageIcon, TriangleAlertIcon } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
+import { ItemFrame } from "../../items/item-frame";
 import { deleteNote, linkPreview, loadNote, resolveLinks, saveNote, suggestLinks } from "../actions";
 import { smallestEdit } from "./edit";
 import { type LinkTarget, linkCompletion, linkField, linkIds, setLinks } from "./links";
@@ -54,20 +52,8 @@ const noteTheme = EditorView.theme({
   ".cm-completionDetail": { color: "var(--muted-foreground)", marginLeft: "0.5rem", fontStyle: "normal" },
 });
 
-// Media queries for layout decisions made in code; the server renders as if none matches.
-const media = (query: string) => ({
-  subscribe: (change: () => void) => {
-    const list = window.matchMedia(query);
-    list.addEventListener("change", change);
-    return () => list.removeEventListener("change", change);
-  },
-  get: () => window.matchMedia(query).matches,
-});
-const wide = media("(min-width: 1280px)");
-const tablet = media("(min-width: 768px)");
-
-// The Note screen (docs/DESIGN.md section 6.3): header bar, writing column and Details panel around the editor.
-// `tags` and `details` come rendered from the server; this adds the save status, Info and the Link preview.
+// The Note screen (docs/DESIGN.md section 6.3): the writing column inside the shared Item frame. `tags` and
+// `details` come rendered from the server; this adds the save status, Info and the Link preview.
 export function NoteEditor({
   id,
   initial,
@@ -89,12 +75,8 @@ export function NoteEditor({
   const [message, setMessage] = useState("");
   const [savedAt, setSavedAt] = useState(initial.updatedAt);
   const [words, setWords] = useState(() => wordCount(initial.body));
-  const [detailsChoice, setDetailsChoice] = useState(detailsCookie);
-  const [drawer, setDrawer] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [previewText, setPreviewText] = useState<Record<string, string | null>>({});
-  const isWide = useSyncExternalStore(wide.subscribe, wide.get, () => false);
-  const isTablet = useSyncExternalStore(tablet.subscribe, tablet.get, () => false);
 
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -313,20 +295,8 @@ export function NoteEditor({
     setStatus("saved");
   }
 
-  // Details: the remembered choice, or open on wide screens. Phones use the bottom Sheet instead.
-  const detailsOpen = detailsChoice ? detailsChoice === "open" : isWide;
-  function toggleDetails() {
-    if (!isTablet) {
-      setDrawer(true);
-      return;
-    }
-    const next = detailsOpen ? "closed" : "open";
-    setDetailsChoice(next);
-    document.cookie = `details=${next}; path=/; max-age=31536000; samesite=lax`;
-  }
-
   const detailsBody = (
-    <div className="grid content-start gap-6">
+    <>
       {details}
       <section aria-labelledby="info-heading" className="grid gap-2">
         <h2 id="info-heading" className="text-xs font-semibold text-muted-foreground">
@@ -349,70 +319,33 @@ export function NoteEditor({
           <dd className="font-mono">{words}</dd>
         </dl>
       </section>
-    </div>
+    </>
   );
   const PreviewIcon = preview?.target.type === "ASSET" ? ImageIcon : FileTextIcon;
 
   return (
-    <div className="-mx-4 -mt-2 flex min-h-[calc(100dvh-4.5rem)] md:-m-8 md:min-h-dvh">
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-14 z-30 flex items-center gap-2 border-b border-border bg-background px-4 py-2 md:top-0 md:px-8">
-          <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
-            <ol className="flex items-center gap-1 overflow-hidden text-sm text-muted-foreground">
-              {crumbs.map((crumb) => (
-                <li key={crumb.href} className="flex min-w-0 items-center gap-1">
-                  <Link href={crumb.href} className="truncate hover:text-foreground hover:underline">
-                    {crumb.label}
-                  </Link>
-                  <ChevronRightIcon aria-hidden className="size-3.5 shrink-0" />
-                </li>
-              ))}
-              <li aria-current="page" className="truncate text-foreground">
-                {title || "Untitled"}
-              </li>
-            </ol>
-          </nav>
-          <p role="status" className="shrink-0 text-xs text-muted-foreground">
-            {status === "saving" && "Saving…"}
-            {status === "unsaved" && "Unsaved changes"}
-            {status === "saved" && (
-              <>
-                Saved at{" "}
-                <time dateTime={savedAt} suppressHydrationWarning>
-                  {new Date(savedAt).toLocaleTimeString()}
-                </time>
-              </>
-            )}
-            {(status === "conflict" || status === "error") && "Not saved"}
-          </p>
-          <form action={deleteNote}>
-            <input type="hidden" name="id" value={id} />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button type="submit" variant="ghost" size="icon" aria-label="Move to Trash">
-                  <Trash2Icon aria-hidden />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Move to Trash</TooltipContent>
-            </Tooltip>
-          </form>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={toggleDetails}
-                aria-label="Details"
-                aria-expanded={isTablet ? detailsOpen : drawer}
-              >
-                <PanelRightIcon aria-hidden />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{detailsOpen ? "Hide details" : "Show details"}</TooltipContent>
-          </Tooltip>
-        </header>
-
+    <ItemFrame
+      crumbs={crumbs}
+      current={title || "Untitled"}
+      status={
+        <p role="status" className="shrink-0 text-xs text-muted-foreground">
+          {status === "saving" && "Saving…"}
+          {status === "unsaved" && "Unsaved changes"}
+          {status === "saved" && (
+            <>
+              Saved at{" "}
+              <time dateTime={savedAt} suppressHydrationWarning>
+                {new Date(savedAt).toLocaleTimeString()}
+              </time>
+            </>
+          )}
+          {(status === "conflict" || status === "error") && "Not saved"}
+        </p>
+      }
+      trash={{ id, action: deleteNote }}
+      detailsCookie={detailsCookie}
+      details={detailsBody}
+    >
         <div className="mx-auto grid w-full max-w-[700px] content-start gap-5 px-4 py-8 md:px-0">
           {status === "conflict" && (
             <div role="alert" className="grid gap-3 rounded-[10px] border border-destructive/50 bg-destructive/10 p-4">
@@ -475,24 +408,6 @@ export function NoteEditor({
             }}
           />
         </div>
-      </div>
-
-      {/* Tablets and up: a panel beside the writing column. With no choice made, it follows the screen width. */}
-      <aside
-        aria-label="Details"
-        className={`w-72 shrink-0 border-l border-border bg-panel p-5 max-md:hidden ${
-          detailsChoice === null ? "hidden xl:block" : detailsOpen ? "md:block" : "hidden"
-        }`}
-      >
-        {detailsBody}
-      </aside>
-      {/* Phones: a bottom Sheet. */}
-      <Sheet open={drawer && !isTablet} onOpenChange={setDrawer}>
-        <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto border-border bg-panel p-5">
-          <SheetTitle>Details</SheetTitle>
-          {detailsBody}
-        </SheetContent>
-      </Sheet>
 
       {/* Always mounted: screen readers only announce changes to a live region that already exists. */}
       <p aria-live="polite" className="sr-only">
@@ -526,6 +441,6 @@ export function NoteEditor({
           </span>
         </div>
       )}
-    </div>
+    </ItemFrame>
   );
 }

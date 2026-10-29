@@ -250,14 +250,7 @@ td {
   white-space: nowrap;
 }
 
-.delete-note {
-  display: block;
-  margin: 1rem 0;
-}
 
-.delete-note button {
-  justify-self: start;
-}
 
 /* The Note editor's live preview marks. CodeMirror's own parts (font, caret, tooltips) are themed in note-editor.tsx. */
 .note-editor .cm-editor {
@@ -299,36 +292,10 @@ td {
   margin: 1.5rem 0;
 }
 
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0;
-  list-style: none;
-}
 
-/* TagBadge draws the pill, so the item only lines it up with its remove button. */
-.tag-list li {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
 
-.tag-list a {
-  text-decoration: none;
-}
 
-.tag-list form {
-  display: block;
-}
 
-.tag-list button {
-  padding: 0 0.4rem;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-}
 
 /* Links in the Note editor. */
 .note-editor .cm-wikilink {
@@ -362,20 +329,7 @@ td {
   opacity: 0.7;
 }
 
-.asset-image {
-  display: block;
-  max-width: 100%;
-  max-height: 32rem;
-  margin: 1rem 0;
-  border: 1px solid var(--border);
-}
 
-.asset-pdf {
-  width: 100%;
-  height: 40rem;
-  margin: 1rem 0;
-  border: 1px solid var(--border);
-}
 
 textarea {
   font: inherit;

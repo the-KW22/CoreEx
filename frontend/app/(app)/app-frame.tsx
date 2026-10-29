@@ -11,6 +11,7 @@ import type { Folder } from "@/lib/folders";
 
 import { KbPanel } from "./kb-panel";
 import { Rail, railButton } from "./rail";
+import { Uploads } from "./assets/uploads";
 import { CommandPalette, openPalette } from "./search/command-palette";
 
 type Props = {
@@ -85,6 +86,7 @@ export function AppFrame({ email, isAdmin, folders, tags, children }: Props) {
         </SheetContent>
       </Sheet>
       <CommandPalette />
+      <Uploads folders={folders} />
       <Toaster />
     </TooltipProvider>
   );

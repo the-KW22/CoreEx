@@ -13,8 +13,7 @@ import {
   UploadIcon,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { startTransition, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { startTransition, useEffect, useState } from "react";
 
 import { toggleTheme } from "@/components/theme-toggle";
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -22,17 +21,13 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } fr
 import { viewingFolderId } from "@/lib/folders";
 import { itemHref } from "@/lib/items";
 
-import { ACCEPT_FILES, uploadFiles } from "../assets/upload-files";
+import { openUpload } from "../assets/uploads";
 import { createNote } from "../notes/actions";
 import type { QuickHit } from "./actions";
 
 const OPEN_EVENT = "coreex:open-palette";
-const PICK_EVENT = "coreex:pick-files";
 // The panel search field and the phone search icon open the palette with this.
 export const openPalette = () => window.dispatchEvent(new Event(OPEN_EVENT));
-// Other Upload and Import buttons use the palette's file pickers, so there is one upload path. Call it inside the
-// click: the browser only opens a file picker during one.
-export const pickFiles = (kind: "upload" | "import") => window.dispatchEvent(new CustomEvent(PICK_EVENT, { detail: kind }));
 
 // Asks the quick-lookup route: an empty text gives the recently opened Items. A failure is "nothing found".
 async function lookup(text: string): Promise<QuickHit[]> {
@@ -63,8 +58,6 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   // The answer and the text it answers, so a late answer for older text is never shown.
   const [result, setResult] = useState<{ text: string; hits: QuickHit[] }>();
-  const uploadInput = useRef<HTMLInputElement>(null);
-  const importInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const show = () => {
@@ -79,15 +72,11 @@ export function CommandPalette() {
         setOpen((was) => !was);
       }
     };
-    const pick = (event: Event) =>
-      ((event as CustomEvent).detail === "import" ? importInput : uploadInput).current?.click();
     window.addEventListener("keydown", onKey, { capture: true });
     window.addEventListener(OPEN_EVENT, show);
-    window.addEventListener(PICK_EVENT, pick);
     return () => {
       window.removeEventListener("keydown", onKey, { capture: true });
       window.removeEventListener(OPEN_EVENT, show);
-      window.removeEventListener(PICK_EVENT, pick);
     };
   }, []);
 
@@ -113,43 +102,8 @@ export function CommandPalette() {
     action();
   };
 
-  async function upload(files: File[]) {
-    if (files.length === 0) return;
-    setOpen(false);
-    const pending = toast.loading(files.length === 1 ? `Adding ${files[0].name}…` : `Adding ${files.length} files…`);
-    await uploadFiles(files, folderId, (index, change) => {
-      if (change.state === "done" && change.href) {
-        const href = change.href;
-        toast.success(`Added ${change.label}`, { action: { label: "Open", onClick: () => router.push(href) } });
-      } else if (change.state === "failed") {
-        toast.error(`${files[index].name}: ${change.message}`);
-      }
-    });
-    toast.dismiss(pending);
-    router.refresh();
-  }
-
-  const fileInput = (ref: React.RefObject<HTMLInputElement | null>, accept: string, label: string) => (
-    <input
-      ref={ref}
-      type="file"
-      multiple
-      accept={accept}
-      aria-label={label}
-      className="hidden"
-      onChange={(event) => {
-        void upload([...(event.target.files ?? [])]);
-        event.target.value = "";
-      }}
-    />
-  );
-
   return (
     <>
-      {/* Outside the Dialog, so they stay mounted while the file picker is open. */}
-      {fileInput(uploadInput, ACCEPT_FILES, "Choose files to upload")}
-      {fileInput(importInput, ".md,.txt", "Choose Markdown files to import")}
-
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
           showCloseButton={false}
@@ -221,12 +175,11 @@ export function CommandPalette() {
                       <FilePlusIcon aria-hidden />
                       New Note
                     </CommandItem>
-                    {/* The file picker must open inside the key press or click, so these do not close the palette first. */}
-                    <CommandItem value="upload" onSelect={() => uploadInput.current?.click()}>
+                    <CommandItem value="upload" onSelect={() => run(() => openUpload("upload"))}>
                       <UploadIcon aria-hidden />
                       Upload files
                     </CommandItem>
-                    <CommandItem value="import" onSelect={() => importInput.current?.click()}>
+                    <CommandItem value="import" onSelect={() => run(() => openUpload("import"))}>
                       <FileUpIcon aria-hidden />
                       Import Markdown
                     </CommandItem>

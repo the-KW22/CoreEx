@@ -4,9 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
-import { backTo } from "@/lib/items";
-
-import { moveItemTo } from "../items/actions";
 
 const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim();
 // An empty choice in a menu means the top level.
@@ -67,13 +64,4 @@ export async function deleteFolder(formData: FormData) {
   // Back to where the Folder was: its parent, or All Items. Only a Folder id is accepted from the form.
   const parentId = text(formData, "parentId");
   redirect(/^[0-9a-f-]{36}$/i.test(parentId) ? `/folders/${parentId}` : "/items");
-}
-
-export async function moveItem(formData: FormData) {
-  const id = text(formData, "id");
-  if (!id) return;
-
-  if (!(await moveItemTo(id, orNull(text(formData, "folderId"))))) {
-    redirect(`${backTo(text(formData, "back"), `/notes/${id}`)}?error=move`);
-  }
 }

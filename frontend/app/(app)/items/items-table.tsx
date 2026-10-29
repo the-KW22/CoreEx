@@ -21,17 +21,17 @@ import type { Folder } from "@/lib/folders";
 import { itemHref } from "@/lib/items";
 
 import { FolderSelect } from "../folders/folder-select";
-import { pickFiles } from "../search/command-palette";
+import { openUpload } from "../assets/uploads";
 import { moveItemTo, restoreItem, tagItem, trashItem } from "./actions";
 
 type Item = components["schemas"]["ItemResponse"];
 type Dialogs = { kind: "move" | "tag"; item: Item } | null;
 
-// Upload and Import open the command palette's file pickers, so there is one upload path.
+// Upload and Import open the Upload dialog.
 export function PickButton({ kind, label }: { kind: "upload" | "import"; label?: string }) {
   const Icon = kind === "upload" ? UploadIcon : FileUpIcon;
   return (
-    <Button type="button" variant="outline" onClick={() => pickFiles(kind)}>
+    <Button type="button" variant="outline" onClick={() => openUpload(kind)}>
       <Icon aria-hidden />
       {label ?? (kind === "upload" ? "Upload" : "Import")}
     </Button>
