@@ -1,32 +1,34 @@
-import Link from "next/link";
+import { DownloadIcon } from "lucide-react";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
 import { getApi } from "@/lib/api/server";
+import { pathTo } from "@/lib/folders";
 import { formatBytes } from "@/lib/items";
 
-import { ItemBacklinks, ItemFolder, ItemTags } from "../../items/item-sections";
+import { FolderPicker } from "../../items/folder-picker";
+import { ItemFrame } from "../../items/item-frame";
+import { ItemBacklinks } from "../../items/item-sections";
+import { TagEditor } from "../../items/tag-editor";
 import { RecordOpen } from "../../search/record-open";
-import { deleteAsset, updateAsset } from "../actions";
+import { deleteAsset } from "../actions";
+import { AssetText } from "./asset-text";
 
-const errors: Record<string, string> = {
-  update: "Could not save the changes. Try again.",
-  delete: "Could not move the Asset to the Trash. Try again.",
-  move: "Could not move the Asset. Try again.",
-  tag: "Could not add the Tag. Try again.",
-  untag: "Could not remove the Tag. Try again.",
-};
-
-export default async function AssetPage({ params, searchParams }: PageProps<"/assets/[id]">) {
+// The Asset screen (docs/DESIGN.md section 6.4): the Note's frame, a viewer stage, and Download.
+export default async function AssetPage({ params }: PageProps<"/assets/[id]">) {
   const { id } = await params;
-  const { error } = await searchParams;
   const api = await getApi();
-  const [result, list, view, download] = await Promise.all([
+  const [result, list, view, download, itemTags, allTags, jar] = await Promise.all([
     api.GET("/api/assets/{id}", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/folders").catch(() => null),
     api.GET("/api/assets/{id}/url", { params: { path: { id } } }).catch(() => null),
     api
       .GET("/api/assets/{id}/url", { params: { path: { id }, query: { download: true } } })
       .catch(() => null),
+    api.GET("/api/items/{id}/tags", { params: { path: { id } } }).catch(() => null),
+    api.GET("/api/tags").catch(() => null),
+    cookies(),
   ]);
 
   if (!result) {
@@ -40,63 +42,88 @@ export default async function AssetPage({ params, searchParams }: PageProps<"/as
   }
 
   const folders = list?.data?.items ?? [];
-  const folder = folders.find((f) => f.id === asset.folderId);
-  const back = `/assets/${asset.id}`;
   const viewUrl = view?.data?.url;
   const isPdf = asset.mimeType === "application/pdf";
+  const remembered = jar.get("details")?.value;
 
   return (
     <>
-      <p>
-        {folder ? <Link href={`/folders/${folder.id}`}>← {folder.name}</Link> : <Link href="/">← All Notes</Link>}
-      </p>
       <RecordOpen id={asset.id} />
-      <h1>{asset.title}</h1>
-      {typeof error === "string" && errors[error] && <p role="alert">{errors[error]}</p>}
-      <p>
-        {isPdf ? "PDF" : "Image"} · {formatBytes(asset.sizeBytes)}
-        {download?.data && (
+      <ItemFrame
+        crumbs={[
+          { href: "/items", label: "All Items" },
+          ...(asset.folderId ? pathTo(folders, asset.folderId) : []).map((f) => ({ href: `/folders/${f.id}`, label: f.name })),
+        ]}
+        current={asset.title}
+        extra={
+          download?.data && (
+            <Button asChild variant="ghost" size="sm">
+              <a href={download.data.url} download>
+                <DownloadIcon aria-hidden />
+                <span className="max-sm:sr-only">Download</span>
+              </a>
+            </Button>
+          )
+        }
+        trash={{ id: asset.id, action: deleteAsset }}
+        detailsCookie={remembered === "open" || remembered === "closed" ? remembered : null}
+        details={
           <>
-            {" · "}
-            <a href={download.data.url}>Download</a>
+            <AssetText key={`${asset.title}\n${asset.description}`} id={asset.id} title={asset.title} description={asset.description} />
+            <FolderPicker itemId={asset.id} folderId={asset.folderId} folders={folders} />
+            <section aria-labelledby="asset-tags-heading" className="grid gap-2">
+              <h2 id="asset-tags-heading" className="text-xs font-semibold text-muted-foreground">
+                Tags
+              </h2>
+              {itemTags?.data ? (
+                <TagEditor itemId={asset.id} tags={itemTags.data.items} allTags={allTags?.data?.items ?? []} />
+              ) : (
+                <p role="alert" className="text-sm">
+                  Could not load the Tags.
+                </p>
+              )}
+            </section>
+            <ItemBacklinks itemId={asset.id} />
+            <section aria-labelledby="info-heading" className="grid gap-2">
+              <h2 id="info-heading" className="text-xs font-semibold text-muted-foreground">
+                Info
+              </h2>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+                <dt className="text-muted-foreground">Type</dt>
+                <dd>{isPdf ? "PDF" : asset.mimeType.replace("image/", "").toUpperCase() + " image"}</dd>
+                <dt className="text-muted-foreground">Size</dt>
+                <dd className="font-mono">{formatBytes(asset.sizeBytes)}</dd>
+                <dt className="text-muted-foreground">Updated</dt>
+                <dd>
+                  <time dateTime={asset.updatedAt}>{asset.updatedAt.slice(0, 10)}</time>
+                </dd>
+              </dl>
+            </section>
           </>
-        )}
-      </p>
-
-      {!viewUrl ? (
-        <p role="alert">The file cannot be shown right now: file storage is not available. Try again in a moment.</p>
-      ) : isPdf ? (
-        <iframe className="asset-pdf" src={viewUrl} title={`PDF: ${asset.title}`} />
-      ) : (
-        // A plain <img>: the URL is a short-lived signed link to another origin, so Next's image
-        // optimizer cannot cache or resize it.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img className="asset-image" src={viewUrl} alt={asset.description || asset.title} />
-      )}
-
-      <h2>Details</h2>
-      <form action={updateAsset}>
-        <input type="hidden" name="id" value={asset.id} />
-        <label>
-          Title
-          <input name="title" required maxLength={200} defaultValue={asset.title} />
-        </label>
-        <label>
-          Description
-          <textarea name="description" maxLength={2000} rows={3} defaultValue={asset.description} />
-        </label>
-        <div className="actions">
-          <button type="submit">Save</button>
+        }
+      >
+        {/* A neutral stage, so the file is the brightest thing on screen. */}
+        <div className="grid flex-1 p-4 md:p-8">
+          <div className="grid min-h-80 place-items-center overflow-hidden rounded-[14px] border border-border bg-surface">
+            {!viewUrl ? (
+              <p role="alert" className="p-6 text-center text-sm">
+                The file cannot be shown right now: file storage is not available. Try again in a moment.
+              </p>
+            ) : isPdf ? (
+              <iframe src={viewUrl} title={`PDF: ${asset.title}`} className="h-[calc(100dvh-10rem)] w-full" />
+            ) : (
+              // A plain <img>: the URL is a short-lived signed link to another origin, so Next's image
+              // optimizer cannot cache or resize it.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={viewUrl}
+                alt={asset.description || asset.title}
+                className="max-h-[calc(100dvh-10rem)] max-w-full object-contain p-4"
+              />
+            )}
+          </div>
         </div>
-      </form>
-
-      <ItemFolder itemId={asset.id} folderId={asset.folderId} folders={folders} back={back} />
-      <ItemTags itemId={asset.id} back={back} />
-      <ItemBacklinks itemId={asset.id} />
-      <form action={deleteAsset} className="delete-note">
-        <input type="hidden" name="id" value={asset.id} />
-        <button type="submit">Move to Trash</button>
-      </form>
+      </ItemFrame>
     </>
   );
 }

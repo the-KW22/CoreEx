@@ -38,18 +38,17 @@ export async function finishUpload(uploadId: string): Promise<UploadFinish> {
   return { ok: true, id: result.data.id };
 }
 
-export async function updateAsset(formData: FormData) {
-  const id = String(formData.get("id") ?? "");
-  const title = String(formData.get("title") ?? "").trim();
-  const description = String(formData.get("description") ?? "");
-  if (!id || !title) return;
-
+// Saves an Asset's title and description, edited in place on its page. Answers whether it worked.
+export async function saveAssetText(id: string, title: string, description: string): Promise<boolean> {
+  const trimmed = title.trim();
+  if (!trimmed) return false;
   const api = await getApi();
   const result = await api
-    .PUT("/api/assets/{id}", { params: { path: { id } }, body: { title, description } })
+    .PUT("/api/assets/{id}", { params: { path: { id } }, body: { title: trimmed, description } })
     .catch(() => null);
-  if (!result?.data) redirect(`/assets/${id}?error=update`);
+  if (!result?.data) return false;
   revalidatePath("/", "layout");
+  return true;
 }
 
 export async function deleteAsset(formData: FormData) {

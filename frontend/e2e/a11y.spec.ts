@@ -205,14 +205,20 @@ test("on a phone the search icon opens a full-screen palette", async ({ page }) 
 
 test("Import Markdown from the command palette adds the Note and says so", async ({ page }) => {
   await signIn(page);
-  await openPalette(page);
+  const palette = await openPalette(page);
+  await palette.getByRole("option", { name: "Import Markdown" }).click();
+  const dialog = page.getByRole("dialog", { name: "Import Markdown" });
   const title = `Imported probe ${Date.now()}`;
-  // The palette's hidden file input; the file picker itself is the browser's, so set the file directly.
-  await page.getByLabel("Choose Markdown files to import").setInputFiles({
+  // The dialog's file input; the file picker itself is the browser's, so set the file directly.
+  await dialog.getByLabel("Choose files").setInputFiles({
     name: `${title}.md`,
     mimeType: "text/markdown",
     buffer: Buffer.from(`# ${title}\n\nMade by the end-to-end test.`),
   });
+  // The dialog lists it as added, and a toast says so too.
+  await expect(dialog.getByRole("list", { name: "Files" }).getByRole("img", { name: "Added" })).toBeVisible();
+  await expectNoViolations(page);
+  await page.keyboard.press("Escape");
   const added = page.getByRole("listitem").filter({ hasText: `Added ${title}` });
   await expect(added).toBeVisible();
 
@@ -469,6 +475,64 @@ test("on a phone the Note's Details open as a bottom Sheet", async ({ page }) =>
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+// A 1×1 PNG.
+const PIXEL = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkaPhfDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+test("dropping files anywhere in the Knowledge Base shows the overlay and uploads them", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/items");
+  const name = `Dropped probe ${Date.now()}`;
+  const files = await page.evaluateHandle((n) => {
+    const data = new DataTransfer();
+    data.items.add(new File([`# ${n}`], `${n}.md`, { type: "text/markdown" }));
+    return data;
+  }, name);
+  await page.dispatchEvent("main", "dragenter", { dataTransfer: files });
+  await expect(page.getByText("Drop to add to the top level")).toBeVisible();
+  await page.dispatchEvent("main", "drop", { dataTransfer: files });
+  await expect(page.getByText("Drop to add to the top level")).toBeHidden();
+  const dialog = page.getByRole("dialog", { name: "Upload files" });
+  await expect(dialog.getByRole("link", { name })).toBeVisible();
+
+  // Tidy up.
+  await dialog.getByRole("link", { name }).click();
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("an uploaded image opens on the Asset screen, edits in place and downloads", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/items");
+  // The header's button; an empty list shows a second one.
+  await page.getByRole("button", { name: "Upload", exact: true }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Upload files" });
+  const name = `pixel-${Date.now()}.png`;
+  await dialog.getByLabel("Choose files").setInputFiles({ name, mimeType: "image/png", buffer: PIXEL });
+  await dialog.getByRole("link", { name }).click();
+  await expect(page).toHaveURL(/\/assets\//);
+
+  await expect(page.getByRole("img", { name })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Download" })).toHaveAttribute("download", "");
+  const details = page.getByRole("complementary", { name: "Details" });
+  await expect(details.getByText("PNG image")).toBeVisible();
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await expectNoViolations(page);
+  }
+
+  // The title edits in place; the breadcrumb follows once it is saved.
+  const renamed = `Renamed ${name}`;
+  await details.getByLabel("Title").fill(renamed);
+  await details.getByLabel("Title").press("Enter");
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByText(renamed)).toBeVisible();
+
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });

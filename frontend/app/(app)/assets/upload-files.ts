@@ -1,7 +1,28 @@
 import { importNotes } from "../notes/actions";
 import { finishUpload, startUpload } from "./actions";
 
-export type Outcome = { name: string; state: "uploading" | "done" | "failed"; message?: string; href?: string; label?: string };
+export type Outcome = {
+  name: string;
+  state: "uploading" | "done" | "failed";
+  /** 0 to 1 while an Asset is sent to Storage; absent while a Markdown import runs. */
+  progress?: number;
+  message?: string;
+  href?: string;
+  label?: string;
+};
+
+// fetch() cannot report upload progress; XMLHttpRequest can. Resolves with whether Storage took the file.
+function put(url: string, file: File, onProgress: (share: number) => void): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("PUT", url);
+    request.setRequestHeader("Content-Type", file.type);
+    request.upload.onprogress = (event) => event.lengthComputable && onProgress(event.loaded / event.total);
+    request.onload = () => resolve(request.status >= 200 && request.status < 300);
+    request.onerror = () => reject(new Error("network"));
+    request.send(file);
+  });
+}
 
 // Markdown and text files become Notes; everything else is an Asset (the API refuses what it does not allow).
 const isText = (file: File) => /\.(md|txt)$/i.test(file.name);
@@ -73,12 +94,9 @@ export async function uploadFiles(
         show(index, { state: "failed", message: started.message });
         continue;
       }
-      const stored = await fetch(started.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!stored.ok) {
+      show(index, { progress: 0 });
+      const stored = await put(started.uploadUrl, file, (share) => show(index, { progress: share }));
+      if (!stored) {
         show(index, { state: "failed", message: "The storage service refused the file." });
         continue;
       }
