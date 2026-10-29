@@ -94,6 +94,11 @@ public class FolderService {
 		folders.trash(ownerId, subtree(ownerId, id), UUID.randomUUID(), clock.instant());
 	}
 
+	/** The Folder and all its live subfolders, at any depth; a 404 if the Folder is missing, deleted or not theirs. */
+	public List<UUID> subtreeIds(UUID ownerId, UUID id) {
+		return subtree(ownerId, id);
+	}
+
 	private List<UUID> subtree(UUID ownerId, UUID id) {
 		var ids = folders.liveSubtreeIds(ownerId, id);
 		if (ids.isEmpty()) {

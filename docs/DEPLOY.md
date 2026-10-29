@@ -67,6 +67,10 @@ Assets (images and PDFs) are kept in a private Supabase Storage bucket. The back
 
 Browsers upload straight to `https://<project ref>.supabase.co`, which allows cross-origin requests from any site by default; nothing needs changing there. Each User has a 100 MB quota by default (`coreex.assets.default-quota-bytes`), and a file is at most 5 MB.
 
+## Search needs the `pg_trgm` extension
+
+Migration `V10` runs `create extension if not exists pg_trgm`, which puts the extension in the `coreex` schema (the first schema on the backend's search path). It is a trusted contrib extension, so the `postgres` role may create it on Supabase. If the project already had `pg_trgm` enabled in another schema (Database > Extensions), the backend would not find its functions: disable it there before the release, and the migration will create it in `coreex`.
+
 ## Things to know
 
 - **Use the Session pooler, not the direct connection.** Supabase's direct database host is IPv6-only and Render's free tier is IPv4-only. The Session pooler (port 5432) works with Flyway and prepared statements; the Transaction pooler (port 6543) does not suit them.

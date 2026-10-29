@@ -5,6 +5,7 @@ import { getApi } from "@/lib/api/server";
 import { formatBytes } from "@/lib/items";
 
 import { ItemBacklinks, ItemFolder, ItemTags } from "../../items/item-sections";
+import { RecordOpen } from "../../search/record-open";
 import { deleteAsset, updateAsset } from "../actions";
 
 const errors: Record<string, string> = {
@@ -49,6 +50,7 @@ export default async function AssetPage({ params, searchParams }: PageProps<"/as
       <p>
         {folder ? <Link href={`/folders/${folder.id}`}>← {folder.name}</Link> : <Link href="/">← All Notes</Link>}
       </p>
+      <RecordOpen id={asset.id} />
       <h1>{asset.title}</h1>
       {typeof error === "string" && errors[error] && <p role="alert">{errors[error]}</p>}
       <p>

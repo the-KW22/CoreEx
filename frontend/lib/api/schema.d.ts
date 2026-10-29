@@ -164,6 +164,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/items/{id}/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["open"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/items/{id}/move": {
         parameters: {
             query?: never;
@@ -300,6 +316,38 @@ export interface paths {
             cookie?: never;
         };
         get: operations["list_4"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/search/quick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["quick"];
         put?: never;
         post?: never;
         delete?: never;
@@ -708,6 +756,40 @@ export interface components {
             items: components["schemas"]["TagCountResponse"][];
             /** Format: int64 */
             total: number;
+        };
+        SearchHitResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "NOTE" | "ASSET";
+            title: string;
+            /** @description The Folder path such as "Work / CoreEx", null at the top level */
+            folderPath: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Plain text pieces, the matches flagged: never markup */
+            snippet: components["schemas"]["SegmentResponse"][];
+        };
+        SearchPage: {
+            items: components["schemas"]["SearchHitResponse"][];
+            /** Format: int64 */
+            total: number;
+        };
+        SegmentResponse: {
+            text: string;
+            /** @description True where the text matched the query */
+            match: boolean;
+        };
+        QuickHitResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "NOTE" | "ASSET";
+            title: string;
+            folderPath: string | null;
+        };
+        QuickList: {
+            items: components["schemas"]["QuickHitResponse"][];
         };
         Me: {
             /** Format: uuid */
@@ -1413,6 +1495,35 @@ export interface operations {
             };
         };
     };
+    open: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recorded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND (also for another User's or a trashed Item) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     move: {
         parameters: {
             query?: never;
@@ -1870,6 +1981,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TagList"];
+                };
+            };
+        };
+    };
+    search: {
+        parameters: {
+            query?: {
+                q?: string;
+                type?: "NOTE" | "ASSET";
+                tagId?: string;
+                folderId?: string;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of matches, best first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchPage"];
+                };
+            };
+            /** @description Code NOT_FOUND: no such Folder or Tag */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    quick: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuickList"];
                 };
             };
         };

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getApi } from "@/lib/api/server";
 
 import { ItemBacklinks, ItemFolder, ItemTags } from "../../items/item-sections";
+import { RecordOpen } from "../../search/record-open";
 import { deleteNote } from "../actions";
 import { NoteEditor } from "./note-editor";
 
@@ -38,6 +39,7 @@ export default async function NotePage({ params, searchParams }: PageProps<"/not
       {error === "move" && <p role="alert">Could not move the Note. Try again.</p>}
       {error === "tag" && <p role="alert">Could not add the Tag. Try again.</p>}
       {error === "untag" && <p role="alert">Could not remove the Tag. Try again.</p>}
+      <RecordOpen id={note.id} />
       <NoteEditor key={note.id} id={note.id} initial={note} />
       <ItemFolder itemId={note.id} folderId={note.folderId} folders={folders} back={back} />
       <ItemTags itemId={note.id} back={back} />

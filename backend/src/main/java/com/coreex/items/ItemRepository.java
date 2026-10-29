@@ -1,5 +1,7 @@
 package com.coreex.items;
 
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -65,6 +67,12 @@ class ItemRepository {
 	List<Item> findLiveByIds(UUID ownerId, List<UUID> ids) {
 		return jdbc.sql("select " + COLUMNS + " from items where owner_id = :owner and deleted_at is null and id in (:ids)")
 				.param("owner", ownerId).param("ids", ids).query(MAPPER).list();
+	}
+
+	/** Notes that the User opened the Item. False when the Item is missing, deleted or not theirs. */
+	boolean markOpened(UUID ownerId, UUID id, Instant at) {
+		return jdbc.sql("update items set last_opened_at = :at where id = :id and owner_id = :owner and deleted_at is null")
+				.param("at", Timestamp.from(at)).param("id", id).param("owner", ownerId).update() > 0;
 	}
 
 	/** At most two ids: enough to tell "exactly one" from "none" or "several". */

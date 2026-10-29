@@ -320,3 +320,79 @@ textarea {
   font: inherit;
   padding: 0.5rem;
 }
+
+/* Search and the quick switcher. */
+.nav-search {
+  display: flex;
+  gap: 0.25rem;
+  margin: 0.5rem 0 0;
+}
+
+.nav-search input {
+  width: 8rem;
+  min-width: 0;
+}
+
+.search-results {
+  padding-left: 1.25rem;
+}
+
+.search-results li {
+  margin-bottom: 1rem;
+}
+
+.search-results p {
+  margin: 0.25rem 0 0;
+}
+
+mark {
+  color: inherit;
+  background: color-mix(in srgb, #facc15 55%, transparent);
+  border-radius: 2px;
+}
+
+.quick-switcher {
+  width: min(32rem, 92vw);
+  padding: 1rem;
+  color: var(--foreground);
+  background: var(--background);
+  border: 1px solid var(--border);
+  box-shadow: 0 1rem 3rem rgb(0 0 0 / 0.4);
+}
+
+.quick-switcher::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+
+.quick-switcher input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.quick-switcher ul {
+  max-height: 20rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.quick-switcher li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem;
+  cursor: pointer;
+}
+
+.quick-switcher li.active {
+  outline: 2px solid var(--foreground);
+  outline-offset: -2px;
+}
+
+.quick-status,
+.quick-hint {
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
