@@ -1,6 +1,8 @@
 package com.coreex.tags;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 
 import java.net.http.HttpResponse;
 import java.util.UUID;
@@ -10,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import com.coreex.ApiTest;
 import com.coreex.TestJwts;
@@ -18,6 +21,9 @@ class TagApiTest extends ApiTest {
 
 	@Autowired
 	JdbcClient jdbc;
+
+	@MockitoSpyBean
+	TagRepository tagRepository;
 
 	private String userA;
 
@@ -222,6 +228,24 @@ class TagApiTest extends ApiTest {
 	@Test
 	void tagsNeedASignedInUser() throws Exception {
 		assertThat(get("/api/tags").statusCode()).isEqualTo(401);
+	}
+
+	@Test
+	void aTagDeletedWhileItIsBeingAddedIsCreatedAgainNotA500() throws Exception {
+		var item = note(userA, "N");
+		var first = tagId(userA, item, "Research");
+		// The Tag is deleted in the moment between "find or create" and "link".
+		doAnswer(call -> {
+			var tag = call.callRealMethod();
+			jdbc.sql("delete from tags where id = :id").param("id", UUID.fromString(first)).update();
+			return tag;
+		}).doCallRealMethod().when(tagRepository).findOrCreate(any(), any());
+
+		var added = tag(userA, item, "Research");
+
+		assertThat(added.statusCode()).as(added.body()).isEqualTo(200);
+		assertThat(field(added.body(), "id")).isNotEqualTo(first);
+		assertThat(get("/api/items/" + item + "/tags", userA).body()).contains("\"total\":1");
 	}
 
 }

@@ -75,7 +75,9 @@ public class ItemService {
 	/** Moves an Item into a Folder, or to the top level when folderId is null. */
 	@Transactional
 	Item move(UUID ownerId, UUID id, UUID folderId) {
-		requireFolder(ownerId, folderId);
+		if (folderId != null) {
+			folders.requireLiveForWrite(ownerId, folderId);
+		}
 		if (!items.moveLive(ownerId, id, folderId)) {
 			throw notFound();
 		}

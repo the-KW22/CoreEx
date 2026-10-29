@@ -44,8 +44,7 @@ public class IdentityService {
 		return user;
 	}
 
-	// shortcut: two simultaneous first requests may make the loser see NOT_INVITED once, and an email already
-	// held by a different auth id fails on the unique index; handle both if sign-ups ever collide.
+	// shortcut: an email already held by a different auth id fails on the unique index; handle it if sign-ups ever collide.
 	private Optional<User> provision(UUID id, String email) {
 		if (email == null) {
 			return Optional.empty();
@@ -59,7 +58,9 @@ public class IdentityService {
 			role = User.Role.USER;
 		}
 		else {
-			return Optional.empty();
+			// The Invite may have just been used by another request of this same person (the page and its sidebar
+			// call the API together on a first sign-in); that request has created the User by now.
+			return users.findById(id);
 		}
 		users.insert(new User(id, normalized, role, User.Status.ACTIVE, null));
 		return users.findById(id);
