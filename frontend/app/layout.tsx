@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Atkinson_Hyperlegible_Next, Geist_Mono, Manrope } from "next/font/google";
 
 import { MotionProvider } from "@/components/motion-provider";
+import { motionCssVars } from "@/lib/motion";
 
 import "./globals.css";
 
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${manrope.variable} ${atkinson.variable} ${geistMono.variable}`}
+      style={motionCssVars}
       suppressHydrationWarning
     >
       <head>

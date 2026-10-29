@@ -117,7 +117,7 @@ A **Tag colour** (CONTEXT.md) is one of 8 names. The API stores the **name**, ne
 | `--ease-out` | `cubic-bezier(0.22, 1, 0.36, 1)` | Entering |
 | `--ease-in-out` | `cubic-bezier(0.65, 0, 0.35, 1)` | Moving, layout |
 
-The same tokens are used by CSS, Motion and View Transitions.
+The same tokens are used by CSS, Motion and View Transitions. They are defined once in `frontend/lib/motion.ts`, which Motion reads directly and the root layout sets as CSS variables on `<html>`.
 
 ## 5. Theme and preferences
 

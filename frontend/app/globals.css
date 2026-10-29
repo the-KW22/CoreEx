@@ -40,11 +40,7 @@
   --tag-pink: #be185d;
   --tag-tint: 12%;
 
-  --duration-fast: 150ms;
-  --duration-base: 200ms;
-  --duration-slow: 320ms;
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  /* --duration-* and --ease-* come from lib/motion.ts, set on <html> in app/layout.tsx. */
 }
 
 :root[data-theme="dark"] {
@@ -377,13 +373,15 @@ td {
   list-style: none;
 }
 
+/* TagBadge draws the pill, so the item only lines it up with its remove button. */
 .tag-list li {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.125rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 1rem;
+}
+
+.tag-list a {
+  text-decoration: none;
 }
 
 .tag-list form {

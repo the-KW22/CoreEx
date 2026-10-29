@@ -19,7 +19,11 @@ async function signIn(page: Page) {
   // Only the form's error: Next.js's route announcer is also an "alert", outside <main>.
   const failed = page.getByRole("main").getByRole("alert");
   await expect(page.getByRole("navigation", { name: "Main" }).or(failed)).toBeVisible();
-  if (await failed.isVisible()) await submit(page, "Create account");
+  if (await failed.isVisible()) {
+    await submit(page, "Create account");
+    // Fails with the form's own message, e.g. an existing account with another password.
+    await expect(failed).toHaveCount(0);
+  }
   await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
 }
 
