@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
 
+import { trashItem } from "../items/actions";
 import type { LinkTarget } from "./[id]/links";
 
 export type SaveResult =
@@ -116,8 +117,7 @@ export async function deleteNote(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const api = await getApi();
-  await api.DELETE("/api/notes/{id}", { params: { path: { id } } }).catch(() => null);
-  // Success or not, the Note list is the place to see where things stand.
-  redirect("/");
+  await trashItem(id, "NOTE");
+  // Success or not, the Item list is the place to see where things stand.
+  redirect("/items");
 }

@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
-import { itemHref } from "@/lib/items";
+import { pageInfo } from "@/lib/pages";
 
+import { ItemsView, PAGE_SIZE } from "../../items/items-view";
 import { deleteTag, renameTag } from "../actions";
 
 const errors: Record<string, string> = {
@@ -14,11 +14,13 @@ const errors: Record<string, string> = {
 
 export default async function TagPage({ params, searchParams }: PageProps<"/tags/[id]">) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, page: raw } = await searchParams;
+  const requested = pageInfo(0, raw, PAGE_SIZE).page;
   const api = await getApi();
-  const [list, items] = await Promise.all([
+  const [list, items, folders] = await Promise.all([
     api.GET("/api/tags").catch(() => null),
-    api.GET("/api/items", { params: { query: { tagId: id } } }).catch(() => null),
+    api.GET("/api/items", { params: { query: { tagId: id, page: requested, size: PAGE_SIZE } } }).catch(() => null),
+    api.GET("/api/folders").catch(() => null),
   ]);
 
   if (!list || !items) {
@@ -33,57 +35,42 @@ export default async function TagPage({ params, searchParams }: PageProps<"/tags
   if (!tag) notFound();
 
   return (
-    <>
-      <p>
-        <Link href="/tags">All Tags</Link>
-      </p>
-      <h1>{tag.name}</h1>
-      {typeof error === "string" && errors[error] && <p role="alert">{errors[error]}</p>}
-
-      {items.data.items.length === 0 ? (
-        <p>No Items have this Tag.</p>
-      ) : (
-        <table>
-          <caption>Items with this Tag, most recently updated first</caption>
-          <thead>
-            <tr>
-              <th scope="col">Title</th>
-              <th scope="col">Updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.data.items.map((item) => (
-              <tr key={item.id}>
-                <td>
-                  <Link href={itemHref(item)}>{item.title || "Untitled"}</Link>
-                </td>
-                <td>{item.updatedAt.slice(0, 10)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      <h2>Manage</h2>
-      <form action={renameTag} className="inline-form">
-        <input type="hidden" name="id" value={id} />
-        <label>
-          Name
-          <input name="name" required maxLength={50} defaultValue={tag.name} />
-        </label>
-        <button type="submit">Rename</button>
-      </form>
-
-      <details className="delete-folder">
-        <summary>Delete Tag…</summary>
-        <p>
-          This removes the Tag from {tag.itemCount} {tag.itemCount === 1 ? "Item" : "Items"}. The Items are kept.
-        </p>
-        <form action={deleteTag}>
+    <ItemsView
+      crumbs={[{ href: "/tags", label: "Tags" }]}
+      title={tag.name}
+      folderId={null}
+      cards={[]}
+      folders={folders?.data?.items ?? []}
+      tags={list.data.items}
+      items={items.data}
+      page={pageInfo(items.data.total, raw, PAGE_SIZE)}
+      path={`/tags/${id}`}
+      empty="No Items have this Tag yet."
+      alert={typeof error === "string" ? errors[error] : undefined}
+    >
+      {/* shortcut: managing a Tag keeps the first UI's forms, restyle them with the Tags page work (#59). */}
+      <section aria-labelledby="manage-heading">
+        <h2 id="manage-heading">Manage</h2>
+        <form action={renameTag} className="inline-form">
           <input type="hidden" name="id" value={id} />
-          <button type="submit">Delete Tag</button>
+          <label>
+            Name
+            <input name="name" required maxLength={50} defaultValue={tag.name} />
+          </label>
+          <button type="submit">Rename</button>
         </form>
-      </details>
-    </>
+
+        <details className="delete-folder">
+          <summary>Delete Tag…</summary>
+          <p>
+            This removes the Tag from {tag.itemCount} {tag.itemCount === 1 ? "Item" : "Items"}. The Items are kept.
+          </p>
+          <form action={deleteTag}>
+            <input type="hidden" name="id" value={id} />
+            <button type="submit">Delete Tag</button>
+          </form>
+        </details>
+      </section>
+    </ItemsView>
   );
 }

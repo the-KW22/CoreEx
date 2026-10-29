@@ -1,0 +1,48 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+
+import { getApi } from "@/lib/api/server";
+
+// The Item list's row actions. Unlike the form actions on an Item's own page, these answer whether they worked, so
+// the list can say so in a toast and stay where it is.
+export type ItemType = "NOTE" | "ASSET";
+
+// Folders, counts and every list may change, so refresh them all.
+const done = (ok: boolean) => {
+  if (ok) revalidatePath("/", "layout");
+  return ok;
+};
+
+export async function moveItemTo(id: string, folderId: string | null): Promise<boolean> {
+  const api = await getApi();
+  const result = await api
+    .POST("/api/items/{id}/move", { params: { path: { id } }, body: { folderId } })
+    .catch(() => null);
+  return done(!!result?.data);
+}
+
+export async function tagItem(id: string, name: string): Promise<boolean> {
+  const trimmed = name.trim();
+  if (!trimmed) return false;
+  const api = await getApi();
+  const result = await api
+    .POST("/api/items/{id}/tags", { params: { path: { id } }, body: { name: trimmed } })
+    .catch(() => null);
+  return done(!!result?.data);
+}
+
+export async function trashItem(id: string, type: ItemType): Promise<boolean> {
+  const api = await getApi();
+  const result = await (type === "NOTE"
+    ? api.DELETE("/api/notes/{id}", { params: { path: { id } } })
+    : api.DELETE("/api/assets/{id}", { params: { path: { id } } })
+  ).catch(() => null);
+  return done(!!result && !result.error);
+}
+
+export async function restoreItem(id: string): Promise<boolean> {
+  const api = await getApi();
+  const result = await api.POST("/api/trash/items/{id}/restore", { params: { path: { id } } }).catch(() => null);
+  return done(!!result && !result.error);
+}

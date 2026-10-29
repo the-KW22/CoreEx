@@ -25,10 +25,9 @@ export const railButton = cn(
   "hover:bg-surface hover:text-foreground [&_svg]:size-5",
 );
 
-// shortcut: Knowledge Base opens today's Item list at "/" until /items lands (#55), then point it there.
 const MODULES: { id: Module; href: string; label: string; icon: typeof HouseIcon }[] = [
   { id: "home", href: "/", label: "Home", icon: HouseIcon },
-  { id: "kb", href: "/", label: "Knowledge Base", icon: LibraryIcon },
+  { id: "kb", href: "/items", label: "Knowledge Base", icon: LibraryIcon },
 ];
 
 function Hint({ label, children }: { label: string; children: React.ReactNode }) {

@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 import { getApi } from "@/lib/api/server";
 import { backTo } from "@/lib/items";
 
+import { tagItem } from "../items/actions";
+
 const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim();
 const refresh = () => revalidatePath("/", "layout");
 
@@ -14,12 +16,7 @@ export async function addTag(formData: FormData) {
   const name = text(formData, "name");
   if (!id || !name) return;
 
-  const api = await getApi();
-  const result = await api
-    .POST("/api/items/{id}/tags", { params: { path: { id } }, body: { name } })
-    .catch(() => null);
-  if (!result?.data) redirect(`${backTo(text(formData, "back"), `/notes/${id}`)}?error=tag`);
-  refresh();
+  if (!(await tagItem(id, name))) redirect(`${backTo(text(formData, "back"), `/notes/${id}`)}?error=tag`);
 }
 
 export async function removeTag(formData: FormData) {

@@ -72,6 +72,13 @@ for (const [colorScheme, background] of [
       await expectNoViolations(page);
     });
 
+    test("All Items has no WCAG 2.2 AA violations", async ({ page }) => {
+      await signIn(page);
+      await page.goto("/items");
+      await expect(page.getByRole("heading", { name: "All Items", level: 1 })).toBeVisible();
+      await expectNoViolations(page);
+    });
+
     test("the phone menu has no WCAG 2.2 AA violations", async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 812 });
       await signIn(page);
@@ -206,4 +213,100 @@ test("the command palette says it is searching while the answer is on its way", 
   await expect(palette.getByText("Searching…", { exact: true }).first()).toBeVisible();
   release();
   await expect(palette.getByText("Searching…", { exact: true })).toHaveCount(0);
+});
+
+// Makes a Note with this title from the command palette and waits until it is saved.
+async function newNote(page: Page, title: string) {
+  const palette = await openPalette(page);
+  await palette.getByRole("option", { name: "New Note" }).click();
+  await expect(page).toHaveURL(/\/notes\//);
+  await page.getByLabel("Title").fill(title);
+  await expect(page.getByText(/^Saved at/)).toBeVisible();
+}
+
+test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const title = `List probe ${stamp}`;
+  const folderName = `Probe folder ${stamp}`;
+  const tagName = `probe-${stamp}`;
+  await newNote(page, title);
+
+  // A Folder to move into, from the panel.
+  await page.getByRole("button", { name: "New Folder" }).click();
+  await page.getByLabel("Folder name").fill(folderName);
+  await page.getByRole("button", { name: "Create Folder" }).click();
+
+  await page.goto("/items");
+  const row = page.getByRole("row").filter({ hasText: title });
+  const menu = row.getByRole("button", { name: `Actions for ${title}` });
+  await expectNoViolations(page);
+
+  await menu.click();
+  await page.getByRole("menuitem", { name: "Move to Folder…" }).click();
+  const move = page.getByRole("dialog", { name: "Move to Folder" });
+  await move.getByLabel("Folder").selectOption({ label: folderName });
+  await move.getByRole("button", { name: "Move" }).click();
+  await expect(row.getByRole("cell", { name: folderName })).toBeVisible();
+  await expect(menu).toBeFocused();
+
+  // The right-click menu has the same actions.
+  await row.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Add Tag…" }).click();
+  const tag = page.getByRole("dialog", { name: "Add a Tag" });
+  await tag.getByLabel("Tag name").fill(tagName);
+  await tag.getByRole("button", { name: "Add Tag" }).click();
+  await expect(page.getByText(`Tagged "${title}"`)).toBeVisible();
+
+  const [tab] = await Promise.all([
+    page.waitForEvent("popup"),
+    (async () => {
+      await menu.click();
+      await page.getByRole("menuitem", { name: "Open in new tab" }).click();
+    })(),
+  ]);
+  await expect(tab).toHaveURL(/\/notes\//);
+  await tab.close();
+
+  await menu.click();
+  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await expect(row).toHaveCount(0);
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(row).toBeVisible();
+
+  // The Tag page lists it, in the same layout.
+  await page.goto("/tags");
+  await page.getByRole("main").getByRole("link", { name: tagName }).click();
+  await expect(page.getByRole("heading", { name: tagName, level: 1 })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: title })).toBeVisible();
+
+  // Tidy up: the Note and the Folder go to the Trash, the Tag is deleted.
+  await page.getByText("Delete Tag…").click();
+  await page.getByRole("button", { name: "Delete Tag" }).click();
+  await page.goto("/items");
+  await menu.click();
+  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await expect(row).toHaveCount(0);
+  await page.getByRole("main").getByRole("link", { name: folderName }).click();
+  await page.getByText("Move to Trash…").click();
+  await page.getByRole("button", { name: "Move Folder to Trash" }).click();
+  // A top-level Folder goes back to All Items.
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("on a phone Item rows stack and the page does not scroll sideways", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await signIn(page);
+  const title = `Phone probe ${Date.now()}`;
+  await newNote(page, title);
+  await page.goto("/items");
+  const row = page.getByRole("row").filter({ hasText: title });
+  await expect(row.getByRole("button", { name: `Actions for ${title}` })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Title" })).toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+  await expectNoViolations(page);
+
+  await row.getByRole("button", { name: `Actions for ${title}` }).click();
+  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await expect(row).toHaveCount(0);
 });
