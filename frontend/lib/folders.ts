@@ -45,3 +45,6 @@ export function pathTo(folders: Folder[], id: string): Folder[] {
   for (let at = byId.get(id); at; at = at.parentId ? byId.get(at.parentId) : undefined) path.unshift(at);
   return path;
 }
+
+// The Folder whose page is open, from the URL: the panel highlights it and new Notes and uploads go into it.
+export const viewingFolderId = (pathname: string) => /^\/folders\/([^/]+)/.exec(pathname)?.[1];

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ancestorIds, type Folder } from "./folders";
+import { ancestorIds, type Folder, viewingFolderId } from "./folders";
 
 const folder = (id: string, parentId: string | null): Folder => ({ id, parentId, name: id }) as Folder;
 
@@ -19,5 +19,18 @@ describe("ancestorIds", () => {
   it("stops if bad data made the parents loop", () => {
     const loop = [folder("a", "b"), folder("b", "a")];
     expect(ancestorIds(loop, "a").length).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("viewingFolderId", () => {
+  it("is the id on a Folder page, and on nothing below it", () => {
+    expect(viewingFolderId("/folders/abc")).toBe("abc");
+    expect(viewingFolderId("/folders/abc/")).toBe("abc");
+  });
+
+  it("is undefined everywhere else", () => {
+    for (const path of ["/", "/folders", "/notes/abc", "/tags/abc", "/foldersx/abc"]) {
+      expect(viewingFolderId(path)).toBeUndefined();
+    }
   });
 });
