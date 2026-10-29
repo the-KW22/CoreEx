@@ -41,8 +41,14 @@ async function openPalette(page: Page) {
 
 async function expectNoViolations(page: Page) {
   // Text that is still fading in fails contrast, so let opening animations finish (endless ones, like spinners, aside).
-  await page.waitForFunction(() =>
-    document.getAnimations().every((a) => a.playState !== "running" || a.effect?.getComputedTiming().iterations === Infinity),
+  await page.waitForFunction(
+    () =>
+      document.getAnimations().every((a) => a.playState !== "running" || a.effect?.getComputedTiming().iterations === Infinity) &&
+      // Motion fades with inline styles rather than CSS animations. Fully transparent parts are skipped by axe anyway.
+      [...document.querySelectorAll<HTMLElement>("[style*=opacity]")].every((el) => {
+        const opacity = Number(el.style.opacity);
+        return opacity === 0 || opacity === 1;
+      }),
   );
   const { violations } = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
@@ -69,6 +75,14 @@ for (const [colorScheme, background] of [
       await signIn(page);
       const palette = await openPalette(page);
       await expect(palette.getByRole("option", { name: "New Note" })).toBeVisible();
+      await expectNoViolations(page);
+    });
+
+    test("Home has no WCAG 2.2 AA violations", async ({ page }) => {
+      await signIn(page);
+      await expect(page.getByRole("heading", { name: "Welcome back", level: 1 })).toBeVisible();
+      // Past the loading skeleton.
+      await expect(page.getByRole("status").filter({ hasText: "Loading your Home" })).toHaveCount(0);
       await expectNoViolations(page);
     });
 
@@ -148,6 +162,8 @@ test("the command palette finds a Note by title and searches all text", async ({
   await palette.getByRole("option", { name: "New Note" }).click();
   await expect(page).toHaveURL(/\/notes\//);
   await page.getByLabel("Title").fill(title);
+  // "Saved at" also shows before typing, so wait for the change to register first.
+  await expect(page.getByText("Unsaved changes")).toBeVisible();
   await expect(page.getByText(/^Saved at/)).toBeVisible();
 
   await openPalette(page);
@@ -221,6 +237,8 @@ async function newNote(page: Page, title: string) {
   await palette.getByRole("option", { name: "New Note" }).click();
   await expect(page).toHaveURL(/\/notes\//);
   await page.getByLabel("Title").fill(title);
+  // "Saved at" also shows before typing, so wait for the change to register first.
+  await expect(page.getByText("Unsaved changes")).toBeVisible();
   await expect(page.getByText(/^Saved at/)).toBeVisible();
 }
 
@@ -309,4 +327,24 @@ test("on a phone Item rows stack and the page does not scroll sideways", async (
   await row.getByRole("button", { name: `Actions for ${title}` }).click();
   await page.getByRole("menuitem", { name: "Move to Trash" }).click();
   await expect(row).toHaveCount(0);
+});
+
+test("Home shows a new Note under Recently edited and Jump back in", async ({ page }) => {
+  await signIn(page);
+  const title = `Home probe ${Date.now()}`;
+  // Opening the Note's page records it as recently opened.
+  await newNote(page, title);
+  await page.goto("/");
+
+  const edited = page.getByRole("region", { name: "Recently edited" });
+  const card = edited.getByRole("link", { name: new RegExp(title) });
+  await expect(card).toContainText(/Edited (just now|1 minute ago)/);
+  await expect(page.getByRole("region", { name: "Jump back in" }).getByRole("link", { name: new RegExp(title) })).toBeVisible();
+  await expect(page.getByRole("meter", { name: "Storage used" })).toBeVisible();
+  await expectNoViolations(page);
+
+  // Tidy up.
+  await card.click();
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
 });
