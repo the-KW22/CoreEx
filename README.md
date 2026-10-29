@@ -75,6 +75,12 @@ Files live in a private Supabase Storage bucket. The browser uploads straight to
 
 The same box on the home page and a Folder's page also takes `.md` and `.txt` files: each becomes a new Note, titled after the file name without its extension, with the file's text stored exactly as written. Several files can be added at once, and a bad file (another type, over 1 MB, or not valid UTF-8) is refused on its own with a message while the rest are imported. `[[Exact Title]]` in an imported file becomes a Link under the same rules as when you write it, including links between files imported together. On a Folder's page the Notes land in that Folder. The original file is not kept.
 
+### Search and the quick switcher
+
+**Search** in the sidebar (or `/search`) finds your Items by Note title and text, Asset title and description, and Tag name. Words are matched exactly as written, ignoring case, in any language (Malay, French, ...; accents count, so `cafe` does not find `café`). A file name such as `Q3_report-final.v2.pdf` is found by its words. Use `"quotes"` for a phrase, `or` for either word and `-word` to leave one out. Narrow results by type, Folder (subfolders included) and Tag; each result shows a snippet with the matches highlighted, and trashed Items never appear. Only the first 200,000 characters of a Note are searched.
+
+Press **Ctrl+K** (**Cmd+K** on a Mac) on any page to open the quick switcher: type part of a title (a typo is fine) and press Enter to open it; with nothing typed it lists the Items you opened most recently.
+
 ### Trash
 
 **Move to Trash** (on a Note, Asset or Folder) hides it; **Trash** in the sidebar lists what is there with the days left before it is removed for good (30). A deleted Folder is one row ("with 2 Folders and 5 Items"). **Restore** brings an Item back together with any trashed Folders above it (not what else was in them), and brings a Folder back with exactly what was deleted with it. Links to a restored Item work again. **Delete forever** and **Empty Trash** remove things for good, including the files in Storage, which frees your storage quota. A background job removes anything older than 30 days; on the free host it runs every 6 hours while the app is awake.
