@@ -71,8 +71,7 @@ class NoteImportService {
 				results.add(new Result(source.filename(), Status.IMPORTED, note.id(), note.title(), null, null));
 			}
 			catch (ApiException refused) {
-				results.add(new Result(source.filename(), Status.REFUSED, null, null, refused.code(),
-						name + ": " + refused.getMessage()));
+				results.add(new Result(source.filename(), Status.REFUSED, null, null, refused.code(), refused.getMessage()));
 			}
 		}
 		resolveLinksBetweenImportedNotes(ownerId, created);

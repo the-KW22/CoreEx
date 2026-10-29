@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
@@ -73,6 +74,42 @@ export async function resolveLinks(ids: string[]): Promise<LinkTarget[] | null> 
   const api = await getApi();
   const result = await api.POST("/api/links/resolve", { body: { ids: ids.slice(0, 100) } }).catch(() => null);
   return result?.data?.items ?? null;
+}
+
+export type ImportOutcome = { ok: true; id: string; title: string } | { ok: false; message: string };
+
+// Imports .md and .txt files as Notes, one outcome per file in the order given. The files of one call are imported
+// together, so Links between them resolve. The API checks type, size, UTF-8 and Links; this only forwards the files
+// and reports what the API said. The browser keeps each call under a server action's body limit.
+export async function importNotes(formData: FormData): Promise<ImportOutcome[]> {
+  const files = formData.getAll("files").filter((entry): entry is File => entry instanceof File);
+  const failAll = (message: string) => files.map((): ImportOutcome => ({ ok: false, message }));
+  if (files.length === 0) return [];
+  const folderId = String(formData.get("folderId") ?? "") || undefined;
+
+  const api = await getApi();
+  const result = await api
+    .POST("/api/notes/import", {
+      params: { query: { folderId } },
+      // The generated type calls the files strings; the serializer sends the real files as multipart.
+      body: { files: [] },
+      bodySerializer: () => {
+        const form = new FormData();
+        for (const file of files) form.append("files", file, file.name);
+        return form;
+      },
+    })
+    .catch(() => null);
+  if (!result) return failAll("Cannot reach the CoreEx API.");
+  if (!result.data) return failAll(result.error?.message ?? "The files could not be imported.");
+
+  revalidatePath("/", "layout");
+  return files.map((_, index): ImportOutcome => {
+    const one = result.data.results[index];
+    return one?.status === "IMPORTED" && one.noteId
+      ? { ok: true, id: one.noteId, title: one.title ?? "" }
+      : { ok: false, message: one?.message ?? "The file was refused." };
+  });
 }
 
 export async function deleteNote(formData: FormData) {
