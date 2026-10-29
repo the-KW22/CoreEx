@@ -7,6 +7,7 @@ import { getApi } from "@/lib/api/server";
 
 import { trashItem } from "../items/actions";
 import type { LinkTarget } from "./[id]/links";
+import { firstLines } from "./[id]/text";
 
 export type SaveResult =
   | { status: "saved"; version: number; updatedAt: string; body: string }
@@ -52,6 +53,18 @@ export async function saveNote(
   }
   if (result.response.status === 409) return { status: "conflict" };
   return { status: "error", message: result.error?.message ?? "Could not save the Note." };
+}
+
+// The opening text of a Link's target, for the hover preview: a Note's first lines or an Asset's description.
+// Null when it cannot be loaded; the preview then shows what the editor already knows.
+export async function linkPreview(id: string, type: "NOTE" | "ASSET"): Promise<string | null> {
+  const api = await getApi();
+  if (type === "NOTE") {
+    const note = await api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null);
+    return note?.data ? firstLines(note.data.body) : null;
+  }
+  const asset = await api.GET("/api/assets/{id}", { params: { path: { id } } }).catch(() => null);
+  return asset?.data ? firstLines(asset.data.description) : null;
 }
 
 export async function loadNote(id: string): Promise<LoadedNote | null> {

@@ -32,6 +32,14 @@ export async function tagItem(id: string, name: string): Promise<boolean> {
   return done(!!result?.data);
 }
 
+export async function untagItem(id: string, tagId: string): Promise<boolean> {
+  const api = await getApi();
+  const result = await api
+    .DELETE("/api/items/{id}/tags/{tagId}", { params: { path: { id, tagId } } })
+    .catch(() => null);
+  return done(!!result && !result.error);
+}
+
 export async function trashItem(id: string, type: ItemType): Promise<boolean> {
   const api = await getApi();
   const result = await (type === "NOTE"

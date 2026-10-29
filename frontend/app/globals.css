@@ -250,77 +250,37 @@ td {
   white-space: nowrap;
 }
 
-.note-title input {
-  width: 100%;
-  box-sizing: border-box;
-  font-size: 1.6rem;
-  font-weight: bold;
-  color: inherit;
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.save-status {
-  min-height: 1.2em;
-  margin: 0.25rem 0;
-  font-size: 0.85rem;
-  opacity: 0.7;
-}
-
-.conflict {
-  border: 1px solid var(--border);
-  padding: 0 1rem 1rem;
-}
-
-.delete-note,
-.new-note {
+.delete-note {
   display: block;
   margin: 1rem 0;
 }
 
-.delete-note button,
-.new-note button {
+.delete-note button {
   justify-self: start;
 }
 
-/* The Note editor (CodeMirror live preview). */
+/* The Note editor's live preview marks. CodeMirror's own parts (font, caret, tooltips) are themed in note-editor.tsx. */
 .note-editor .cm-editor {
   min-height: 24rem;
-  color: inherit;
-  background: transparent;
-  border: 1px solid var(--border);
 }
 
-.note-editor .cm-editor.cm-focused {
-  outline: 2px solid var(--foreground);
-}
-
-.note-editor .cm-scroller {
-  font-family: inherit;
-  line-height: 1.6;
-  padding: 0.5rem;
-}
-
-.note-editor .cm-cursor {
-  border-left-color: var(--foreground);
-}
-
-.note-editor .cm-h1 { font-size: 1.8em; font-weight: bold; }
-.note-editor .cm-h2 { font-size: 1.5em; font-weight: bold; }
-.note-editor .cm-h3 { font-size: 1.25em; font-weight: bold; }
+.note-editor .cm-h1 { font-size: 1.75em; font-weight: 700; line-height: 1.3; }
+.note-editor .cm-h2 { font-size: 1.4em; font-weight: 700; line-height: 1.35; }
+.note-editor .cm-h3 { font-size: 1.2em; font-weight: 700; }
 .note-editor .cm-h4,
 .note-editor .cm-h5,
-.note-editor .cm-h6 { font-weight: bold; }
-.note-editor .cm-strong { font-weight: bold; }
+.note-editor .cm-h6 { font-weight: 700; }
+.note-editor .cm-strong { font-weight: 700; }
 .note-editor .cm-em { font-style: italic; }
 .note-editor .cm-strike { text-decoration: line-through; }
 .note-editor .cm-code,
 .note-editor .cm-codeblock {
-  font-family: ui-monospace, Consolas, monospace;
-  background: color-mix(in srgb, var(--foreground) 10%, transparent);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.9em;
+  background: var(--surface);
 }
-.note-editor .cm-bullet { padding-right: 0.4em; }
+.note-editor .cm-code { border-radius: 4px; padding: 0.1em 0.3em; }
+.note-editor .cm-bullet { padding-right: 0.4em; color: var(--muted-foreground); }
 
 .inline-form {
   display: flex;
@@ -372,14 +332,17 @@ td {
 
 /* Links in the Note editor. */
 .note-editor .cm-wikilink {
-  color: inherit;
-  font-weight: bold;
+  color: var(--link);
+  font-weight: 600;
   text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
   cursor: pointer;
 }
 
 .note-editor .cm-wikilink-pending,
 .note-editor .cm-wikilink-unresolved {
+  color: var(--muted-foreground);
   font-style: italic;
   cursor: default;
 }
@@ -387,28 +350,10 @@ td {
 /* Not colour alone: unresolved Links are also dashed and italic. */
 .note-editor .cm-wikilink-unresolved {
   text-decoration: underline dashed;
-  opacity: 0.75;
 }
 
 .note-editor .cm-wikilink-raw {
-  opacity: 0.8;
-}
-
-.note-editor .cm-tooltip.cm-tooltip-autocomplete {
-  color: #171717;
-  background: #ffffff;
-  border: 1px solid #d4d4d4;
-}
-
-.note-editor .cm-tooltip-autocomplete ul li[aria-selected] {
-  color: #ffffff;
-  background: #1d4ed8;
-}
-
-.note-editor .cm-completionDetail {
-  opacity: 0.7;
-  margin-left: 0.5rem;
-  font-style: normal;
+  color: var(--muted-foreground);
 }
 
 /* Showing Assets. */
