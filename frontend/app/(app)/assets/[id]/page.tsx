@@ -16,8 +16,9 @@ import { deleteAsset } from "../actions";
 import { AssetText } from "./asset-text";
 
 // The Asset screen (docs/DESIGN.md section 6.4): the Note's frame, a viewer stage, and Download.
-export default async function AssetPage({ params }: PageProps<"/assets/[id]">) {
+export default async function AssetPage({ params, searchParams }: PageProps<"/assets/[id]">) {
   const { id } = await params;
+  const { error } = await searchParams;
   const api = await getApi();
   const [result, list, view, download, itemTags, allTags, jar] = await Promise.all([
     api.GET("/api/assets/{id}", { params: { path: { id } } }).catch(() => null),
@@ -69,7 +70,8 @@ export default async function AssetPage({ params }: PageProps<"/assets/[id]">) {
         detailsCookie={remembered === "open" || remembered === "closed" ? remembered : null}
         details={
           <>
-            <AssetText key={`${asset.title}\n${asset.description}`} id={asset.id} title={asset.title} description={asset.description} />
+            {/* No key from the text: a refresh after saving must not rebuild it while the other field is being typed in. */}
+            <AssetText id={asset.id} title={asset.title} description={asset.description} />
             <FolderPicker itemId={asset.id} folderId={asset.folderId} folders={folders} />
             <section aria-labelledby="asset-tags-heading" className="grid gap-2">
               <h2 id="asset-tags-heading" className="text-xs font-semibold text-muted-foreground">
@@ -103,7 +105,12 @@ export default async function AssetPage({ params }: PageProps<"/assets/[id]">) {
         }
       >
         {/* A neutral stage, so the file is the brightest thing on screen. */}
-        <div className="grid flex-1 p-4 md:p-8">
+        <div className="grid flex-1 content-start gap-4 p-4 md:p-8">
+          {error === "delete" && (
+            <p role="alert" className="rounded-lg border border-destructive/40 px-3 py-2 text-sm">
+              Could not move the Asset to the Trash. Try again.
+            </p>
+          )}
           <div className="grid min-h-80 place-items-center overflow-hidden rounded-[14px] border border-border bg-surface">
             {!viewUrl ? (
               <p role="alert" className="p-6 text-center text-sm">

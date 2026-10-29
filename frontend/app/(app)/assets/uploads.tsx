@@ -78,8 +78,17 @@ export function Uploads({ folders }: { folders: Folder[] | null }) {
   // Files dragged anywhere in the Knowledge Base show the overlay; dropping them uploads them.
   const inKnowledgeBase = activeModule(pathname) === "kb" || pathname === "/";
   useEffect(() => {
-    if (!inKnowledgeBase) return;
     const hasFiles = (event: DragEvent) => event.dataTransfer?.types.includes("Files") ?? false;
+    if (!inKnowledgeBase) {
+      // Elsewhere a stray drop does nothing, rather than the browser opening the file in place of CoreEx.
+      const ignore = (event: DragEvent) => hasFiles(event) && event.preventDefault();
+      window.addEventListener("dragover", ignore);
+      window.addEventListener("drop", ignore);
+      return () => {
+        window.removeEventListener("dragover", ignore);
+        window.removeEventListener("drop", ignore);
+      };
+    }
     const enter = (event: DragEvent) => {
       if (!hasFiles(event)) return;
       depth.current += 1;

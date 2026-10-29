@@ -527,11 +527,16 @@ test("an uploaded image opens on the Asset screen, edits in place and downloads"
     await expectNoViolations(page);
   }
 
-  // The title edits in place; the breadcrumb follows once it is saved.
+  // The title edits in place; the breadcrumb follows once it is saved. Typing on in the description while that
+  // save refreshes the page keeps both the focus and the text.
   const renamed = `Renamed ${name}`;
   await details.getByLabel("Title").fill(renamed);
-  await details.getByLabel("Title").press("Enter");
+  await details.getByLabel("Title").press("Tab");
+  await page.keyboard.type("A single pixel");
   await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByText(renamed)).toBeVisible();
+  await page.keyboard.type(", for testing.");
+  await expect(details.getByLabel("Description")).toBeFocused();
+  await expect(details.getByLabel("Description")).toHaveValue("A single pixel, for testing.");
 
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
