@@ -1,10 +1,12 @@
 "use client";
 
+import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
 type Theme = "system" | "light" | "dark";
 const NEXT: Record<Theme, Theme> = { system: "light", light: "dark", dark: "system" };
 const LABEL: Record<Theme, string> = { system: "System", light: "Light", dark: "Dark" };
+const ICON = { system: MonitorIcon, light: SunIcon, dark: MoonIcon };
 
 // The theme lives on <html data-theme> (set before paint by the script in the root layout) and in a cookie.
 const listeners = new Set<() => void>();
@@ -26,16 +28,18 @@ function choose(theme: Theme) {
   listeners.forEach((listener) => listener());
 }
 
-export function ThemeToggle({ className }: { className?: string }) {
+// An icon button; the other props let a Tooltip wrap it.
+export function ThemeToggle(props: React.ComponentProps<"button">) {
   const theme = useSyncExternalStore(subscribe, current, () => "system" as Theme);
+  const Icon = ICON[theme];
   return (
     <button
       type="button"
-      className={className}
+      {...props}
       onClick={() => choose(NEXT[theme])}
       aria-label={`Theme: ${LABEL[theme]}. Switch to ${LABEL[NEXT[theme]]}`}
     >
-      Theme: {LABEL[theme]}
+      <Icon aria-hidden />
     </button>
   );
 }
