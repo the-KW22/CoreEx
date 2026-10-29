@@ -38,7 +38,8 @@ function FolderItems({ folder }: { folder: Folder }) {
     return () => {
       current = false;
     };
-  }, [folder.id]);
+    // `folder`, not its id: every server refresh (an upload, a move) sends a new object, so the list reloads too.
+  }, [folder]);
 
   const items = loaded?.id === folder.id ? loaded.items : undefined;
   return (
