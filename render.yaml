@@ -28,6 +28,8 @@ services:
       - key: CORS_ALLOWED_ORIGINS
         sync: false
       # Supabase Storage for Assets (docs/DEPLOY.md, "Storage for Assets").
+      - key: PURGE_TOKEN
+        sync: false
       - key: STORAGE_URL
         sync: false
       - key: STORAGE_SERVICE_KEY

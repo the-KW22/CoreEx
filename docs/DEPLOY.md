@@ -67,6 +67,17 @@ Assets (images and PDFs) are kept in a private Supabase Storage bucket. The back
 
 Browsers upload straight to `https://<project ref>.supabase.co`, which allows cross-origin requests from any site by default; nothing needs changing there. Each User has a 100 MB quota by default (`coreex.assets.default-quota-bytes`), and a file is at most 5 MB.
 
+## Scheduled Trash purge (the owner does this once)
+
+Things leave the Trash after 30 days. The backend also purges by itself every 6 hours, but only while it is awake, and the free Render plan sleeps when idle. A daily GitHub Actions run (`.github/workflows/trash-purge.yml`) calls `POST /internal/trash/purge`, which wakes the backend and purges.
+
+1. Make up a long random token (for example `openssl rand -hex 32`).
+2. On Render add `PURGE_TOKEN` with that value (the endpoint does not exist without it).
+3. In the GitHub repository, Settings > Secrets and variables > Actions, add the secrets `PURGE_TOKEN` (same value) and `PURGE_URL` (`https://<backend>.onrender.com`).
+4. Run the workflow once by hand (Actions > Trash purge > Run workflow) and check it is green. The answer is `{"removed":N}`.
+
+GitHub pauses scheduled workflows after 60 days without repository activity; run it by hand to wake it up.
+
 ## Search uses the `pg_trgm` extension
 
 The quick switcher's typo matching uses `pg_trgm`. Migration `V10` finds where the extension lives and uses it from there; if the project does not have it yet, the migration creates it in the `coreex` schema (it is a trusted contrib extension, so the `postgres` role may create it). Supabase projects often have it already, in the `extensions` schema, and that works too: the backend's connections use the search path `coreex, extensions`. Nothing needs to be done by hand. (The first v0.3.0 deploy failed on a project that already had the extension in `extensions`, before this was handled.)
