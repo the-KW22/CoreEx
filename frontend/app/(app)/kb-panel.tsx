@@ -9,7 +9,7 @@ import { TagBadge } from "@/components/tag-badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { Folder } from "@/lib/folders";
+import { type Folder, viewingFolderId } from "@/lib/folders";
 import { itemHref } from "@/lib/items";
 import { cn } from "@/lib/utils";
 
@@ -112,7 +112,7 @@ function NewFolder() {
 export function KbPanel({ folders, tags }: { folders: Folder[] | null; tags: Tag[] | null }) {
   const pathname = usePathname();
   const [view, setView] = useState(pathname.startsWith("/tags") ? "tags" : "folders");
-  const viewing = /^\/folders\/([^/]+)/.exec(pathname)?.[1];
+  const viewing = viewingFolderId(pathname);
   const folder = folders?.find((f) => f.id === viewing);
 
   return (

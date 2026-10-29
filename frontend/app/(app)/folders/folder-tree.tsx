@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { Folder } from "@/lib/folders";
-import { ancestorIds, childrenByParent } from "@/lib/folders";
+import { ancestorIds, childrenByParent, viewingFolderId } from "@/lib/folders";
 import { cn } from "@/lib/utils";
 
 const row = "flex min-h-8 items-center gap-2 rounded-lg px-2 text-sm pointer-coarse:min-h-11";
@@ -14,7 +14,7 @@ const row = "flex min-h-8 items-center gap-2 rounded-lg px-2 text-sm pointer-coa
 // The panel's tree. A Folder with subfolders collapses; it opens along the path to the Folder being viewed.
 export function FolderTree({ folders }: { folders: Folder[] }) {
   const children = childrenByParent(folders);
-  const viewing = /^\/folders\/([^/]+)/.exec(usePathname())?.[1];
+  const viewing = viewingFolderId(usePathname());
   const opened = new Set(viewing ? [viewing, ...ancestorIds(folders, viewing)] : []);
 
   const link = (folder: Folder) => (
