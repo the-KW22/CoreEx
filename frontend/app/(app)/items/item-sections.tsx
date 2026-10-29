@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { TagBadge } from "@/components/tag-badge";
 import { getApi } from "@/lib/api/server";
 import type { Folder } from "@/lib/folders";
 import { itemHref } from "@/lib/items";
@@ -51,7 +52,9 @@ export async function ItemTags({ itemId, back }: { itemId: string; back: string 
         <ul className="tag-list">
           {tags.map((tag) => (
             <li key={tag.id}>
-              <Link href={`/tags/${tag.id}`}>{tag.name}</Link>
+              <Link href={`/tags/${tag.id}`}>
+                <TagBadge name={tag.name} />
+              </Link>
               <form action={removeTag}>
                 <input type="hidden" name="id" value={itemId} />
                 <input type="hidden" name="tagId" value={tag.id} />

@@ -25,8 +25,12 @@ _Avoid_: Upload (when the result is a Note)
 ### Organization
 
 **Tag**:
-A user-defined label that can be put on any Item to group it with other Items of the same kind. An Item can have many Tags.
+A user-defined label that can be put on any Item to group it with other Items of the same kind. An Item can have many Tags. Each Tag has a **Tag colour**.
 _Avoid_: Label, category
+
+**Tag colour**:
+One of a fixed set of named colours (such as teal or pink) that a User picks for a Tag so it is easy to recognize. A Tag whose User has not picked one still shows a colour chosen from its name.
+_Avoid_: Tag label colour, hex colour
 
 **Link**:
 A reference written inside a Note's text (as `[[Item title]]`) that points to another Item — a Note or an Asset. Only Notes contain Links; any Item can be the target of one. A Link keeps pointing at the same Item when that Item is renamed.
