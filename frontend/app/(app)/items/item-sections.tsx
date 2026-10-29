@@ -1,3 +1,4 @@
+import { FileTextIcon } from "lucide-react";
 import Link from "next/link";
 
 import { TagBadge } from "@/components/tag-badge";
@@ -92,17 +93,27 @@ export async function ItemBacklinks({ itemId }: { itemId: string }) {
     .catch(() => null);
 
   return (
-    <section aria-labelledby="backlinks-heading">
-      <h2 id="backlinks-heading">Backlinks</h2>
+    <section aria-labelledby="backlinks-heading" className="grid gap-2">
+      <h2 id="backlinks-heading" className="text-xs font-semibold text-muted-foreground">
+        Backlinks
+      </h2>
       {!backlinks?.data ? (
-        <p role="alert">Could not load the Backlinks.</p>
+        <p role="alert" className="text-sm">
+          Could not load the Backlinks.
+        </p>
       ) : backlinks.data.items.length === 0 ? (
-        <p>No Notes link here yet.</p>
+        <p className="text-sm text-muted-foreground">No Notes link here yet.</p>
       ) : (
-        <ul>
+        <ul className="grid gap-2">
           {backlinks.data.items.map((backlink) => (
             <li key={backlink.id}>
-              <Link href={itemHref({ id: backlink.id, type: "NOTE" })}>{backlink.title || "Untitled"}</Link>
+              <Link
+                href={itemHref({ id: backlink.id, type: "NOTE" })}
+                className="flex items-center gap-2 rounded-[10px] border border-border bg-surface px-3 py-2 text-sm hover:border-link"
+              >
+                <FileTextIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{backlink.title || "Untitled"}</span>
+              </Link>
             </li>
           ))}
         </ul>

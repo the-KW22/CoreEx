@@ -86,6 +86,15 @@ for (const [colorScheme, background] of [
       await expectNoViolations(page);
     });
 
+    test("the Note screen has no WCAG 2.2 AA violations", async ({ page }) => {
+      await signIn(page);
+      await newNote(page, `A11y probe ${Date.now()}`);
+      await expect(page.getByRole("complementary", { name: "Details" })).toBeVisible();
+      await expectNoViolations(page);
+      await page.getByRole("button", { name: "Move to Trash" }).click();
+      await expect(page).toHaveURL(/\/items$/);
+    });
+
     test("All Items has no WCAG 2.2 AA violations", async ({ page }) => {
       await signIn(page);
       await page.goto("/items");
@@ -161,10 +170,12 @@ test("the command palette finds a Note by title and searches all text", async ({
   const title = `Palette probe ${Date.now()}`;
   await palette.getByRole("option", { name: "New Note" }).click();
   await expect(page).toHaveURL(/\/notes\//);
-  await page.getByLabel("Title").fill(title);
-  // "Saved at" also shows before typing, so wait for the change to register first.
-  await expect(page.getByText("Unsaved changes")).toBeVisible();
-  await expect(page.getByText(/^Saved at/)).toBeVisible();
+  // The page being left stays on screen for a moment after the address changes: wait for the new, empty Note.
+  const field = page.getByRole("textbox", { name: "Title" });
+  await expect(field).toHaveCount(1);
+  await expect(field).toHaveValue("");
+  await field.fill(title);
+  await expectSaved(page);
 
   await openPalette(page);
   await search.fill(title);
@@ -231,15 +242,24 @@ test("the command palette says it is searching while the answer is on its way", 
   await expect(palette.getByText("Searching…", { exact: true })).toHaveCount(0);
 });
 
+// Waits until the open Note has saved what was just typed. "Saved at" also shows before typing, so the change must
+// register first. By role: Next keeps the previous page's DOM hidden for back and forward, and getByRole skips it.
+async function expectSaved(page: Page) {
+  await expect(page.getByRole("status").filter({ hasText: "Unsaved changes" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /^Saved at/ })).toBeVisible();
+}
+
 // Makes a Note with this title from the command palette and waits until it is saved.
 async function newNote(page: Page, title: string) {
   const palette = await openPalette(page);
   await palette.getByRole("option", { name: "New Note" }).click();
   await expect(page).toHaveURL(/\/notes\//);
-  await page.getByLabel("Title").fill(title);
-  // "Saved at" also shows before typing, so wait for the change to register first.
-  await expect(page.getByText("Unsaved changes")).toBeVisible();
-  await expect(page.getByText(/^Saved at/)).toBeVisible();
+  // The page being left stays on screen for a moment after the address changes: wait for the new, empty Note.
+  const field = page.getByRole("textbox", { name: "Title" });
+  await expect(field).toHaveCount(1);
+  await expect(field).toHaveValue("");
+  await field.fill(title);
+  await expectSaved(page);
 }
 
 test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
@@ -345,6 +365,110 @@ test("Home shows a new Note under Recently edited and Jump back in", async ({ pa
 
   // Tidy up.
   await card.click();
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("the Note screen tags, moves, and remembers hidden Details", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const tagName = `note-probe-${stamp}`;
+  const folderName = `Note folder ${stamp}`;
+  await page.getByRole("button", { name: "New Folder" }).click();
+  await page.getByLabel("Folder name").fill(folderName);
+  await page.getByRole("button", { name: "Create Folder" }).click();
+  await newNote(page, `Note probe ${stamp}`);
+
+  // + Tag creates a Tag, and the pill's × removes it.
+  await page.getByRole("button", { name: "Tag", exact: true }).click();
+  await page.getByPlaceholder("Find or create a Tag").fill(tagName);
+  await page.getByRole("option", { name: `Create “${tagName}”` }).click();
+  const tags = page.getByRole("list", { name: "Tags" });
+  await expect(tags.getByRole("link", { name: tagName })).toBeVisible();
+  await tags.getByRole("button", { name: `Remove the Tag ${tagName}` }).click();
+  await expect(tags.getByRole("link", { name: tagName })).toHaveCount(0);
+
+  // The Details Folder select moves the Note; the breadcrumb follows.
+  const details = page.getByRole("complementary", { name: "Details" });
+  await details.getByLabel("Folder").selectOption({ label: folderName });
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: folderName })).toBeVisible();
+  await expect(details.getByText("Words")).toBeVisible();
+
+  // Hiding Details is remembered.
+  await page.getByRole("button", { name: "Details" }).click();
+  await expect(details).toBeHidden();
+  await page.reload();
+  await expect(page.getByRole("complementary", { name: "Details" })).toBeHidden();
+  await page.getByRole("button", { name: "Details" }).click();
+  await expect(page.getByRole("complementary", { name: "Details" })).toBeVisible();
+
+  // Tidy up: the Note, the Folder and the Tag.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+  await page.getByRole("main").getByRole("link", { name: folderName }).click();
+  await page.getByText("Move to Trash…").click();
+  await page.getByRole("button", { name: "Move Folder to Trash" }).click();
+  await page.goto("/tags");
+  await page.getByRole("main").getByRole("link", { name: tagName }).click();
+  await page.getByText("Delete Tag…").click();
+  await page.getByRole("button", { name: "Delete Tag" }).click();
+});
+
+test("hovering a Link previews its target", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const target = `Preview target ${stamp}`;
+  await newNote(page, target);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.type("The first line of the target.");
+  await expectSaved(page);
+
+  await newNote(page, `Preview source ${stamp}`);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.type(`See [[Preview target ${stamp}`);
+  await page.getByRole("option", { name: new RegExp(target) }).click();
+  // Off the Link's line, it shows as a link.
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Next line.");
+  const link = page.locator(".cm-wikilink", { hasText: target });
+  await link.hover();
+  const card = page.locator("[data-link-preview]").filter({ hasText: target });
+  await expect(card).toContainText("The first line of the target.");
+  await expect(card).toContainText("Note · Top level");
+  // Screen readers hear it through a live region that is always there.
+  await expect(page.locator("p[aria-live=polite]").filter({ hasText: `Link to Note ${target}` })).toContainText(
+    "The first line of the target.",
+  );
+  await expectNoViolations(page);
+
+  // From the keyboard: the caret inside the Link shows it too, and Escape hides it.
+  await page.mouse.move(0, 0);
+  await expect(card).toHaveCount(0);
+  await page.keyboard.press("ArrowUp");
+  await expect(card).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(card).toHaveCount(0);
+
+  // Tidy up both Notes.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.goto("/items");
+  const row = page.getByRole("row").filter({ hasText: target });
+  await row.getByRole("button", { name: `Actions for ${target}` }).click();
+  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await expect(row).toHaveCount(0);
+});
+
+test("on a phone the Note's Details open as a bottom Sheet", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await signIn(page);
+  await newNote(page, `Phone note ${Date.now()}`);
+  await expect(page.getByRole("complementary", { name: "Details" })).toBeHidden();
+  await page.getByRole("button", { name: "Details" }).click();
+  const sheet = page.getByRole("dialog", { name: "Details" });
+  await expect(sheet.getByText("Words")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
