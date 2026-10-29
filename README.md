@@ -87,7 +87,7 @@ Press **Ctrl+K** (**Cmd+K** on a Mac) on any page to open the quick switcher: ty
 
 ### Trash
 
-**Move to Trash** (on a Note, Asset or Folder) hides it; **Trash** in the sidebar lists what is there with the days left before it is removed for good (30). A deleted Folder is one row ("with 2 Folders and 5 Items"). **Restore** brings an Item back together with any trashed Folders above it (not what else was in them), and brings a Folder back with exactly what was deleted with it. Links to a restored Item work again. **Delete forever** and **Empty Trash** remove things for good, including the files in Storage, which frees your storage quota. A background job removes anything older than 30 days; on the free host it runs every 6 hours while the app is awake.
+**Move to Trash** (on a Note, Asset or Folder) hides it; **Trash** in the sidebar lists what is there with the days left before it is removed for good (30). A deleted Folder is one row ("with 2 Folders and 5 Items"). **Restore** brings an Item back together with any trashed Folders above it (not what else was in them), and brings a Folder back with exactly what was deleted with it. Links to a restored Item work again. **Delete forever** and **Empty Trash** remove things for good, including the files in Storage, which frees your storage quota. Anything older than 30 days is removed by a background job every 6 hours while the app is awake, and by a daily scheduled GitHub Actions run that also wakes the free host (setup in `docs/DEPLOY.md`).
 
 ## Deploying
 

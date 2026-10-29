@@ -40,8 +40,8 @@ class TrashPurgeJob {
 		this.clock = clock;
 	}
 
-	// shortcut: runs every 6 hours from 2 minutes after start instead of at a fixed time of day, because the free
-	// host sleeps when idle and a daily cron could be missed; move it to a real scheduler on a paid host.
+	// A fallback while the backend is awake. The real schedule is the daily GitHub Actions run that calls
+	// TrashPurgeController (the free host sleeps when idle, so this alone could miss days).
 	@Scheduled(initialDelayString = "PT2M", fixedDelayString = "PT6H")
 	void scheduled() {
 		run();
