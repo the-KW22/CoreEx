@@ -116,6 +116,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notes/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["importNotes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/links/resolve": {
         parameters: {
             query?: never;
@@ -539,6 +555,26 @@ export interface components {
              * @description The Folder to create the Note in; null is the top level
              */
             folderId?: string | null;
+        };
+        ImportResponse: {
+            /** @description One result per file, in the order sent */
+            results: components["schemas"]["ImportResultResponse"][];
+        };
+        ImportResultResponse: {
+            filename: string;
+            /** @enum {string} */
+            status: "IMPORTED" | "REFUSED";
+            /**
+             * Format: uuid
+             * @description The new Note, when IMPORTED
+             */
+            noteId: string | null;
+            /** @description The new Note's title, when IMPORTED */
+            title: string | null;
+            /** @description UNSUPPORTED_TYPE, FILE_TOO_LARGE or NOT_UTF8, when REFUSED */
+            code: string | null;
+            /** @description Why the file was refused */
+            message: string | null;
         };
         ResolveRequest: {
             ids: string[];
@@ -1205,6 +1241,61 @@ export interface operations {
             };
             /** @description Code NOT_FOUND: no such Folder */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    importNotes: {
+        parameters: {
+            query?: {
+                folderId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    files: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description One result per file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST: no files, or too many */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND: no such Folder (nothing is imported) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code FILE_TOO_LARGE: a file beyond the transport limit */
+            413: {
                 headers: {
                     [name: string]: unknown;
                 };
