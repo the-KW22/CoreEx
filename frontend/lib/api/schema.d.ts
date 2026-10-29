@@ -1353,6 +1353,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
+            /** @description Code TOO_MANY_UPLOADS */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
             /** @description Code STORAGE_UNAVAILABLE */
             503: {
                 headers: {
