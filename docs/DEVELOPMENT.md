@@ -205,7 +205,15 @@ If `staging` holds nothing unreleased, use the normal flow and release immediate
 | **Unit tests** | Pure logic with many edge cases only: the Link parser, Markdown helpers | JUnit 5 | Same |
 | **Storage** | Replaced by the in-memory fake behind the Storage interface | — | Same |
 | **Frontend logic** | Only components with real logic (Link autocomplete, editor decorations) | Vitest + Testing Library | Every PR |
-| **Smoke / E2E** | Sign in, create a Note, link it, upload an Asset, search; an axe accessibility scan of each main screen in both themes | Playwright + axe | Against the local stack, before each release |
+| **Smoke / E2E** | Sign in, create a Note, link it, upload an Asset, search; an axe accessibility scan of each main screen in both themes | Playwright + axe | Against the local stack, before each release, and by every UI PR for its own screen |
+
+**Running the end-to-end tests** (`frontend/e2e/`)
+
+1. Start the local stack as in the README (Supabase, the API, `npm run dev`). The API's `OWNER_EMAIL` must match the test account so it needs no Invite.
+2. Once per machine: `npx playwright install chromium`.
+3. `npm run e2e` in `frontend/`. The tests sign in as `E2E_EMAIL` / `E2E_PASSWORD` (default `owner@example.com` / `coreex-e2e-password`, local only) and create that account on a fresh database. `E2E_BASE_URL` overrides `http://localhost:3000`.
+
+A UI ticket adds its screen to `e2e/a11y.spec.ts` so it is checked in dark and light.
 
 **Rules**
 

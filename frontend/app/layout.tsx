@@ -6,6 +6,7 @@ import { MotionProvider } from "@/components/motion-provider";
 import "./globals.css";
 
 const manrope = Manrope({ variable: "--font-manrope", subsets: ["latin"] });
+// Next warns it has no fallback metrics for this font; harmless, it just skips the metric-matched fallback.
 const atkinson = Atkinson_Hyperlegible_Next({ variable: "--font-atkinson", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
