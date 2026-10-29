@@ -59,6 +59,12 @@ class TagRepository {
 				.param("item", itemId).param("owner", ownerId).query(MAPPER).list();
 	}
 
+	/** Takes a share lock on the Tag so it cannot be deleted before the caller's transaction ends; false if it is gone. */
+	boolean lock(UUID tagId) {
+		return jdbc.sql("select id from tags where id = :id for share").param("id", tagId).query(UUID.class).optional()
+				.isPresent();
+	}
+
 	void link(UUID itemId, UUID tagId) {
 		jdbc.sql("insert into item_tags (item_id, tag_id) values (:item, :tag) on conflict do nothing")
 				.param("item", itemId).param("tag", tagId).update();

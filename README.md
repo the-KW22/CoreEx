@@ -47,7 +47,7 @@ CoreEx's tables live in the `coreex` schema (ADR 0005). If you ran an older vers
 
 CoreEx is invite-only. Sign in as the owner (`OWNER_EMAIL`), open **Admin** in the sidebar, enter the person's email and select **Create Invite**. Use **Copy sign-up link** and send it to them; the link opens the sign-up page with their email filled in. An Invite can be revoked while it is pending. Without a pending Invite a person sees the "invite-only" screen.
 
-To disable a User until there is an Admin screen for it: `update coreex.users set status = 'DISABLED' where email = '...'` (`docker exec supabase_db_CoreEx psql -U postgres -c "..."` for local Supabase).
+Disable, enable and remove Users in Admin > Users.
 
 ### Writing Notes
 
@@ -73,7 +73,7 @@ Files live in a private Supabase Storage bucket. The browser uploads straight to
 
 ### Admin: Users and Overview
 
-Next to **Invites**, the Admin area has **Users** and **Overview** (visible to Admins only). Users lists every account with its status, sign-up date, last active time, number of Items and storage used against its quota. You can change a User's quota in megabytes (or go back to the default), and Disable or Enable the account: a disabled User is refused on their very next request, nothing they own is touched, and enabling restores everything. You cannot disable yourself. Overview shows the number of Users and the total storage used against the hosting limit (1 GB on the Supabase free tier, `coreex.admin.hosting-limit-bytes`). These screens show account facts and totals only, never anyone's Notes, Assets or Folders (ADR 0004).
+Next to **Invites**, the Admin area has **Users** and **Overview** (visible to Admins only). Users lists every account with its status, sign-up date, last active time, number of Items and storage used against its quota. You can change a User's quota in megabytes (or go back to the default), and Disable or Enable the account: a disabled User is refused on their very next request, nothing they own is touched, and enabling restores everything. You cannot disable yourself. **Remove…** (with a confirmation) deletes a person's Notes, files and Supabase sign-in for good so their email can be invited again; it needs `STORAGE_SERVICE_KEY` (and Storage's URL) on the backend, is safe to retry if a step fails (the person stays disabled meanwhile), and is not offered for Admins. Delete people here, not in Supabase Authentication, or their CoreEx account stays behind. Overview shows the number of Users and the total storage used against the hosting limit (1 GB on the Supabase free tier, `coreex.admin.hosting-limit-bytes`). These screens show account facts and totals only, never anyone's Notes, Assets or Folders (ADR 0004).
 
 ### Importing Markdown and text files
 

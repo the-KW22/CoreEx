@@ -13,6 +13,16 @@ export function childrenByParent(folders: Folder[]) {
   return children;
 }
 
+// The ids of a Folder's parents, up to the top level (the Folder itself excluded). Stops if bad data ever looped.
+export function ancestorIds(folders: Folder[], id: string): string[] {
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  const ids: string[] = [];
+  for (let at = byId.get(id)?.parentId; at && ids.length < folders.length; at = byId.get(at)?.parentId) {
+    ids.push(at);
+  }
+  return ids;
+}
+
 // Depth-first, for menus. A Folder in `skip` is left out together with everything below it.
 export function flatten(folders: Folder[], skip?: string): FlatFolder[] {
   const children = childrenByParent(folders);

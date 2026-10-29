@@ -39,6 +39,11 @@ public class TagService {
 	@Transactional
 	public Tag attach(UUID ownerId, UUID itemId, String name) {
 		var tag = tags.findOrCreate(ownerId, name);
+		// Deleted in the moment since it was found: create it again. Locked from here, it can no longer be deleted.
+		if (!tags.lock(tag.id())) {
+			tag = tags.findOrCreate(ownerId, name);
+			tags.lock(tag.id());
+		}
 		tags.link(itemId, tag.id());
 		return tag;
 	}

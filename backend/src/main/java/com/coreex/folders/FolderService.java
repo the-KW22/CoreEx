@@ -34,6 +34,14 @@ public class FolderService {
 		return folders.findLive(ownerId, id).orElseThrow(FolderService::notFound);
 	}
 
+	/**
+	 * For writes that put something into the Folder: also locks it until the caller's transaction ends, so a Folder
+	 * deleted at that very moment is seen as gone and nothing lands inside a trashed Folder.
+	 */
+	public Folder requireLiveForWrite(UUID ownerId, UUID id) {
+		return folders.findLiveForShare(ownerId, id).orElseThrow(FolderService::notFound);
+	}
+
 	/** Every live Folder's id with its path from the top level, such as "Work / CoreEx". */
 	public Map<UUID, String> paths(UUID ownerId) {
 		var byId = new HashMap<UUID, Folder>();

@@ -16,6 +16,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.coreex.ApiTest;
 import com.coreex.TestJwts;
+import com.coreex.TestAuthAccounts;
 import com.coreex.TestStorage;
 
 class AdminUserApiTest extends ApiTest {
@@ -25,6 +26,9 @@ class AdminUserApiTest extends ApiTest {
 
 	@Autowired
 	TestStorage storage;
+
+	@Autowired
+	TestAuthAccounts authAccounts;
 
 	private final String admin = TestJwts.tokenFor(UUID.randomUUID(), "owner@example.com");
 
@@ -43,6 +47,7 @@ class AdminUserApiTest extends ApiTest {
 		jdbc.sql("delete from users").update();
 		jdbc.sql("delete from invites").update();
 		storage.clear();
+		authAccounts.clear();
 		// The first request of the owner provisions the Admin.
 		assertThat(get("/api/me", admin).statusCode()).isEqualTo(200);
 		adminId = jdbc.sql("select id from users where email = 'owner@example.com'").query(UUID.class).single()
@@ -286,7 +291,8 @@ class AdminUserApiTest extends ApiTest {
 				new String[] { "PUT", "/api/admin/users/" + someone + "/quota" },
 				new String[] { "DELETE", "/api/admin/users/" + someone + "/quota" },
 				new String[] { "POST", "/api/admin/users/" + someone + "/disable" },
-				new String[] { "POST", "/api/admin/users/" + someone + "/enable" });
+				new String[] { "POST", "/api/admin/users/" + someone + "/enable" },
+				new String[] { "DELETE", "/api/admin/users/" + someone });
 
 		for (var call : calls) {
 			var asUser = call(call[0], call[1], bToken);
@@ -296,6 +302,85 @@ class AdminUserApiTest extends ApiTest {
 		}
 		// Nothing changed.
 		assertThat(row("b@example.com")).contains("\"status\":\"ACTIVE\"");
+	}
+
+	private long count(String table, String id) {
+		return jdbc.sql("select count(*) from " + table + " where owner_id = :id").param("id", UUID.fromString(id))
+				.query(Long.class).single();
+	}
+
+	@Test
+	void removingAUserDeletesTheirDataFilesAndSignIn() throws Exception {
+		note(bToken, "Gone", "x", null);
+		post("/api/folders", bToken, "{\"name\":\"Mine\"}");
+		asset(bToken, "gone.png", 3000, "");
+		var pending = post("/api/assets/uploads", bToken,
+				"{\"filename\":\"half.png\",\"mimeType\":\"image/png\",\"sizeBytes\":10}");
+		assertThat(pending.statusCode()).isEqualTo(201);
+		storage.put(jdbc.sql("select storage_key from pending_uploads").query(String.class).single(), 10, "image/png");
+		note(cToken, "Stays", "x", null);
+		var asset = asset(cToken, "stays.png", 2000, "");
+		assertThat(storage.keys()).hasSize(3);
+
+		var removed = delete("/api/admin/users/" + bId, admin);
+
+		assertThat(removed.statusCode()).isEqualTo(204);
+		assertThat(count("items", bId) + count("folders", bId) + count("pending_uploads", bId)).isZero();
+		assertThat(jdbc.sql("select count(*) from users where id = :id").param("id", UUID.fromString(bId))
+				.query(Long.class).single()).isZero();
+		assertThat(authAccounts.wasDeleted(UUID.fromString(bId))).isTrue();
+		// Only C's file is left in Storage, and C is untouched.
+		assertThat(storage.keys()).hasSize(1);
+		assertThat(count("items", cId)).isEqualTo(2);
+		assertThat(authAccounts.wasDeleted(UUID.fromString(cId))).isFalse();
+		assertThat(get("/api/assets/" + asset, cToken).statusCode()).isEqualTo(200);
+		assertThat(get("/api/admin/users", admin).body()).doesNotContain("b@example.com");
+	}
+
+	@Test
+	void aRemovedPersonCanBeInvitedAndSignUpAgain() throws Exception {
+		jdbc.sql("insert into invites (email, status, accepted_at) values ('b@example.com', 'ACCEPTED', now())")
+				.update();
+		assertThat(post("/api/admin/invites", admin, "{\"email\":\"b@example.com\"}").statusCode()).isEqualTo(409);
+
+		assertThat(delete("/api/admin/users/" + bId, admin).statusCode()).isEqualTo(204);
+
+		assertThat(post("/api/admin/invites", admin, "{\"email\":\"b@example.com\"}").statusCode()).isEqualTo(201);
+		// A new Supabase sign-in (a new id) with that email is accepted.
+		var again = TestJwts.tokenFor(UUID.randomUUID(), "b@example.com");
+		assertThat(get("/api/me", again).statusCode()).isEqualTo(200);
+	}
+
+	@Test
+	void anAdminOrYourselfCannotBeRemoved() throws Exception {
+		jdbc.sql("update users set role = 'ADMIN' where id = :id").param("id", UUID.fromString(cId)).update();
+
+		for (var id : List.of(adminId, cId)) {
+			var refused = delete("/api/admin/users/" + id, admin);
+			assertThat(refused.statusCode()).as(id).isEqualTo(409);
+			assertThat(refused.body()).contains("\"code\":\"CANNOT_REMOVE_ADMIN\"");
+		}
+		assertThat(delete("/api/admin/users/" + UUID.randomUUID(), admin).statusCode()).isEqualTo(404);
+		assertThat(row("c@example.com")).contains("\"status\":\"ACTIVE\"");
+	}
+
+	@Test
+	void ifStorageOrSignInFailsNothingIsLostAndARetrySucceeds() throws Exception {
+		asset(bToken, "keep.png", 3000, "");
+
+		storage.setDown(true);
+		assertThat(delete("/api/admin/users/" + bId, admin).statusCode()).isEqualTo(503);
+		storage.setDown(false);
+		authAccounts.setDown(true);
+		assertThat(delete("/api/admin/users/" + bId, admin).statusCode()).isEqualTo(503);
+		authAccounts.setDown(false);
+
+		// Still listed, but disabled, so they are locked out while the removal is unfinished.
+		assertThat(row("b@example.com")).contains("\"status\":\"DISABLED\"");
+		assertThat(get("/api/me", bToken).statusCode()).isEqualTo(403);
+		assertThat(delete("/api/admin/users/" + bId, admin).statusCode()).isEqualTo(204);
+		assertThat(storage.keys()).isEmpty();
+		assertThat(authAccounts.wasDeleted(UUID.fromString(bId))).isTrue();
 	}
 
 	private HttpResponse<String> call(String method, String path, String token) throws Exception {

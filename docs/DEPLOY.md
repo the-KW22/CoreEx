@@ -31,7 +31,7 @@ Because the cloud database holds real data, a migration is first exercised on lo
 | `OWNER_EMAIL` | The email that becomes the first Admin |
 | `CORS_ALLOWED_ORIGINS` | The frontend URL, for example `https://coreex.vercel.app`, with no trailing slash |
 | `STORAGE_URL` | `https://<project ref>.supabase.co/storage/v1` (needed for Assets, see "Storage for Assets") |
-| `STORAGE_SERVICE_KEY` | The project's **secret** key (Project Settings > API Keys). It can do anything in Storage, so it lives only here, never in the frontend |
+| `STORAGE_SERVICE_KEY` | The project's **secret** key (Project Settings > API Keys). It can do anything in Storage, and it is also used to delete a removed User's Supabase sign-in (Admin > Users > Remove), so it lives only here, never in the frontend |
 | `STORAGE_BUCKET` | `assets` (the default) |
 
 **Frontend (Vercel, under the Production environment).**
