@@ -66,6 +66,12 @@ class AssetService {
 			folders.requireLive(user.id(), folderId);
 		}
 		requireRoom(user, sizeBytes);
+		// Unconfirmed objects are not counted in the quota, and the bucket only limits each one, so the number of open
+		// uploads is limited instead. They disappear after 24 hours.
+		if (assets.countPending(user.id()) >= properties.maxPendingUploads()) {
+			throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "TOO_MANY_UPLOADS",
+					"You have too many unfinished uploads. Wait a little, then try again.");
+		}
 		var key = user.id() + "/" + UUID.randomUUID();
 		var id = assets.insertPending(user.id(), folderId, key, titleFrom(filename), mime, sizeBytes, clock.instant());
 		return new Upload(id, storage.presignUpload(key));
@@ -78,6 +84,8 @@ class AssetService {
 				"UPLOAD_MISSING", "The file has not been uploaded yet. Upload it, then confirm."));
 		try {
 			requireWithinMax(stored.size());
+			// shortcut: the stored type is compared with the declared one, but the file's bytes are not sniffed;
+			// add a magic-byte check if files are ever served from the app's own origin.
 			if (!normalize(stored.contentType()).equals(pending.mimeType())) {
 				throw unsupported();
 			}

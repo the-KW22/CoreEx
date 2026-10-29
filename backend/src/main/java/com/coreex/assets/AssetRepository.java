@@ -58,6 +58,11 @@ class AssetRepository {
 				.param("id", id).param("owner", ownerId).query(PENDING).optional();
 	}
 
+	long countPending(UUID ownerId) {
+		return jdbc.sql("select count(*) from pending_uploads where owner_id = :owner").param("owner", ownerId)
+				.query(Long.class).single();
+	}
+
 	List<Pending> findPendingOlderThan(Instant before) {
 		return jdbc.sql("select " + PENDING_COLUMNS + " from pending_uploads where created_at < :before order by created_at")
 				.param("before", Timestamp.from(before)).query(PENDING).list();

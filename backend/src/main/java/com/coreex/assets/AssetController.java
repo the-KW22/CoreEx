@@ -107,6 +107,8 @@ class AssetController {
 			mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
 	@ApiResponse(responseCode = "415", description = "Code UNSUPPORTED_TYPE", content = @Content(mediaType = JSON,
 			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "429", description = "Code TOO_MANY_UPLOADS", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
 	@ApiResponse(responseCode = "503", description = "Code STORAGE_UNAVAILABLE", content = @Content(mediaType = JSON,
 			schema = @Schema(implementation = ErrorBody.class)))
 	UploadIntentResponse createUpload(

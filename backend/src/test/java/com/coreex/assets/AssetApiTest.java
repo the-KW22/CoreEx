@@ -205,6 +205,26 @@ class AssetApiTest extends ApiTest {
 	}
 
 	@Test
+	void openUploadsAreLimitedSoNobodyCanFillStorageWithUnconfirmedFiles() throws Exception {
+		var first = "";
+		for (var n = 0; n < 20; n++) {
+			var started = intent(userA, "f" + n + ".png", "image/png", 1, null);
+			assertThat(started.statusCode()).isEqualTo(201);
+			first = first.isEmpty() ? field(started.body(), "uploadId") : first;
+		}
+
+		var refused = intent(userA, "one-too-many.png", "image/png", 1, null);
+
+		assertThat(refused.statusCode()).isEqualTo(429);
+		assertThat(refused.body()).contains("\"code\":\"TOO_MANY_UPLOADS\"");
+		// Finishing one frees a place; another User is not affected.
+		storage.put(pendingKey(first), 1, "image/png");
+		assertThat(confirm(userA, first).statusCode()).isEqualTo(201);
+		assertThat(intent(userA, "now-fits.png", "image/png", 1, null).statusCode()).isEqualTo(201);
+		assertThat(intent(userB, "mine.png", "image/png", 1, null).statusCode()).isEqualTo(201);
+	}
+
+	@Test
 	void confirmingBeforeTheFileIsThereCanBeRetried() throws Exception {
 		var uploadId = field(intent(userA, "late.png", "image/png", 100, null).body(), "uploadId");
 

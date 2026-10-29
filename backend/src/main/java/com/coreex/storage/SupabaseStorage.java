@@ -62,9 +62,13 @@ class SupabaseStorage implements Storage {
 		var request = request("/object/authenticated/" + path(key)).method("HEAD", HttpRequest.BodyPublishers.noBody())
 				.build();
 		var response = sendRaw(request, HttpResponse.BodyHandlers.discarding());
-		// A missing object answers 400 or 404 depending on the Storage version.
-		if (response.statusCode() != 200) {
+		// A missing object answers 400 or 404 depending on the Storage version. Anything else (a bad key, an outage)
+		// must not be mistaken for "not uploaded".
+		if (response.statusCode() == 400 || response.statusCode() == 404) {
 			return Optional.empty();
+		}
+		if (response.statusCode() != 200) {
+			throw unavailable("Storage answered HTTP " + response.statusCode() + " to a size check");
 		}
 		var size = response.headers().firstValueAsLong("content-length").orElse(-1);
 		var type = response.headers().firstValue("content-type").orElse("");
@@ -75,7 +79,8 @@ class SupabaseStorage implements Storage {
 	public void delete(String key) {
 		var request = request("/object/" + path(key)).DELETE().build();
 		var response = sendRaw(request, HttpResponse.BodyHandlers.discarding());
-		if (response.statusCode() >= 500) {
+		// Already gone (400 or 404) is fine; a bad key or an outage is not, or the row would be dropped with the object kept.
+		if (response.statusCode() != 200 && response.statusCode() != 400 && response.statusCode() != 404) {
 			throw unavailable("Storage failed to delete an object (HTTP " + response.statusCode() + ")");
 		}
 	}
@@ -88,8 +93,10 @@ class SupabaseStorage implements Storage {
 		if (properties.url().isBlank() || properties.serviceKey().isBlank()) {
 			throw unavailable("Storage is not configured");
 		}
+		// Both headers: a new-style "sb_secret_..." key is only accepted in apikey, a legacy service_role JWT works
+		// in either, and sending both works for each.
 		return HttpRequest.newBuilder(URI.create(properties.url() + path)).timeout(TIMEOUT)
-				.header("Authorization", "Bearer " + properties.serviceKey());
+				.header("apikey", properties.serviceKey()).header("Authorization", "Bearer " + properties.serviceKey());
 	}
 
 	private HttpRequest post(String path, String body) {
