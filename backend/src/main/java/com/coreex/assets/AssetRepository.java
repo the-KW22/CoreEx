@@ -110,11 +110,11 @@ class AssetRepository {
 	}
 
 	/** False when the Asset is missing or already deleted. The file stays in Storage until the Trash purges it. */
-	boolean softDelete(UUID ownerId, UUID id) {
+	boolean softDelete(UUID ownerId, UUID id, Instant at) {
 		return jdbc.sql("""
-				update items set deleted_at = now(), trash_batch_id = gen_random_uuid()
-				where id = :id and owner_id = :owner and type = 'ASSET' and deleted_at is null""").param("id", id)
-				.param("owner", ownerId).update() > 0;
+				update items set deleted_at = :at, trash_batch_id = gen_random_uuid()
+				where id = :id and owner_id = :owner and type = 'ASSET' and deleted_at is null""").param("at", Timestamp.from(at))
+				.param("id", id).param("owner", ownerId).update() > 0;
 	}
 
 	/** Bytes used: every READY Asset, including those in the Trash, because their files still occupy Storage. */
