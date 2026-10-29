@@ -1,6 +1,8 @@
 package com.coreex.identity;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -11,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import com.coreex.ApiTest;
 import com.coreex.TestJwts;
@@ -23,6 +26,9 @@ class IdentityApiTest extends ApiTest {
 
 	@Autowired
 	TestClock clock;
+
+	@MockitoSpyBean
+	UserRepository userRepository;
 
 	@BeforeEach
 	void cleanDatabase() {
@@ -67,6 +73,22 @@ class IdentityApiTest extends ApiTest {
 		assertThat(response.statusCode()).isEqualTo(200);
 		assertThat(response.body()).contains("\"role\":\"USER\"");
 		assertThat(inviteStatus("friend@example.com")).isEqualTo("ACCEPTED");
+	}
+
+	@Test
+	void ifAnotherRequestProvisionsTheSameFirstTimeUserAtTheSameMomentThisOneStillSignsIn() throws Exception {
+		invite("friend@example.com", "PENDING");
+		var id = UUID.randomUUID();
+		// The other request wins: by the time this one tries to accept the Invite, the User exists and the Invite is used.
+		doAnswer(call -> {
+			user(id, "friend@example.com", "USER", "ACTIVE");
+			jdbc.sql("update invites set status = 'ACCEPTED' where email = 'friend@example.com'").update();
+			return false;
+		}).when(userRepository).acceptPendingInvite(any(), any());
+
+		var response = get("/api/me", TestJwts.tokenFor(id, "friend@example.com"));
+
+		assertThat(response.statusCode()).as(response.body()).isEqualTo(200);
 	}
 
 	@Test
