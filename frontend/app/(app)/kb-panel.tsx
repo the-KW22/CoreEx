@@ -14,6 +14,7 @@ import { itemHref } from "@/lib/items";
 import { cn } from "@/lib/utils";
 
 import { createFolder } from "./folders/actions";
+import { openPalette } from "./search/command-palette";
 import { FolderTree } from "./folders/folder-tree";
 
 const viewButton =
@@ -122,14 +123,17 @@ export function KbPanel({ folders, tags }: { folders: Folder[] | null; tags: Tag
         <NewFolder />
       </div>
 
-      {/* shortcut: searches full text on /search; the command palette (#54) takes this over. */}
-      <form action="/search" method="get" role="search" className="relative block">
-        <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <input type="search" name="q" aria-label="Search" placeholder="Search" maxLength={200} className={cn(input, "pr-16 pl-9")} />
-        <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border border-border px-1.5 font-mono text-[11px] text-muted-foreground max-md:hidden">
-          Ctrl K
-        </kbd>
-      </form>
+      {/* Looks like a field, opens the command palette. */}
+      <button
+        type="button"
+        onClick={openPalette}
+        aria-keyshortcuts="Control+K Meta+K"
+        className={cn(input, "flex items-center gap-2 text-left text-muted-foreground")}
+      >
+        <SearchIcon aria-hidden className="size-4 shrink-0" />
+        <span className="flex-1">Search</span>
+        <kbd aria-hidden className="rounded border border-border px-1.5 font-mono text-[11px] max-md:hidden">Ctrl K</kbd>
+      </button>
 
       <ToggleGroup
         type="single"

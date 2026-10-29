@@ -141,6 +141,13 @@
 }
 
 @layer base {
+  /* Tailwind v4 borders default to the text colour; shadcn components expect the border token. */
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
+  }
+
   body {
     min-height: 100vh;
     color: var(--foreground);
@@ -448,7 +455,7 @@ textarea {
   padding: 0.5rem;
 }
 
-/* Search and the quick switcher. */
+/* Search results. */
 .search-results {
   padding-left: 1.25rem;
 }
@@ -465,52 +472,6 @@ mark {
   color: inherit;
   background: color-mix(in srgb, #facc15 55%, transparent);
   border-radius: 2px;
-}
-
-.quick-switcher {
-  width: min(32rem, 92vw);
-  padding: 1rem;
-  color: var(--foreground);
-  background: var(--background);
-  border: 1px solid var(--border);
-  box-shadow: 0 1rem 3rem rgb(0 0 0 / 0.4);
-}
-
-.quick-switcher::backdrop {
-  background: rgb(0 0 0 / 0.5);
-}
-
-.quick-switcher input {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.quick-switcher ul {
-  max-height: 20rem;
-  margin: 0;
-  padding: 0;
-  overflow-y: auto;
-  list-style: none;
-}
-
-.quick-switcher li {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.5rem;
-  cursor: pointer;
-}
-
-.quick-switcher li.active {
-  outline: 2px solid var(--foreground);
-  outline-offset: -2px;
-}
-
-.quick-status,
-.quick-hint {
-  margin: 0.5rem 0;
-  font-size: 0.85rem;
-  opacity: 0.7;
 }
 
 /* The Admin area. */

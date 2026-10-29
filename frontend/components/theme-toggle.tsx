@@ -28,15 +28,20 @@ function choose(theme: Theme) {
   listeners.forEach((listener) => listener());
 }
 
+export const useTheme = () => useSyncExternalStore(subscribe, current, () => "system" as Theme);
+
+// System → Light → Dark, the same step as the button; the command palette uses it too.
+export const toggleTheme = () => choose(NEXT[current()]);
+
 // An icon button; the other props let a Tooltip wrap it.
 export function ThemeToggle(props: React.ComponentProps<"button">) {
-  const theme = useSyncExternalStore(subscribe, current, () => "system" as Theme);
+  const theme = useTheme();
   const Icon = ICON[theme];
   return (
     <button
       type="button"
       {...props}
-      onClick={() => choose(NEXT[theme])}
+      onClick={toggleTheme}
       aria-label={`Theme: ${LABEL[theme]}. Switch to ${LABEL[NEXT[theme]]}`}
     >
       <Icon aria-hidden />

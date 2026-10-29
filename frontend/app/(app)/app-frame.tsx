@@ -1,16 +1,17 @@
 "use client";
 
 import { MenuIcon, SearchIcon } from "lucide-react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { Folder } from "@/lib/folders";
 
 import { KbPanel } from "./kb-panel";
 import { Rail, railButton } from "./rail";
+import { CommandPalette, openPalette } from "./search/command-palette";
 
 type Props = {
   email: string;
@@ -46,9 +47,9 @@ export function AppFrame({ email, isAdmin, folders, tags, children }: Props) {
             <MenuIcon aria-hidden />
           </button>
           <span className="flex-1 font-semibold">CoreEx</span>
-          <Link href="/search" aria-label="Search" className={railButton}>
+          <button type="button" onClick={openPalette} aria-label="Search" className={railButton}>
             <SearchIcon aria-hidden />
-          </Link>
+          </button>
         </header>
 
         <div className="sticky top-0 hidden h-dvh shrink-0 md:block">
@@ -83,6 +84,8 @@ export function AppFrame({ email, isAdmin, folders, tags, children }: Props) {
           </div>
         </SheetContent>
       </Sheet>
+      <CommandPalette />
+      <Toaster />
     </TooltipProvider>
   );
 }

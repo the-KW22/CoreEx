@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { getApi } from "@/lib/api/server";
 
 import { AppFrame } from "./app-frame";
-import { QuickSwitcher } from "./search/quick-switcher";
 
 function Problem({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -46,7 +45,6 @@ export async function Shell({ children }: { children: React.ReactNode }) {
       tags={tags?.data?.items ?? null}
     >
       {children}
-      <QuickSwitcher />
     </AppFrame>
   );
 }
