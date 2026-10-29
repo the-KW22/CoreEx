@@ -26,7 +26,9 @@ import jakarta.validation.constraints.Size;
 @RequestMapping(value = "/api/search", produces = MediaType.APPLICATION_JSON_VALUE)
 class SearchController {
 
-	private static final int MAX_PAGE_SIZE = 50;
+	// shortcut: at most 20 results per page, because each snippet is a ts_headline over up to 200,000 characters (about
+	// 45 ms for the largest Note); raise it, or limit what is quoted, if pages need to be bigger.
+	private static final int MAX_PAGE_SIZE = 20;
 
 	private static final String JSON = MediaType.APPLICATION_JSON_VALUE;
 

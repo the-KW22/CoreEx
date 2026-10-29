@@ -337,6 +337,13 @@ class SearchApiTest extends ApiTest {
 		assertThat(first).contains("\"total\":5");
 		assertThat(titles(last)).hasSize(1);
 		assertThat(titles(searchWith(userA, "needle", "&size=2&page=3"))).isEmpty();
+		// A page never holds more than 20 results, whatever size is asked for.
+		for (var n = 5; n < 22; n++) {
+			note(userA, "Page " + n, "needle");
+		}
+		var big = searchWith(userA, "needle", "&size=1000");
+		assertThat(titles(big)).hasSize(20);
+		assertThat(big).contains("\"total\":22");
 	}
 
 	@Test
