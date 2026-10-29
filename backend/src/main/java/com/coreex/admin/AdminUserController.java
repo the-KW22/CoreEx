@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.coreex.common.ErrorBody;
@@ -131,6 +133,20 @@ class AdminUserController {
 			schema = @Schema(implementation = ErrorBody.class)))
 	UserResponse enable(@PathVariable UUID id) {
 		return UserResponse.of(users.enable(id));
+	}
+
+	/** Deletes the User's data, files and sign-in so the email can be invited again. */
+	@DeleteMapping("/api/admin/users/{id}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@ApiResponse(responseCode = "204", description = "The User and everything of theirs is gone")
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "409", description = "Code CANNOT_REMOVE_ADMIN", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "503", description = "Code STORAGE_UNAVAILABLE or AUTH_UNAVAILABLE; nothing was lost, retry",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	void remove(@PathVariable UUID id) {
+		users.remove(id);
 	}
 
 	@GetMapping("/api/admin/overview")

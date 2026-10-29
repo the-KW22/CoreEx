@@ -75,6 +75,11 @@ class AdminUserRepository {
 				.param("id", id).update() > 0;
 	}
 
+	/** Removes the User; their Items, Folders, Tags and uploads go with them (on delete cascade). */
+	void delete(UUID id) {
+		jdbc.sql("delete from users where id = :id").param("id", id).update();
+	}
+
 	Totals totals() {
 		var users = jdbc.sql("select count(*), count(*) filter (where status = 'DISABLED') from users")
 				.query((rs, n) -> new long[] { rs.getLong(1), rs.getLong(2) }).single();

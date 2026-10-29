@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getApi } from "@/lib/api/server";
 import { formatBytes } from "@/lib/items";
 
-import { setDisabled, setQuota, useDefaultQuota } from "./actions";
+import { removeUser, setDisabled, setQuota, useDefaultQuota } from "./actions";
 
 const MIB = 1024 * 1024;
 
@@ -11,6 +11,8 @@ const errors: Record<string, string> = {
   quota: "Could not change the quota. Enter a whole number of megabytes from 0 to about 950,000.",
   status: "Could not change that account. Try again.",
   self: "You cannot disable your own account.",
+  admin: "An Admin cannot be removed. Disable the account instead.",
+  remove: "Removal is not finished. The person is disabled; press Remove again to finish.",
 };
 
 const when = (iso: string | null | undefined) => (iso ? iso.slice(0, 16).replace("T", " ") + " UTC" : "Never");
@@ -120,6 +122,19 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
                         {user.status === "ACTIVE" ? "Disable" : "Enable"}
                       </button>
                     </form>
+                  )}
+                  {!yourself && user.role !== "ADMIN" && (
+                    <details>
+                      <summary aria-label={`Remove ${user.email}`}>Remove…</summary>
+                      <p>
+                        This deletes {user.email}&apos;s Notes, files and sign-in for good. It cannot be undone. Their
+                        email can be invited again afterwards.
+                      </p>
+                      <form action={removeUser}>
+                        <input type="hidden" name="id" value={user.id} />
+                        <button type="submit">Remove for good</button>
+                      </form>
+                    </details>
                   )}
                 </td>
               </tr>

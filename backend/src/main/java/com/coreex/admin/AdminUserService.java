@@ -9,7 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.coreex.assets.AssetProperties;
+import com.coreex.assets.UserFiles;
 import com.coreex.common.ApiException;
+import com.coreex.identity.AuthAccounts;
 import com.coreex.identity.User;
 
 /**
@@ -32,10 +34,17 @@ class AdminUserService {
 
 	private final AdminProperties properties;
 
-	AdminUserService(AdminUserRepository users, AssetProperties assets, AdminProperties properties) {
+	private final UserFiles files;
+
+	private final AuthAccounts authAccounts;
+
+	AdminUserService(AdminUserRepository users, AssetProperties assets, AdminProperties properties, UserFiles files,
+			AuthAccounts authAccounts) {
 		this.users = users;
 		this.assets = assets;
 		this.properties = properties;
+		this.files = files;
+		this.authAccounts = authAccounts;
 	}
 
 	List<UserSummary> list(int page, int size) {
@@ -67,6 +76,22 @@ class AdminUserService {
 	@Transactional
 	UserSummary enable(UUID id) {
 		return setStatus(id, User.Status.ACTIVE);
+	}
+
+	/**
+	 * Removes a User for good so their email can be invited again: their files, their sign-in, then their rows. They
+	 * are disabled first, and every step is safe to repeat, so a failure halfway leaves a disabled User and a retry
+	 * finishes the job. Admins stay: disable them instead.
+	 */
+	void remove(UUID id) {
+		var user = users.find(id).orElseThrow(AdminUserService::notFound);
+		if (user.role() == User.Role.ADMIN) {
+			throw new ApiException(HttpStatus.CONFLICT, "CANNOT_REMOVE_ADMIN", "An Admin cannot be removed.");
+		}
+		users.setStatus(id, User.Status.DISABLED);
+		files.deleteAllOf(id);
+		authAccounts.delete(id);
+		users.delete(id);
 	}
 
 	Overview overview() {

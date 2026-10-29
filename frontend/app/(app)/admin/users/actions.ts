@@ -34,6 +34,21 @@ export async function useDefaultQuota(formData: FormData) {
   if (id) await saveQuota(id, "default");
 }
 
+// Deletes the person's data, files and sign-in, so their email can be invited again.
+export async function removeUser(formData: FormData) {
+  const id = text(formData, "id");
+  if (!id) return;
+
+  const api = await getApi();
+  const result = await api
+    .DELETE("/api/admin/users/{id}", { params: { path: { id } } })
+    .catch(() => null);
+  if (!result?.response.ok) {
+    redirect(`/admin/users?error=${result?.error?.code === "CANNOT_REMOVE_ADMIN" ? "admin" : "remove"}`);
+  }
+  revalidatePath("/admin/users");
+}
+
 export async function setDisabled(formData: FormData) {
   const id = text(formData, "id");
   if (!id) return;
