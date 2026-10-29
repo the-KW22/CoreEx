@@ -18,9 +18,10 @@ class UserRepository {
 	}
 
 	Optional<User> findById(UUID id) {
-		return jdbc.sql("select id, email, role, status from users where id = :id").param("id", id)
+		return jdbc.sql("select id, email, role, status, storage_quota_bytes from users where id = :id").param("id", id)
 				.query((rs, n) -> new User(rs.getObject("id", UUID.class), rs.getString("email"),
-						User.Role.valueOf(rs.getString("role")), User.Status.valueOf(rs.getString("status"))))
+						User.Role.valueOf(rs.getString("role")), User.Status.valueOf(rs.getString("status")),
+						rs.getObject("storage_quota_bytes", Long.class)))
 				.optional();
 	}
 

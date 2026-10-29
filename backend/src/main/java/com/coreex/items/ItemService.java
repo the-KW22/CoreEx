@@ -1,5 +1,6 @@
 package com.coreex.items;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,10 +22,13 @@ public class ItemService {
 
 	private final TagService tags;
 
-	ItemService(ItemRepository items, FolderService folders, TagService tags) {
+	private final Clock clock;
+
+	ItemService(ItemRepository items, FolderService folders, TagService tags, Clock clock) {
 		this.items = items;
 		this.folders = folders;
 		this.tags = tags;
+		this.clock = clock;
 	}
 
 	/**
@@ -59,6 +63,13 @@ public class ItemService {
 	/** Other features call this to check an Item is live and the User's; it is a 404 otherwise. */
 	public void requireLive(UUID ownerId, UUID id) {
 		items.findLive(ownerId, id).orElseThrow(ItemService::notFound);
+	}
+
+	/** Records that the User opened the Item (for "recently opened"); a 404 unless it is live and theirs. */
+	void markOpened(UUID ownerId, UUID id) {
+		if (!items.markOpened(ownerId, id, clock.instant())) {
+			throw notFound();
+		}
 	}
 
 	/** Moves an Item into a Folder, or to the top level when folderId is null. */

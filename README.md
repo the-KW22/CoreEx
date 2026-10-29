@@ -65,6 +65,30 @@ On a Note's page, type a name under **Add a Tag**; your existing Tags are sugges
 
 In a Note, type `[[` and your Items are suggested by title, with their type and Folder; choosing one inserts a Link. Links show the target's current title, so they keep working after a rename or a move, and clicking one opens it. You can also type `[[Exact Title]]`: when exactly one of your Items has that title, the next save turns it into a Link; with no match, several matches, or an Item in the Trash it stays as written and is shown as an unresolved Link (dashed). Links inside code are left alone. Under every Note, **Backlinks** lists the Notes that link to it. The text of a Link is stored as `[[<item-id>|<title>]]`, which is plain Markdown. Click into the editor to edit a Link's raw text on its line.
 
+### Assets
+
+On the home page or a Folder's page, drop images or PDFs (PNG, JPG, WebP, GIF, PDF; up to 5 MB each) on the upload box or choose them. The title starts as the file name. An Asset's page shows an image inline or a PDF in the viewer, offers **Download**, lets you rename it and add a description, and works like a Note for Folders, Tags, Links and Backlinks (`[[` suggests Assets too). **Move to Trash** hides it, but its file still counts toward your storage (100 MB by default) until the Trash is emptied. The home page shows how much you have used.
+
+Files live in a private Supabase Storage bucket. The browser uploads straight to Storage with a short-lived link from the API, and the API checks the stored file's real size and type before creating the Asset. To use Assets locally, `supabase start` creates the `assets` bucket from `supabase/config.toml`, and `backend/.env` needs `STORAGE_URL`, `STORAGE_SERVICE_KEY` and `STORAGE_BUCKET` (see `backend/.env.example`). Without them everything else works and Asset endpoints answer 503. Production setup is in `docs/DEPLOY.md`.
+
+### Admin: Users and Overview
+
+Next to **Invites**, the Admin area has **Users** and **Overview** (visible to Admins only). Users lists every account with its status, sign-up date, last active time, number of Items and storage used against its quota. You can change a User's quota in megabytes (or go back to the default), and Disable or Enable the account: a disabled User is refused on their very next request, nothing they own is touched, and enabling restores everything. You cannot disable yourself. Overview shows the number of Users and the total storage used against the hosting limit (1 GB on the Supabase free tier, `coreex.admin.hosting-limit-bytes`). These screens show account facts and totals only, never anyone's Notes, Assets or Folders (ADR 0004).
+
+### Importing Markdown and text files
+
+The same box on the home page and a Folder's page also takes `.md` and `.txt` files: each becomes a new Note, titled after the file name without its extension, with the file's text stored exactly as written. Several files can be added at once, and a bad file (another type, over 1 MB, or not valid UTF-8) is refused on its own with a message while the rest are imported. `[[Exact Title]]` in an imported file becomes a Link under the same rules as when you write it, including links between files imported together. On a Folder's page the Notes land in that Folder. The original file is not kept.
+
+### Search and the quick switcher
+
+**Search** in the sidebar (or `/search`) finds your Items by Note title and text, Asset title and description, and Tag name. Words are matched exactly as written, ignoring case, in any language (Malay, French, ...; accents count, so `cafe` does not find `café`). A file name such as `Q3_report-final.v2.pdf` is found by its words. Use `"quotes"` for a phrase, `or` for either word and `-word` to leave one out. Narrow results by type, Folder (subfolders included) and Tag; each result shows a snippet with the matches highlighted, and trashed Items never appear. Only the first 200,000 characters of a Note are searched.
+
+Press **Ctrl+K** (**Cmd+K** on a Mac) on any page to open the quick switcher: type part of a title (a typo is fine) and press Enter to open it; with nothing typed it lists the Items you opened most recently.
+
+### Trash
+
+**Move to Trash** (on a Note, Asset or Folder) hides it; **Trash** in the sidebar lists what is there with the days left before it is removed for good (30). A deleted Folder is one row ("with 2 Folders and 5 Items"). **Restore** brings an Item back together with any trashed Folders above it (not what else was in them), and brings a Folder back with exactly what was deleted with it. Links to a restored Item work again. **Delete forever** and **Empty Trash** remove things for good, including the files in Storage, which frees your storage quota. A background job removes anything older than 30 days; on the free host it runs every 6 hours while the app is awake.
+
 ## Deploying
 
 Production (from `main`) is the only cloud environment: a Vercel frontend, a Render backend and one Supabase project. `staging` is the integration branch, checked by CI and by running the stack locally. See [docs/DEPLOY.md](docs/DEPLOY.md) for setup, variables and redeploying.

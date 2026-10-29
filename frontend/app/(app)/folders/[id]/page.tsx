@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
+import { itemHref } from "@/lib/items";
 import { childrenByParent, pathTo } from "@/lib/folders";
 
+import { UploadBox } from "../../assets/upload-box";
 import { createNote } from "../../notes/actions";
 import { createFolder, deleteFolder, moveFolder, renameFolder } from "../actions";
 import { FolderSelect } from "../folder-select";
@@ -61,6 +63,8 @@ export default async function FolderPage({ params, searchParams }: PageProps<"/f
         </form>
       </div>
 
+      <UploadBox folderId={id} />
+
       <h2>Subfolders</h2>
       {subfolders.length === 0 ? (
         <p>No subfolders.</p>
@@ -97,7 +101,7 @@ export default async function FolderPage({ params, searchParams }: PageProps<"/f
             {items.data.items.map((item) => (
               <tr key={item.id}>
                 <td>
-                  <Link href={`/notes/${item.id}`}>{item.title || "Untitled"}</Link>
+                  <Link href={itemHref(item)}>{item.title || "Untitled"}</Link>
                 </td>
                 <td>{item.updatedAt.slice(0, 10)}</td>
               </tr>

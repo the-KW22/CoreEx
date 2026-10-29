@@ -3,9 +3,8 @@ import { notFound } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
 
-import { FolderSelect } from "../../folders/folder-select";
-import { moveItem } from "../../folders/actions";
-import { addTag, removeTag } from "../../tags/actions";
+import { ItemBacklinks, ItemFolder, ItemTags } from "../../items/item-sections";
+import { RecordOpen } from "../../search/record-open";
 import { deleteNote } from "../actions";
 import { NoteEditor } from "./note-editor";
 
@@ -13,12 +12,9 @@ export default async function NotePage({ params, searchParams }: PageProps<"/not
   const { id } = await params;
   const { error } = await searchParams;
   const api = await getApi();
-  const [result, list, itemTags, allTags, backlinks] = await Promise.all([
+  const [result, list] = await Promise.all([
     api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/folders").catch(() => null),
-    api.GET("/api/items/{id}/tags", { params: { path: { id } } }).catch(() => null),
-    api.GET("/api/tags").catch(() => null),
-    api.GET("/api/items/{id}/backlinks", { params: { path: { id } } }).catch(() => null),
   ]);
 
   if (!result) {
@@ -32,10 +28,8 @@ export default async function NotePage({ params, searchParams }: PageProps<"/not
   }
 
   const folders = list?.data?.items ?? [];
-  const tags = itemTags?.data?.items ?? [];
-  const onItem = new Set(tags.map((t) => t.id));
-  const suggestions = (allTags?.data?.items ?? []).filter((t) => !onItem.has(t.id));
   const folder = folders.find((f) => f.id === note.folderId);
+  const back = `/notes/${note.id}`;
 
   return (
     <>
@@ -45,62 +39,11 @@ export default async function NotePage({ params, searchParams }: PageProps<"/not
       {error === "move" && <p role="alert">Could not move the Note. Try again.</p>}
       {error === "tag" && <p role="alert">Could not add the Tag. Try again.</p>}
       {error === "untag" && <p role="alert">Could not remove the Tag. Try again.</p>}
+      <RecordOpen id={note.id} />
       <NoteEditor key={note.id} id={note.id} initial={note} />
-      <form action={moveItem} className="inline-form">
-        <input type="hidden" name="id" value={note.id} />
-        <FolderSelect name="folderId" label="Folder" folders={folders} selected={note.folderId} />
-        <button type="submit">Move</button>
-      </form>
-      <section aria-labelledby="tags-heading">
-        <h2 id="tags-heading">Tags</h2>
-        {tags.length === 0 ? (
-          <p>No Tags on this Note.</p>
-        ) : (
-          <ul className="tag-list">
-            {tags.map((tag) => (
-              <li key={tag.id}>
-                <Link href={`/tags/${tag.id}`}>{tag.name}</Link>
-                <form action={removeTag}>
-                  <input type="hidden" name="id" value={note.id} />
-                  <input type="hidden" name="tagId" value={tag.id} />
-                  <button type="submit" aria-label={`Remove the Tag ${tag.name}`}>
-                    ×
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
-        <form action={addTag} className="inline-form">
-          <input type="hidden" name="id" value={note.id} />
-          <label>
-            Add a Tag
-            <input name="name" list="tag-suggestions" required maxLength={50} autoComplete="off" />
-          </label>
-          <datalist id="tag-suggestions">
-            {suggestions.map((tag) => (
-              <option key={tag.id} value={tag.name} />
-            ))}
-          </datalist>
-          <button type="submit">Add</button>
-        </form>
-      </section>
-      <section aria-labelledby="backlinks-heading">
-        <h2 id="backlinks-heading">Backlinks</h2>
-        {!backlinks?.data ? (
-          <p role="alert">Could not load the Backlinks.</p>
-        ) : backlinks.data.items.length === 0 ? (
-          <p>No Notes link here yet.</p>
-        ) : (
-          <ul>
-            {backlinks.data.items.map((backlink) => (
-              <li key={backlink.id}>
-                <Link href={`/notes/${backlink.id}`}>{backlink.title || "Untitled"}</Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <ItemFolder itemId={note.id} folderId={note.folderId} folders={folders} back={back} />
+      <ItemTags itemId={note.id} back={back} />
+      <ItemBacklinks itemId={note.id} />
       <form action={deleteNote} className="delete-note">
         <input type="hidden" name="id" value={note.id} />
         <button type="submit">Move to Trash</button>

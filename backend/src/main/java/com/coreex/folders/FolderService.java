@@ -1,5 +1,6 @@
 package com.coreex.folders;
 
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -21,8 +22,11 @@ public class FolderService {
 
 	private final FolderRepository folders;
 
-	FolderService(FolderRepository folders) {
+	private final Clock clock;
+
+	FolderService(FolderRepository folders, Clock clock) {
 		this.folders = folders;
+		this.clock = clock;
 	}
 
 	/** Other features call this to check a Folder exists, is live and is the User's; it is a 404 otherwise. */
@@ -87,7 +91,12 @@ public class FolderService {
 
 	@Transactional
 	void delete(UUID ownerId, UUID id) {
-		folders.trash(ownerId, subtree(ownerId, id), UUID.randomUUID());
+		folders.trash(ownerId, subtree(ownerId, id), UUID.randomUUID(), clock.instant());
+	}
+
+	/** The Folder and all its live subfolders, at any depth; a 404 if the Folder is missing, deleted or not theirs. */
+	public List<UUID> subtreeIds(UUID ownerId, UUID id) {
+		return subtree(ownerId, id);
 	}
 
 	private List<UUID> subtree(UUID ownerId, UUID id) {

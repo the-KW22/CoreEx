@@ -61,7 +61,7 @@ public class IdentityService {
 		else {
 			return Optional.empty();
 		}
-		users.insert(new User(id, normalized, role, User.Status.ACTIVE));
+		users.insert(new User(id, normalized, role, User.Status.ACTIVE, null));
 		return users.findById(id);
 	}
 

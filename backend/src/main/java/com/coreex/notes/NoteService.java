@@ -1,5 +1,6 @@
 package com.coreex.notes;
 
+import java.time.Clock;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -19,10 +20,13 @@ class NoteService {
 
 	private final LinkService links;
 
-	NoteService(NoteRepository notes, FolderService folders, LinkService links) {
+	private final Clock clock;
+
+	NoteService(NoteRepository notes, FolderService folders, LinkService links, Clock clock) {
 		this.notes = notes;
 		this.folders = folders;
 		this.links = links;
+		this.clock = clock;
 	}
 
 	@Transactional
@@ -55,7 +59,7 @@ class NoteService {
 	}
 
 	void delete(UUID ownerId, UUID id) {
-		if (!notes.softDelete(ownerId, id)) {
+		if (!notes.softDelete(ownerId, id, clock.instant())) {
 			throw notFound();
 		}
 	}

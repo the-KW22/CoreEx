@@ -11,13 +11,20 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 
-/** Swaps Supabase's real keys and the wall clock for ones the tests control. */
+/** Swaps Supabase's real keys, Storage and the wall clock for ones the tests control. */
 @TestConfiguration(proxyBeanMethods = false)
 public class TestSupportConfiguration {
 
 	@Bean
 	JwtDecoder jwtDecoder() {
 		return TestJwts.decoder();
+	}
+
+	/** Replaces Supabase Storage, so no test touches the network. */
+	@Bean
+	@Primary
+	public TestStorage testStorage() {
+		return new TestStorage();
 	}
 
 	@Bean

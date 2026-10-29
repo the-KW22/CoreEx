@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.coreex.common.ErrorBody;
@@ -69,6 +71,17 @@ class ItemController {
 		var safeSize = Math.min(MAX_PAGE_SIZE, Math.max(1, size));
 		var list = items.list(user.id(), folderId, tagId, Math.max(0, page), safeSize).stream().map(ItemResponse::of).toList();
 		return new ItemPage(list, items.total(user.id(), folderId, tagId));
+	}
+
+	/** Called by the browser when the User opens an Item's page; feeds the quick switcher's recents. */
+	@PostMapping("/{id}/open")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@ApiResponse(responseCode = "204", description = "Recorded")
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's or a trashed Item)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	void open(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id) {
+		items.markOpened(user.id(), id);
 	}
 
 	@PostMapping(value = "/{id}/move", consumes = JSON)

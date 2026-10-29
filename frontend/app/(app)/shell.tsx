@@ -6,6 +6,7 @@ import { getApi } from "@/lib/api/server";
 import { signOut } from "../actions";
 import { createFolder } from "./folders/actions";
 import { FolderTree } from "./folders/folder-tree";
+import { QuickSwitcher } from "./search/quick-switcher";
 
 // Asks the API who is signed in; the API decides whether they may use CoreEx.
 export async function Shell({ children }: { children: React.ReactNode }) {
@@ -38,12 +39,20 @@ export async function Shell({ children }: { children: React.ReactNode }) {
     <div className="shell">
       <nav aria-label="Main">
         <strong>CoreEx</strong>
+        <form action="/search" method="get" role="search" className="nav-search">
+          <input type="search" name="q" aria-label="Search" placeholder="Search" maxLength={200} />
+          <button type="submit">Go</button>
+        </form>
+        <p className="upload-hint">or press Ctrl+K to jump to a title</p>
         <ul>
           <li>
             <Link href="/">Notes</Link>
           </li>
           <li>
             <Link href="/tags">Tags</Link>
+          </li>
+          <li>
+            <Link href="/trash">Trash</Link>
           </li>
           {/* Only a convenience: the API refuses non-admins on its own (ADR 0004). */}
           {me.role === "ADMIN" && (
@@ -73,6 +82,7 @@ export async function Shell({ children }: { children: React.ReactNode }) {
         </form>
       </nav>
       <main>{children}</main>
+      <QuickSwitcher />
     </div>
   );
 }

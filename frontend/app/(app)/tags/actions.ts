@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
+import { backTo } from "@/lib/items";
 
 const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim();
 const refresh = () => revalidatePath("/", "layout");
@@ -17,7 +18,7 @@ export async function addTag(formData: FormData) {
   const result = await api
     .POST("/api/items/{id}/tags", { params: { path: { id } }, body: { name } })
     .catch(() => null);
-  if (!result?.data) redirect(`/notes/${id}?error=tag`);
+  if (!result?.data) redirect(`${backTo(text(formData, "back"), `/notes/${id}`)}?error=tag`);
   refresh();
 }
 
@@ -30,7 +31,7 @@ export async function removeTag(formData: FormData) {
   const result = await api
     .DELETE("/api/items/{id}/tags/{tagId}", { params: { path: { id, tagId } } })
     .catch(() => null);
-  if (!result || result.error) redirect(`/notes/${id}?error=untag`);
+  if (!result || result.error) redirect(`${backTo(text(formData, "back"), `/notes/${id}`)}?error=untag`);
   refresh();
 }
 
