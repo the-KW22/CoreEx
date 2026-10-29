@@ -39,7 +39,7 @@ JDK 21, Node.js 24, Docker Desktop (running), and the [Supabase CLI](https://sup
    npm run dev
    ```
 
-4. **Sign in.** Open <http://localhost:3000>, choose **Create account** with the `OWNER_EMAIL` address, and you land in the app as Admin. Sign-in is email and password only for now.
+4. **Sign in.** Open <http://localhost:3000>, choose **Create account** with the `OWNER_EMAIL` address, and you land in the app as Admin. Sign-in is email and password only for now. **Forgot password?** on the sign-in page emails a reset link (locally it lands in Mailpit at <http://127.0.0.1:54324>; production setup is in `docs/DEPLOY.md`).
 
 CoreEx's tables live in the `coreex` schema (ADR 0005). If you ran an older version, `public.users` and `public.invites` are unused leftovers; `supabase db reset` clears them.
 
