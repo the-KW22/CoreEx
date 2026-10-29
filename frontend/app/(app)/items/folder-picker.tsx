@@ -19,10 +19,16 @@ export function FolderPicker({ itemId, folderId, folders }: { itemId: string; fo
         defaultValue={folderId ?? ""}
         disabled={pending}
         onChange={(event) => {
-          const to = event.target.value || null;
+          const select = event.currentTarget;
+          const to = select.value || null;
           startTransition(async () => {
-            if (await moveItemTo(itemId, to)) toast.success("Moved");
-            else toast.error("Could not move it. Try again.");
+            if (await moveItemTo(itemId, to)) {
+              toast.success("Moved");
+            } else {
+              // Show where it still is, not where it failed to go.
+              select.value = folderId ?? "";
+              toast.error("Could not move it. Try again.");
+            }
           });
         }}
         className="h-9 rounded-lg border border-border bg-surface px-2 text-sm text-foreground"

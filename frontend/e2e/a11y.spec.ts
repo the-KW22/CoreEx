@@ -432,9 +432,13 @@ test("hovering a Link previews its target", async ({ page }) => {
   await page.keyboard.type("Next line.");
   const link = page.locator(".cm-wikilink", { hasText: target });
   await link.hover();
-  const card = page.locator("[aria-live=polite]").filter({ hasText: target });
+  const card = page.locator("[data-link-preview]").filter({ hasText: target });
   await expect(card).toContainText("The first line of the target.");
   await expect(card).toContainText("Note · Top level");
+  // Screen readers hear it through a live region that is always there.
+  await expect(page.locator("p[aria-live=polite]").filter({ hasText: `Link to Note ${target}` })).toContainText(
+    "The first line of the target.",
+  );
   await expectNoViolations(page);
 
   // From the keyboard: the caret inside the Link shows it too, and Escape hides it.

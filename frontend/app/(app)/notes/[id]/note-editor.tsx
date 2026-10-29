@@ -122,6 +122,8 @@ export function NoteEditor({
       try {
         for (;;) {
           const snapshot = { ...latest.current };
+          // Counted here, at most once a second, rather than on every key press.
+          setWords(wordCount(snapshot.body));
           if (same(snapshot, saved.current)) {
             setStatus("saved");
             return;
@@ -191,7 +193,10 @@ export function NoteEditor({
 
   // Shows the preview for the Link at `pos`, placed under its start; nothing when it is not a resolved Link.
   const showPreview = useCallback((editor: EditorView, pos: number, by: Preview["by"]) => {
-    const link = linkAt(editor.state.doc.toString(), pos);
+    // Only the caret's line: copying a big Note on every caret move would make typing stutter.
+    const line = editor.state.doc.lineAt(pos);
+    const onLine = linkAt(line.text, pos - line.from);
+    const link = onLine && { ...onLine, from: onLine.from + line.from };
     const target = link ? editor.state.field(linkField)[link.id] : null;
     const at = link && target ? editor.coordsAtPos(link.from) : null;
     if (!link || !target || !at) {
@@ -226,7 +231,6 @@ export function NoteEditor({
             if (update.docChanged) {
               clearTimeout(linkTimer.current);
               linkTimer.current = setTimeout(() => void lookUpLinks(), LINK_LOOKUP_MS);
-              setWords(wordCount(update.state.doc.toString()));
             }
             // The caret inside a Link previews it, so the keyboard and touch screens get it too.
             if (update.selectionSet || update.focusChanged || update.docChanged) {
@@ -490,9 +494,17 @@ export function NoteEditor({
         </SheetContent>
       </Sheet>
 
+      {/* Always mounted: screen readers only announce changes to a live region that already exists. */}
+      <p aria-live="polite" className="sr-only">
+        {preview &&
+          `Link to ${preview.target.type === "NOTE" ? "Note" : "Asset"} ${preview.target.title || "Untitled"}, in ${
+            preview.target.folderPath ?? "the top level"
+          }. ${previewText[preview.id] ?? ""}`}
+      </p>
       {preview && (
         <div
-          aria-live="polite"
+          aria-hidden
+          data-link-preview
           className="fixed z-50 grid w-80 gap-1.5 rounded-[10px] border border-border bg-popover p-3 text-sm shadow-lg"
           style={{ left: Math.max(8, preview.left), top: preview.top }}
           onMouseEnter={() => clearTimeout(previewTimer.current)}

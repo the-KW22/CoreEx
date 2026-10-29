@@ -67,7 +67,9 @@ export function TagEditor({ itemId, tags, allTags }: { itemId: string; tags: Tag
             <Command>
               <CommandInput value={text} onValueChange={setText} placeholder="Find or create a Tag" maxLength={50} />
               <CommandList>
-                <CommandEmpty>{typed ? "No Tag has that name." : "No other Tags yet."}</CommandEmpty>
+                <CommandEmpty>
+                  {!typed ? "No other Tags yet." : onItem.has(typed.toLowerCase()) ? "It already has that Tag." : "No Tag has that name."}
+                </CommandEmpty>
                 {isNew && (
                   <CommandGroup>
                     <CommandItem value={`create:${typed}`} onSelect={() => add(typed)}>
