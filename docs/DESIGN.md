@@ -221,6 +221,7 @@ Expressive, but calm where people write.
 | Component animation: staggered card and list entry, layout reflow when Items move, exit and Undo on Trash, Folder cards opening on hover, command palette | **Motion** (motion.dev) |
 | Advanced timelines (Knowledge Graph visuals, landing page) | **GSAP**, added with the first feature that needs it, not now |
 
+- Entry animations on server-rendered content (Home's sections) are CSS (`tw-animate-css` classes), so content never waits for JavaScript to become visible. Motion is for animation that needs state.
 - The Note editor does not animate while typing.
 - Everything respects `prefers-reduced-motion`: animations are replaced by instant changes or a plain fade.
 

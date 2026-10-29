@@ -28,12 +28,12 @@ type Item = components["schemas"]["ItemResponse"];
 type Dialogs = { kind: "move" | "tag"; item: Item } | null;
 
 // Upload and Import open the command palette's file pickers, so there is one upload path.
-export function PickButton({ kind }: { kind: "upload" | "import" }) {
+export function PickButton({ kind, label }: { kind: "upload" | "import"; label?: string }) {
   const Icon = kind === "upload" ? UploadIcon : FileUpIcon;
   return (
     <Button type="button" variant="outline" onClick={() => pickFiles(kind)}>
       <Icon aria-hidden />
-      {kind === "upload" ? "Upload" : "Import"}
+      {label ?? (kind === "upload" ? "Upload" : "Import")}
     </Button>
   );
 }

@@ -411,28 +411,10 @@ td {
   font-style: normal;
 }
 
-/* Uploading Assets and showing them. */
-.upload-box {
-  margin: 1rem 0;
-  padding: 0.5rem 1rem;
-  border: 2px dashed var(--border);
-}
-
-.upload-box.dragging {
-  border-color: var(--foreground);
-}
-
-.upload-box p {
-  margin: 0.5rem 0;
-}
-
+/* Showing Assets. */
 .upload-hint {
   font-size: 0.85rem;
   opacity: 0.7;
-}
-
-.upload-box ul {
-  padding-left: 1rem;
 }
 
 .asset-image {
