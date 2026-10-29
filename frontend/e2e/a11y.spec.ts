@@ -188,3 +188,22 @@ test("Import Markdown from the command palette adds the Note and says so", async
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).not.toHaveURL(/\/notes\//);
 });
+
+test("the command palette says it is searching while the answer is on its way", async ({ page }) => {
+  await signIn(page);
+  const palette = await openPalette(page);
+  // Hold the title lookup back, as a slow connection would.
+  let release = () => {};
+  const held = new Promise<void>((heard) =>
+    page.route(/\/quick\?q=./, async (route) => {
+      heard();
+      await new Promise<void>((resolve) => (release = resolve));
+      await route.continue();
+    }),
+  );
+  await palette.getByRole("combobox").fill("anything");
+  await held;
+  await expect(palette.getByText("Searching…", { exact: true }).first()).toBeVisible();
+  release();
+  await expect(palette.getByText("Searching…", { exact: true })).toHaveCount(0);
+});

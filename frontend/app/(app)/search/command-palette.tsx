@@ -5,6 +5,7 @@ import {
   FileTextIcon,
   FileUpIcon,
   ImageIcon,
+  Loader2Icon,
   SearchIcon,
   XIcon,
   SunMoonIcon,
@@ -170,6 +171,12 @@ export function CommandPalette() {
                       ))}
                     </CommandGroup>
                   )}
+                  {hits === undefined && (
+                    <p className="flex items-center gap-2 px-4 pt-4 pb-1 text-sm text-muted-foreground">
+                      <Loader2Icon aria-hidden className="size-4 animate-spin" />
+                      Searching…
+                    </p>
+                  )}
                   {hits?.length === 0 && (
                     <p className="px-4 pt-4 pb-1 text-sm text-muted-foreground">Nothing matches &ldquo;{text}&rdquo;.</p>
                   )}
@@ -236,7 +243,7 @@ export function CommandPalette() {
             <XIcon aria-hidden className="size-5" />
           </DialogClose>
           <p aria-live="polite" className="sr-only">
-            {hits && (text ? `${hits.length} ${hits.length === 1 ? "match" : "matches"}` : "")}
+            {text && (hits ? `${hits.length} ${hits.length === 1 ? "match" : "matches"}` : "Searching…")}
           </p>
           <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground max-md:hidden">
             <kbd className="font-mono">↑ ↓</kbd> to move, <kbd className="font-mono">Enter</kbd> to open,{" "}
