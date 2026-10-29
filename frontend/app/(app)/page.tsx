@@ -2,7 +2,6 @@ import { FilePlusIcon, FileTextIcon, ImageIcon } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { Stagger, StaggerItem } from "@/components/stagger";
 import { TagBadge } from "@/components/tag-badge";
 import { Button } from "@/components/ui/button";
 import { getApi } from "@/lib/api/server";
@@ -19,6 +18,10 @@ const failures: Record<string, string> = {
 };
 
 const card = "rounded-[14px] border border-border bg-surface";
+// Sections fade and rise in one after another. CSS, not Motion: it starts with the HTML instead of waiting for the
+// JavaScript, and reduced motion skips it.
+const enter = (delay: string) =>
+  `animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards duration-(--duration-slow) ease-(--ease-out) motion-reduce:animate-none ${delay}`;
 const heading = "text-sm font-semibold text-muted-foreground";
 
 function NewNote() {
@@ -54,7 +57,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     <div className="mx-auto grid max-w-5xl gap-8">
       <header className="grid gap-4">
         <div className="grid gap-1">
-          <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Welcome back</h1>
+          <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Welcome</h1>
           <p className="text-muted-foreground">Pick up where you left off, or start something new.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -119,8 +122,8 @@ async function HomeSections() {
   const percent = used && used.quotaBytes > 0 ? Math.min(100, Math.round((used.usedBytes / used.quotaBytes) * 100)) : 0;
 
   return (
-    <Stagger className="grid gap-8">
-      <StaggerItem aria-labelledby="stats-heading" className="grid gap-3">
+    <div className="grid gap-8">
+      <section aria-labelledby="stats-heading" className={`grid gap-3 ${enter("delay-0")}`}>
         <h2 id="stats-heading" className="sr-only">
           At a glance
         </h2>
@@ -150,7 +153,11 @@ async function HomeSections() {
                     aria-valuetext={`${percent}% of your Storage Quota`}
                     className="h-2 overflow-hidden rounded-full bg-border"
                   >
-                    <div className="h-full rounded-full bg-link" style={{ width: `${percent}%` }} />
+                    {/* At least a sliver once anything is stored, so the bar never looks empty next to "300 KB". */}
+                    <div
+                      className="h-full rounded-full bg-link"
+                      style={{ width: `${used.usedBytes > 0 ? Math.max(1, percent) : 0}%` }}
+                    />
                   </div>
                 </>
               ) : (
@@ -159,10 +166,10 @@ async function HomeSections() {
             </dd>
           </div>
         </dl>
-      </StaggerItem>
+      </section>
 
       {recentlyOpened.length > 0 && (
-        <StaggerItem aria-labelledby="jump-heading" className="grid gap-3">
+        <section aria-labelledby="jump-heading" className={`grid gap-3 ${enter("delay-60")}`}>
           <h2 id="jump-heading" className={heading}>
             Jump back in
           </h2>
@@ -179,10 +186,10 @@ async function HomeSections() {
               </li>
             ))}
           </ul>
-        </StaggerItem>
+        </section>
       )}
 
-      <StaggerItem aria-labelledby="edited-heading" className="grid gap-3">
+      <section aria-labelledby="edited-heading" className={`grid gap-3 ${enter("delay-120")}`}>
         <div className="flex items-baseline justify-between gap-4">
           <h2 id="edited-heading" className={heading}>
             Recently edited
@@ -207,10 +214,10 @@ async function HomeSections() {
             </li>
           ))}
         </ul>
-      </StaggerItem>
+      </section>
 
       {topTags.length > 0 && (
-        <StaggerItem aria-labelledby="tags-heading" className="grid gap-3">
+        <section aria-labelledby="tags-heading" className={`grid gap-3 ${enter("delay-180")}`}>
           <div className="flex items-baseline justify-between gap-4">
             <h2 id="tags-heading" className={heading}>
               Your Tags
@@ -229,9 +236,9 @@ async function HomeSections() {
               </li>
             ))}
           </ul>
-        </StaggerItem>
+        </section>
       )}
-    </Stagger>
+    </div>
   );
 }
 

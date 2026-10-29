@@ -80,7 +80,7 @@ for (const [colorScheme, background] of [
 
     test("Home has no WCAG 2.2 AA violations", async ({ page }) => {
       await signIn(page);
-      await expect(page.getByRole("heading", { name: "Welcome back", level: 1 })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Welcome", level: 1 })).toBeVisible();
       // Past the loading skeleton.
       await expect(page.getByRole("status").filter({ hasText: "Loading your Home" })).toHaveCount(0);
       await expectNoViolations(page);
