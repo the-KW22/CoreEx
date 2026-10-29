@@ -54,7 +54,7 @@ export function UploadBox({ folderId }: { folderId: string | null }) {
     const text = files.map((file, index) => ({ file, index })).filter((entry) => isText(entry.file));
     for (const entry of text.filter((e) => e.file.size > IMPORT_MAX_BYTES)) {
       // Say so before sending a file the API would refuse anyway.
-      show(entry.index, { state: "failed", message: "Markdown and text files can be at most 1 MB." });
+      show(entry.index, { state: "failed", message: "Markdown and text files can be at most 1 MB (1,000,000 bytes)." });
     }
     for (const batch of batches(text.filter((e) => e.file.size <= IMPORT_MAX_BYTES))) {
       try {

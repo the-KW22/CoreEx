@@ -60,6 +60,10 @@ class ImportApiTest extends ApiTest {
 
 	/** POSTs a multipart request like a browser form: an optional folderId field and any number of "files" parts. */
 	private HttpResponse<String> importFiles(String token, String folderId, Upload... uploads) throws Exception {
+		return send(token, "", folderId, uploads);
+	}
+
+	private HttpResponse<String> send(String token, String query, String folderId, Upload... uploads) throws Exception {
 		var boundary = "----coreex" + UUID.randomUUID();
 		var body = new ByteArrayOutputStream();
 		if (folderId != null) {
@@ -73,7 +77,7 @@ class ImportApiTest extends ApiTest {
 			write(body, "\r\n");
 		}
 		write(body, "--" + boundary + "--\r\n");
-		var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/notes/import"))
+		var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/notes/import" + query))
 				.header("Content-Type", "multipart/form-data; boundary=" + boundary)
 				.POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()));
 		if (token != null) {
@@ -207,6 +211,16 @@ class ImportApiTest extends ApiTest {
 
 		assertThat(noteIds(imported.body())).hasSize(2);
 		assertThat(get("/api/items?folderId=" + folder, userA).body()).contains("\"total\":2");
+	}
+
+	@Test
+	void theFolderCanBeGivenInTheQueryStringLikeTheWebAppDoes() throws Exception {
+		var folder = field(post("/api/folders", userA, "{\"name\":\"Inbox\"}").body(), "id");
+
+		var imported = send(userA, "?folderId=" + folder, null, text("one.md", "1"));
+
+		assertThat(noteIds(imported.body())).hasSize(1);
+		assertThat(get("/api/items?folderId=" + folder, userA).body()).contains("\"total\":1");
 	}
 
 	@Test

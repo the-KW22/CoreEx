@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -33,6 +35,8 @@ class NoteImportService {
 
 	record Result(String filename, Status status, UUID noteId, String title, String code, String message) {
 	}
+
+	private static final Logger log = LoggerFactory.getLogger(NoteImportService.class);
 
 	private static final int MAX_TITLE = 200;
 
@@ -87,7 +91,14 @@ class NoteImportService {
 			if (note.body().contains("[[")) {
 				var rewritten = links.rewriteTitles(ownerId, note.body());
 				if (!rewritten.equals(note.body())) {
-					notes.save(ownerId, note.id(), note.title(), rewritten, note.version());
+					try {
+						notes.save(ownerId, note.id(), note.title(), rewritten, note.version());
+					}
+					catch (ApiException e) {
+						// The Notes exist; a Link left as written can be resolved by saving the Note again. Failing the
+						// import now would make a retry create them twice.
+						log.warn("Could not resolve the Links of an imported Note: {}", e.code());
+					}
 				}
 			}
 		}
@@ -113,7 +124,7 @@ class NoteImportService {
 		}
 		if (bytes.length > properties.maxSizeBytes()) {
 			throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE",
-					"Files can be at most " + properties.maxSizeBytes() / 1_000_000 + " MB.");
+					"Files can be at most " + properties.maxSizeBytes() / 1_000_000 + " MB (1,000,000 bytes).");
 		}
 		String text;
 		try {
