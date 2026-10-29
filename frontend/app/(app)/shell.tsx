@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { getApi } from "@/lib/api/server";
 
 import { signOut } from "../actions";
@@ -79,6 +80,8 @@ export async function Shell({ children }: { children: React.ReactNode }) {
           </form>
         </section>
         <p>{me.email}</p>
+        {/* shortcut: lives in the old sidebar until the module rail (#53) gives it its place. */}
+        <ThemeToggle />
         <form action={signOut}>
           <button type="submit">Log out</button>
         </form>

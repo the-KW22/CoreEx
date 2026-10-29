@@ -99,11 +99,11 @@ A **Tag colour** (CONTEXT.md) is one of 8 names. The API stores the **name**, ne
 | orange | `#FDBA74` | `#9A3412` | `#F97316` |
 | yellow | `#FDE047` | `#854D0E` | `#EAB308` |
 | green | `#86EFAC` | `#166534` | `#22C55E` |
-| teal | `#5EEAD4` | `#0F766E` | `#14B8A6` |
+| teal | `#5EEAD4` | `#115E59` | `#14B8A6` |
 | blue | `#93C5FD` | `#1D4ED8` | `#3B82F6` |
 | pink | `#F9A8D4` | `#BE185D` | `#EC4899` |
 
-- Pill background: the base colour at 16% over the surface (dark) or 12% over white (light). Every pair was checked at ≥ 4.5:1.
+- Pill background: the text colour at 16% (dark) or 12% (light) over whatever is behind it. Every pair was checked at ≥ 4.5:1 on both the page and the surface colour.
 - A Tag with no colour picked gets one **derived from its name** (a stable hash of the lower-cased name, modulo 8), so the same Tag looks the same everywhere.
 - The Tag name is always shown: colour is never the only signal.
 
