@@ -1,5 +1,7 @@
 package com.coreex.folders;
 
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -73,13 +75,14 @@ class FolderRepository {
 	}
 
 	/** Puts the given Folders, and the live Items in them, in the Trash under one batch. */
-	void trash(UUID ownerId, List<UUID> folderIds, UUID batchId) {
+	void trash(UUID ownerId, List<UUID> folderIds, UUID batchId, Instant at) {
 		jdbc.sql("""
-				update items set deleted_at = now(), trash_batch_id = :batch
-				where owner_id = :owner and deleted_at is null and folder_id in (:ids)""").param("batch", batchId)
-				.param("owner", ownerId).param("ids", folderIds).update();
-		jdbc.sql("update folders set deleted_at = now(), trash_batch_id = :batch where owner_id = :owner and id in (:ids)")
+				update items set deleted_at = :at, trash_batch_id = :batch
+				where owner_id = :owner and deleted_at is null and folder_id in (:ids)""").param("at", Timestamp.from(at))
 				.param("batch", batchId).param("owner", ownerId).param("ids", folderIds).update();
+		jdbc.sql("update folders set deleted_at = :at, trash_batch_id = :batch where owner_id = :owner and id in (:ids)")
+				.param("at", Timestamp.from(at)).param("batch", batchId).param("owner", ownerId).param("ids", folderIds)
+				.update();
 	}
 
 }

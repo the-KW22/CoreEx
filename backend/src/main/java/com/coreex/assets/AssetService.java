@@ -125,7 +125,7 @@ class AssetService {
 
 	/** Moves the Asset to the Trash. Its file stays in Storage, and still counts as used, until the Trash purges it. */
 	void delete(User user, UUID id) {
-		if (!assets.softDelete(user.id(), id)) {
+		if (!assets.softDelete(user.id(), id, clock.instant())) {
 			throw noSuchAsset();
 		}
 	}

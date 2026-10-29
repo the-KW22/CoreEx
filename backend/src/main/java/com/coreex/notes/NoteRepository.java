@@ -1,5 +1,7 @@
 package com.coreex.notes;
 
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -58,12 +60,12 @@ class NoteRepository {
 		return true;
 	}
 
-	/** False when the Note is missing or already deleted. */
-	boolean softDelete(UUID ownerId, UUID id) {
+	/** False when the Note is missing or already deleted. {@code at} is when it went to the Trash. */
+	boolean softDelete(UUID ownerId, UUID id, Instant at) {
 		return jdbc.sql("""
-				update items set deleted_at = now(), trash_batch_id = gen_random_uuid()
-				where id = :id and owner_id = :owner and type = 'NOTE' and deleted_at is null""").param("id", id)
-				.param("owner", ownerId).update() > 0;
+				update items set deleted_at = :at, trash_batch_id = gen_random_uuid()
+				where id = :id and owner_id = :owner and type = 'NOTE' and deleted_at is null""").param("at", Timestamp.from(at))
+				.param("id", id).param("owner", ownerId).update() > 0;
 	}
 
 }
