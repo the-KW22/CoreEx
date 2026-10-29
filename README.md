@@ -71,6 +71,10 @@ On the home page or a Folder's page, drop images or PDFs (PNG, JPG, WebP, GIF, P
 
 Files live in a private Supabase Storage bucket. The browser uploads straight to Storage with a short-lived link from the API, and the API checks the stored file's real size and type before creating the Asset. To use Assets locally, `supabase start` creates the `assets` bucket from `supabase/config.toml`, and `backend/.env` needs `STORAGE_URL`, `STORAGE_SERVICE_KEY` and `STORAGE_BUCKET` (see `backend/.env.example`). Without them everything else works and Asset endpoints answer 503. Production setup is in `docs/DEPLOY.md`.
 
+### Admin: Users and Overview
+
+Next to **Invites**, the Admin area has **Users** and **Overview** (visible to Admins only). Users lists every account with its status, sign-up date, last active time, number of Items and storage used against its quota. You can change a User's quota in megabytes (or go back to the default), and Disable or Enable the account: a disabled User is refused on their very next request, nothing they own is touched, and enabling restores everything. You cannot disable yourself. Overview shows the number of Users and the total storage used against the hosting limit (1 GB on the Supabase free tier, `coreex.admin.hosting-limit-bytes`). These screens show account facts and totals only, never anyone's Notes, Assets or Folders (ADR 0004).
+
 ### Importing Markdown and text files
 
 The same box on the home page and a Folder's page also takes `.md` and `.txt` files: each becomes a new Note, titled after the file name without its extension, with the file's text stored exactly as written. Several files can be added at once, and a bad file (another type, over 1 MB, or not valid UTF-8) is refused on its own with a message while the rest are imported. `[[Exact Title]]` in an imported file becomes a Link under the same rules as when you write it, including links between files imported together. On a Folder's page the Notes land in that Folder. The original file is not kept.
