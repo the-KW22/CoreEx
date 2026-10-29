@@ -40,7 +40,7 @@ class SecurityConfig {
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		return http.cors(Customizer.withDefaults()).csrf(csrf -> csrf.disable())
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-				.authorizeHttpRequests(requests -> requests.requestMatchers("/api/health", "/v3/api-docs/**")
+				.authorizeHttpRequests(requests -> requests.requestMatchers("/api/health", "/v3/api-docs/**", "/internal/trash/purge")
 						.permitAll().anyRequest().authenticated())
 				.oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults())).build();
 	}

@@ -25,8 +25,10 @@ export async function proxy(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const signedIn = Boolean(data?.claims);
   const onLogin = request.nextUrl.pathname === "/login";
+  // The password reset link arrives signed out and signs the person in.
+  const open = onLogin || request.nextUrl.pathname === "/auth/callback";
 
-  if (!signedIn && !onLogin) {
+  if (!signedIn && !open) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
   if (signedIn && onLogin) {

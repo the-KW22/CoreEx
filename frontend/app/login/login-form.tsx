@@ -8,7 +8,9 @@ import { authenticate } from "../actions";
 export function LoginForm() {
   const [state, action, pending] = useActionState(authenticate, undefined);
   // A sign-up link from an Admin looks like /login?email=friend@example.com
-  const invitedEmail = useSearchParams().get("email") ?? "";
+  const params = useSearchParams();
+  const invitedEmail = params.get("email") ?? "";
+  const badLink = params.get("error") === "link";
 
   return (
     <form action={action}>
@@ -38,6 +40,12 @@ export function LoginForm() {
         required
       />
 
+      {badLink && !state && (
+        <p role="alert">
+          That link is invalid, has expired, or was opened in a different browser. Enter your email and select Forgot
+          password to get a new one.
+        </p>
+      )}
       {state?.error && <p role="alert">{state.error}</p>}
       {state?.notice && <p role="status">{state.notice}</p>}
 
@@ -47,6 +55,9 @@ export function LoginForm() {
         </button>
         <button type="submit" name="intent" value="signup" disabled={pending}>
           Create account
+        </button>
+        <button type="submit" name="intent" value="reset" formNoValidate disabled={pending}>
+          Forgot password?
         </button>
       </div>
     </form>
