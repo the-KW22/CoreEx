@@ -30,6 +30,9 @@ Because the cloud database holds real data, a migration is first exercised on lo
 | `SUPABASE_JWT_ISSUER` | `https://<project ref>.supabase.co/auth/v1` |
 | `OWNER_EMAIL` | The email that becomes the first Admin |
 | `CORS_ALLOWED_ORIGINS` | The frontend URL, for example `https://coreex.vercel.app`, with no trailing slash |
+| `STORAGE_URL` | `https://<project ref>.supabase.co/storage/v1` (needed for Assets, see "Storage for Assets") |
+| `STORAGE_SERVICE_KEY` | The project's **secret** key (Project Settings > API Keys). It can do anything in Storage, so it lives only here, never in the frontend |
+| `STORAGE_BUCKET` | `assets` (the default) |
 
 **Frontend (Vercel, under the Production environment).**
 
@@ -53,6 +56,16 @@ Accounts, secrets and the first deploy are done by the owner in each dashboard.
 3. **Vercel.** Create one project from this repo with **Root Directory `frontend`** and Production Branch `main`. Enter the frontend variables above and redeploy. Pushes to `staging` would also build a Vercel preview that has no variables and cannot work; switch that off in Settings > Git > Ignored Build Step with `[ "$VERCEL_GIT_COMMIT_REF" != "main" ]`.
 4. **Close the loop.** Put the Vercel URL into the Render service's `CORS_ALLOWED_ORIGINS` and into Supabase's Site URL, and redeploy the backend.
 5. **Check it:** open the frontend URL, choose **Create account** with `OWNER_EMAIL`, confirm the email, sign in, and you should see the empty app shell. In the Render logs you should see Flyway applying the migrations.
+
+## Storage for Assets (the owner does this once)
+
+Assets (images and PDFs) are kept in a private Supabase Storage bucket. The backend creates upload and download links with the secret key; the browser then talks to Storage directly with those short-lived links. Until this is done, the Asset endpoints answer `503 STORAGE_UNAVAILABLE` and the rest of the app works as before.
+
+1. **Create the bucket.** Supabase dashboard > Storage > New bucket. Name it `assets`, leave **Public bucket off**, turn on **Restrict file size** and set **5 MB**, and under **Restrict MIME types** enter `image/png, image/jpeg, image/webp, image/gif, application/pdf`. The bucket enforces these on its own, in addition to the API.
+2. **Backend variables.** On the Render service add `STORAGE_URL` (`https://<project ref>.supabase.co/storage/v1`) and `STORAGE_SERVICE_KEY` (the **secret** key from Project Settings > API Keys; create one if there is none). `STORAGE_BUCKET` is already `assets`. Redeploy.
+3. **Check it.** Sign in, upload a small PNG on the home page, open it, and download it. If the upload says storage is unavailable, check the two variables and the bucket name in the Render logs (the log says "Storage is not configured" or the HTTP status Storage answered).
+
+Browsers upload straight to `https://<project ref>.supabase.co`, which allows cross-origin requests from any site by default; nothing needs changing there. Each User has a 100 MB quota by default (`coreex.assets.default-quota-bytes`), and a file is at most 5 MB.
 
 ## Things to know
 

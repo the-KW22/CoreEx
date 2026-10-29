@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
+import { backTo } from "@/lib/items";
 
 const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim();
 // An empty choice in a menu means the top level.
@@ -75,6 +76,6 @@ export async function moveItem(formData: FormData) {
       body: { folderId: orNull(text(formData, "folderId")) },
     })
     .catch(() => null);
-  if (!result?.data) redirect(`/notes/${id}?error=move`);
+  if (!result?.data) redirect(`${backTo(text(formData, "back"), `/notes/${id}`)}?error=move`);
   refresh();
 }
