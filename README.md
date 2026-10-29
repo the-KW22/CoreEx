@@ -71,6 +71,10 @@ On the home page or a Folder's page, drop images or PDFs (PNG, JPG, WebP, GIF, P
 
 Files live in a private Supabase Storage bucket. The browser uploads straight to Storage with a short-lived link from the API, and the API checks the stored file's real size and type before creating the Asset. To use Assets locally, `supabase start` creates the `assets` bucket from `supabase/config.toml`, and `backend/.env` needs `STORAGE_URL`, `STORAGE_SERVICE_KEY` and `STORAGE_BUCKET` (see `backend/.env.example`). Without them everything else works and Asset endpoints answer 503. Production setup is in `docs/DEPLOY.md`.
 
+### Trash
+
+**Move to Trash** (on a Note, Asset or Folder) hides it; **Trash** in the sidebar lists what is there with the days left before it is removed for good (30). A deleted Folder is one row ("with 2 Folders and 5 Items"). **Restore** brings an Item back together with any trashed Folders above it (not what else was in them), and brings a Folder back with exactly what was deleted with it. Links to a restored Item work again. **Delete forever** and **Empty Trash** remove things for good, including the files in Storage, which frees your storage quota. A background job removes anything older than 30 days; on the free host it runs every 6 hours while the app is awake.
+
 ## Deploying
 
 Production (from `main`) is the only cloud environment: a Vercel frontend, a Render backend and one Supabase project. `staging` is the integration branch, checked by CI and by running the stack locally. See [docs/DEPLOY.md](docs/DEPLOY.md) for setup, variables and redeploying.
