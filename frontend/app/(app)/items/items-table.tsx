@@ -43,18 +43,22 @@ function RowActions({
   Entry,
   Separator,
   onOpen,
+  onOpenNewTab,
   onDialog,
   onTrash,
 }: {
   Entry: typeof DropdownMenuItem | typeof ContextMenuItem;
   Separator: typeof DropdownMenuSeparator | typeof ContextMenuSeparator;
   onOpen: () => void;
+  onOpenNewTab: () => void;
   onDialog: (kind: "move" | "tag") => void;
   onTrash: () => void;
 }) {
   return (
     <>
       <Entry onSelect={onOpen}>Open</Entry>
+      {/* Our right-click menu replaces the browser's, so it keeps the browser's most-used choice. */}
+      <Entry onSelect={onOpenNewTab}>Open in new tab</Entry>
       <Entry onSelect={() => onDialog("move")}>Move to Folder…</Entry>
       <Entry onSelect={() => onDialog("tag")}>Add Tag…</Entry>
       <Separator />
@@ -128,6 +132,7 @@ export function ItemsTable({
       Entry={menu === "dropdown" ? DropdownMenuItem : ContextMenuItem}
       Separator={menu === "dropdown" ? DropdownMenuSeparator : ContextMenuSeparator}
       onOpen={() => router.push(itemHref(item))}
+      onOpenNewTab={() => window.open(itemHref(item), "_blank", "noopener")}
       onDialog={(kind) => openDialog(kind, item)}
       onTrash={() => trash(item)}
     />

@@ -258,6 +258,16 @@ test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
   await tag.getByRole("button", { name: "Add Tag" }).click();
   await expect(page.getByText(`Tagged "${title}"`)).toBeVisible();
 
+  const [tab] = await Promise.all([
+    page.waitForEvent("popup"),
+    (async () => {
+      await menu.click();
+      await page.getByRole("menuitem", { name: "Open in new tab" }).click();
+    })(),
+  ]);
+  await expect(tab).toHaveURL(/\/notes\//);
+  await tab.close();
+
   await menu.click();
   await page.getByRole("menuitem", { name: "Move to Trash" }).click();
   await expect(row).toHaveCount(0);
@@ -280,7 +290,8 @@ test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
   await page.getByRole("main").getByRole("link", { name: folderName }).click();
   await page.getByText("Move to Trash…").click();
   await page.getByRole("button", { name: "Move Folder to Trash" }).click();
-  await expect(page).not.toHaveURL(/\/folders\//);
+  // A top-level Folder goes back to All Items.
+  await expect(page).toHaveURL(/\/items$/);
 });
 
 test("on a phone Item rows stack and the page does not scroll sideways", async ({ page }) => {

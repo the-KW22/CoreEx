@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
 
+import { trashItem } from "../items/actions";
+
 export type UploadStart = { ok: true; uploadId: string; uploadUrl: string } | { ok: false; message: string };
 export type UploadFinish = { ok: true; id: string } | { ok: false; message: string };
 
@@ -54,9 +56,6 @@ export async function deleteAsset(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const api = await getApi();
-  const result = await api.DELETE("/api/assets/{id}", { params: { path: { id } } }).catch(() => null);
-  if (!result || result.error) redirect(`/assets/${id}?error=delete`);
-  revalidatePath("/", "layout");
-  redirect("/");
+  if (!(await trashItem(id, "ASSET"))) redirect(`/assets/${id}?error=delete`);
+  redirect("/items");
 }

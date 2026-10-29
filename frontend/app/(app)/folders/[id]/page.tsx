@@ -94,6 +94,7 @@ export default async function FolderPage({ params, searchParams }: PageProps<"/f
           </p>
           <form action={deleteFolder}>
             <input type="hidden" name="id" value={id} />
+            {folder.parentId && <input type="hidden" name="parentId" value={folder.parentId} />}
             <button type="submit">Move Folder to Trash</button>
           </form>
         </details>
