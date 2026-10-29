@@ -62,6 +62,8 @@ class TrashPurgeJob {
 			if (deletable.isEmpty()) {
 				break;
 			}
+			// shortcut: an Asset restored in the moment between this list and the delete keeps its row but may have
+			// lost its file (the Item rows themselves are protected); narrow the window or lock the rows if it matters.
 			trash.removeForGood(deletable, List.of());
 			removed += deletable.size();
 		}

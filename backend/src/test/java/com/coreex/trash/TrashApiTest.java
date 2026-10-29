@@ -31,6 +31,9 @@ class TrashApiTest extends ApiTest {
 	@Autowired
 	TrashPurgeJob purge;
 
+	@Autowired
+	TrashRepository repository;
+
 	private String userA;
 
 	private String userB;
@@ -430,6 +433,23 @@ class TrashApiTest extends ApiTest {
 		assertThat(purge.run()).isEqualTo(1);
 		assertThat(itemRowExists(id)).isFalse();
 		assertThat(storage.exists(key)).isFalse();
+	}
+
+	@Test
+	void somethingRestoredJustBeforeTheDeleteIsNotDeleted() throws Exception {
+		var restored = note(userA, "Restored", null);
+		var trashed = note(userA, "Trashed", null);
+		var folder = folder(userA, "Restored folder", null);
+		trashNote(userA, trashed);
+		// The ids were read while these were in the Trash; by the time of the delete, two of them are live again.
+		var ids = java.util.List.of(UUID.fromString(restored), UUID.fromString(trashed));
+
+		repository.removeForGood(ids, java.util.List.of(UUID.fromString(folder)));
+
+		assertThat(itemRowExists(trashed)).isFalse();
+		assertThat(itemRowExists(restored)).isTrue();
+		assertThat(live(userA, restored)).isTrue();
+		assertThat(folderRowExists(folder)).isTrue();
 	}
 
 	@Test

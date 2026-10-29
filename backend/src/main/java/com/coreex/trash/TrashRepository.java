@@ -162,17 +162,20 @@ class TrashRepository {
 	 * Deletes these Items and Folders for good, in one transaction. Notes, Tag links and asset rows go with their Item
 	 * (so the quota drops), and so do the Link rows that point at the Item. A Folder that was trashed on its own
 	 * inside a deleted Folder moves to the top level instead of being swept away by the foreign-key cascade.
+	 * Only rows that are still in the Trash are deleted: something restored since the ids were read is left alone.
 	 */
 	@Transactional
 	void removeForGood(List<UUID> itemIds, List<UUID> folderIds) {
 		if (!itemIds.isEmpty()) {
 			jdbc.sql("delete from links where target_id = any(:ids)").param("ids", array(itemIds)).update();
-			jdbc.sql("delete from items where id = any(:ids)").param("ids", array(itemIds)).update();
+			jdbc.sql("delete from items where id = any(:ids) and deleted_at is not null").param("ids", array(itemIds))
+					.update();
 		}
 		if (!folderIds.isEmpty()) {
 			jdbc.sql("update folders set parent_id = null where parent_id = any(:ids) and not (id = any(:ids))")
 					.param("ids", array(folderIds)).update();
-			jdbc.sql("delete from folders where id = any(:ids)").param("ids", array(folderIds)).update();
+			jdbc.sql("delete from folders where id = any(:ids) and deleted_at is not null").param("ids", array(folderIds))
+					.update();
 		}
 	}
 

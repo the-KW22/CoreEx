@@ -91,6 +91,8 @@ class TrashService {
 
 	/** Storage first (a failure stops here and changes nothing), then the rows. */
 	private void removeForGood(List<UUID> itemIds, List<UUID> folderIds) {
+		// shortcut: one Storage request per file, so emptying a Trash of thousands of files is slow; use Storage's bulk
+		// delete (up to 1000 per call) if that ever happens.
 		if (!itemIds.isEmpty()) {
 			trash.assetKeys(itemIds).forEach(storage::delete);
 		}
