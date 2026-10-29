@@ -1,0 +1,158 @@
+package com.coreex.search;
+
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
+
+import com.coreex.items.Item;
+
+/**
+ * Read-only queries over the User's live Items. Search reads the tables of items, notes, assets and tags directly: a
+ * search is one query across all of them, so going through each feature's service would mean one query per Item.
+ * Every query is scoped to the owner and to live Items.
+ */
+@Repository
+class SearchRepository {
+
+	record Hit(UUID id, Item.Type type, String title, UUID folderId, Instant updatedAt, String headline) {
+	}
+
+	record Quick(UUID id, Item.Type type, String title, UUID folderId) {
+	}
+
+	/** The query text as a tsquery, written once so every part of the statement shares it. */
+	private static final String QUERY = "with query as (select websearch_to_tsquery('simple', search_text(:q)) as tsq) ";
+
+	// An Item matches by its title, Note body, Asset description, or the name of one of its Tags.
+	private static final String FROM_WHERE = """
+			from items i
+			left join note_contents c on c.item_id = i.id
+			left join asset_files a on a.item_id = i.id
+			cross join query
+			where i.owner_id = :owner and i.deleted_at is null
+			  and (i.title_tsv @@ query.tsq or c.body_tsv @@ query.tsq or a.description_tsv @@ query.tsq
+			       or exists (select 1 from item_tags it join tags t on t.id = it.tag_id
+			                  where it.item_id = i.id and to_tsvector('simple', search_text(t.name)) @@ query.tsq))""";
+
+	private static final RowMapper<Quick> QUICK = (rs, n) -> new Quick(rs.getObject("id", UUID.class),
+			Item.Type.valueOf(rs.getString("type")), rs.getString("title"), rs.getObject("folder_id", UUID.class));
+
+	private final JdbcClient jdbc;
+
+	SearchRepository(JdbcClient jdbc) {
+		this.jdbc = jdbc;
+	}
+
+	/**
+	 * One page of matches, best first (a title match counts most), with a headline of the first place that matched.
+	 * {@code ts_headline} does not escape what it quotes, so the match markers are two control characters that
+	 * {@code SearchService} turns into data; control characters in the quoted text are removed first.
+	 */
+	List<Hit> search(UUID ownerId, String text, Item.Type type, UUID tagId, List<UUID> folderIds, int limit,
+			long offset) {
+		var params = params(ownerId, text, type, tagId, folderIds);
+		params.put("limit", limit);
+		params.put("offset", offset);
+		return jdbc.sql(QUERY + """
+				select m.id, m.type, m.title, m.folder_id, m.updated_at,
+				  ts_headline('simple', translate(m.source, chr(2) || chr(3), ''), query.tsq,
+				    'StartSel=' || chr(2) || ', StopSel=' || chr(3)
+				    || ', MaxWords=30, MinWords=12, MaxFragments=1, ShortWord=1') as headline
+				from (
+				  select i.id, i.type, i.title, i.folder_id, i.updated_at,
+				    coalesce(ts_rank(i.title_tsv, query.tsq), 0) * 4 + coalesce(ts_rank(c.body_tsv, query.tsq), 0)
+				      + coalesce(ts_rank(a.description_tsv, query.tsq), 0) * 2 as rank,
+				    case when c.body_tsv @@ query.tsq then left(c.body, 200000)
+				         when a.description_tsv @@ query.tsq then a.description
+				         when i.title_tsv @@ query.tsq then i.title
+				         else (select string_agg(t.name, ', ') from item_tags it join tags t on t.id = it.tag_id
+				               where it.item_id = i.id) end as source
+				  """ + FROM_WHERE + filters(type, tagId, folderIds) + """
+
+				  order by rank desc, i.updated_at desc, i.id
+				  limit :limit offset :offset) m
+				cross join query
+				order by m.rank desc, m.updated_at desc, m.id""").params(params)
+				.query((rs, n) -> new Hit(rs.getObject("id", UUID.class), Item.Type.valueOf(rs.getString("type")),
+						rs.getString("title"), rs.getObject("folder_id", UUID.class),
+						rs.getObject("updated_at", OffsetDateTime.class).toInstant(), rs.getString("headline")))
+				.list();
+	}
+
+	long count(UUID ownerId, String text, Item.Type type, UUID tagId, List<UUID> folderIds) {
+		return jdbc.sql(QUERY + "select count(*) " + FROM_WHERE + filters(type, tagId, folderIds))
+				.params(params(ownerId, text, type, tagId, folderIds)).query(Long.class).single();
+	}
+
+	// shortcut: the tsvector columns are not GIN-indexed. This query is scoped to one User first and ORs across four
+	// tables, which a GIN index cannot serve; add the indexes and restructure it as a union when one User's data is large.
+	private static String filters(Item.Type type, UUID tagId, List<UUID> folderIds) {
+		return (type == null ? "" : " and i.type = :type")
+				+ (tagId == null ? "" : " and exists (select 1 from item_tags f where f.item_id = i.id and f.tag_id = :tag)")
+				+ (folderIds == null ? "" : " and i.folder_id = any(:folders)");
+	}
+
+	private static Map<String, Object> params(UUID ownerId, String text, Item.Type type, UUID tagId,
+			List<UUID> folderIds) {
+		var params = new HashMap<String, Object>();
+		params.put("q", text);
+		params.put("owner", ownerId);
+		if (type != null) {
+			params.put("type", type.name());
+		}
+		if (tagId != null) {
+			params.put("tag", tagId);
+		}
+		if (folderIds != null) {
+			params.put("folders", folderIds.toArray(new UUID[0]));
+		}
+		return params;
+	}
+
+	/**
+	 * Titles that start with the text, or are close to it by trigram word similarity (so a typo still finds the
+	 * Item), prefix matches first. Must run in a transaction: the similarity threshold is set for that transaction.
+	 */
+	List<Quick> quick(UUID ownerId, String text, int limit) {
+		jdbc.sql("select set_config('pg_trgm.word_similarity_threshold', '0.45', true)").query(String.class).single();
+		var prefix = escapeLike(text) + "%";
+		return jdbc.sql("""
+				select i.id, i.type, i.title, i.folder_id from items i
+				where i.owner_id = :owner and i.deleted_at is null and i.title <> ''
+				  and (i.title ilike :prefix escape '\\' or :q <% i.title)
+				order by (case when i.title ilike :prefix escape '\\' then 0 else 1 end),
+				         word_similarity(:q, i.title) desc, i.updated_at desc, i.id
+				limit :limit""").param("owner", ownerId).param("prefix", prefix).param("q", text).param("limit", limit)
+				.query(QUICK).list();
+	}
+
+	/** The Items the User opened most recently. */
+	List<Quick> recentlyOpened(UUID ownerId, int limit) {
+		return jdbc.sql("""
+				select id, type, title, folder_id from items
+				where owner_id = :owner and deleted_at is null and last_opened_at is not null
+				order by last_opened_at desc, id limit :limit""").param("owner", ownerId).param("limit", limit)
+				.query(QUICK).list();
+	}
+
+	List<Quick> recentlyUpdated(UUID ownerId, int limit) {
+		return jdbc.sql("""
+				select id, type, title, folder_id from items
+				where owner_id = :owner and deleted_at is null
+				order by updated_at desc, id limit :limit""").param("owner", ownerId).param("limit", limit)
+				.query(QUICK).list();
+	}
+
+	// "%" and "_" are plain characters in what the User typed, not LIKE wildcards.
+	private static String escapeLike(String text) {
+		return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+	}
+
+}
