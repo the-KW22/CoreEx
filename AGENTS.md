@@ -4,6 +4,7 @@ CoreEx is a personal knowledge base, built as a learning project that may later 
 
 - **Glossary:** `CONTEXT.md`. Use its terms and avoid the synonyms it lists.
 - **Decisions:** `docs/adr/`. Don't contradict an ADR silently.
+- **UI design:** `docs/DESIGN.md` (tokens, layout, screens). Frontend work follows it.
 - **V1 spec and tickets:** GitHub issue #1 and its sub-issues (#2–#14).
 
 ## Repo layout
