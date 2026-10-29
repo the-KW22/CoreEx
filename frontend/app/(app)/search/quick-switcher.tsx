@@ -5,10 +5,20 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { itemHref } from "@/lib/items";
 
-import { type QuickHit, quickSearch } from "./actions";
+import type { QuickHit } from "./actions";
 
 // Ctrl+K (Cmd+K on a Mac) opens this on any page: type part of a title to jump to an Item, or pick one of the
 // recently opened Items shown before you type. It is a native <dialog>, so focus stays inside it and Esc closes it.
+// Asks the quick-lookup route; a failure is "nothing found".
+async function lookup(text: string): Promise<QuickHit[]> {
+  try {
+    const response = await fetch(`/quick?q=${encodeURIComponent(text)}`);
+    return response.ok ? await response.json() : [];
+  } catch {
+    return [];
+  }
+}
+
 export function QuickSwitcher() {
   const router = useRouter();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -42,7 +52,7 @@ export function QuickSwitcher() {
     let current = true;
     const timer = setTimeout(
       async () => {
-        const found = await quickSearch(query);
+        const found = await lookup(query);
         if (!current) return;
         setHits(found);
         setSearched(true);

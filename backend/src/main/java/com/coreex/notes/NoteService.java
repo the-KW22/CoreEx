@@ -32,7 +32,7 @@ class NoteService {
 	@Transactional
 	Note create(UUID ownerId, UUID folderId, String title, String body) {
 		if (folderId != null) {
-			folders.requireLive(ownerId, folderId);
+			folders.requireLiveForWrite(ownerId, folderId);
 		}
 		var text = links.rewriteTitles(ownerId, body == null ? "" : body);
 		var id = notes.insert(ownerId, folderId, title == null ? "" : title, text);

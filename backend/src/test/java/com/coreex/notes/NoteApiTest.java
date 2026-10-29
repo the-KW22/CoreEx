@@ -8,6 +8,11 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+
+import javax.sql.DataSource;
+
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.coreex.ApiTest;
@@ -17,6 +22,9 @@ class NoteApiTest extends ApiTest {
 
 	@Autowired
 	JdbcClient jdbc;
+
+	@Autowired
+	DataSource dataSource;
 
 	private String userA;
 
@@ -153,6 +161,35 @@ class NoteApiTest extends ApiTest {
 	void notesNeedASignedInUser() throws Exception {
 		assertThat(get("/api/items").statusCode()).isEqualTo(401);
 		assertThat(post("/api/notes", null, "{}").statusCode()).isEqualTo(401);
+	}
+
+	@Test
+	void aNoteCannotBeCreatedInAFolderThatIsBeingDeletedAtThatMoment() throws Exception {
+		var folder = post("/api/folders", userA, "{\"name\":\"Doomed\"}");
+		var folderId = folder.body().replaceAll(".*\"id\":\"([^\"]+)\".*", "$1");
+		try (var deleter = dataSource.getConnection()) {
+			deleter.setAutoCommit(false);
+			// The Folder's deletion is under way but not committed yet.
+			try (var update = deleter.prepareStatement("update folders set deleted_at = now() where id = ?::uuid")) {
+				update.setString(1, folderId);
+				update.executeUpdate();
+			}
+			var create = CompletableFuture.supplyAsync(() -> {
+				try {
+					return post("/api/notes", userA, "{\"title\":\"Late\",\"folderId\":\"" + folderId + "\"}");
+				}
+				catch (Exception e) {
+					throw new IllegalStateException(e);
+				}
+			});
+			// The request must wait for the deletion to finish instead of racing past it.
+			Thread.sleep(500);
+			assertThat(create).isNotDone();
+			deleter.commit();
+
+			assertThat(create.get(10, TimeUnit.SECONDS).statusCode()).isEqualTo(404);
+		}
+		assertThat(jdbc.sql("select count(*) from items where title = 'Late'").query(Long.class).single()).isZero();
 	}
 
 }

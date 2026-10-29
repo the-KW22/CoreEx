@@ -35,6 +35,12 @@ class FolderRepository {
 				.param("id", id).param("owner", ownerId).query(MAPPER).optional();
 	}
 
+	/** Like {@link #findLive} but takes a share lock, so a Folder deletion in progress finishes first. */
+	Optional<Folder> findLiveForShare(UUID ownerId, UUID id) {
+		return jdbc.sql("select id, parent_id, name from folders where id = :id and owner_id = :owner and deleted_at is null for share")
+				.param("id", id).param("owner", ownerId).query(MAPPER).optional();
+	}
+
 	List<Folder> listLive(UUID ownerId) {
 		return jdbc.sql("""
 				select id, parent_id, name from folders where owner_id = :owner and deleted_at is null

@@ -40,4 +40,5 @@ jobs:
         run: git diff --exit-code -- lib/api/schema.d.ts
       - run: npm run typecheck
       - run: npm run lint
+      - run: npm test
       - run: npm run build

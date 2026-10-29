@@ -11,7 +11,11 @@ import { QuickSwitcher } from "./search/quick-switcher";
 // Asks the API who is signed in; the API decides whether they may use CoreEx.
 export async function Shell({ children }: { children: React.ReactNode }) {
   const api = await getApi();
-  const result = await api.GET("/api/me").catch(() => null);
+  // Together, not one after the other: each call is a round trip to the API.
+  const [result, folders] = await Promise.all([
+    api.GET("/api/me").catch(() => null),
+    api.GET("/api/folders").catch(() => null),
+  ]);
 
   if (!result) {
     return (
@@ -32,8 +36,6 @@ export async function Shell({ children }: { children: React.ReactNode }) {
       </p>
     );
   }
-
-  const folders = await api.GET("/api/folders").catch(() => null);
 
   return (
     <div className="shell">
