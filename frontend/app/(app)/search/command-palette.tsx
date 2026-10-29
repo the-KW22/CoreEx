@@ -27,8 +27,12 @@ import { createNote } from "../notes/actions";
 import type { QuickHit } from "./actions";
 
 const OPEN_EVENT = "coreex:open-palette";
+const PICK_EVENT = "coreex:pick-files";
 // The panel search field and the phone search icon open the palette with this.
 export const openPalette = () => window.dispatchEvent(new Event(OPEN_EVENT));
+// Other Upload and Import buttons use the palette's file pickers, so there is one upload path. Call it inside the
+// click: the browser only opens a file picker during one.
+export const pickFiles = (kind: "upload" | "import") => window.dispatchEvent(new CustomEvent(PICK_EVENT, { detail: kind }));
 
 // Asks the quick-lookup route: an empty text gives the recently opened Items. A failure is "nothing found".
 async function lookup(text: string): Promise<QuickHit[]> {
@@ -75,11 +79,15 @@ export function CommandPalette() {
         setOpen((was) => !was);
       }
     };
+    const pick = (event: Event) =>
+      ((event as CustomEvent).detail === "import" ? importInput : uploadInput).current?.click();
     window.addEventListener("keydown", onKey, { capture: true });
     window.addEventListener(OPEN_EVENT, show);
+    window.addEventListener(PICK_EVENT, pick);
     return () => {
       window.removeEventListener("keydown", onKey, { capture: true });
       window.removeEventListener(OPEN_EVENT, show);
+      window.removeEventListener(PICK_EVENT, pick);
     };
   }, []);
 

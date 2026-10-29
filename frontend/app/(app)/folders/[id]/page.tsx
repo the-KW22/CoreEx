@@ -1,12 +1,10 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
-import { itemHref } from "@/lib/items";
 import { childrenByParent, pathTo } from "@/lib/folders";
+import { pageInfo } from "@/lib/pages";
 
-import { UploadBox } from "../../assets/upload-box";
-import { createNote } from "../../notes/actions";
+import { ItemsView, PAGE_SIZE } from "../../items/items-view";
 import { createFolder, deleteFolder, moveFolder, renameFolder } from "../actions";
 import { FolderSelect } from "../folder-select";
 
@@ -20,12 +18,16 @@ const errors: Record<string, string> = {
 
 export default async function FolderPage({ params, searchParams }: PageProps<"/folders/[id]">) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, page: raw } = await searchParams;
+  const requested = pageInfo(0, raw, PAGE_SIZE).page;
   const api = await getApi();
-  const [list, items, summary] = await Promise.all([
+  const [list, items, summary, tags] = await Promise.all([
     api.GET("/api/folders").catch(() => null),
-    api.GET("/api/items", { params: { query: { folderId: id } } }).catch(() => null),
+    api
+      .GET("/api/items", { params: { query: { folderId: id, page: requested, size: PAGE_SIZE } } })
+      .catch(() => null),
     api.GET("/api/folders/{id}/summary", { params: { path: { id } } }).catch(() => null),
+    api.GET("/api/tags").catch(() => null),
   ]);
 
   if (!list || !items || !summary) {
@@ -40,103 +42,62 @@ export default async function FolderPage({ params, searchParams }: PageProps<"/f
   const path = pathTo(folders, id);
   const folder = path[path.length - 1];
   if (!folder) notFound();
-  const subfolders = childrenByParent(folders).get(id) ?? [];
 
   return (
-    <>
-      <p>
-        <Link href="/">All Notes</Link>
-        {path.slice(0, -1).map((parent) => (
-          <span key={parent.id}>
-            {" / "}
-            <Link href={`/folders/${parent.id}`}>{parent.name}</Link>
-          </span>
-        ))}
-      </p>
-      <h1>{folder.name}</h1>
-      {typeof error === "string" && errors[error] && <p role="alert">{errors[error]}</p>}
-
-      <div className="actions">
-        <form action={createNote}>
-          <input type="hidden" name="folderId" value={id} />
-          <button type="submit">New Note here</button>
+    <ItemsView
+      crumbs={[
+        { href: "/items", label: "All Items" },
+        ...path.slice(0, -1).map((parent) => ({ href: `/folders/${parent.id}`, label: parent.name })),
+      ]}
+      title={folder.name}
+      folderId={id}
+      cards={childrenByParent(folders).get(id) ?? []}
+      folders={folders}
+      tags={tags?.data?.items ?? []}
+      items={items.data}
+      page={pageInfo(items.data.total, raw, PAGE_SIZE)}
+      path={`/folders/${id}`}
+      empty="No Items in this Folder yet."
+      alert={typeof error === "string" ? errors[error] : undefined}
+    >
+      {/* shortcut: managing a Folder keeps the first UI's forms, restyle them with the Folder screen work. */}
+      <section aria-labelledby="manage-heading">
+        <h2 id="manage-heading">Manage</h2>
+        <form action={createFolder} className="inline-form">
+          <input type="hidden" name="parentId" value={id} />
+          <label>
+            New subfolder
+            <input name="name" required maxLength={200} />
+          </label>
+          <button type="submit">Create</button>
         </form>
-      </div>
-
-      <UploadBox folderId={id} />
-
-      <h2>Subfolders</h2>
-      {subfolders.length === 0 ? (
-        <p>No subfolders.</p>
-      ) : (
-        <ul>
-          {subfolders.map((child) => (
-            <li key={child.id}>
-              <Link href={`/folders/${child.id}`}>{child.name}</Link>
-            </li>
-          ))}
-        </ul>
-      )}
-      <form action={createFolder} className="inline-form">
-        <input type="hidden" name="parentId" value={id} />
-        <label>
-          New subfolder
-          <input name="name" required maxLength={200} />
-        </label>
-        <button type="submit">Create</button>
-      </form>
-
-      {items.data.items.length === 0 ? (
-        <p>No Items in this Folder.</p>
-      ) : (
-        <table>
-          <caption>Items in this Folder, most recently updated first</caption>
-          <thead>
-            <tr>
-              <th scope="col">Title</th>
-              <th scope="col">Updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.data.items.map((item) => (
-              <tr key={item.id}>
-                <td>
-                  <Link href={itemHref(item)}>{item.title || "Untitled"}</Link>
-                </td>
-                <td>{item.updatedAt.slice(0, 10)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      <h2>Manage</h2>
-      <form action={renameFolder} className="inline-form">
-        <input type="hidden" name="id" value={id} />
-        <label>
-          Name
-          <input name="name" required maxLength={200} defaultValue={folder.name} />
-        </label>
-        <button type="submit">Rename</button>
-      </form>
-      <form action={moveFolder} className="inline-form">
-        <input type="hidden" name="id" value={id} />
-        <FolderSelect name="parentId" label="Move into" folders={folders} selected={folder.parentId} skip={id} />
-        <button type="submit">Move</button>
-      </form>
-
-      <details className="delete-folder">
-        <summary>Move to Trash…</summary>
-        <p>
-          This Folder holds {summary.data.folderCount} {summary.data.folderCount === 1 ? "Folder" : "Folders"} and{" "}
-          {summary.data.itemCount} {summary.data.itemCount === 1 ? "Item" : "Items"}. All of them go to the Trash
-          together.
-        </p>
-        <form action={deleteFolder}>
+        <form action={renameFolder} className="inline-form">
           <input type="hidden" name="id" value={id} />
-          <button type="submit">Move Folder to Trash</button>
+          <label>
+            Name
+            <input name="name" required maxLength={200} defaultValue={folder.name} />
+          </label>
+          <button type="submit">Rename</button>
         </form>
-      </details>
-    </>
+        <form action={moveFolder} className="inline-form">
+          <input type="hidden" name="id" value={id} />
+          <FolderSelect name="parentId" label="Move into" folders={folders} selected={folder.parentId} skip={id} />
+          <button type="submit">Move</button>
+        </form>
+
+        <details className="delete-folder">
+          <summary>Move to Trash…</summary>
+          <p>
+            This Folder holds {summary.data.folderCount} {summary.data.folderCount === 1 ? "Folder" : "Folders"} and{" "}
+            {summary.data.itemCount} {summary.data.itemCount === 1 ? "Item" : "Items"}. All of them go to the Trash
+            together.
+          </p>
+          <form action={deleteFolder}>
+            <input type="hidden" name="id" value={id} />
+            <button type="submit">Move Folder to Trash</button>
+          </form>
+        </details>
+      </section>
+    </ItemsView>
   );
 }
