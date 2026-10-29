@@ -67,9 +67,9 @@ Assets (images and PDFs) are kept in a private Supabase Storage bucket. The back
 
 Browsers upload straight to `https://<project ref>.supabase.co`, which allows cross-origin requests from any site by default; nothing needs changing there. Each User has a 100 MB quota by default (`coreex.assets.default-quota-bytes`), and a file is at most 5 MB.
 
-## Search needs the `pg_trgm` extension
+## Search uses the `pg_trgm` extension
 
-Migration `V10` runs `create extension if not exists pg_trgm`, which puts the extension in the `coreex` schema (the first schema on the backend's search path). It is a trusted contrib extension, so the `postgres` role may create it on Supabase. If the project already had `pg_trgm` enabled in another schema (Database > Extensions), the backend would not find its functions: disable it there before the release, and the migration will create it in `coreex`.
+The quick switcher's typo matching uses `pg_trgm`. Migration `V10` finds where the extension lives and uses it from there; if the project does not have it yet, the migration creates it in the `coreex` schema (it is a trusted contrib extension, so the `postgres` role may create it). Supabase projects often have it already, in the `extensions` schema, and that works too: the backend's connections use the search path `coreex, extensions`. Nothing needs to be done by hand. (The first v0.3.0 deploy failed on a project that already had the extension in `extensions`, before this was handled.)
 
 ## Things to know
 
