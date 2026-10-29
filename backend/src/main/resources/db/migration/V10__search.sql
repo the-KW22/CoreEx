@@ -1,6 +1,22 @@
--- Trigram matching for the quick switcher (typos). A trusted contrib extension, created in this schema (the first one
--- on the search path); docs/DEPLOY.md notes what to do if a project already has it elsewhere.
-create extension if not exists pg_trgm;
+-- Trigram matching for the quick switcher (typos). A fresh database gets the extension in this schema (the first one
+-- on the search path), but a Supabase project may already have it, typically in its "extensions" schema, and then
+-- "create extension if not exists" does nothing and an unqualified operator class is not found. So the index below is
+-- built with the schema the extension actually lives in, and the application's search path includes "extensions"
+-- (spring.datasource.hikari.connection-init-sql) so its operators and functions are found there too.
+do $$
+declare
+    trgm_schema text;
+begin
+    select n.nspname into trgm_schema
+    from pg_extension e join pg_namespace n on n.oid = e.extnamespace where e.extname = 'pg_trgm';
+    if trgm_schema is null then
+        create extension pg_trgm;
+        select n.nspname into trgm_schema
+        from pg_extension e join pg_namespace n on n.oid = e.extnamespace where e.extname = 'pg_trgm';
+    end if;
+    execute format('create index items_title_trgm on items using gin (title %I.gin_trgm_ops) where deleted_at is null',
+        trgm_schema);
+end $$;
 
 -- The default text search parser keeps "budget.png" and "Q3_report-final.v2.pdf" as one word, so searching for
 -- "budget" would miss a file of that name. Separators between words are turned into spaces, on the indexed text and
@@ -23,6 +39,5 @@ alter table asset_files add column description_tsv tsvector
 -- When the User last opened the Item, for "recently opened" in the quick switcher. Null means never.
 alter table items add column last_opened_at timestamptz;
 
-create index items_title_trgm on items using gin (title gin_trgm_ops) where deleted_at is null;
 create index items_recently_opened on items (owner_id, last_opened_at desc)
     where deleted_at is null and last_opened_at is not null;
