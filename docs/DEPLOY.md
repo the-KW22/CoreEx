@@ -82,6 +82,15 @@ GitHub pauses scheduled workflows after 60 days without repository activity; run
 
 The quick switcher's typo matching uses `pg_trgm`. Migration `V10` finds where the extension lives and uses it from there; if the project does not have it yet, the migration creates it in the `coreex` schema (it is a trusted contrib extension, so the `postgres` role may create it). Supabase projects often have it already, in the `extensions` schema, and that works too: the backend's connections use the search path `coreex, extensions`. Nothing needs to be done by hand. (The first v0.3.0 deploy failed on a project that already had the extension in `extensions`, before this was handled.)
 
+## Password reset (the owner does this once)
+
+The sign-in page has **Forgot password?**. Supabase emails a link that comes back to `<frontend URL>/auth/callback`, and Supabase only sends people to addresses on its allow-list:
+
+1. Supabase > Authentication > URL Configuration: set **Site URL** to the frontend URL (for example `https://core-ex.vercel.app`).
+2. Add `https://core-ex.vercel.app/auth/callback` (your frontend URL plus `/auth/callback`) to **Redirect URLs**.
+
+The email is sent by Supabase, so it counts against the built-in email limit (a few per hour) until custom SMTP is set up. The link only works in the browser that asked for it.
+
 ## Things to know
 
 - **Use the Session pooler, not the direct connection.** Supabase's direct database host is IPv6-only and Render's free tier is IPv4-only. The Session pooler (port 5432) works with Flyway and prepared statements; the Transaction pooler (port 6543) does not suit them.

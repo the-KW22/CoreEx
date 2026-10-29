@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { createSupabase } from "@/lib/supabase/server";
@@ -11,6 +12,8 @@ export async function authenticate(
   _previous: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
+  if (formData.get("intent") === "reset") return requestPasswordReset(String(formData.get("email") ?? "").trim());
+
   const credentials = {
     email: String(formData.get("email") ?? "").trim(),
     password: String(formData.get("password") ?? ""),
@@ -31,6 +34,19 @@ export async function authenticate(
     if (error) return { error: error.message };
   }
   redirect("/");
+}
+
+// Always the same answer, so it does not reveal whether an account exists. The emailed link comes back to /auth/callback;
+// Supabase only sends people to addresses on its redirect allow-list (Auth > URL Configuration), whatever this asks for.
+async function requestPasswordReset(email: string): Promise<AuthState> {
+  if (!email) return { error: "Enter your email, then select Forgot password." };
+  const origin = (await headers()).get("origin");
+  const supabase = await createSupabase();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: origin ? `${origin}/auth/callback` : undefined,
+  });
+  if (error) return { error: error.message };
+  return { notice: "If an account exists for that email, we sent a link to choose a new password." };
 }
 
 export async function signOut() {
