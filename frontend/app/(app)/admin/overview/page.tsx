@@ -2,9 +2,7 @@ import { redirect } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
 import { formatBytes } from "@/lib/items";
-import { TAG_COLOURS } from "@/lib/tag-colour";
-
-const MAX_SEGMENTS = TAG_COLOURS.length;
+import { storageSegments } from "@/lib/storage";
 
 // The Overview tab: stats and where the hosting limit's storage goes (docs/DESIGN.md section 6.7).
 export default async function AdminOverviewPage() {
@@ -27,14 +25,7 @@ export default async function AdminOverviewPage() {
   const percent =
     hostingLimitBytes > 0 ? Math.round((storageUsedBytes / hostingLimitBytes) * 100) : storageUsedBytes > 0 ? 100 : 0;
 
-  // The biggest Users get a colour each; everyone else (and anyone beyond the 100 fetched) is "Others".
-  const biggest = (users?.data?.items ?? [])
-    .filter((u) => u.storageUsedBytes > 0)
-    .sort((a, b) => b.storageUsedBytes - a.storageUsedBytes)
-    .slice(0, MAX_SEGMENTS - 1)
-    .map((u, i) => ({ label: u.email, bytes: u.storageUsedBytes, colour: TAG_COLOURS[i] }));
-  const others = storageUsedBytes - biggest.reduce((sum, s) => sum + s.bytes, 0);
-  const segments = others > 0 ? [...biggest, { label: "Others", bytes: others, colour: TAG_COLOURS[MAX_SEGMENTS - 1] }] : biggest;
+  const segments = storageSegments(users?.data?.items ?? [], storageUsedBytes);
   // The bar is the hosting limit; each segment is a share of it. Past the limit the shares are squeezed to fit.
   const scale = Math.max(hostingLimitBytes, storageUsedBytes, 1);
 

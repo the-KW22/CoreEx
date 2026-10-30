@@ -664,6 +664,7 @@ test("an Admin disables, enables and removes another User", async ({ page, brows
   await expect(row).toContainText("Custom quota");
   await row.getByRole("button", { name: `Use the default quota for ${other}` }).click();
   await expect(row).toContainText("Default quota");
+  await expect(row.getByLabel(`Quota in megabytes for ${other}`)).not.toHaveValue("7");
 
   await row.getByRole("button", { name: `Remove ${other}` }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Remove for good" }).click();

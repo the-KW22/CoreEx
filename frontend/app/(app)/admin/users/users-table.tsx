@@ -31,19 +31,25 @@ const QUOTA_ERROR = "Could not change the quota. Enter a whole number of megabyt
 // The storage quota as an Input Group: a number with an "MB" suffix, and Save.
 function QuotaForm({ user }: { user: User }) {
   const [pending, startTransition] = useTransition();
-  const [megabytes, setMegabytes] = useState(String(Math.round(user.storageQuotaBytes / MIB)));
+  // What the Admin has typed, or null: the box then follows the quota the server has.
+  const [draft, setDraft] = useState<string | null>(null);
+  const megabytes = draft ?? String(Math.round(user.storageQuotaBytes / MIB));
 
   const save = (event: React.FormEvent) => {
     event.preventDefault();
     startTransition(async () => {
-      if (await setQuota(user.id, Number(megabytes))) toast.success(`Quota saved for ${user.email}`);
-      else toast.error(QUOTA_ERROR);
+      if (await setQuota(user.id, Number(megabytes))) {
+        setDraft(null);
+        toast.success(`Quota saved for ${user.email}`);
+      } else toast.error(QUOTA_ERROR);
     });
   };
   const reset = () =>
     startTransition(async () => {
-      if (await resetQuota(user.id)) toast.success(`${user.email} uses the default quota`);
-      else toast.error(QUOTA_ERROR);
+      if (await resetQuota(user.id)) {
+        setDraft(null);
+        toast.success(`${user.email} uses the default quota`);
+      } else toast.error(QUOTA_ERROR);
     });
 
   return (
@@ -56,7 +62,7 @@ function QuotaForm({ user }: { user: User }) {
             step={1}
             required
             value={megabytes}
-            onChange={(event) => setMegabytes(event.target.value)}
+            onChange={(event) => setDraft(event.target.value)}
             aria-label={`Quota in megabytes for ${user.email}`}
             className="h-full w-24 bg-transparent px-2 font-mono text-sm outline-none"
           />
@@ -94,7 +100,7 @@ function Confirm({
   action,
   onConfirm,
   disabled,
-  destructive = action !== "Enable",
+  destructive = true,
 }: {
   trigger: string;
   label: string;
@@ -244,6 +250,7 @@ export function UsersTable({ users, meId, now }: { users: User[]; meId?: string;
                           : "They can sign in again and use CoreEx as before."
                       }
                       action={user.status === "ACTIVE" ? "Disable" : "Enable"}
+                      destructive={user.status === "ACTIVE"}
                       disabled={pending}
                       onConfirm={() => toggle(user)}
                     />
