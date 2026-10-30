@@ -1,4 +1,4 @@
-// The 8 Tag colours (docs/DESIGN.md 4.4). The API will store one of these names; the shades live in globals.css.
+// The 8 Tag colours (docs/DESIGN.md 4.4). The API stores one of these names; the shades live in globals.css.
 export const TAG_COLOURS = ["gray", "red", "orange", "yellow", "green", "teal", "blue", "pink"] as const;
 export type TagColour = (typeof TAG_COLOURS)[number];
 

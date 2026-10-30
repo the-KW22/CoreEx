@@ -4,32 +4,41 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
+import type { TagColour } from "@/lib/tag-colour";
 
-const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim();
-const refresh = () => revalidatePath("/", "layout");
+// The Tag actions answer whether they worked, so the Tags page and the Tag page can say so in a toast or in the
+// Dialog and stay where they are. A Tag shows on many pages, so every success refreshes them all.
+const done = (ok: boolean) => {
+  if (ok) revalidatePath("/", "layout");
+  return ok;
+};
 
-export async function renameTag(formData: FormData) {
-  const id = text(formData, "id");
-  const name = text(formData, "name");
-  if (!id || !name) return;
-
+export async function setTagColour(id: string, colour: TagColour | null): Promise<boolean> {
   const api = await getApi();
   const result = await api
-    .PUT("/api/tags/{id}", { params: { path: { id } }, body: { name } })
+    .PUT("/api/tags/{id}/colour", { params: { path: { id } }, body: { colour } })
     .catch(() => null);
-  if (!result?.data) {
-    redirect(`/tags/${id}?error=${result?.error?.code === "TAG_EXISTS" ? "exists" : "rename"}`);
-  }
-  refresh();
+  return done(!!result?.data);
 }
 
-export async function deleteTag(formData: FormData) {
-  const id = text(formData, "id");
-  if (!id) return;
+export type RenameResult = "ok" | "exists" | "error";
 
+export async function renameTag(id: string, name: string): Promise<RenameResult> {
+  const trimmed = name.trim();
+  if (!trimmed) return "error";
+  const api = await getApi();
+  const result = await api
+    .PUT("/api/tags/{id}", { params: { path: { id } }, body: { name: trimmed } })
+    .catch(() => null);
+  if (result?.error?.code === "TAG_EXISTS") return "exists";
+  return done(!!result?.data) ? "ok" : "error";
+}
+
+// `then` is where to go afterwards: the Tag's own page is gone once it is deleted.
+export async function deleteTag(id: string, then?: string): Promise<boolean> {
   const api = await getApi();
   const result = await api.DELETE("/api/tags/{id}", { params: { path: { id } } }).catch(() => null);
-  if (!result || result.error) redirect(`/tags/${id}?error=delete`);
-  refresh();
-  redirect("/tags");
+  if (!done(!!result && !result.error)) return false;
+  if (then) redirect(then);
+  return true;
 }

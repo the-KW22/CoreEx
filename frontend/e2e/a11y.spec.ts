@@ -102,6 +102,31 @@ for (const [colorScheme, background] of [
       await expectNoViolations(page);
     });
 
+    test("the Tags page, its colour picker and the delete confirm have no WCAG 2.2 AA violations", async ({ page }) => {
+      await signIn(page);
+      const stamp = Date.now();
+      const tagName = `a11y-tag-${stamp}`;
+      await noteWithTag(page, `Tag probe ${stamp}`, tagName);
+      await page.goto("/tags");
+      await expect(page.getByRole("heading", { name: "Tags", level: 1 })).toBeVisible();
+      await expectNoViolations(page);
+
+      await page.getByRole("button", { name: `Colour of ${tagName}` }).click();
+      await expect(page.getByRole("radiogroup", { name: `Colour of ${tagName}` })).toBeVisible();
+      await expectNoViolations(page);
+      await page.keyboard.press("Escape");
+
+      await page.getByRole("button", { name: `Delete ${tagName}` }).click();
+      await expect(page.getByRole("alertdialog")).toBeVisible();
+      await expectNoViolations(page);
+      await page.getByRole("alertdialog").getByRole("button", { name: "Delete Tag" }).click();
+      await expect(page.getByRole("link", { name: tagName })).toHaveCount(0);
+
+      await page.goto("/items");
+      await page.getByRole("button", { name: `Actions for Tag probe ${stamp}` }).click();
+      await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+    });
+
     test("the phone menu has no WCAG 2.2 AA violations", async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 812 });
       await signIn(page);
@@ -268,6 +293,21 @@ async function newNote(page: Page, title: string) {
   await expectSaved(page);
 }
 
+// A Note carrying a new Tag, so the Tags page has a row. Leaves you on the Note.
+async function noteWithTag(page: Page, title: string, tagName: string) {
+  await newNote(page, title);
+  await page.getByRole("button", { name: "Tag", exact: true }).click();
+  await page.getByPlaceholder("Find or create a Tag").fill(tagName);
+  await page.getByRole("option", { name: `Create “${tagName}”` }).click();
+  await expect(page.getByRole("list", { name: "Tags" }).getByRole("link", { name: tagName })).toBeVisible();
+}
+
+// Deletes a Tag from the Tags page or its own page, through the confirm.
+async function deleteTag(page: Page, tagName: string) {
+  await page.getByRole("button", { name: `Delete ${tagName}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete Tag" }).click();
+}
+
 test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
   await signIn(page);
   const stamp = Date.now();
@@ -325,8 +365,7 @@ test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
   await expect(page.getByRole("row").filter({ hasText: title })).toBeVisible();
 
   // Tidy up: the Note and the Folder go to the Trash, the Tag is deleted.
-  await page.getByText("Delete Tag…").click();
-  await page.getByRole("button", { name: "Delete Tag" }).click();
+  await deleteTag(page, tagName);
   await page.goto("/items");
   await menu.click();
   await page.getByRole("menuitem", { name: "Move to Trash" }).click();
@@ -355,6 +394,61 @@ test("on a phone Item rows stack and the page does not scroll sideways", async (
   await expect(row).toHaveCount(0);
 });
 
+test("the Tags page sets a colour, renames, refuses a taken name and deletes after a confirm", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const title = `Tag colour probe ${stamp}`;
+  const one = `colour-one-${stamp}`;
+  const two = `colour-two-${stamp}`;
+  await noteWithTag(page, title, one);
+  await page.getByRole("button", { name: "Tag", exact: true }).click();
+  await page.getByPlaceholder("Find or create a Tag").fill(two);
+  await page.getByRole("option", { name: `Create “${two}”` }).click();
+  await expect(page.getByRole("list", { name: "Tags" }).getByRole("link", { name: two })).toBeVisible();
+
+  await page.goto("/tags");
+  const row = (name: string) => page.getByRole("row").filter({ hasText: name });
+  await expect(row(one)).toContainText("1");
+
+  // A picked colour shows on the pill here and on the Note, and Automatic goes back.
+  await page.getByRole("button", { name: `Colour of ${one}` }).click();
+  await page.getByRole("radio", { name: "teal" }).click();
+  await expect(row(one).locator("[data-colour=teal]").first()).toBeVisible();
+  await page.goto("/tags");
+  await page.getByRole("button", { name: `Colour of ${one}` }).click();
+  await expect(page.getByRole("radio", { name: "teal" })).toBeChecked();
+  await page.getByRole("radio", { name: "Automatic" }).click();
+  await expect(row(one).locator("[data-colour=teal]")).toHaveCount(0);
+
+  // A name another Tag has is refused inside the Dialog; a free one renames.
+  await page.getByRole("button", { name: `Rename ${one}` }).click();
+  const dialog = page.getByRole("dialog", { name: "Rename Tag" });
+  await dialog.getByLabel("Name").fill(two.toUpperCase());
+  await dialog.getByRole("button", { name: "Rename" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("already have a Tag");
+  await dialog.getByLabel("Name").fill(`${one}-renamed`);
+  await dialog.getByRole("button", { name: "Rename" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(row(`${one}-renamed`)).toBeVisible();
+
+  // Cancel keeps the Tag; the confirm deletes it from the Tag's own page and lands on the Tags page.
+  await page.getByRole("button", { name: `Delete ${two}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
+  await expect(row(two)).toBeVisible();
+  await row(two).getByRole("link", { name: two }).click();
+  await expect(page.getByRole("heading", { name: two, level: 1 })).toBeVisible();
+  await deleteTag(page, two);
+  await expect(page).toHaveURL(/\/tags$/);
+  await expect(row(two)).toHaveCount(0);
+
+  // Tidy up.
+  await page.getByRole("button", { name: `Delete ${one}-renamed` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete Tag" }).click();
+  await page.goto("/items");
+  await page.getByRole("button", { name: `Actions for ${title}` }).click();
+  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+});
+
 test("Home shows a new Note under Recently edited and Jump back in", async ({ page }) => {
   await signIn(page);
   const title = `Home probe ${Date.now()}`;
@@ -376,6 +470,8 @@ test("Home shows a new Note under Recently edited and Jump back in", async ({ pa
 });
 
 test("the Note screen tags, moves, and remembers hidden Details", async ({ page }) => {
+  // Many steps, and the first visit to each page compiles it on the dev server.
+  test.slow();
   await signIn(page);
   const stamp = Date.now();
   const tagName = `note-probe-${stamp}`;
@@ -416,8 +512,7 @@ test("the Note screen tags, moves, and remembers hidden Details", async ({ page 
   await page.getByRole("button", { name: "Move Folder to Trash" }).click();
   await page.goto("/tags");
   await page.getByRole("main").getByRole("link", { name: tagName }).click();
-  await page.getByText("Delete Tag…").click();
-  await page.getByRole("button", { name: "Delete Tag" }).click();
+  await deleteTag(page, tagName);
 });
 
 test("hovering a Link previews its target", async ({ page }) => {

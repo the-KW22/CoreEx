@@ -230,7 +230,7 @@ async function HomeSections() {
             {topTags.map((tag) => (
               <li key={tag.id}>
                 <Link href={`/tags/${tag.id}`} className="flex items-center gap-1.5 rounded-full">
-                  <TagBadge name={tag.name} />
+                  <TagBadge name={tag.name} colour={tag.colour} />
                   <span className="font-mono text-xs text-muted-foreground">{tag.itemCount}</span>
                 </Link>
               </li>

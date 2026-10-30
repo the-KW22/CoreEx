@@ -4,17 +4,11 @@ import { getApi } from "@/lib/api/server";
 import { pageInfo } from "@/lib/pages";
 
 import { ItemsView, PAGE_SIZE } from "../../items/items-view";
-import { deleteTag, renameTag } from "../actions";
-
-const errors: Record<string, string> = {
-  exists: "You already have a Tag with that name. Pick another name.",
-  rename: "Could not rename the Tag. Try again.",
-  delete: "Could not delete the Tag. Try again.",
-};
+import { TagActions } from "../tag-actions";
 
 export default async function TagPage({ params, searchParams }: PageProps<"/tags/[id]">) {
   const { id } = await params;
-  const { error, page: raw } = await searchParams;
+  const { page: raw } = await searchParams;
   const requested = pageInfo(0, raw, PAGE_SIZE).page;
   const api = await getApi();
   const [list, items, folders] = await Promise.all([
@@ -36,6 +30,7 @@ export default async function TagPage({ params, searchParams }: PageProps<"/tags
 
   return (
     <ItemsView
+      titleExtra={<TagActions tag={tag} then="/tags" />}
       crumbs={[{ href: "/tags", label: "Tags" }]}
       title={tag.name}
       folderId={null}
@@ -46,31 +41,6 @@ export default async function TagPage({ params, searchParams }: PageProps<"/tags
       page={pageInfo(items.data.total, raw, PAGE_SIZE)}
       path={`/tags/${id}`}
       empty="No Items have this Tag yet."
-      alert={typeof error === "string" ? errors[error] : undefined}
-    >
-      {/* shortcut: managing a Tag keeps the first UI's forms, restyle them with the Tags page work (#59). */}
-      <section aria-labelledby="manage-heading">
-        <h2 id="manage-heading">Manage</h2>
-        <form action={renameTag} className="inline-form">
-          <input type="hidden" name="id" value={id} />
-          <label>
-            Name
-            <input name="name" required maxLength={50} defaultValue={tag.name} />
-          </label>
-          <button type="submit">Rename</button>
-        </form>
-
-        <details className="delete-folder">
-          <summary>Delete Tag…</summary>
-          <p>
-            This removes the Tag from {tag.itemCount} {tag.itemCount === 1 ? "Item" : "Items"}. The Items are kept.
-          </p>
-          <form action={deleteTag}>
-            <input type="hidden" name="id" value={id} />
-            <button type="submit">Delete Tag</button>
-          </form>
-        </details>
-      </section>
-    </ItemsView>
+    />
   );
 }

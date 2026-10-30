@@ -11,6 +11,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type Folder, viewingFolderId } from "@/lib/folders";
 import { itemHref } from "@/lib/items";
+import type { TagColour } from "@/lib/tag-colour";
 import { cn } from "@/lib/utils";
 
 import { createFolder } from "./folders/actions";
@@ -20,7 +21,7 @@ import { FolderTree } from "./folders/folder-tree";
 const viewButton =
   "flex-1 text-muted-foreground data-[state=on]:bg-border data-[state=on]:font-semibold data-[state=on]:text-foreground pointer-coarse:h-11";
 
-type Tag = { id: string; name: string };
+type Tag = { id: string; name: string; colour?: TagColour | null };
 type PanelItem = { id: string; type: "NOTE" | "ASSET"; title: string };
 
 const input =
@@ -169,7 +170,7 @@ export function KbPanel({ folders, tags }: { folders: Folder[] | null; tags: Tag
               {tags.map((tag) => (
                 <li key={tag.id}>
                   <Link href={`/tags/${tag.id}`} className="rounded-full">
-                    <TagBadge name={tag.name} />
+                    <TagBadge name={tag.name} colour={tag.colour} />
                   </Link>
                 </li>
               ))}
