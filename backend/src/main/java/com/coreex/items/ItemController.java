@@ -58,7 +58,7 @@ class ItemController {
 		this.items = items;
 	}
 
-	/** The signed-in User's live Items, most recently updated first; folderId and tagId narrow them. */
+	/** The signed-in User's live Items, most recently updated first; folderId, tagId and type narrow them. */
 	@GetMapping
 	@ApiResponse(responseCode = "200", description = "A page of Items", content = @Content(mediaType = JSON,
 			schema = @Schema(implementation = ItemPage.class)))
@@ -66,11 +66,11 @@ class ItemController {
 			mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
 	ItemPage list(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@RequestParam(required = false) UUID folderId, @RequestParam(required = false) UUID tagId,
-			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(required = false) Item.Type type, @RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "50") int size) {
 		var safeSize = Math.min(MAX_PAGE_SIZE, Math.max(1, size));
-		var list = items.list(user.id(), folderId, tagId, Math.max(0, page), safeSize).stream().map(ItemResponse::of).toList();
-		return new ItemPage(list, items.total(user.id(), folderId, tagId));
+		var list = items.list(user.id(), folderId, tagId, type, Math.max(0, page), safeSize).stream().map(ItemResponse::of).toList();
+		return new ItemPage(list, items.total(user.id(), folderId, tagId, type));
 	}
 
 	/** Called by the browser when the User opens an Item's page; feeds the quick switcher's recents. */
