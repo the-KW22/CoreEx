@@ -1,61 +1,19 @@
-import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-// A local-only test account. The API makes OWNER_EMAIL an Admin with no Invite, so use the same email there.
-const email = process.env.E2E_EMAIL ?? "owner@example.com";
-const password = process.env.E2E_PASSWORD ?? "coreex-e2e-password";
-
-async function submit(page: Page, button: "Sign in" | "Create account") {
-  // React resets the form after each action, so fill it every time.
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: button }).click();
-}
-
-// Signs in, creating the account the first time on a fresh local database.
-async function signIn(page: Page) {
-  await page.goto("/login");
-  await submit(page, "Sign in");
-  // Only the form's error: Next.js's route announcer is also an "alert", outside <main>.
-  const failed = page.getByRole("main").getByRole("alert");
-  // The rail on wider screens, the menu button on phones (the rail is then inside the menu).
-  const signedIn = page.getByRole("navigation", { name: "Main" }).or(page.getByRole("button", { name: "Open the menu" }));
-  await expect(signedIn.or(failed)).toBeVisible();
-  if (await failed.isVisible()) {
-    await submit(page, "Create account");
-    // Fails with the form's own message, e.g. an existing account with another password.
-    await expect(failed).toHaveCount(0);
-  }
-  await expect(signedIn).toBeVisible();
-}
-
-// Ctrl+K, pressed again until the palette shows: a key pressed before React has hydrated the page is lost.
-async function openPalette(page: Page) {
-  const palette = page.getByRole("dialog", { name: "Command palette" });
-  await expect(async () => {
-    if (!(await palette.isVisible())) await page.keyboard.press("Control+K");
-    await expect(palette).toBeVisible({ timeout: 1000 });
-  }).toPass();
-  return palette;
-}
-
-async function expectNoViolations(page: Page) {
-  // Text that is still fading in fails contrast, so let opening animations finish (endless ones, like spinners, aside).
-  await page.waitForFunction(
-    () =>
-      document.getAnimations().every((a) => a.playState !== "running" || a.effect?.getComputedTiming().iterations === Infinity) &&
-      // Motion fades with inline styles rather than CSS animations. Fully transparent parts are skipped by axe anyway.
-      [...document.querySelectorAll<HTMLElement>("[style*=opacity]")].every((el) => {
-        const opacity = Number(el.style.opacity);
-        return opacity === 0 || opacity === 1;
-      }),
-  );
-  const { violations } = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-    .analyze();
-  const found = violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
-  expect(found).toEqual([]);
-}
+import {
+  PIXEL,
+  deleteTag,
+  email,
+  expectNoViolations,
+  expectSaved,
+  newNote,
+  noteWithTag,
+  openPalette,
+  password,
+  signIn,
+  trashFolder,
+  trashedNote,
+} from "./helpers";
 
 // Every screen ticket adds its screen here (docs/DESIGN.md section 10).
 for (const [colorScheme, background] of [
@@ -346,48 +304,6 @@ test("the command palette says it is searching while the answer is on its way", 
   await expect(palette.getByText("Searching…", { exact: true })).toHaveCount(0);
 });
 
-// Waits until the open Note has saved what was just typed. "Saved at" also shows before typing, so the change must
-// register first. By role: Next keeps the previous page's DOM hidden for back and forward, and getByRole skips it.
-async function expectSaved(page: Page) {
-  await expect(page.getByRole("status").filter({ hasText: "Unsaved changes" })).toBeVisible();
-  await expect(page.getByRole("status").filter({ hasText: /^Saved at/ })).toBeVisible();
-}
-
-// Makes a Note with this title from the command palette and waits until it is saved.
-async function newNote(page: Page, title: string) {
-  const palette = await openPalette(page);
-  await palette.getByRole("option", { name: "New Note" }).click();
-  await expect(page).toHaveURL(/\/notes\//);
-  // The page being left stays on screen for a moment after the address changes: wait for the new, empty Note.
-  const field = page.getByRole("textbox", { name: "Title" });
-  await expect(field).toHaveCount(1);
-  await expect(field).toHaveValue("");
-  await field.fill(title);
-  await expectSaved(page);
-}
-
-// A Note carrying a new Tag, so the Tags page has a row. Leaves you on the Note.
-async function noteWithTag(page: Page, title: string, tagName: string) {
-  await newNote(page, title);
-  await page.getByRole("button", { name: "Tag", exact: true }).click();
-  await page.getByPlaceholder("Find or create a Tag").fill(tagName);
-  await page.getByRole("option", { name: `Create “${tagName}”` }).click();
-  await expect(page.getByRole("list", { name: "Tags" }).getByRole("link", { name: tagName })).toBeVisible();
-}
-
-// Deletes a Tag from the Tags page or its own page, through the confirm.
-async function deleteTag(page: Page, tagName: string) {
-  await page.getByRole("button", { name: `Delete ${tagName}` }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Delete Tag" }).click();
-}
-
-// A Note with a unique title, sent to the Trash from its own screen. Leaves you on All Items.
-async function trashedNote(page: Page, title: string) {
-  await newNote(page, title);
-  await page.getByRole("button", { name: "Move to Trash" }).click();
-  await expect(page).toHaveURL(/\/items$/);
-}
-
 test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
   await signIn(page);
   const stamp = Date.now();
@@ -451,8 +367,7 @@ test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
   await page.getByRole("menuitem", { name: "Move to Trash" }).click();
   await expect(row).toHaveCount(0);
   await page.getByRole("main").getByRole("link", { name: folderName }).click();
-  await page.getByText("Move to Trash…").click();
-  await page.getByRole("button", { name: "Move Folder to Trash" }).click();
+  await trashFolder(page, folderName);
   // A top-level Folder goes back to All Items.
   await expect(page).toHaveURL(/\/items$/);
 });
@@ -704,6 +619,40 @@ test("on a phone the sign-in card fits, and Enter signs in rather than sending a
   await expect(page.getByRole("button", { name: "Open the menu" })).toBeVisible();
 });
 
+test("a Folder is renamed, given a subfolder, moved, and sent to the Trash from its page", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const name = `fa${stamp}`;
+  const renamed = `fb${stamp}`;
+  const child = `fc${stamp}`;
+  await page.getByRole("button", { name: "New Folder" }).click();
+  await page.getByLabel("Folder name").fill(name);
+  await page.getByRole("button", { name: "Create Folder" }).click();
+  await page.goto("/items");
+  await page.getByRole("main").getByRole("link", { name }).click();
+  await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
+
+  await page.getByRole("button", { name: `Rename ${name}` }).click();
+  await page.getByRole("dialog", { name: "Rename Folder" }).getByLabel("Name").fill(renamed);
+  await page.getByRole("dialog", { name: "Rename Folder" }).getByRole("button", { name: "Rename" }).click();
+  await expect(page.getByRole("heading", { name: renamed, level: 1 })).toBeVisible();
+
+  await page.getByRole("button", { name: `New subfolder in ${renamed}` }).click();
+  await page.getByRole("dialog", { name: "New subfolder" }).getByLabel("Name").fill(child);
+  await page.getByRole("dialog", { name: "New subfolder" }).getByRole("button", { name: "Create" }).click();
+  await expect(page.getByRole("main").getByRole("link", { name: child })).toBeVisible();
+
+  // A Folder cannot go into its own subfolder, so the Move dialog does not offer it.
+  await page.getByRole("button", { name: `Move ${renamed}`, exact: true }).click();
+  const move = page.getByRole("dialog", { name: "Move Folder" });
+  await expect(move.getByLabel("Move into")).toBeVisible();
+  await expect(move.getByLabel("Move into").locator("option", { hasText: child })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  await trashFolder(page, renamed);
+  await expect(page).toHaveURL(/\/items$/);
+});
+
 test("Home shows a new Note under Recently edited and Jump back in", async ({ page }) => {
   await signIn(page);
   const title = `Home probe ${Date.now()}`;
@@ -763,8 +712,7 @@ test("the Note screen tags, moves, and remembers hidden Details", async ({ page 
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
   await page.getByRole("main").getByRole("link", { name: folderName }).click();
-  await page.getByText("Move to Trash…").click();
-  await page.getByRole("button", { name: "Move Folder to Trash" }).click();
+  await trashFolder(page, folderName);
   await page.goto("/tags");
   await page.getByRole("main").getByRole("link", { name: tagName }).click();
   await deleteTag(page, tagName);
@@ -828,12 +776,6 @@ test("on a phone the Note's Details open as a bottom Sheet", async ({ page }) =>
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
-
-// A 1×1 PNG.
-const PIXEL = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkaPhfDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-  "base64",
-);
 
 test("dropping files anywhere in the Knowledge Base shows the overlay and uploads them", async ({ page }) => {
   await signIn(page);

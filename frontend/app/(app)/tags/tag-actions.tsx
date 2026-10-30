@@ -67,7 +67,7 @@ export function TagActions({ tag, then }: { tag: Tag; then?: string }) {
     <div className="flex items-center gap-0.5">
       <Popover open={picking} onOpenChange={setPicking}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`Colour of ${tag.name}`} className={icon}>
+          <Button variant="ghost" size="icon-sm" aria-label={`Colour of ${tag.name}`} className={icon}>
             <span data-colour={tag.colour ?? tagColour(tag.name)} aria-hidden className="size-4 rounded-full bg-(--tag)" />
           </Button>
         </PopoverTrigger>
@@ -108,7 +108,7 @@ export function TagActions({ tag, then }: { tag: Tag; then?: string }) {
         }}
       >
         <DialogTrigger asChild>
-          <Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`Rename ${tag.name}`} className={icon}>
+          <Button variant="ghost" size="icon-sm" aria-label={`Rename ${tag.name}`} className={icon}>
             <PencilIcon aria-hidden />
           </Button>
         </DialogTrigger>
@@ -150,7 +150,7 @@ export function TagActions({ tag, then }: { tag: Tag; then?: string }) {
 
       <AlertDialog>
         <AlertDialogTrigger asChild>
-          <Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`Delete ${tag.name}`} className={icon}>
+          <Button variant="ghost" size="icon-sm" aria-label={`Delete ${tag.name}`} className={icon}>
             <Trash2Icon aria-hidden />
           </Button>
         </AlertDialogTrigger>

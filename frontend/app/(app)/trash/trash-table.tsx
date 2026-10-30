@@ -35,11 +35,11 @@ const say = (result: Removal, ok: string, failed: string) => {
 
 // Empty Trash, behind a confirm.
 export function EmptyTrash() {
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" disabled={pending}>
+        <Button variant="outline">
           <Trash2Icon aria-hidden />
           Empty Trash
         </Button>
@@ -87,15 +87,14 @@ export function TrashTable({ entries }: { entries: Entry[] }) {
     );
 
   return (
-    // The first UI's table rules (borders, margin) live in the base layer; these utilities override them.
-    <table className="mt-0 w-full border-collapse text-sm max-md:block">
+    <table className="w-full border-collapse text-sm max-md:block">
       <caption className="sr-only">Most recently deleted first</caption>
       <thead className="text-left text-xs font-medium text-muted-foreground max-md:hidden">
         <tr className="border-b border-border">
-          <th scope="col" className="border-0 py-2 pr-4 font-medium">Name</th>
-          <th scope="col" className="border-0 py-2 pr-4 font-medium">Type</th>
-          <th scope="col" className="border-0 py-2 pr-4 font-medium">Removed for good in</th>
-          <th scope="col" className="border-0 py-2 font-medium">
+          <th scope="col" className="py-2 pr-4 font-medium">Name</th>
+          <th scope="col" className="py-2 pr-4 font-medium">Type</th>
+          <th scope="col" className="py-2 pr-4 font-medium">Removed for good in</th>
+          <th scope="col" className="py-2 font-medium">
             <span className="sr-only">Actions</span>
           </th>
         </tr>
@@ -109,7 +108,7 @@ export function TrashTable({ entries }: { entries: Entry[] }) {
               key={entry.id}
               className="border-b border-border-subtle hover:bg-surface max-md:grid max-md:gap-1 max-md:rounded-[10px] max-md:border max-md:border-border max-md:p-3"
             >
-              <td className="border-0 py-2 pr-4 max-md:p-0">
+              <td className="py-2 pr-4 max-md:p-0">
                 <span className="flex items-center gap-2 font-medium">
                   <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
                   <span className="truncate">{name(entry)}</span>
@@ -120,14 +119,14 @@ export function TrashTable({ entries }: { entries: Entry[] }) {
                   </span>
                 )}
               </td>
-              <td className="border-0 py-2 pr-4 text-muted-foreground max-md:p-0 max-md:pl-6 max-md:text-xs">
+              <td className="py-2 pr-4 text-muted-foreground max-md:p-0 max-md:pl-6 max-md:text-xs">
                 {kindLabel[entry.kind]}
               </td>
-              <td className="border-0 py-2 pr-4 max-md:p-0 max-md:pl-6">
+              <td className="py-2 pr-4 max-md:p-0 max-md:pl-6">
                 {/* The orange Tag colour doubles as the warning colour, so the last days stand out. */}
                 <Badge colour={soon ? "orange" : "gray"}>{plural(entry.daysRemaining, "day", "days")} left</Badge>
               </td>
-              <td className="border-0 py-1 max-md:p-0 max-md:pt-1">
+              <td className="py-1 max-md:p-0 max-md:pt-1">
                 <div className="flex items-center gap-1 md:justify-end">
                   <Button
                     variant="outline"
@@ -144,7 +143,6 @@ export function TrashTable({ entries }: { entries: Entry[] }) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        disabled={pending}
                         aria-label={`Delete forever: ${name(entry)}`}
                         className="text-destructive hover:text-destructive"
                       >

@@ -8,7 +8,8 @@ import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 function DropdownMenu({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
-  return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />
+  // Not modal: a modal menu hides the page from screen readers while its controls stay focusable (axe aria-hidden-focus).
+  return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" modal={false} {...props} />
 }
 
 function DropdownMenuPortal({
