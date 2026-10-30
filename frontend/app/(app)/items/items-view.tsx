@@ -1,6 +1,7 @@
 import { ChevronRightIcon, FilePlusIcon, FolderIcon } from "lucide-react";
 import Link from "next/link";
 
+import { PageGone, Pager } from "@/components/pager";
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/schema";
 import type { Folder } from "@/lib/folders";
@@ -120,37 +121,11 @@ export function ItemsView({ crumbs, title, folderId, cards, folders, tags, items
             </div>
           </div>
         ) : items.items.length === 0 ? (
-          <p className="text-muted-foreground">
-            This page is empty.{" "}
-            <Link href={path} className="text-link underline-offset-4 hover:underline">
-              Go to the first page
-            </Link>
-            .
-          </p>
+          <PageGone first={path} />
         ) : (
           <ItemsTable items={items.items} folders={folders} tags={tags} />
         )}
-        {page.pages > 1 && (
-          <nav aria-label="Pages" className="flex items-center justify-between gap-4 text-sm">
-            {page.prev !== null ? (
-              <Link href={pageHref(page.prev)} className="text-link underline-offset-4 hover:underline">
-                ← Previous
-              </Link>
-            ) : (
-              <span />
-            )}
-            <span className="text-muted-foreground">
-              Page {page.page + 1} of {page.pages}
-            </span>
-            {page.next !== null ? (
-              <Link href={pageHref(page.next)} className="text-link underline-offset-4 hover:underline">
-                Next →
-              </Link>
-            ) : (
-              <span />
-            )}
-          </nav>
-        )}
+        <Pager page={page} href={pageHref} />
       </section>
 
       {children}

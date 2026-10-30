@@ -127,6 +127,33 @@ for (const [colorScheme, background] of [
       await page.getByRole("menuitem", { name: "Move to Trash" }).click();
     });
 
+    test("the Trash and Search pages have no WCAG 2.2 AA violations", async ({ page }) => {
+      await signIn(page);
+      const word = `zq${Date.now()}`;
+      await newNote(page, `Trash axe ${word}`);
+      await page.locator(".cm-content").click();
+      await page.keyboard.type(`about ${word}`);
+      await expectSaved(page);
+
+      await page.goto(`/search?q=${word}`);
+      await expect(page.locator("main mark")).toBeVisible();
+      await expectNoViolations(page);
+
+      await page.getByRole("link", { name: new RegExp(word) }).click();
+      await page.getByRole("button", { name: "Move to Trash" }).click();
+      await expect(page).toHaveURL(/\/items$/);
+      await page.goto("/trash");
+      const row = page.getByRole("row").filter({ hasText: word });
+      await expect(row).toBeVisible();
+      await expectNoViolations(page);
+
+      await row.getByRole("button", { name: /^Delete forever/ }).click();
+      await expect(page.getByRole("alertdialog")).toBeVisible();
+      await expectNoViolations(page);
+      await page.getByRole("alertdialog").getByRole("button", { name: "Delete forever" }).click();
+      await expect(row).toHaveCount(0);
+    });
+
     test("the phone menu has no WCAG 2.2 AA violations", async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 812 });
       await signIn(page);
@@ -221,7 +248,7 @@ test("the command palette finds a Note by title and searches all text", async ({
 test("on a phone the search icon opens a full-screen palette", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await signIn(page);
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
   const palette = page.getByRole("dialog", { name: "Command palette" });
   await expect(palette.getByRole("combobox")).toBeFocused();
   // Polled: it zooms in when it opens.
@@ -306,6 +333,13 @@ async function noteWithTag(page: Page, title: string, tagName: string) {
 async function deleteTag(page: Page, tagName: string) {
   await page.getByRole("button", { name: `Delete ${tagName}` }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete Tag" }).click();
+}
+
+// A Note with a unique title, sent to the Trash from its own screen. Leaves you on All Items.
+async function trashedNote(page: Page, title: string) {
+  await newNote(page, title);
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
 }
 
 test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
@@ -450,6 +484,81 @@ test("the Tags page sets a colour, renames, refuses a taken name and deletes aft
   await page.goto("/items");
   await page.getByRole("button", { name: `Actions for ${title}` }).click();
   await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+});
+
+test("the Trash shows days left, restores, and deletes for good after a confirm", async ({ page }) => {
+  await signIn(page);
+  const title = `Trash probe ${Date.now()}`;
+  await trashedNote(page, title);
+
+  await page.goto("/trash");
+  const row = page.getByRole("row").filter({ hasText: title });
+  await expect(row).toContainText(/\d+ days left/);
+
+  // Restore brings it back to All Items, and the list stays put.
+  await row.getByRole("button", { name: `Restore ${title}` }).click();
+  await expect(page.getByText(`Restored "${title}"`)).toBeVisible();
+  await expect(row).toHaveCount(0);
+  await page.goto("/items");
+  const item = page.getByRole("row").filter({ hasText: title });
+  await expect(item).toBeVisible();
+
+  // Trash it again from the row menu; Cancel keeps it, the confirm deletes it.
+  await item.getByRole("button", { name: `Actions for ${title}` }).click();
+  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await page.goto("/trash");
+  await row.getByRole("button", { name: `Delete forever: ${title}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
+  await expect(row).toBeVisible();
+  await row.getByRole("button", { name: `Delete forever: ${title}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete forever" }).click();
+  await expect(page.getByText(`Deleted "${title}" for good`)).toBeVisible();
+  await expect(row).toHaveCount(0);
+});
+
+test("Empty Trash asks first, then leaves the empty state", async ({ page }) => {
+  await signIn(page);
+  await trashedNote(page, `Empty probe ${Date.now()}`);
+  await page.goto("/trash");
+
+  await page.getByRole("button", { name: "Empty Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("row")).not.toHaveCount(0);
+
+  await page.getByRole("button", { name: "Empty Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Empty Trash" }).click();
+  await expect(page.getByText("Trash is empty", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Empty Trash" })).toHaveCount(0);
+});
+
+test("Search highlights the match, filters by type and says when nothing matches", async ({ page }) => {
+  await signIn(page);
+  const word = `zq${Date.now()}`;
+  const title = `Search probe ${word}`;
+  await newNote(page, title);
+  await page.locator(".cm-content").click();
+  await page.keyboard.type(`a line about ${word} here`);
+  await expectSaved(page);
+
+  await page.goto("/search");
+  await expect(page.getByText("Type something to search")).toBeVisible();
+  await page.getByRole("searchbox", { name: "Search for" }).fill(word);
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`q=${word}`));
+  await expect(page.getByText(`1 result for "${word}"`)).toBeVisible();
+  const hit = page.getByRole("listitem").filter({ hasText: title });
+  await expect(hit.locator("mark")).toHaveText(word);
+  await expect(hit).toContainText("Edited");
+
+  // An Asset-only filter finds nothing, and says so.
+  await page.goto(`/search?q=${word}&type=ASSET`);
+  await expect(page.getByText(`Nothing matches "${word}"`)).toBeVisible();
+
+  // Tidy up.
+  await page.goto(`/search?q=${word}`);
+  await hit.getByRole("link").click();
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
 });
 
 test("Home shows a new Note under Recently edited and Jump back in", async ({ page }) => {
