@@ -1,8 +1,8 @@
 import { tagColour, type TagColour } from "@/lib/tag-colour";
 import { cn } from "@/lib/utils";
 
-// A Tag pill. Until the API stores a picked colour (#59), the colour comes from the Tag name.
-export function TagBadge({ name, colour, className }: { name: string; colour?: TagColour; className?: string }) {
+// A Tag pill: its picked colour, or one taken from its name when it has none.
+export function TagBadge({ name, colour, className }: { name: string; colour?: TagColour | null; className?: string }) {
   return (
     <span
       data-colour={colour ?? tagColour(name)}

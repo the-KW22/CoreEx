@@ -6,12 +6,13 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { TagBadge } from "@/components/tag-badge";
+import type { TagColour } from "@/lib/tag-colour";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import { tagItem, untagItem } from "./actions";
 
-type Tag = { id: string; name: string };
+type Tag = { id: string; name: string; colour?: TagColour | null };
 
 // An Item's Tags as pills, each removable, and "+ Tag": pick one of your Tags or type a new name.
 export function TagEditor({ itemId, tags, allTags }: { itemId: string; tags: Tag[]; allTags: Tag[] }) {
@@ -41,7 +42,7 @@ export function TagEditor({ itemId, tags, allTags }: { itemId: string; tags: Tag
       {tags.map((tag) => (
         <li key={tag.id} className="flex items-center">
           <Link href={`/tags/${tag.id}`} className="rounded-full">
-            <TagBadge name={tag.name} />
+            <TagBadge name={tag.name} colour={tag.colour} />
           </Link>
           <button
             type="button"
@@ -82,7 +83,7 @@ export function TagEditor({ itemId, tags, allTags }: { itemId: string; tags: Tag
                   <CommandGroup heading="Your Tags">
                     {choices.map((tag) => (
                       <CommandItem key={tag.id} value={tag.name} onSelect={() => add(tag.name)}>
-                        <TagBadge name={tag.name} />
+                        <TagBadge name={tag.name} colour={tag.colour} />
                       </CommandItem>
                     ))}
                   </CommandGroup>

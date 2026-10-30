@@ -26,6 +26,8 @@ type Props = {
   /** This page's path, for the paging links. */
   path: string;
   empty: string;
+  /** Beside the title, for the actions of what is being viewed. */
+  titleExtra?: React.ReactNode;
   /** A failed action's message, shown under the header. */
   alert?: string;
   /** Anything the page adds under the list, such as managing the Folder. */
@@ -33,7 +35,7 @@ type Props = {
 };
 
 // The layout All Items, a Folder and a Tag share (docs/DESIGN.md section 6.2).
-export function ItemsView({ crumbs, title, folderId, cards, folders, tags, items, page, path, empty, alert, children }: Props) {
+export function ItemsView({ crumbs, title, folderId, cards, folders, tags, items, page, path, empty, alert, titleExtra, children }: Props) {
   const newNote = (
     <form action={createNote}>
       {folderId && <input type="hidden" name="folderId" value={folderId} />}
@@ -67,7 +69,10 @@ export function ItemsView({ crumbs, title, folderId, cards, folders, tags, items
         </nav>
         )}
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">{title}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">{title}</h1>
+            {titleExtra}
+          </div>
           <div className="flex flex-wrap gap-2">
             {newNote}
             <PickButton kind="upload" />

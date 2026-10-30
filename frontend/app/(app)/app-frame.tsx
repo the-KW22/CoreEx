@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { Folder } from "@/lib/folders";
+import type { TagColour } from "@/lib/tag-colour";
 
 import { KbPanel } from "./kb-panel";
 import { Rail, railButton } from "./rail";
@@ -18,7 +19,7 @@ type Props = {
   email: string;
   isAdmin: boolean;
   folders: Folder[] | null;
-  tags: { id: string; name: string }[] | null;
+  tags: { id: string; name: string; colour?: TagColour | null }[] | null;
   children: React.ReactNode;
 };
 

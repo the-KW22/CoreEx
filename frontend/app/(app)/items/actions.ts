@@ -1,18 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { getApi } from "@/lib/api/server";
+import { done } from "@/lib/refresh";
 
 // The Item list's row actions. Unlike the form actions on an Item's own page, these answer whether they worked, so
 // the list can say so in a toast and stay where it is.
 export type ItemType = "NOTE" | "ASSET";
-
-// Folders, counts and every list may change, so refresh them all.
-const done = (ok: boolean) => {
-  if (ok) revalidatePath("/", "layout");
-  return ok;
-};
 
 export async function moveItemTo(id: string, folderId: string | null): Promise<boolean> {
   const api = await getApi();
