@@ -1,15 +1,14 @@
-import Link from "next/link";
+import { AdminTabs } from "./admin-tabs";
 
-// The Admin area: Invites, Users and the Overview. Each page asks the API, which refuses non-admins on its own.
+// The Admin area: Overview, Users and Invites. Each page asks the API, which refuses non-admins on its own.
 export default function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
-    <>
-      <nav aria-label="Admin" className="admin-nav">
-        <Link href="/admin">Invites</Link>
-        <Link href="/admin/users">Users</Link>
-        <Link href="/admin/overview">Overview</Link>
-      </nav>
+    <div className="mx-auto grid max-w-5xl gap-6">
+      <header className="grid gap-3">
+        <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Admin</h1>
+        <AdminTabs />
+      </header>
       {children}
-    </>
+    </div>
   );
 }

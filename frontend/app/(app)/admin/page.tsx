@@ -1,14 +1,22 @@
 import { redirect } from "next/navigation";
 
+import { PageGone, Pager } from "@/components/pager";
 import { getApi } from "@/lib/api/server";
+import { pageInfo } from "@/lib/pages";
 
-import { revokeInvite } from "./actions";
-import { CopyLinkButton } from "./copy-link-button";
 import { InviteForm } from "./invite-form";
+import { InvitesTable } from "./invites-table";
 
-export default async function AdminPage() {
+const PAGE_SIZE = 50;
+
+// The Invites tab, and the Admin area's home.
+export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
+  const { page: raw } = await searchParams;
+  const requested = pageInfo(0, raw, PAGE_SIZE).page;
   const api = await getApi();
-  const result = await api.GET("/api/admin/invites").catch(() => null);
+  const result = await api
+    .GET("/api/admin/invites", { params: { query: { page: requested, size: PAGE_SIZE } } })
+    .catch(() => null);
 
   if (!result) {
     return <p role="alert">Cannot reach the CoreEx API. Is the backend running?</p>;
@@ -21,57 +29,24 @@ export default async function AdminPage() {
   }
 
   return (
-    <>
-      <h1>Invites</h1>
-      <p>CoreEx is invite-only. Create an Invite, then send the person the sign-up link.</p>
-      <InviteForm />
-
-      {data.items.length === 0 ? (
-        <p>No Invites yet.</p>
-      ) : (
-        <table>
-          <caption>All Invites, newest first</caption>
-          <thead>
-            <tr>
-              <th scope="col">Email</th>
-              <th scope="col">Status</th>
-              <th scope="col">Created</th>
-              <th scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.items.map((invite) => (
-              <tr key={invite.id}>
-                <td>{invite.email}</td>
-                <td>{invite.status.toLowerCase()}</td>
-                <td>{invite.createdAt.slice(0, 10)}</td>
-                <td className="row-actions">
-                  {invite.status === "PENDING" && (
-                    <>
-                      <CopyLinkButton email={invite.email} />
-                      <form action={revokeInvite}>
-                        <input type="hidden" name="id" value={invite.id} />
-                        <button
-                          type="submit"
-                          aria-label={`Revoke the Invite for ${invite.email}`}
-                        >
-                          Revoke
-                        </button>
-                      </form>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {/* shortcut: shows only the newest 50 Invites, add paging controls when there are more. */}
-      {data.total > data.items.length && (
-        <p>
-          Showing the newest {data.items.length} of {data.total} Invites.
+    <div className="grid gap-6">
+      <div className="grid gap-4">
+        <p className="text-sm text-muted-foreground">
+          CoreEx is invite-only. Create an Invite, then send the person the sign-up link.
         </p>
+        <InviteForm />
+      </div>
+
+      {data.total === 0 ? (
+        <p className="rounded-[14px] border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+          No Invites yet.
+        </p>
+      ) : data.items.length === 0 ? (
+        <PageGone first="/admin" />
+      ) : (
+        <InvitesTable invites={data.items} />
       )}
-    </>
+      <Pager page={pageInfo(data.total, raw, PAGE_SIZE)} href={(n) => (n === 0 ? "/admin" : `/admin?page=${n}`)} />
+    </div>
   );
 }

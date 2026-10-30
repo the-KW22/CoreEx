@@ -26,14 +26,13 @@ export async function createInvite(
   return { created: result.data.email };
 }
 
-export async function revokeInvite(formData: FormData) {
-  const id = String(formData.get("id") ?? "");
-  if (!id) return;
-
+// Answers whether it worked, so the table stays put and a toast says so.
+export async function revokeInvite(id: string): Promise<boolean> {
   const api = await getApi();
-  await api
+  const result = await api
     .POST("/api/admin/invites/{id}/revoke", { params: { path: { id } } })
     .catch(() => null);
   // Success or not, show the current state (it may already have been revoked).
   revalidatePath("/admin");
+  return !!result?.data;
 }

@@ -4,6 +4,7 @@ import { FileTextIcon, FolderIcon, ImageIcon, RotateCcwIcon, Trash2Icon } from "
 import { useTransition } from "react";
 import { toast } from "sonner";
 
+import { Badge } from "@/components/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -124,12 +125,7 @@ export function TrashTable({ entries }: { entries: Entry[] }) {
               </td>
               <td className="border-0 py-2 pr-4 max-md:p-0 max-md:pl-6">
                 {/* The orange Tag colour doubles as the warning colour, so the last days stand out. */}
-                <span
-                  data-colour={soon ? "orange" : "gray"}
-                  className="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold text-(--tag) bg-[color-mix(in_srgb,var(--tag)_var(--tag-tint),transparent)]"
-                >
-                  {plural(entry.daysRemaining, "day", "days")} left
-                </span>
+                <Badge colour={soon ? "orange" : "gray"}>{plural(entry.daysRemaining, "day", "days")} left</Badge>
               </td>
               <td className="border-0 py-1 max-md:p-0 max-md:pt-1">
                 <div className="flex items-center gap-1 md:justify-end">

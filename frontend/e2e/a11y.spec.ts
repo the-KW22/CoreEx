@@ -154,6 +154,33 @@ for (const [colorScheme, background] of [
       await expect(row).toHaveCount(0);
     });
 
+    test("the Admin tabs and the revoke confirm have no WCAG 2.2 AA violations", async ({ page }) => {
+      await signIn(page);
+      const invited = `axe-${Date.now()}@example.com`;
+      for (const [path, heading] of [
+        ["/admin/overview", "Where the storage goes"],
+        ["/admin/users", "Users"],
+      ] as const) {
+        await page.goto(path);
+        await expect(page.getByRole("heading", { name: "Admin", level: 1 })).toBeVisible();
+        await expect(page.getByRole("navigation", { name: "Admin" }).locator("[aria-current=page]")).toBeVisible();
+        if (path === "/admin/overview") await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+        await expectNoViolations(page);
+      }
+
+      await page.goto("/admin");
+      await page.getByLabel("Email to invite").fill(invited);
+      await page.getByRole("button", { name: "Create Invite" }).click();
+      const row = page.getByRole("row").filter({ hasText: invited });
+      await expect(row).toContainText("Pending");
+      await expectNoViolations(page);
+      await row.getByRole("button", { name: `Revoke the Invite for ${invited}` }).click();
+      await expect(page.getByRole("alertdialog")).toBeVisible();
+      await expectNoViolations(page);
+      await page.getByRole("alertdialog").getByRole("button", { name: "Revoke" }).click();
+      await expect(row).toContainText("Revoked");
+    });
+
     test("the phone menu has no WCAG 2.2 AA violations", async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 812 });
       await signIn(page);
@@ -559,6 +586,89 @@ test("Search highlights the match, filters by type and says when nothing matches
   await hit.getByRole("link").click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
+});
+
+test("an Invite is created, its link copied, and revoked after a confirm", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await signIn(page);
+  const invited = `invite-${Date.now()}@example.com`;
+  await page.goto("/admin");
+  await page.getByLabel("Email to invite").fill(invited);
+  await page.getByRole("button", { name: "Create Invite" }).click();
+
+  const row = page.getByRole("row").filter({ hasText: invited });
+  await expect(row).toContainText("Pending");
+  await row.getByRole("button", { name: `Copy sign-up link for ${invited}` }).click();
+  await expect(page.getByText(`Copied the sign-up link for ${invited}`)).toBeVisible();
+  const link = await page.evaluate(() => navigator.clipboard.readText());
+  expect(link).toContain(`/login?email=${encodeURIComponent(invited)}`);
+
+  // Cancel keeps it pending; the confirm revokes it, and a revoked Invite has no actions.
+  await row.getByRole("button", { name: `Revoke the Invite for ${invited}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
+  await expect(row).toContainText("Pending");
+  await row.getByRole("button", { name: `Revoke the Invite for ${invited}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Revoke" }).click();
+  await expect(row).toContainText("Revoked");
+  await expect(row.getByRole("button")).toHaveCount(0);
+});
+
+test("the Users table shows you without Disable or Remove, and Overview has its chart", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/admin/users");
+  const me = page.getByRole("row").filter({ hasText: email });
+  await expect(me).toContainText("You");
+  await expect(me).toContainText("Admin");
+  await expect(me.getByRole("button", { name: /^(Disable|Enable|Remove) / })).toHaveCount(0);
+
+  await page.goto("/admin/overview");
+  await expect(page.getByRole("img", { name: /used, split by User/ })).toBeVisible();
+  await expect(page.getByText("Hosting limit")).toBeVisible();
+});
+
+test("an Admin disables, enables and removes another User", async ({ page, browser }) => {
+  test.slow();
+  await signIn(page);
+  const stamp = Date.now();
+  const other = `other-${stamp}@example.com`;
+  await page.goto("/admin");
+  await page.getByLabel("Email to invite").fill(other);
+  await page.getByRole("button", { name: "Create Invite" }).click();
+  await expect(page.getByRole("row").filter({ hasText: other })).toContainText("Pending");
+
+  // The invited person signs up in their own browser.
+  const guest = await browser.newContext();
+  const guestPage = await guest.newPage();
+  await guestPage.goto(`${page.url().split("/admin")[0]}/login?email=${encodeURIComponent(other)}`);
+  await guestPage.getByLabel("Password").fill("coreex-e2e-password");
+  await guestPage.getByRole("button", { name: "Create account" }).click();
+  await expect(guestPage.getByRole("navigation", { name: "Main" }).or(guestPage.getByRole("button", { name: "Open the menu" }))).toBeVisible();
+  await guest.close();
+
+  await page.goto("/admin/users");
+  const row = page.getByRole("row").filter({ hasText: other });
+  await expect(row).toContainText("Active");
+
+  await row.getByRole("button", { name: `Disable ${other}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Disable" }).click();
+  await expect(page.getByText(`Disabled ${other}`)).toBeVisible();
+  await expect(row).toContainText("Disabled");
+
+  await row.getByRole("button", { name: `Enable ${other}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Enable" }).click();
+  await expect(row).toContainText("Active");
+
+  // A custom quota shows, and goes back to the default.
+  await row.getByLabel(`Quota in megabytes for ${other}`).fill("7");
+  await row.getByRole("button", { name: `Save the quota for ${other}` }).click();
+  await expect(row).toContainText("Custom quota");
+  await row.getByRole("button", { name: `Use the default quota for ${other}` }).click();
+  await expect(row).toContainText("Default quota");
+
+  await row.getByRole("button", { name: `Remove ${other}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Remove for good" }).click();
+  await expect(page.getByText(`Removed ${other}`)).toBeVisible();
+  await expect(row).toHaveCount(0);
 });
 
 test("Home shows a new Note under Recently edited and Jump back in", async ({ page }) => {
