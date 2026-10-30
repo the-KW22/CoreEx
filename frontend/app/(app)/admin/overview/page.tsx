@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { Alert } from "@/components/alert";
 import { getApi } from "@/lib/api/server";
 import { formatBytes } from "@/lib/items";
 import { storageSegments } from "@/lib/storage";
@@ -49,10 +50,10 @@ export default async function AdminOverviewPage() {
       </dl>
 
       {percent >= 80 && (
-        <p role="status" className="rounded-lg border border-destructive/40 px-3 py-2 text-sm">
+        <Alert role="status">
           Storage is {percent >= 100 ? "full" : "almost full"}. Lower a User&apos;s quota or ask them to empty their
           Trash.
-        </p>
+        </Alert>
       )}
 
       <section aria-labelledby="storage-heading" className="grid gap-3">

@@ -2,7 +2,8 @@
 
 import { useActionState } from "react";
 
-import { AuthMessage, authField, authInput } from "@/components/auth-card";
+import { Alert } from "@/components/alert";
+import { authField, authInput } from "@/components/auth-card";
 import { Button } from "@/components/ui/button";
 
 import { setNewPassword } from "./actions";
@@ -38,7 +39,7 @@ export function ResetPasswordForm() {
         />
       </label>
 
-      {state?.error && <AuthMessage kind="alert">{state.error}</AuthMessage>}
+      {state?.error && <Alert>{state.error}</Alert>}
 
       <Button type="submit" disabled={pending} className="h-10 w-full">
         Save password

@@ -1,6 +1,7 @@
 import { FileTextIcon, FolderIcon, ImageIcon, SearchIcon } from "lucide-react";
 import Link from "next/link";
 
+import { Alert } from "@/components/alert";
 import { PageGone, Pager } from "@/components/pager";
 import { Button } from "@/components/ui/button";
 import { getApi } from "@/lib/api/server";
@@ -18,8 +19,6 @@ const one = (value: string | string[] | undefined) => (typeof value === "string"
 // The filters are native selects, styled like the Folder picker on the Note screen.
 const field =
   "grid gap-1.5 text-sm font-medium [&_select]:h-9 [&_select]:rounded-lg [&_select]:border [&_select]:border-border [&_select]:bg-surface [&_select]:px-2 [&_select]:font-normal";
-
-const notice = "rounded-lg border border-destructive/40 px-3 py-2 text-sm";
 
 // The Search screen (docs/DESIGN.md section 6.10). The command palette's "Search all text" row lands here.
 export default async function SearchPage({ searchParams }: PageProps<"/search">) {
@@ -114,17 +113,17 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
       {!q ? (
         <p className="text-muted-foreground">Type something to search your Notes, Assets and Tags.</p>
       ) : !result ? (
-        <p role="alert" className={notice}>
+        <Alert>
           Cannot reach the CoreEx API. Is the backend running?
-        </p>
+        </Alert>
       ) : result.response.status === 404 ? (
-        <p role="alert" className={notice}>
+        <Alert>
           That Folder or Tag no longer exists. Choose another and search again.
-        </p>
+        </Alert>
       ) : !result.data ? (
-        <p role="alert" className={notice}>
+        <Alert>
           The search failed. Try again.
-        </p>
+        </Alert>
       ) : result.data.total === 0 ? (
         <div className="grid gap-1 rounded-[14px] border border-dashed border-border p-8 text-center">
           <p className="font-medium">Nothing matches &quot;{q}&quot;</p>

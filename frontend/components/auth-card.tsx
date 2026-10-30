@@ -24,17 +24,5 @@ export function AuthCard({
   );
 }
 
-// A message inside the card: an error (`alert`), or a plain note (`status`).
-export function AuthMessage({ kind, children }: { kind: "alert" | "status"; children: React.ReactNode }) {
-  return (
-    <p
-      role={kind}
-      className={cn("rounded-lg border px-3 py-2 text-sm", kind === "alert" ? "border-destructive/40" : "border-border")}
-    >
-      {children}
-    </p>
-  );
-}
-
 export const authField = "grid gap-1.5 text-sm font-medium";
 export const authInput = "h-10 rounded-lg border border-border bg-background px-3 font-normal";

@@ -2,6 +2,7 @@ import { FilePlusIcon, FileTextIcon, ImageIcon } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { Alert } from "@/components/alert";
 import { TagBadge } from "@/components/tag-badge";
 import { Button } from "@/components/ui/button";
 import { getApi } from "@/lib/api/server";
@@ -66,9 +67,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           <PickButton kind="import" label="Import Markdown" />
         </div>
         {failure && (
-          <p role="alert" className="rounded-lg border border-destructive/40 px-3 py-2 text-sm">
+          <Alert>
             {failure}
-          </p>
+          </Alert>
         )}
       </header>
       <Suspense fallback={<HomeSkeleton />}>

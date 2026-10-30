@@ -3,7 +3,8 @@
 import { useSearchParams } from "next/navigation";
 import { useActionState } from "react";
 
-import { AuthMessage, authField, authInput } from "@/components/auth-card";
+import { Alert } from "@/components/alert";
+import { authField, authInput } from "@/components/auth-card";
 import { Button } from "@/components/ui/button";
 
 import { authenticate } from "../actions";
@@ -21,9 +22,9 @@ export function LoginForm() {
     <form action={action} className="grid grid-cols-[1fr_auto] gap-x-2 gap-y-4">
       {invitedEmail && (
         <div className="order-1 col-span-2">
-          <AuthMessage kind="status">
+          <Alert role="status" tone="neutral">
             You were invited as <strong>{invitedEmail}</strong>. Choose a password and select Create account.
-          </AuthMessage>
+          </Alert>
         </div>
       )}
 
@@ -54,13 +55,13 @@ export function LoginForm() {
 
       <div className="order-5 col-span-2 grid gap-4 empty:hidden">
         {badLink && !state && (
-          <AuthMessage kind="alert">
+          <Alert>
             That link is invalid, has expired, or was opened in a different browser. Enter your email and select Forgot
             password to get a new one.
-          </AuthMessage>
+          </Alert>
         )}
-        {state?.error && <AuthMessage kind="alert">{state.error}</AuthMessage>}
-        {state?.notice && <AuthMessage kind="status">{state.notice}</AuthMessage>}
+        {state?.error && <Alert>{state.error}</Alert>}
+        {state?.notice && <Alert role="status" tone="neutral">{state.notice}</Alert>}
       </div>
 
       <Button type="submit" name="intent" value="signin" disabled={pending} className="order-6 col-span-2 h-10 w-full">
