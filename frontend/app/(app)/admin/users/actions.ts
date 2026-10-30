@@ -1,14 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-
 import { getApi } from "@/lib/api/server";
+import { done } from "@/lib/refresh";
 
 const MIB = 1024 * 1024;
-const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim();
 
-async function saveQuota(id: string, bytes: number | "default") {
+// The Users actions answer whether they worked, so the table stays put and a toast says what happened.
+async function saveQuota(id: string, bytes: number | "default"): Promise<boolean> {
   const api = await getApi();
   const result =
     bytes === "default"
@@ -16,51 +14,43 @@ async function saveQuota(id: string, bytes: number | "default") {
       : await api
           .PUT("/api/admin/users/{id}/quota", { params: { path: { id } }, body: { storageQuotaBytes: bytes } })
           .catch(() => null);
-  if (!result?.data) redirect("/admin/users?error=quota");
-  revalidatePath("/admin/users");
+  return done(!!result?.data);
 }
 
 // The form asks for megabytes; the API stores bytes.
-export async function setQuota(formData: FormData) {
-  const id = text(formData, "id");
-  const megabytes = Number(text(formData, "megabytes"));
-  if (!id) return;
-  if (!Number.isFinite(megabytes) || megabytes < 0) redirect("/admin/users?error=quota");
-  await saveQuota(id, Math.round(megabytes * MIB));
+export async function setQuota(id: string, megabytes: number): Promise<boolean> {
+  if (!Number.isFinite(megabytes) || megabytes < 0) return false;
+  return saveQuota(id, Math.round(megabytes * MIB));
 }
 
-export async function useDefaultQuota(formData: FormData) {
-  const id = text(formData, "id");
-  if (id) await saveQuota(id, "default");
+export async function resetQuota(id: string): Promise<boolean> {
+  return saveQuota(id, "default");
 }
+
+export type RemoveResult = "ok" | "admin" | "error";
 
 // Deletes the person's data, files and sign-in, so their email can be invited again.
-export async function removeUser(formData: FormData) {
-  const id = text(formData, "id");
-  if (!id) return;
-
+export async function removeUser(id: string): Promise<RemoveResult> {
   const api = await getApi();
-  const result = await api
-    .DELETE("/api/admin/users/{id}", { params: { path: { id } } })
-    .catch(() => null);
-  if (!result?.response.ok) {
-    redirect(`/admin/users?error=${result?.error?.code === "CANNOT_REMOVE_ADMIN" ? "admin" : "remove"}`);
+  const result = await api.DELETE("/api/admin/users/{id}", { params: { path: { id } } }).catch(() => null);
+  if (result?.response.ok) {
+    done(true);
+    return "ok";
   }
-  revalidatePath("/admin/users");
+  return result?.error?.code === "CANNOT_REMOVE_ADMIN" ? "admin" : "error";
 }
 
-export async function setDisabled(formData: FormData) {
-  const id = text(formData, "id");
-  if (!id) return;
+export type DisableResult = "ok" | "self" | "error";
 
+export async function setDisabled(id: string, disable: boolean): Promise<DisableResult> {
   const api = await getApi();
   const params = { params: { path: { id } } };
-  const result =
-    text(formData, "disable") === "true"
-      ? await api.POST("/api/admin/users/{id}/disable", params).catch(() => null)
-      : await api.POST("/api/admin/users/{id}/enable", params).catch(() => null);
-  if (!result?.data) {
-    redirect(`/admin/users?error=${result?.error?.code === "CANNOT_DISABLE_SELF" ? "self" : "status"}`);
+  const result = disable
+    ? await api.POST("/api/admin/users/{id}/disable", params).catch(() => null)
+    : await api.POST("/api/admin/users/{id}/enable", params).catch(() => null);
+  if (result?.data) {
+    done(true);
+    return "ok";
   }
-  revalidatePath("/admin/users");
+  return result?.error?.code === "CANNOT_DISABLE_SELF" ? "self" : "error";
 }

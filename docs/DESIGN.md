@@ -201,6 +201,8 @@ Use shadcn components first (DEVELOPMENT.md §11), restyled to these tokens. Rea
 | Feedback | Sonner toasts, e.g. "Moved to Trash · **Undo**" (Undo calls the existing restore endpoint) |
 | Phone | Sheet (navigation), Drawer (Details panel) |
 
+The Admin storage "Chart" is a stacked bar drawn with divs and the Tag colour tokens, with its legend as the readable numbers. One bar does not justify the shadcn Chart (recharts, about 100 KB); use that component if a second real chart appears.
+
 ## 8. Responsive
 
 | Width | Layout |
