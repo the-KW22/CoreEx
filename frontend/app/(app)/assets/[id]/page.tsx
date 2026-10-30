@@ -2,6 +2,7 @@ import { DownloadIcon } from "lucide-react";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
+import { Alert } from "@/components/alert";
 import { Button } from "@/components/ui/button";
 import { getApi } from "@/lib/api/server";
 import { pathTo } from "@/lib/folders";
@@ -107,9 +108,9 @@ export default async function AssetPage({ params, searchParams }: PageProps<"/as
         {/* A neutral stage, so the file is the brightest thing on screen. */}
         <div className="grid flex-1 content-start gap-4 p-4 md:p-8">
           {error === "delete" && (
-            <p role="alert" className="rounded-lg border border-destructive/40 px-3 py-2 text-sm">
+            <Alert>
               Could not move the Asset to the Trash. Try again.
-            </p>
+            </Alert>
           )}
           <div className="grid min-h-80 place-items-center overflow-hidden rounded-[14px] border border-border bg-surface">
             {!viewUrl ? (

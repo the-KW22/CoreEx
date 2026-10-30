@@ -1,6 +1,7 @@
 import { ChevronRightIcon, FilePlusIcon, FolderIcon } from "lucide-react";
 import Link from "next/link";
 
+import { Alert } from "@/components/alert";
 import { PageGone, Pager } from "@/components/pager";
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/schema";
@@ -81,9 +82,9 @@ export function ItemsView({ crumbs, title, folderId, cards, folders, tags, items
           </div>
         </div>
         {alert && (
-          <p role="alert" className="rounded-lg border border-destructive/40 px-3 py-2 text-sm">
+          <Alert>
             {alert}
-          </p>
+          </Alert>
         )}
       </header>
 
