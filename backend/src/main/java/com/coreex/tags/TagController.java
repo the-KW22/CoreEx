@@ -43,19 +43,18 @@ class TagController {
 
 	}
 
-	/** A null colour means automatic. */
-	record ColourRequest(@Pattern(regexp = "gray|red|orange|yellow|green|teal|blue|pink") @Schema(nullable = true,
-			allowableValues = {"gray", "red", "orange", "yellow", "green", "teal", "blue", "pink"}) String colour) {
+	/** A null colour means automatic; so does leaving the field out. */
+	record ColourRequest(@Schema(nullable = true) TagColour colour) {
 	}
 
 	record TagResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
-			@Schema(nullable = true, allowableValues = {"gray", "red", "orange", "yellow", "green", "teal", "blue", "pink"}) String colour) {
+			@Schema(nullable = true) TagColour colour) {
 	}
 
 	record TagCountResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
-			@Schema(nullable = true, allowableValues = {"gray", "red", "orange", "yellow", "green", "teal", "blue", "pink"}) String colour,
+			@Schema(nullable = true) TagColour colour,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Live Items with this Tag") long itemCount) {
 	}
 

@@ -12,11 +12,15 @@ import org.springframework.stereotype.Repository;
 @Repository
 class TagRepository {
 
-	record TagCount(UUID id, String name, String colour, long itemCount) {
+	record TagCount(UUID id, String name, TagColour colour, long itemCount) {
 	}
 
 	private static final RowMapper<Tag> MAPPER = (rs, n) -> new Tag(rs.getObject("id", UUID.class),
-			rs.getString("name"), rs.getString("colour"));
+			rs.getString("name"), colourOf(rs.getString("colour")));
+
+	private static TagColour colourOf(String name) {
+		return name == null ? null : TagColour.valueOf(name);
+	}
 
 	private final JdbcClient jdbc;
 
@@ -48,7 +52,7 @@ class TagRepository {
 				   where it.tag_id = t.id and i.deleted_at is null) as item_count
 				from tags t where t.owner_id = :owner order by lower(t.name), t.id""").param("owner", ownerId)
 				.query((rs, n) -> new TagCount(rs.getObject("id", UUID.class), rs.getString("name"),
-						rs.getString("colour"), rs.getLong("item_count")))
+						colourOf(rs.getString("colour")), rs.getLong("item_count")))
 				.list();
 	}
 
@@ -81,9 +85,9 @@ class TagRepository {
 				.param("id", id).param("owner", ownerId).update() > 0;
 	}
 
-	boolean setColour(UUID ownerId, UUID id, String colour) {
+	boolean setColour(UUID ownerId, UUID id, TagColour colour) {
 		return jdbc.sql("update tags set colour = :colour where id = :id and owner_id = :owner")
-				.param("colour", colour).param("id", id).param("owner", ownerId).update() > 0;
+				.param("colour", colour == null ? null : colour.name()).param("id", id).param("owner", ownerId).update() > 0;
 	}
 
 	boolean delete(UUID ownerId, UUID id) {

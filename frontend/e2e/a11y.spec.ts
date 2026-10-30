@@ -418,7 +418,10 @@ test("the Tags page sets a colour, renames, refuses a taken name and deletes aft
   await page.getByRole("button", { name: `Colour of ${one}` }).click();
   await expect(page.getByRole("radio", { name: "teal" })).toBeChecked();
   await page.getByRole("radio", { name: "Automatic" }).click();
-  await expect(row(one).locator("[data-colour=teal]")).toHaveCount(0);
+  // Not "no teal on the row": the colour taken from the name can be teal too.
+  await page.getByRole("button", { name: `Colour of ${one}` }).click();
+  await expect(page.getByRole("radio", { name: "Automatic" })).toBeChecked();
+  await page.keyboard.press("Escape");
 
   // A name another Tag has is refused inside the Dialog; a free one renames.
   await page.getByRole("button", { name: `Rename ${one}` }).click();

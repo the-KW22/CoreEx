@@ -17,7 +17,7 @@ import com.coreex.common.ApiException;
 @Service
 public class TagService {
 
-	public record TagCount(UUID id, String name, String colour, long itemCount) {
+	public record TagCount(UUID id, String name, TagColour colour, long itemCount) {
 	}
 
 	private final TagRepository tags;
@@ -72,7 +72,7 @@ public class TagService {
 	}
 
 	/** Sets the colour, or null for automatic. */
-	Tag setColour(UUID ownerId, UUID id, String colour) {
+	Tag setColour(UUID ownerId, UUID id, TagColour colour) {
 		if (!tags.setColour(ownerId, id, colour)) {
 			throw notFound();
 		}

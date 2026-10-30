@@ -59,8 +59,8 @@ export function TagActions({ tag, then }: { tag: Tag; then?: string }) {
 
   const remove = () =>
     startTransition(async () => {
+      // Nothing to say on success: it moves to `then`, or the row is gone.
       if (!(await deleteTag(tag.id, then))) toast.error(`Could not delete ${tag.name}. Try again.`);
-      else toast.success(`Deleted ${tag.name}`);
     });
 
   return (

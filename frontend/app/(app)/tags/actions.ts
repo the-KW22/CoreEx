@@ -1,18 +1,13 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
+import { done } from "@/lib/refresh";
 import type { TagColour } from "@/lib/tag-colour";
 
 // The Tag actions answer whether they worked, so the Tags page and the Tag page can say so in a toast or in the
-// Dialog and stay where they are. A Tag shows on many pages, so every success refreshes them all.
-const done = (ok: boolean) => {
-  if (ok) revalidatePath("/", "layout");
-  return ok;
-};
-
+// Dialog and stay where they are.
 export async function setTagColour(id: string, colour: TagColour | null): Promise<boolean> {
   const api = await getApi();
   const result = await api
