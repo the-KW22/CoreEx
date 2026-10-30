@@ -198,7 +198,7 @@ test("on a tablet the Knowledge Base panel opens from the rail", async ({ page }
 
 test("the account menu opens from the keyboard and closes on Escape", async ({ page }) => {
   await signIn(page);
-  const account = page.getByRole("button", { name: /^Account: / });
+  const account = page.getByRole("button", { name: /^Account/ });
   await account.focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("menuitem", { name: "Log out" })).toBeVisible();
@@ -830,6 +830,51 @@ test("an uploaded image opens on the Asset screen, edits in place and downloads"
   await expect(details.getByLabel("Description")).toBeFocused();
   await expect(details.getByLabel("Description")).toHaveValue("A single pixel, for testing.");
 
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("the rail shows its labels, collapses to icons and remembers the choice", async ({ page }) => {
+  await signIn(page);
+  const rail = page.getByRole("navigation", { name: "Main" });
+  for (const label of ["Home", "Knowledge Base", "Assets", "Trash"]) {
+    await expect(rail.getByRole("link", { name: label }).getByText(label, { exact: true })).toBeVisible();
+  }
+  await expectNoViolations(page);
+
+  await rail.getByRole("button", { name: "Collapse the menu" }).click();
+  await expect(rail.getByText("Knowledge Base", { exact: true })).toBeHidden();
+  await expect(rail.getByRole("link", { name: "Knowledge Base" })).toBeVisible();
+  await expectNoViolations(page);
+
+  // The cookie is read on the server, so the choice is there from the first paint.
+  await page.reload();
+  await expect(rail.getByRole("button", { name: "Expand the menu" })).toBeVisible();
+  await expect(rail.getByText("Knowledge Base", { exact: true })).toBeHidden();
+  await rail.getByRole("button", { name: "Expand the menu" }).click();
+  await expect(rail.getByText("Knowledge Base", { exact: true })).toBeVisible();
+});
+
+test("the Assets page lists Assets only, with no Knowledge Base panel", async ({ page }) => {
+  await signIn(page);
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Assets" }).click();
+  await expect(page.getByRole("heading", { name: "Assets", level: 1 })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Knowledge Base" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "New Note" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Import" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Upload", exact: true }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Upload files" });
+  const name = `asset-page-${Date.now()}.png`;
+  await dialog.getByLabel("Choose files").setInputFiles({ name, mimeType: "image/png", buffer: PIXEL });
+  await dialog.getByRole("link", { name }).click();
+  await expect(page).toHaveURL(/\/assets\//);
+  // An Asset belongs to the Assets module, so its breadcrumb starts there.
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Assets" })).toBeVisible();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Assets" }).click();
+  await expect(page.getByRole("link", { name })).toBeVisible();
+
+  await page.getByRole("link", { name }).click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });

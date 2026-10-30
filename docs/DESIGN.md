@@ -26,12 +26,14 @@ The agreed design for the frontend redesign. It records **what** the UI looks li
 | Position | Entry | Who |
 |---|---|---|
 | Top | CoreEx logo | All |
-| Modules | **Home**, **Knowledge Base** | All |
+| Modules | **Home**, **Knowledge Base**, **Assets** | All |
 | Divider, then | **Trash**, **Admin** | Admin only for Admin |
-| Bottom | Theme toggle, avatar menu (email, Log out) | All |
+| Bottom | Collapse toggle, Theme toggle, **Account** menu (email, Log out) | All |
 
 - Planned modules (Graph, Jobs, Integrations) are **not shown** until they exist.
-- Each icon has a Tooltip and an accessible name.
+- **Expanded by default:** every entry shows its icon and label side by side (14rem wide). The toggle at the bottom collapses it to icons only (4rem), and the choice is kept in the `rail` cookie, which the server reads so there is no flash. The phone menu Sheet always shows labels.
+- Each icon has an accessible name; when collapsed it also has a Tooltip.
+- **Assets** are sources for Notes (and later for text extraction and image analysis), so they are a module of their own, not part of the Knowledge Base. Their pages have no panel beside the rail.
 
 ### 3.2 Knowledge Base panel (beside the rail)
 
@@ -45,6 +47,7 @@ Header "Knowledge Base" with a New Folder button, a search field that opens the 
 | `/items` | Knowledge Base: All Items (new route; today's list moves here from `/`) |
 | `/folders/[id]`, `/tags/[id]` | Same layout as All Items, scoped |
 | `/notes/[id]`, `/assets/[id]` | Note, Asset |
+| `/assets` | Assets: the same layout as All Items, with Assets only (`GET /api/items?type=ASSET`) and Upload as its one action |
 | `/tags`, `/trash`, `/search` | Tags, Trash, full-text Search results |
 | `/admin` (tabs: Overview, Users, Invites) | Admin |
 | `/login`, `/reset-password`, `/invite-only`, `/disabled`, 404, error | Sign-in and system pages |

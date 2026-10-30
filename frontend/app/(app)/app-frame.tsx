@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { Folder } from "@/lib/folders";
+import { activeModule } from "@/lib/modules";
 import type { TagColour } from "@/lib/tag-colour";
 
 import { KbPanel } from "./kb-panel";
@@ -18,6 +19,8 @@ import { CommandPalette, openPalette } from "./search/command-palette";
 type Props = {
   email: string;
   isAdmin: boolean;
+  /** The rail's saved collapsed choice. */
+  railCollapsed: boolean;
   folders: Folder[] | null;
   tags: { id: string; name: string; colour?: TagColour | null }[] | null;
   children: React.ReactNode;
@@ -25,8 +28,10 @@ type Props = {
 
 // The layout around every signed-in page (docs/DESIGN.md section 8):
 // ≥ 1280px rail + panel; 768–1279px rail, panel in a Sheet; < 768px top bar, rail + panel in a Sheet.
-export function AppFrame({ email, isAdmin, folders, tags, children }: Props) {
+export function AppFrame({ email, isAdmin, railCollapsed, folders, tags, children }: Props) {
   const pathname = usePathname();
+  // Assets are sources, not knowledge: their pages get the whole width.
+  const showPanel = activeModule(pathname) !== "assets";
   // Which Sheet is open, and on which page: following a link inside it closes it.
   const [sheet, setSheet] = useState<{ kind: "menu" | "panel"; at: string } | null>(null);
   const open = sheet?.at === pathname;
@@ -55,11 +60,13 @@ export function AppFrame({ email, isAdmin, folders, tags, children }: Props) {
         </header>
 
         <div className="sticky top-0 hidden h-dvh shrink-0 md:block">
-          <Rail email={email} isAdmin={isAdmin} onShowPanel={(button) => show("panel", button)} />
+          <Rail email={email} isAdmin={isAdmin} collapsed={railCollapsed} onShowPanel={(button) => show("panel", button)} />
         </div>
-        <aside aria-label="Knowledge Base" className="sticky top-0 hidden h-dvh shrink-0 xl:block">
-          {panel}
-        </aside>
+        {showPanel && (
+          <aside aria-label="Knowledge Base" className="sticky top-0 hidden h-dvh shrink-0 xl:block">
+            {panel}
+          </aside>
+        )}
 
         <main className="min-w-0 flex-1 px-4 pt-18 pb-8 md:p-8">{children}</main>
       </div>
@@ -81,8 +88,12 @@ export function AppFrame({ email, isAdmin, folders, tags, children }: Props) {
         >
           <SheetTitle className="sr-only">{sheet?.kind === "menu" ? "Menu" : "Knowledge Base"}</SheetTitle>
           <div className="flex h-full min-w-0">
-            {sheet?.kind === "menu" && <Rail email={email} isAdmin={isAdmin} />}
-            <div className="min-w-0 flex-1">{panel}</div>
+            {/* The rail with its labels is too wide to sit beside the panel on a phone, so its Panel button opens it alone. */}
+            {sheet?.kind === "menu" ? (
+              <Rail email={email} isAdmin={isAdmin} onShowPanel={(button) => show("panel", button)} />
+            ) : (
+              <div className="min-w-0 flex-1">{panel}</div>
+            )}
           </div>
         </SheetContent>
       </Sheet>
