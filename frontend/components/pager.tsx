@@ -36,3 +36,16 @@ export function Pager({
     </nav>
   );
 }
+
+// What a list shows when it has Items but the page asked for is past the end.
+export function PageGone({ first }: { first: string }) {
+  return (
+    <p className="text-muted-foreground">
+      This page is empty.{" "}
+      <Link href={first} className="text-link underline-offset-4 hover:underline">
+        Go to the first page
+      </Link>
+      .
+    </p>
+  );
+}

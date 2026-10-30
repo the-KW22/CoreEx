@@ -1,6 +1,4 @@
-import Link from "next/link";
-
-import { Pager } from "@/components/pager";
+import { PageGone, Pager } from "@/components/pager";
 import { getApi } from "@/lib/api/server";
 import { pageInfo } from "@/lib/pages";
 
@@ -42,13 +40,7 @@ export default async function TrashPage({ searchParams }: PageProps<"/trash">) {
           <p className="text-sm text-muted-foreground">Items you move to Trash stay here for 30 days.</p>
         </div>
       ) : items.length === 0 ? (
-        <p className="text-muted-foreground">
-          This page is empty.{" "}
-          <Link href="/trash" className="text-link underline-offset-4 hover:underline">
-            Go to the first page
-          </Link>
-          .
-        </p>
+        <PageGone first="/trash" />
       ) : (
         <TrashTable entries={items} />
       )}

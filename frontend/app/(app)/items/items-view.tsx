@@ -1,7 +1,7 @@
 import { ChevronRightIcon, FilePlusIcon, FolderIcon } from "lucide-react";
 import Link from "next/link";
 
-import { Pager } from "@/components/pager";
+import { PageGone, Pager } from "@/components/pager";
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/schema";
 import type { Folder } from "@/lib/folders";
@@ -121,13 +121,7 @@ export function ItemsView({ crumbs, title, folderId, cards, folders, tags, items
             </div>
           </div>
         ) : items.items.length === 0 ? (
-          <p className="text-muted-foreground">
-            This page is empty.{" "}
-            <Link href={path} className="text-link underline-offset-4 hover:underline">
-              Go to the first page
-            </Link>
-            .
-          </p>
+          <PageGone first={path} />
         ) : (
           <ItemsTable items={items.items} folders={folders} tags={tags} />
         )}

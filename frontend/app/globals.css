@@ -337,18 +337,6 @@ textarea {
 }
 
 /* Search results. */
-.search-results {
-  padding-left: 1.25rem;
-}
-
-.search-results li {
-  margin-bottom: 1rem;
-}
-
-.search-results p {
-  margin: 0.25rem 0 0;
-}
-
 mark {
   color: inherit;
   background: color-mix(in srgb, #facc15 55%, transparent);

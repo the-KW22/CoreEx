@@ -1,7 +1,7 @@
 import { FileTextIcon, FolderIcon, ImageIcon, SearchIcon } from "lucide-react";
 import Link from "next/link";
 
-import { Pager } from "@/components/pager";
+import { PageGone, Pager } from "@/components/pager";
 import { Button } from "@/components/ui/button";
 import { getApi } from "@/lib/api/server";
 import { itemHref } from "@/lib/items";
@@ -125,11 +125,13 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
         <p role="alert" className={notice}>
           The search failed. Try again.
         </p>
-      ) : result.data.items.length === 0 ? (
+      ) : result.data.total === 0 ? (
         <div className="grid gap-1 rounded-[14px] border border-dashed border-border p-8 text-center">
           <p className="font-medium">Nothing matches &quot;{q}&quot;</p>
           <p className="text-sm text-muted-foreground">Try fewer words, or take a filter off.</p>
         </div>
+      ) : result.data.items.length === 0 ? (
+        <PageGone first={href(0)} />
       ) : (
         <>
           <p className="text-sm text-muted-foreground" aria-live="polite">
