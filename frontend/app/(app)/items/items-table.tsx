@@ -140,15 +140,14 @@ export function ItemsTable({
 
   return (
     <>
-      {/* The first UI's table rules (borders, margin) live in the base layer; these utilities override them. */}
-      <table className="mt-0 w-full border-collapse text-sm max-md:block">
+      <table className="w-full border-collapse text-sm max-md:block">
         <caption className="sr-only">Items, most recently updated first</caption>
         <thead className="text-left text-xs font-medium text-muted-foreground max-md:hidden">
           <tr className="border-b border-border">
-            <th scope="col" className="border-0 py-2 pr-4 font-medium">Title</th>
-            <th scope="col" className="border-0 py-2 pr-4 font-medium">Folder</th>
-            <th scope="col" className="border-0 py-2 pr-4 font-medium">Updated</th>
-            <th scope="col" className="w-10 border-0 py-2">
+            <th scope="col" className="py-2 pr-4 font-medium">Title</th>
+            <th scope="col" className="py-2 pr-4 font-medium">Folder</th>
+            <th scope="col" className="py-2 pr-4 font-medium">Updated</th>
+            <th scope="col" className="w-10 py-2">
               <span className="sr-only">Actions</span>
             </th>
           </tr>
@@ -160,20 +159,20 @@ export function ItemsTable({
               <ContextMenu key={item.id}>
                 <ContextMenuTrigger asChild>
                   <tr className="border-b border-border-subtle hover:bg-surface max-md:grid max-md:grid-cols-[1fr_auto] max-md:rounded-[10px] max-md:border max-md:border-border max-md:p-3">
-                    <td className="border-0 py-2 pr-4 max-md:p-0">
+                    <td className="py-2 pr-4 max-md:p-0">
                       <Link href={itemHref(item)} className="flex items-center gap-2 font-medium text-foreground hover:underline">
                         <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
                         <span className="sr-only">{item.type === "NOTE" ? "Note:" : "Asset:"}</span>
                         <span className="truncate">{title(item)}</span>
                       </Link>
                     </td>
-                    <td className="border-0 py-2 pr-4 text-muted-foreground max-md:col-start-1 max-md:p-0 max-md:pl-6 max-md:text-xs">
+                    <td className="py-2 pr-4 text-muted-foreground max-md:col-start-1 max-md:p-0 max-md:pl-6 max-md:text-xs">
                       {item.folderId ? (folderNames.get(item.folderId) ?? "") : "Top level"}
                     </td>
-                    <td className="border-0 py-2 pr-4 text-muted-foreground max-md:col-start-1 max-md:p-0 max-md:pl-6 max-md:text-xs">
+                    <td className="py-2 pr-4 text-muted-foreground max-md:col-start-1 max-md:p-0 max-md:pl-6 max-md:text-xs">
                       <time dateTime={item.updatedAt}>{item.updatedAt.slice(0, 10)}</time>
                     </td>
-                    <td className="border-0 py-1 text-right max-md:col-start-2 max-md:row-span-3 max-md:row-start-1 max-md:self-center max-md:p-0">
+                    <td className="py-1 text-right max-md:col-start-2 max-md:row-span-3 max-md:row-start-1 max-md:self-center max-md:p-0">
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           id={`actions-${item.id}`}

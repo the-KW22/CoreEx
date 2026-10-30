@@ -58,7 +58,6 @@ export function TagEditor({ itemId, tags, allTags }: { itemId: string; tags: Tag
       <li>
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger
-            disabled={pending}
             className="flex h-6 items-center gap-1 rounded-full border border-dashed border-border px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground pointer-coarse:h-11"
           >
             <PlusIcon aria-hidden className="size-3.5" />

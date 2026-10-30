@@ -9,7 +9,8 @@ const base = process.env.E2E_BASE_URL;
 export default defineConfig({
   testDir: "e2e",
   reporter: "list",
-  use: { baseURL: base ?? "http://localhost:3100", trace: "retain-on-failure" },
+  // A click or fill that cannot find its element fails after 15 s, rather than waiting until the whole test times out.
+  use: { baseURL: base ?? "http://localhost:3100", trace: "retain-on-failure", actionTimeout: 15_000 },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: base
     ? undefined

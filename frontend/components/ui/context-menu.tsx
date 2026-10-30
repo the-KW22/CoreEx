@@ -8,7 +8,8 @@ import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 function ContextMenu({
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Root>) {
-  return <ContextMenuPrimitive.Root data-slot="context-menu" {...props} />
+  // Not modal, for the same reason as the dropdown menu.
+  return <ContextMenuPrimitive.Root data-slot="context-menu" modal={false} {...props} />
 }
 
 function ContextMenuTrigger({

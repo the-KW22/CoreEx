@@ -5,20 +5,11 @@ import { childrenByParent, pathTo } from "@/lib/folders";
 import { pageInfo } from "@/lib/pages";
 
 import { ItemsView, PAGE_SIZE } from "../../items/items-view";
-import { createFolder, deleteFolder, moveFolder, renameFolder } from "../actions";
-import { FolderSelect } from "../folder-select";
-
-const errors: Record<string, string> = {
-  cycle: "A Folder cannot be moved into itself or one of its own subfolders.",
-  move: "Could not move the Folder. Try again.",
-  rename: "Could not rename the Folder. Try again.",
-  delete: "Could not move the Folder to the Trash. Try again.",
-  create: "Could not create the Note. Try again.",
-};
+import { FolderActions } from "../folder-actions";
 
 export default async function FolderPage({ params, searchParams }: PageProps<"/folders/[id]">) {
   const { id } = await params;
-  const { error, page: raw } = await searchParams;
+  const { page: raw } = await searchParams;
   const requested = pageInfo(0, raw, PAGE_SIZE).page;
   const api = await getApi();
   const [list, items, summary, tags] = await Promise.all([
@@ -58,47 +49,7 @@ export default async function FolderPage({ params, searchParams }: PageProps<"/f
       page={pageInfo(items.data.total, raw, PAGE_SIZE)}
       path={`/folders/${id}`}
       empty="No Items in this Folder yet."
-      alert={typeof error === "string" ? errors[error] : undefined}
-    >
-      {/* shortcut: managing a Folder keeps the first UI's forms, restyle them with the Folder screen work. */}
-      <section aria-labelledby="manage-heading">
-        <h2 id="manage-heading">Manage</h2>
-        <form action={createFolder} className="inline-form">
-          <input type="hidden" name="parentId" value={id} />
-          <label>
-            New subfolder
-            <input name="name" required maxLength={200} />
-          </label>
-          <button type="submit">Create</button>
-        </form>
-        <form action={renameFolder} className="inline-form">
-          <input type="hidden" name="id" value={id} />
-          <label>
-            Name
-            <input name="name" required maxLength={200} defaultValue={folder.name} />
-          </label>
-          <button type="submit">Rename</button>
-        </form>
-        <form action={moveFolder} className="inline-form">
-          <input type="hidden" name="id" value={id} />
-          <FolderSelect name="parentId" label="Move into" folders={folders} selected={folder.parentId} skip={id} />
-          <button type="submit">Move</button>
-        </form>
-
-        <details className="delete-folder">
-          <summary>Move to Trash…</summary>
-          <p>
-            This Folder holds {summary.data.folderCount} {summary.data.folderCount === 1 ? "Folder" : "Folders"} and{" "}
-            {summary.data.itemCount} {summary.data.itemCount === 1 ? "Item" : "Items"}. All of them go to the Trash
-            together.
-          </p>
-          <form action={deleteFolder}>
-            <input type="hidden" name="id" value={id} />
-            {folder.parentId && <input type="hidden" name="parentId" value={folder.parentId} />}
-            <button type="submit">Move Folder to Trash</button>
-          </form>
-        </details>
-      </section>
-    </ItemsView>
+      titleExtra={<FolderActions folder={folder} folders={folders} counts={summary.data} />}
+    />
   );
 }

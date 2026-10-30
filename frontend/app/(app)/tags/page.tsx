@@ -32,14 +32,13 @@ export default async function TagsPage() {
           No Tags yet. Add one from a Note or an Asset.
         </p>
       ) : (
-        // The first UI's table rules (borders, margin) live in the base layer; these utilities override them.
-        <table className="mt-0 w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-sm">
           <caption className="sr-only">All your Tags</caption>
           <thead className="text-left text-xs font-medium text-muted-foreground max-md:sr-only">
             <tr className="border-b border-border">
-              <th scope="col" className="border-0 py-2 pr-4 font-medium">Tag</th>
-              <th scope="col" className="border-0 py-2 pr-4 font-medium">Items</th>
-              <th scope="col" className="border-0 py-2 font-medium">
+              <th scope="col" className="py-2 pr-4 font-medium">Tag</th>
+              <th scope="col" className="py-2 pr-4 font-medium">Items</th>
+              <th scope="col" className="py-2 font-medium">
                 <span className="sr-only">Actions</span>
               </th>
             </tr>
@@ -47,13 +46,13 @@ export default async function TagsPage() {
           <tbody>
             {tags.map((tag) => (
               <tr key={tag.id} className="border-b border-border-subtle hover:bg-surface">
-                <td className="border-0 py-2 pr-4">
+                <td className="py-2 pr-4">
                   <Link href={`/tags/${tag.id}`} className="rounded-full">
                     <TagBadge name={tag.name} colour={tag.colour} />
                   </Link>
                 </td>
-                <td className="border-0 py-2 pr-4 font-mono text-muted-foreground">{tag.itemCount}</td>
-                <td className="border-0 py-1">
+                <td className="py-2 pr-4 font-mono text-muted-foreground">{tag.itemCount}</td>
+                <td className="py-1">
                   <div className="flex justify-end">
                     <TagActions tag={tag} />
                   </div>

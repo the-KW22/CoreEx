@@ -184,67 +184,13 @@
 [data-colour="blue"] { --tag: var(--tag-blue); }
 [data-colour="pink"] { --tag: var(--tag-pink); }
 
-/* The first UI's styles, kept in the base layer so utilities always win. Each screen ticket deletes what it replaces. */
+/* Table header cells are centred by the browser; every table here reads from the left. */
+th {
+  text-align: left;
+}
+
+/* The Note editor's own styling, in the base layer so utilities win. */
 @layer base {
-a {
-  color: inherit;
-}
-
-form {
-  display: grid;
-  gap: 0.5rem;
-}
-
-input,
-button {
-  font: inherit;
-  padding: 0.5rem;
-}
-
-.actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-[role="alert"] {
-  color: var(--destructive);
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 1.5rem;
-}
-
-caption {
-  text-align: left;
-  padding-bottom: 0.5rem;
-  font-weight: bold;
-}
-
-th,
-td {
-  text-align: left;
-  padding: 0.5rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.row-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-
 
 /* The Note editor's live preview marks. CodeMirror's own parts (font, caret, tooltips) are themed in note-editor.tsx. */
 .note-editor .cm-editor {
@@ -268,28 +214,6 @@ td {
 }
 .note-editor .cm-code { border-radius: 4px; padding: 0.1em 0.3em; }
 .note-editor .cm-bullet { padding-right: 0.4em; color: var(--muted-foreground); }
-
-.inline-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 0.5rem;
-  margin: 0.5rem 0;
-}
-
-.inline-form label {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.delete-folder {
-  margin: 1.5rem 0;
-}
-
-
-
-
-
 
 /* Links in the Note editor. */
 .note-editor .cm-wikilink {
@@ -317,58 +241,4 @@ td {
   color: var(--muted-foreground);
 }
 
-/* Showing Assets. */
-.upload-hint {
-  font-size: 0.85rem;
-  opacity: 0.7;
-}
-
-
-
-textarea {
-  font: inherit;
-  padding: 0.5rem;
-}
-
-/* Search results. */
-mark {
-  color: inherit;
-  background: color-mix(in srgb, #facc15 55%, transparent);
-  border-radius: 2px;
-}
-
-/* The Admin area. */
-.admin-nav {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.overview {
-  display: grid;
-  gap: 0.75rem;
-  margin: 1rem 0;
-}
-
-.overview dt {
-  font-size: 0.85rem;
-  opacity: 0.7;
-}
-
-.overview dd {
-  margin: 0;
-  font-size: 1.4rem;
-  font-weight: bold;
-}
-
-progress {
-  width: 10rem;
-  max-width: 100%;
-}
-
-td .inline-form input[type="number"] {
-  width: 6rem;
-}
 }

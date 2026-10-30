@@ -99,7 +99,6 @@ function Confirm({
   description,
   action,
   onConfirm,
-  disabled,
   destructive = true,
 }: {
   trigger: string;
@@ -108,13 +107,12 @@ function Confirm({
   description: string;
   action: string;
   onConfirm: () => void;
-  disabled: boolean;
   destructive?: boolean;
 }) {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" size="sm" disabled={disabled} aria-label={label}>
+        <Button variant="outline" size="sm" aria-label={label}>
           {trigger}
         </Button>
       </AlertDialogTrigger>
@@ -136,7 +134,7 @@ function Confirm({
 
 // Stacked cards on phones, like All Items.
 export function UsersTable({ users, meId, now }: { users: User[]; meId?: string; now: number | null }) {
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const toggle = (user: User) => {
     const disable = user.status === "ACTIVE";
@@ -159,16 +157,15 @@ export function UsersTable({ users, meId, now }: { users: User[]; meId?: string;
     });
 
   return (
-    // The first UI's table rules (borders, margin) live in the base layer; these utilities override them.
-    <table className="mt-0 w-full border-collapse text-sm max-lg:block">
+    <table className="w-full border-collapse text-sm max-lg:block">
       <caption className="sr-only">All Users, newest sign-up first</caption>
       <thead className="text-left text-xs font-medium text-muted-foreground max-lg:hidden">
         <tr className="border-b border-border">
-          <th scope="col" className="border-0 py-2 pr-4 font-medium">User</th>
-          <th scope="col" className="border-0 py-2 pr-4 font-medium">Activity</th>
-          <th scope="col" className="border-0 py-2 pr-4 font-medium">Items</th>
-          <th scope="col" className="border-0 py-2 pr-4 font-medium">Storage and quota</th>
-          <th scope="col" className="border-0 py-2 font-medium">Account</th>
+          <th scope="col" className="py-2 pr-4 font-medium">User</th>
+          <th scope="col" className="py-2 pr-4 font-medium">Activity</th>
+          <th scope="col" className="py-2 pr-4 font-medium">Items</th>
+          <th scope="col" className="py-2 pr-4 font-medium">Storage and quota</th>
+          <th scope="col" className="py-2 font-medium">Account</th>
         </tr>
       </thead>
       <tbody className="max-lg:grid max-lg:gap-3">
@@ -186,7 +183,7 @@ export function UsersTable({ users, meId, now }: { users: User[]; meId?: string;
               key={user.id}
               className="border-b border-border-subtle align-top max-lg:grid max-lg:gap-3 max-lg:rounded-[10px] max-lg:border max-lg:border-border max-lg:p-3"
             >
-              <td className="border-0 py-3 pr-4 max-lg:p-0">
+              <td className="py-3 pr-4 max-lg:p-0">
                 <p className="break-all font-medium">{user.email}</p>
                 <p className="mt-1 flex flex-wrap gap-1">
                   <Badge colour={user.status === "ACTIVE" ? "green" : "gray"}>
@@ -196,7 +193,7 @@ export function UsersTable({ users, meId, now }: { users: User[]; meId?: string;
                   {yourself && <Badge>You</Badge>}
                 </p>
               </td>
-              <td className="border-0 py-3 pr-4 text-xs text-muted-foreground max-lg:p-0">
+              <td className="py-3 pr-4 text-xs text-muted-foreground max-lg:p-0">
                 <p>
                   Signed up <time dateTime={user.createdAt}>{user.createdAt.slice(0, 10)}</time>
                 </p>
@@ -208,11 +205,11 @@ export function UsersTable({ users, meId, now }: { users: User[]; meId?: string;
                     : "Never active"}
                 </p>
               </td>
-              <td className="border-0 py-3 pr-4 font-mono max-lg:p-0">
+              <td className="py-3 pr-4 font-mono max-lg:p-0">
                 <span className="lg:hidden text-xs text-muted-foreground font-sans">Items </span>
                 {user.itemCount}
               </td>
-              <td className="border-0 py-3 pr-4 max-lg:p-0">
+              <td className="py-3 pr-4 max-lg:p-0">
                 <div className="grid gap-2">
                   <div className="grid gap-1">
                     <div
@@ -235,7 +232,7 @@ export function UsersTable({ users, meId, now }: { users: User[]; meId?: string;
                   <QuotaForm user={user} />
                 </div>
               </td>
-              <td className="border-0 py-3 max-lg:p-0">
+              <td className="py-3 max-lg:p-0">
                 {yourself ? (
                   <span className="text-muted-foreground">—</span>
                 ) : (
@@ -251,7 +248,6 @@ export function UsersTable({ users, meId, now }: { users: User[]; meId?: string;
                       }
                       action={user.status === "ACTIVE" ? "Disable" : "Enable"}
                       destructive={user.status === "ACTIVE"}
-                      disabled={pending}
                       onConfirm={() => toggle(user)}
                     />
                     {user.role !== "ADMIN" && (
@@ -261,7 +257,6 @@ export function UsersTable({ users, meId, now }: { users: User[]; meId?: string;
                         title={`Remove ${user.email}?`}
                         description={`This deletes ${user.email}'s Notes, files and sign-in for good. It cannot be undone. Their email can be invited again afterwards.`}
                         action="Remove for good"
-                        disabled={pending}
                         onConfirm={() => remove(user)}
                       />
                     )}
