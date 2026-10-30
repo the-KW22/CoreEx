@@ -181,6 +181,25 @@ for (const [colorScheme, background] of [
       await expect(row).toContainText("Revoked");
     });
 
+    test("the sign-in and system pages have no WCAG 2.2 AA violations", async ({ page }) => {
+      await page.goto("/login");
+      await expect(page.getByRole("heading", { name: "Sign in to CoreEx", level: 1 })).toBeVisible();
+      await expectNoViolations(page);
+
+      await signIn(page);
+      for (const [path, heading] of [
+        ["/reset-password", "Choose a new password"],
+        ["/invite-only", "CoreEx is invite-only"],
+        ["/disabled", "Your account is disabled"],
+        ["/notes/00000000-0000-0000-0000-000000000000", "Page not found"],
+        ["/notes/not-a-uuid", "Page not found"],
+      ] as const) {
+        await page.goto(path);
+        await expect(page.getByRole("heading", { name: heading, level: 1 })).toBeVisible();
+        await expectNoViolations(page);
+      }
+    });
+
     test("the phone menu has no WCAG 2.2 AA violations", async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 812 });
       await signIn(page);
@@ -670,6 +689,19 @@ test("an Admin disables, enables and removes another User", async ({ page, brows
   await page.getByRole("alertdialog").getByRole("button", { name: "Remove for good" }).click();
   await expect(page.getByText(`Removed ${other}`)).toBeVisible();
   await expect(row).toHaveCount(0);
+});
+
+test("on a phone the sign-in card fits, and Enter signs in rather than sending a reset link", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/login");
+  const card = page.getByRole("main");
+  await expect(card).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByLabel("Password").press("Enter");
+  await expect(page.getByRole("button", { name: "Open the menu" })).toBeVisible();
 });
 
 test("Home shows a new Note under Recently edited and Jump back in", async ({ page }) => {
