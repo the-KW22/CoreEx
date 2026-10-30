@@ -48,7 +48,7 @@ Local development keeps its own values in `backend/.env` and `frontend/.env.loca
 
 Accounts, secrets and the first deploy are done by the owner in each dashboard.
 
-1. **Supabase.** Use the one CoreEx project, in the same region as Render (the blueprint uses Singapore).
+1. **Supabase.** Use the one CoreEx project, and create it in the same region as Render (the blueprint uses Singapore). A different region makes every page slower (see "Why it can feel slow").
    - Authentication > Sign In / Providers > Email: **Confirm email must be on.** The API trusts the token's email to recognise the owner and Invites, so without confirmation someone could take an invited address first.
    - Authentication > URL Configuration: set **Site URL** to the frontend URL.
    - Note the project ref, database password, Publishable key, and the Session pooler details from **Connect**.
@@ -96,6 +96,13 @@ The email is sent by Supabase, so it counts against the built-in email limit (a 
 - **Use the Session pooler, not the direct connection.** Supabase's direct database host is IPv6-only and Render's free tier is IPv4-only. The Session pooler (port 5432) works with Flyway and prepared statements; the Transaction pooler (port 6543) does not suit them.
 - **Keep `coreex` out of Supabase's exposed schemas.** Project Settings > Data API > Exposed schemas must not list `coreex` (the default lists only `public` and `graphql_public`). The tables also have row level security on, as a second layer (ADR 0005).
 - **Cold starts.** Free Render services sleep after about 15 minutes idle, and the first request afterwards takes a minute while the JVM starts. The frontend shows "Cannot reach the CoreEx API" if it times out; reload.
+
+## Why it can feel slow, and what to do (measured 2026-10-30)
+
+- **Sleeping.** The free Render plan sleeps after 15 minutes without a request, and waking took **98 seconds** (Render's logs: Spring started in 98 s on a fraction of a CPU). Anyone who opens CoreEx after a quiet spell waits that long. Fixes: ping `https://<backend>.onrender.com/api/health` every 5 minutes from outside, for example a free UptimeRobot monitor (a scheduled GitHub Actions run does not fit: the repository is private, so every-5-minute runs use more than the free minutes), or move to Render's Starter plan, which never sleeps and has more CPU. One service running all month fits the free plan's 750 hours.
+- **Region.** The database was in **Sydney** (`aws-0-ap-southeast-2.pooler.supabase.com`) while Render runs in **Singapore**. Every query crosses about 90 ms of sea. Render has no Sydney region, and a Supabase project cannot change its region, so the fix is a new Supabase project in **Singapore** (`ap-southeast-1`) and moving the data across (dump and restore the `coreex` schema, copy the Assets bucket, update the Render and Vercel variables, and re-point the sign-in settings). Do this when a second project slot is free.
+- **Vercel region.** `frontend/vercel.json` pins the frontend's server functions to Singapore (`sin1`), next to the API. By default they run in Washington, which put another 200 ms or more on each of the 4 to 6 API calls a page makes.
+- **User check.** Every API call used to read the signed-in User from the database (three round trips). `coreex.identity.user-cache-ttl` (default 30 s) remembers the User; an Admin disabling, enabling, removing or changing a quota clears it at once. Set it to `0s` to turn it off. With more than one API instance a Disabled User could keep access for up to 30 s on the others.
 - **Confirmation emails.** Supabase's built-in email sender only delivers to addresses of your own organisation's members and is rate-limited (check the current Supabase docs). Before inviting other people, set up a custom SMTP sender in Authentication > Emails.
 - **Adding a staging environment later.** If a second Supabase project (or a separate schema) becomes available, add a `coreex-api-staging` service on branch `staging`, a second Vercel project, and update `docs/DEVELOPMENT.md` section 2.
 - Google sign-in is not set up yet.
