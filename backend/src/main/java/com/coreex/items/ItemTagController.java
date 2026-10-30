@@ -47,10 +47,11 @@ class ItemTagController {
 	}
 
 	record ItemTagResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+			@Schema(nullable = true, allowableValues = {"gray", "red", "orange", "yellow", "green", "teal", "blue", "pink"}) String colour) {
 
 		static ItemTagResponse of(Tag tag) {
-			return new ItemTagResponse(tag.id(), tag.name());
+			return new ItemTagResponse(tag.id(), tag.name(), tag.colour());
 		}
 
 	}

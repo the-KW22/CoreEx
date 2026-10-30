@@ -17,7 +17,7 @@ import com.coreex.common.ApiException;
 @Service
 public class TagService {
 
-	public record TagCount(UUID id, String name, long itemCount) {
+	public record TagCount(UUID id, String name, String colour, long itemCount) {
 	}
 
 	private final TagRepository tags;
@@ -56,7 +56,7 @@ public class TagService {
 	}
 
 	List<TagCount> list(UUID ownerId) {
-		return tags.listWithCounts(ownerId).stream().map(t -> new TagCount(t.id(), t.name(), t.itemCount())).toList();
+		return tags.listWithCounts(ownerId).stream().map(t -> new TagCount(t.id(), t.name(), t.colour(), t.itemCount())).toList();
 	}
 
 	Tag rename(UUID ownerId, UUID id, String name) {
@@ -67,6 +67,14 @@ public class TagService {
 		}
 		catch (DuplicateKeyException e) {
 			throw new ApiException(HttpStatus.CONFLICT, "TAG_EXISTS", "You already have a Tag with this name.");
+		}
+		return requireTag(ownerId, id);
+	}
+
+	/** Sets the colour, or null for automatic. */
+	Tag setColour(UUID ownerId, UUID id, String colour) {
+		if (!tags.setColour(ownerId, id, colour)) {
+			throw notFound();
 		}
 		return requireTag(ownerId, id);
 	}

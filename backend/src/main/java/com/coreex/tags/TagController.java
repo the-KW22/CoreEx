@@ -43,12 +43,19 @@ class TagController {
 
 	}
 
+	/** A null colour means automatic. */
+	record ColourRequest(@Pattern(regexp = "gray|red|orange|yellow|green|teal|blue|pink") @Schema(nullable = true,
+			allowableValues = {"gray", "red", "orange", "yellow", "green", "teal", "blue", "pink"}) String colour) {
+	}
+
 	record TagResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+			@Schema(nullable = true, allowableValues = {"gray", "red", "orange", "yellow", "green", "teal", "blue", "pink"}) String colour) {
 	}
 
 	record TagCountResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+			@Schema(nullable = true, allowableValues = {"gray", "red", "orange", "yellow", "green", "teal", "blue", "pink"}) String colour,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Live Items with this Tag") long itemCount) {
 	}
 
@@ -67,7 +74,7 @@ class TagController {
 	@GetMapping
 	TagList list(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user) {
 		var items = tags.list(user.id()).stream()
-				.map(t -> new TagCountResponse(t.id(), t.name(), t.itemCount())).toList();
+				.map(t -> new TagCountResponse(t.id(), t.name(), t.colour(), t.itemCount())).toList();
 		return new TagList(items, items.size());
 	}
 
@@ -83,7 +90,20 @@ class TagController {
 	TagResponse rename(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @Valid @RequestBody RenameTagRequest request) {
 		var tag = tags.rename(user.id(), id, request.name());
-		return new TagResponse(tag.id(), tag.name());
+		return new TagResponse(tag.id(), tag.name(), tag.colour());
+	}
+
+	@PutMapping(value = "/{id}/colour", consumes = JSON)
+	@ApiResponse(responseCode = "200", description = "The Tag with its new colour", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = TagResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST: not one of the colour names",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's Tag)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	TagResponse colour(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id, @Valid @RequestBody ColourRequest request) {
+		var tag = tags.setColour(user.id(), id, request.colour());
+		return new TagResponse(tag.id(), tag.name(), tag.colour());
 	}
 
 	/** Deletes the Tag from every Item. The Items are not touched. */
