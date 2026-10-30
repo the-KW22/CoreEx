@@ -1,6 +1,6 @@
 # Narrator checklist
 
-Narrator (the Windows screen reader) cannot be driven from a test, so a person runs this list. Run it before a release and after any change to the shell, the palette, dialogs or the Note screen. The automated axe scans and keyboard tests already cover contrast, names, roles and focus; this list covers what is *announced*.
+Optional: the everyday list is `docs/manual-accessibility-checklist.md`, which needs no screen reader. Narrator (the Windows screen reader) cannot be driven from a test, so a person runs this list, and it is worth doing once before a public launch. Run it before a release and after any change to the shell, the palette, dialogs or the Note screen. The automated axe scans and keyboard tests already cover contrast, names, roles and focus; this list covers what is *announced*.
 
 **Setup:** start the local stack, sign in, press `Win` + `Ctrl` + `Enter` to turn Narrator on. Use Chrome or Edge. `Caps Lock` is the Narrator key. Note anything that is silent, wrong, announced twice, or announced in a confusing order.
 

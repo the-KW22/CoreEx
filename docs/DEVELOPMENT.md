@@ -223,7 +223,7 @@ The specs in `frontend/e2e/` (shared steps are in `helpers.ts`):
 | `keyboard.spec.ts` | Keyboard-only flows: focus visible, where it lands, and back to the opener after a dialog | When you change focus, dialogs or the shell |
 | `axe-matrix.spec.ts` | Every screen and open state, in both themes, at desktop and 375 px | Before a release; one cell while working (`-g "dark desktop"`). `SHOTS=1` also saves a screenshot of each to `test-results/screens/` |
 
-A UI ticket adds its screen to the list in `axe-matrix.spec.ts`, so it is checked in dark and light, on a phone and a desktop. A screen reader cannot be driven by a test: run `docs/narrator-checklist.md` by hand before a release.
+A UI ticket adds its screen to the list in `axe-matrix.spec.ts`, so it is checked in dark and light, on a phone and a desktop. Run `docs/manual-accessibility-checklist.md` by hand before a release: keyboard, zoom, contrast, reduced motion and phone width, with no screen reader needed. A screen reader cannot be driven by a test, so `docs/narrator-checklist.md` (what is announced aloud) is optional, and worth doing once before a public launch.
 
 **Rules**
 
