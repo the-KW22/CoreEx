@@ -1,28 +1,32 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
 
-import { signOut } from "../actions";
-import { createFolder } from "./folders/actions";
-import { FolderTree } from "./folders/folder-tree";
-import { QuickSwitcher } from "./search/quick-switcher";
+import { AppFrame } from "./app-frame";
+
+function Problem({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <main className="grid min-h-dvh place-items-center p-4">
+      <div role="alert" className="grid max-w-sm gap-2 rounded-[14px] border border-border bg-surface p-6 text-center">
+        <h1 className="text-lg font-semibold text-foreground">{title}</h1>
+        <p className="text-sm text-muted-foreground">{children}</p>
+      </div>
+    </main>
+  );
+}
 
 // Asks the API who is signed in; the API decides whether they may use CoreEx.
 export async function Shell({ children }: { children: React.ReactNode }) {
   const api = await getApi();
   // Together, not one after the other: each call is a round trip to the API.
-  const [result, folders] = await Promise.all([
+  const [result, folders, tags] = await Promise.all([
     api.GET("/api/me").catch(() => null),
     api.GET("/api/folders").catch(() => null),
+    api.GET("/api/tags").catch(() => null),
   ]);
 
   if (!result) {
-    return (
-      <p className="card" role="alert">
-        Cannot reach the CoreEx API. Is the backend running?
-      </p>
-    );
+    return <Problem title="Cannot reach CoreEx">The CoreEx API is not answering. Is the backend running?</Problem>;
   }
   const { data: me, error, response } = result;
   if (response.status === 401) redirect("/login");
@@ -30,61 +34,17 @@ export async function Shell({ children }: { children: React.ReactNode }) {
     redirect(error?.code === "USER_DISABLED" ? "/disabled" : "/invite-only");
   }
   if (!me) {
-    return (
-      <p className="card" role="alert">
-        Something went wrong loading your account. Try again.
-      </p>
-    );
+    return <Problem title="Something went wrong">Something went wrong loading your account. Try again.</Problem>;
   }
 
   return (
-    <div className="shell">
-      <nav aria-label="Main">
-        <strong>CoreEx</strong>
-        <form action="/search" method="get" role="search" className="nav-search">
-          <input type="search" name="q" aria-label="Search" placeholder="Search" maxLength={200} />
-          <button type="submit">Go</button>
-        </form>
-        <p className="upload-hint">or press Ctrl+K to jump to a title</p>
-        <ul>
-          <li>
-            <Link href="/">Notes</Link>
-          </li>
-          <li>
-            <Link href="/tags">Tags</Link>
-          </li>
-          <li>
-            <Link href="/trash">Trash</Link>
-          </li>
-          {/* Only a convenience: the API refuses non-admins on its own (ADR 0004). */}
-          {me.role === "ADMIN" && (
-            <li>
-              <Link href="/admin">Admin</Link>
-            </li>
-          )}
-        </ul>
-        <section aria-labelledby="folders-heading">
-          <h2 id="folders-heading">Folders</h2>
-          {folders?.data ? (
-            <FolderTree folders={folders.data.items} />
-          ) : (
-            <p role="alert">Could not load Folders.</p>
-          )}
-          <form action={createFolder} className="inline-form">
-            <label>
-              <span className="visually-hidden">New Folder name</span>
-              <input name="name" placeholder="New Folder" required maxLength={200} />
-            </label>
-            <button type="submit">Add</button>
-          </form>
-        </section>
-        <p>{me.email}</p>
-        <form action={signOut}>
-          <button type="submit">Log out</button>
-        </form>
-      </nav>
-      <main>{children}</main>
-      <QuickSwitcher />
-    </div>
+    <AppFrame
+      email={me.email}
+      isAdmin={me.role === "ADMIN"}
+      folders={folders?.data?.items ?? null}
+      tags={tags?.data?.items ?? null}
+    >
+      {children}
+    </AppFrame>
   );
 }

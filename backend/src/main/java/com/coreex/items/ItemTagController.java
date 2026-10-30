@@ -19,6 +19,7 @@ import com.coreex.common.ErrorBody;
 import com.coreex.identity.CurrentUserInterceptor;
 import com.coreex.identity.User;
 import com.coreex.tags.Tag;
+import com.coreex.tags.TagColour;
 import com.coreex.tags.TagService;
 
 import io.swagger.v3.oas.annotations.Parameter;
@@ -47,10 +48,11 @@ class ItemTagController {
 	}
 
 	record ItemTagResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+			@Schema(nullable = true) TagColour colour) {
 
 		static ItemTagResponse of(Tag tag) {
-			return new ItemTagResponse(tag.id(), tag.name());
+			return new ItemTagResponse(tag.id(), tag.name(), tag.colour());
 		}
 
 	}

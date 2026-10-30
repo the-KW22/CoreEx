@@ -205,6 +205,38 @@ class TagApiTest extends ApiTest {
 	}
 
 	@Test
+	void aTagHasNoColourUntilOneIsSetAndItShowsEverywhere() throws Exception {
+		var item = note(userA, "N");
+		var tagId = tagId(userA, item, "Draft");
+		assertThat(get("/api/tags", userA).body()).contains("\"colour\":null");
+
+		var set = put("/api/tags/" + tagId + "/colour", userA, "{\"colour\":\"teal\"}");
+
+		assertThat(set.statusCode()).as(set.body()).isEqualTo(200);
+		assertThat(set.body()).contains("\"colour\":\"teal\"");
+		assertThat(get("/api/tags", userA).body()).contains("\"colour\":\"teal\"");
+		assertThat(get("/api/items/" + item + "/tags", userA).body()).contains("\"colour\":\"teal\"");
+		// Renaming keeps the colour; null goes back to automatic.
+		assertThat(put("/api/tags/" + tagId, userA, "{\"name\":\"Final\"}").body()).contains("\"colour\":\"teal\"");
+		assertThat(put("/api/tags/" + tagId + "/colour", userA, "{\"colour\":null}").body())
+				.contains("\"colour\":null");
+	}
+
+	@Test
+	void anUnknownColourGets400AndAnotherUsersTagGets404() throws Exception {
+		var item = note(userA, "N");
+		var tagId = tagId(userA, item, "Draft");
+
+		assertThat(put("/api/tags/" + tagId + "/colour", userA, "{\"colour\":\"magenta\"}").statusCode())
+				.isEqualTo(400);
+		assertThat(put("/api/tags/" + tagId + "/colour", userA, "{\"colour\":\"Teal\"}").statusCode())
+				.isEqualTo(400);
+		assertThat(put("/api/tags/" + tagId + "/colour", userB, "{\"colour\":\"teal\"}").statusCode())
+				.isEqualTo(404);
+		assertThat(get("/api/tags", userA).body()).contains("\"colour\":null");
+	}
+
+	@Test
 	void aDeletedItemCannotBeTagged() throws Exception {
 		var item = note(userA, "N");
 		delete("/api/notes/" + item, userA);

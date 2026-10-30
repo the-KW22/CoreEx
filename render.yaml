@@ -36,3 +36,8 @@ services:
         sync: false
       - key: STORAGE_BUCKET
         value: assets
+      # The OpenAPI page is only for developers; not scanning for it shortens start-up.
+      - key: SPRINGDOC_API_DOCS_ENABLED
+        value: "false"
+      - key: SPRINGDOC_SWAGGER_UI_ENABLED
+        value: "false"

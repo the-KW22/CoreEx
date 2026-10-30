@@ -1,0 +1,28 @@
+import { cn } from "@/lib/utils";
+
+// The frame for sign-in and the system pages (docs/DESIGN.md section 6.1): a centred card with the logo mark, a
+// heading and the body. It is the page's <main>, and it fills the width on a phone with a 16px gutter.
+export function AuthCard({
+  title,
+  children,
+  className,
+}: {
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <main className="grid min-h-dvh place-items-center bg-background p-4">
+      <div className={cn("grid w-full max-w-sm gap-5 rounded-[18px] border border-border bg-surface p-6 sm:p-8", className)}>
+        <span aria-hidden className="grid size-10 place-items-center rounded-[12px] bg-primary text-lg font-bold text-primary-foreground">
+          C
+        </span>
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        {children}
+      </div>
+    </main>
+  );
+}
+
+export const authField = "grid gap-1.5 text-sm font-medium";
+export const authInput = "h-10 rounded-lg border border-border bg-background px-3 font-normal";

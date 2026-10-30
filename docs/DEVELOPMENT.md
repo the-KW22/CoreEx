@@ -205,7 +205,25 @@ If `staging` holds nothing unreleased, use the normal flow and release immediate
 | **Unit tests** | Pure logic with many edge cases only: the Link parser, Markdown helpers | JUnit 5 | Same |
 | **Storage** | Replaced by the in-memory fake behind the Storage interface | — | Same |
 | **Frontend logic** | Only components with real logic (Link autocomplete, editor decorations) | Vitest + Testing Library | Every PR |
-| **Smoke / E2E** | Sign in, create a Note, link it, upload an Asset, search | Playwright | Against the local stack, before each release |
+| **Smoke / E2E** | Sign in, create a Note, link it, upload an Asset, search; an axe accessibility scan of each main screen in both themes | Playwright + axe | Against the local stack, before each release, and by every UI PR for its own screen |
+
+**Running the end-to-end tests** (`frontend/e2e/`)
+
+1. Start the local stack as in the README (Supabase and the API). You do not need `npm run dev`: the tests build the frontend and serve that build on port 3100 themselves, fresh every run. The API's `OWNER_EMAIL` must match the test account so it needs no Invite.
+2. Once per machine: `npx playwright install chromium`.
+3. `npm run e2e` in `frontend/`. The tests sign in as `E2E_EMAIL` / `E2E_PASSWORD` (default `owner@example.com` / `coreex-e2e-password`, local only) and create that account on a fresh database. `E2E_BASE_URL` skips the build and tests a server you already run (for example `npm run dev` on `http://localhost:3000`).
+4. While working on a ticket, run only its tests: `npx playwright test -g "Tags page"`. Run the whole suite once before opening the PR, because it is the slow part.
+
+The specs in `frontend/e2e/` (shared steps are in `helpers.ts`):
+
+| File | What it is | When |
+|---|---|---|
+| `smoke.spec.ts` | One flow: sign in, write, link, Backlink, upload, search, tidy up. Under a minute. | After any change; `npx playwright test smoke` |
+| `a11y.spec.ts` | Per-screen behaviour tests, each with its axe scan | The tests for the screen you changed (`-g`) |
+| `keyboard.spec.ts` | Keyboard-only flows: focus visible, where it lands, and back to the opener after a dialog | When you change focus, dialogs or the shell |
+| `axe-matrix.spec.ts` | Every screen and open state, in both themes, at desktop and 375 px | Before a release; one cell while working (`-g "dark desktop"`). `SHOTS=1` also saves a screenshot of each to `test-results/screens/` |
+
+A UI ticket adds its screen to the list in `axe-matrix.spec.ts`, so it is checked in dark and light, on a phone and a desktop. Run `docs/manual-accessibility-checklist.md` by hand before a release: keyboard, zoom, contrast, reduced motion and phone width, with no screen reader needed. A screen reader cannot be driven by a test, so `docs/narrator-checklist.md` (what is announced aloud) is optional, and worth doing once before a public launch.
 
 **Rules**
 
@@ -250,9 +268,12 @@ If `staging` holds nothing unreleased, use the normal flow and release immediate
 ## 11. Frontend conventions (Next.js)
 
 - The frontend calls the API **only** through the generated OpenAPI client. No `fetch` to hand-typed URLs, and no direct Supabase database calls. Supabase JS is used for sign-in only.
-- Use shadcn/ui components before writing custom ones. Follow existing patterns in the codebase.
+- **Design:** `docs/DESIGN.md` is the source of truth for tokens, layout and screens. Change it in the same PR when a screen's design changes.
+- Style with Tailwind v4 and use shadcn/ui components before writing custom ones (ADR 0006). Use the design tokens; never hard-code a colour, radius, font or duration in a component.
+- Every screen works in dark and light themes and at phone width.
+- Animate with React `<ViewTransition>` for route changes and Motion for components; respect `prefers-reduced-motion`. GSAP is not used until a feature needs timelines (ADR 0006).
 - Every screen handles all four states: loading, empty, error (show the API's message), and success.
-- **Accessibility:** every interactive element is reachable by keyboard and has a label; dialogs trap focus; colour is never the only signal.
+- **Accessibility:** WCAG 2.2 AA in both themes. Every interactive element is reachable by keyboard and has a label; dialogs trap focus; colour is never the only signal; nothing is hover-only.
 - UI copy uses glossary terms: "Move to Trash", not "Delete", for soft deletes.
 - No secrets in the frontend. Only variables prefixed `NEXT_PUBLIC_` reach the browser; treat them as public.
 
@@ -305,6 +326,7 @@ Branch protection requires these checks to pass before merging. Production deplo
 |---|---|---|
 | Domain terms | `CONTEXT.md` | A new or changed term appears |
 | Hard-to-reverse decisions | `docs/adr/NNNN-*.md` | Before or with the PR that implements it |
+| UI design (tokens, layout, screens) | `docs/DESIGN.md` | With the PR that changes a screen's design |
 | How to run, test, deploy | `README.md`, `docs/` | When setup steps change |
 | Plans and progress | GitHub issues (plan comment, checkboxes), PRs | Every ticket |
 | What you learned, session history | `wiki-vault/` (local only, gitignored) | End of every work session |

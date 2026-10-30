@@ -2,26 +2,48 @@
 
 import { useActionState } from "react";
 
+import { Alert } from "@/components/alert";
+import { authField, authInput } from "@/components/auth-card";
+import { Button } from "@/components/ui/button";
+
 import { setNewPassword } from "./actions";
 
 export function ResetPasswordForm() {
   const [state, action, pending] = useActionState(setNewPassword, undefined);
 
   return (
-    <form action={action}>
-      <label htmlFor="password">New password</label>
-      <input id="password" name="password" type="password" autoComplete="new-password" minLength={8} required />
+    <form action={action} className="grid gap-4">
+      <label htmlFor="password" className={authField}>
+        New password
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="new-password"
+          minLength={8}
+          required
+          className={authInput}
+        />
+      </label>
 
-      <label htmlFor="confirm">Repeat the new password</label>
-      <input id="confirm" name="confirm" type="password" autoComplete="new-password" minLength={8} required />
+      <label htmlFor="confirm" className={authField}>
+        Repeat the new password
+        <input
+          id="confirm"
+          name="confirm"
+          type="password"
+          autoComplete="new-password"
+          minLength={8}
+          required
+          className={authInput}
+        />
+      </label>
 
-      {state?.error && <p role="alert">{state.error}</p>}
+      {state?.error && <Alert>{state.error}</Alert>}
 
-      <div className="actions">
-        <button type="submit" disabled={pending}>
-          Save password
-        </button>
-      </div>
+      <Button type="submit" disabled={pending} className="h-10 w-full">
+        Save password
+      </Button>
     </form>
   );
 }

@@ -1,8 +1,10 @@
 package com.coreex.identity;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,14 @@ public class IdentityService {
 
 	private final Clock clock;
 
+	private record Cached(User user, Instant at) {
+	}
+
+	// shortcut: a per-process cache that this process clears when an Admin changes a User, so with more than one API
+	// instance a Disabled User could keep access for up to the TTL on the others, add a shared cache or set the TTL
+	// to zero then. It is also never trimmed, which is fine for the few Users of a personal knowledge base.
+	private final ConcurrentHashMap<UUID, Cached> cache = new ConcurrentHashMap<>();
+
 	IdentityService(UserRepository users, IdentityProperties properties, Clock clock) {
 		this.users = users;
 		this.properties = properties;
@@ -33,6 +43,13 @@ public class IdentityService {
 	/** The User behind a valid token. First sign-in provisions them, but only the owner or an invited person. */
 	@Transactional
 	User resolve(UUID id, String email) {
+		// Every API call comes here. Asking the database each time costs three round trips, which is most of a
+		// request's time when the database is in another region, so a User is remembered for a short while.
+		var ttl = properties.userCacheTtl();
+		var cached = cache.get(id);
+		if (cached != null && clock.instant().isBefore(cached.at().plus(ttl))) {
+			return cached.user();
+		}
 		var user = users.findById(id).or(() -> provision(id, email))
 				.orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "NOT_INVITED",
 						"CoreEx is invite-only. Ask the owner for an Invite."));
@@ -41,7 +58,15 @@ public class IdentityService {
 		}
 		var now = clock.instant();
 		users.touchLastActive(id, now, now.minus(properties.lastActiveThrottle()));
+		if (!ttl.isZero()) {
+			cache.put(id, new Cached(user, now));
+		}
 		return user;
+	}
+
+	/** Called after a User's status or Storage Quota changes (or they are removed), so the next request sees it. */
+	public void forget(UUID id) {
+		cache.remove(id);
 	}
 
 	// shortcut: an email already held by a different auth id fails on the unique index; handle it if sign-ups ever collide.

@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.coreex.common.ErrorBody;
 import com.coreex.identity.CurrentUserInterceptor;
+import com.coreex.identity.IdentityService;
 import com.coreex.identity.User;
 
 import io.swagger.v3.oas.annotations.Parameter;
@@ -81,8 +82,11 @@ class AdminUserController {
 
 	private final AdminUserService users;
 
-	AdminUserController(AdminUserService users) {
+	private final IdentityService identity;
+
+	AdminUserController(AdminUserService users, IdentityService identity) {
 		this.users = users;
+		this.identity = identity;
 	}
 
 	@GetMapping("/api/admin/users")
@@ -100,7 +104,9 @@ class AdminUserController {
 	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND", content = @Content(mediaType = JSON,
 			schema = @Schema(implementation = ErrorBody.class)))
 	UserResponse setQuota(@PathVariable UUID id, @Valid @RequestBody SetQuotaRequest request) {
-		return UserResponse.of(users.setQuota(id, request.storageQuotaBytes()));
+		var changed = UserResponse.of(users.setQuota(id, request.storageQuotaBytes()));
+		identity.forget(id);
+		return changed;
 	}
 
 	/** Takes the custom quota away, so the configured default applies again. */
@@ -110,7 +116,9 @@ class AdminUserController {
 	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND", content = @Content(mediaType = JSON,
 			schema = @Schema(implementation = ErrorBody.class)))
 	UserResponse resetQuota(@PathVariable UUID id) {
-		return UserResponse.of(users.setQuota(id, null));
+		var changed = UserResponse.of(users.setQuota(id, null));
+		identity.forget(id);
+		return changed;
 	}
 
 	/** Blocks the User from their next request on. Their data is kept. */
@@ -123,7 +131,9 @@ class AdminUserController {
 			schema = @Schema(implementation = ErrorBody.class)))
 	UserResponse disable(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User admin,
 			@PathVariable UUID id) {
-		return UserResponse.of(users.disable(admin.id(), id));
+		var changed = UserResponse.of(users.disable(admin.id(), id));
+		identity.forget(id);
+		return changed;
 	}
 
 	@PostMapping("/api/admin/users/{id}/enable")
@@ -132,7 +142,9 @@ class AdminUserController {
 	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND", content = @Content(mediaType = JSON,
 			schema = @Schema(implementation = ErrorBody.class)))
 	UserResponse enable(@PathVariable UUID id) {
-		return UserResponse.of(users.enable(id));
+		var changed = UserResponse.of(users.enable(id));
+		identity.forget(id);
+		return changed;
 	}
 
 	/** Deletes the User's data, files and sign-in so the email can be invited again. */
@@ -146,7 +158,13 @@ class AdminUserController {
 	@ApiResponse(responseCode = "503", description = "Code STORAGE_UNAVAILABLE or AUTH_UNAVAILABLE; nothing was lost, retry",
 			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
 	void remove(@PathVariable UUID id) {
-		users.remove(id);
+		try {
+			users.remove(id);
+		}
+		finally {
+			// Removal disables the User first, so even a failed attempt changed what the next request must see.
+			identity.forget(id);
+		}
 	}
 
 	@GetMapping("/api/admin/overview")

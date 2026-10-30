@@ -20,6 +20,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tags/{id}/colour": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["colour"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notes/{id}": {
         parameters: {
             query?: never;
@@ -639,10 +655,16 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
+            /** @enum {string|null} */
+            colour?: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
         };
         ErrorBody: {
             code: string;
             message: string;
+        };
+        ColourRequest: {
+            /** @enum {string|null} */
+            colour?: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
         };
         SaveNoteRequest: {
             title: string;
@@ -779,6 +801,8 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
+            /** @enum {string|null} */
+            colour?: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
         };
         MoveItemRequest: {
             /**
@@ -879,6 +903,8 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
+            /** @enum {string|null} */
+            colour?: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
             /**
              * Format: int64
              * @description Live Items with this Tag
@@ -1084,6 +1110,50 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Code NOT_FOUND (also for another User's Tag) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    colour: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ColourRequest"];
+            };
+        };
+        responses: {
+            /** @description The Tag with its new colour */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST: not one of the colour names */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
             };
             /** @description Code NOT_FOUND (also for another User's Tag) */
             404: {

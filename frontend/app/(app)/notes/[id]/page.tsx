@@ -1,20 +1,24 @@
-import Link from "next/link";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
+import { pathTo } from "@/lib/folders";
 
-import { ItemBacklinks, ItemFolder, ItemTags } from "../../items/item-sections";
+import { FolderPicker } from "../../items/folder-picker";
+import { ItemBacklinks } from "../../items/item-sections";
+import { TagEditor } from "../../items/tag-editor";
 import { RecordOpen } from "../../search/record-open";
-import { deleteNote } from "../actions";
 import { NoteEditor } from "./note-editor";
 
-export default async function NotePage({ params, searchParams }: PageProps<"/notes/[id]">) {
+export default async function NotePage({ params }: PageProps<"/notes/[id]">) {
   const { id } = await params;
-  const { error } = await searchParams;
   const api = await getApi();
-  const [result, list] = await Promise.all([
+  const [result, list, itemTags, allTags, jar] = await Promise.all([
     api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/folders").catch(() => null),
+    api.GET("/api/items/{id}/tags", { params: { path: { id } } }).catch(() => null),
+    api.GET("/api/tags").catch(() => null),
+    cookies(),
   ]);
 
   if (!result) {
@@ -28,26 +32,36 @@ export default async function NotePage({ params, searchParams }: PageProps<"/not
   }
 
   const folders = list?.data?.items ?? [];
-  const folder = folders.find((f) => f.id === note.folderId);
-  const back = `/notes/${note.id}`;
+  const remembered = jar.get("details")?.value;
 
   return (
     <>
-      <p>
-        {folder ? <Link href={`/folders/${folder.id}`}>← {folder.name}</Link> : <Link href="/">← All Notes</Link>}
-      </p>
-      {error === "move" && <p role="alert">Could not move the Note. Try again.</p>}
-      {error === "tag" && <p role="alert">Could not add the Tag. Try again.</p>}
-      {error === "untag" && <p role="alert">Could not remove the Tag. Try again.</p>}
       <RecordOpen id={note.id} />
-      <NoteEditor key={note.id} id={note.id} initial={note} />
-      <ItemFolder itemId={note.id} folderId={note.folderId} folders={folders} back={back} />
-      <ItemTags itemId={note.id} back={back} />
-      <ItemBacklinks itemId={note.id} />
-      <form action={deleteNote} className="delete-note">
-        <input type="hidden" name="id" value={note.id} />
-        <button type="submit">Move to Trash</button>
-      </form>
+      <NoteEditor
+        key={note.id}
+        id={note.id}
+        initial={note}
+        crumbs={[
+          { href: "/items", label: "All Items" },
+          ...(note.folderId ? pathTo(folders, note.folderId) : []).map((f) => ({ href: `/folders/${f.id}`, label: f.name })),
+        ]}
+        tags={
+          itemTags?.data ? (
+            <TagEditor itemId={note.id} tags={itemTags.data.items} allTags={allTags?.data?.items ?? []} />
+          ) : (
+            <p role="alert" className="text-sm">
+              Could not load the Tags.
+            </p>
+          )
+        }
+        details={
+          <>
+            <FolderPicker itemId={note.id} folderId={note.folderId} folders={folders} />
+            <ItemBacklinks itemId={note.id} />
+          </>
+        }
+        detailsCookie={remembered === "open" || remembered === "closed" ? remembered : null}
+      />
     </>
   );
 }

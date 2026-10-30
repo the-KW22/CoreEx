@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Import;
 /** Base for API tests: the real app on a random port, Testcontainers Postgres, test JWTs. */
 @Import({ TestcontainersConfiguration.class, TestSupportConfiguration.class })
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
-		"coreex.identity.owner-email=Owner@Example.com",
+		"coreex.identity.owner-email=Owner@Example.com", "coreex.identity.user-cache-ttl=0s",
 		"coreex.cors.allowed-origins=https://app.example.com",
 		"spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://unused.invalid/jwks",
 		"spring.security.oauth2.resourceserver.jwt.issuer-uri=http://unused.invalid" })
