@@ -15,16 +15,18 @@ import org.springframework.stereotype.Repository;
 @Repository
 class ItemRepository {
 
-	private static final String COLUMNS = "id, type, title, folder_id, updated_at, null as body_head";
+	private static final String COLUMNS = "id, type, title, folder_id, updated_at, null as body_head, null::bigint as size_bytes";
 
 	// Only the list shows previews; the first 600 characters are plenty for a 160-character snippet.
 	private static final String LIST_COLUMNS = "id, type, title, folder_id, updated_at, "
-			+ "(select left(body, 600) from note_contents c where c.item_id = items.id) as body_head";
+			+ "(select left(body, 600) from note_contents c where c.item_id = items.id) as body_head, "
+			+ "coalesce((select size_bytes from asset_files f where f.item_id = items.id), "
+			+ "(select octet_length(body) from note_contents c where c.item_id = items.id)) as size_bytes";
 
 	private static final RowMapper<Item> MAPPER = (rs, n) -> new Item(rs.getObject("id", UUID.class),
 			Item.Type.valueOf(rs.getString("type")), rs.getString("title"), rs.getObject("folder_id", UUID.class),
 			rs.getObject("updated_at", OffsetDateTime.class).toInstant(),
-			Snippet.of(rs.getString("title"), rs.getString("body_head")));
+			Snippet.of(rs.getString("title"), rs.getString("body_head")), rs.getObject("size_bytes", Long.class), List.of());
 
 	private final JdbcClient jdbc;
 

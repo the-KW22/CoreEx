@@ -831,6 +831,20 @@ export interface components {
             updatedAt: string;
             /** @description A Note's text as a short plain-text preview; set in the list only, null otherwise */
             snippet: string | null;
+            /**
+             * Format: int64
+             * @description An Asset's file size or a Note's text size in bytes; set in the list only, null otherwise
+             */
+            sizeBytes: number | null;
+            /** @description The Item's Tags by name; set in the list only, empty otherwise */
+            tags: components["schemas"]["TagRef"][];
+        };
+        TagRef: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string|null} */
+            colour?: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
         };
         CreateFolderRequest: {
             name: string;

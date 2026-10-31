@@ -37,7 +37,9 @@ public class ItemService {
 	 */
 	List<Item> list(UUID ownerId, UUID folderId, UUID tagId, Item.Type type, int page, int size) {
 		requireFilters(ownerId, folderId, tagId);
-		return items.findLivePage(ownerId, folderId, tagId, type, size, (long) page * size);
+		var found = items.findLivePage(ownerId, folderId, tagId, type, size, (long) page * size);
+		var tagsByItem = tags.forItems(ownerId, found.stream().map(Item::id).toList());
+		return found.stream().map(i -> i.withTags(tagsByItem.getOrDefault(i.id(), List.of()))).toList();
 	}
 
 	long total(UUID ownerId, UUID folderId, UUID tagId, Item.Type type) {

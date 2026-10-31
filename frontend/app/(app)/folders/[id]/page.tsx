@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
 import { childrenByParent, pathTo } from "@/lib/folders";
+import { parseType } from "@/lib/items";
 import { pageInfo } from "@/lib/pages";
 
 import { ItemsView, PAGE_SIZE } from "../../items/items-view";
@@ -9,13 +10,14 @@ import { FolderActions } from "../folder-actions";
 
 export default async function FolderPage({ params, searchParams }: PageProps<"/folders/[id]">) {
   const { id } = await params;
-  const { page: raw } = await searchParams;
+  const { page: raw, type: rawType } = await searchParams;
+  const type = parseType(rawType);
   const requested = pageInfo(0, raw, PAGE_SIZE).page;
   const api = await getApi();
   const [list, items, summary, tags] = await Promise.all([
     api.GET("/api/folders").catch(() => null),
     api
-      .GET("/api/items", { params: { query: { folderId: id, page: requested, size: PAGE_SIZE } } })
+      .GET("/api/items", { params: { query: { folderId: id, type, page: requested, size: PAGE_SIZE } } })
       .catch(() => null),
     api.GET("/api/folders/{id}/summary", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/tags").catch(() => null),
@@ -48,6 +50,7 @@ export default async function FolderPage({ params, searchParams }: PageProps<"/f
       items={items.data}
       page={pageInfo(items.data.total, raw, PAGE_SIZE)}
       path={`/folders/${id}`}
+      type={type}
       empty="No Items in this Folder yet."
       titleExtra={<FolderActions folder={folder} folders={folders} counts={summary.data} />}
     />

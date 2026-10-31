@@ -16,9 +16,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { TagBadge } from "@/components/tag-badge";
 import type { components } from "@/lib/api/schema";
 import type { Folder } from "@/lib/folders";
-import { itemHref } from "@/lib/items";
+import { formatBytes, itemHref } from "@/lib/items";
 
 import { FolderSelect } from "../folders/folder-select";
 import { openUpload } from "../assets/uploads";
@@ -146,6 +147,8 @@ export function ItemsTable({
           <tr className="border-b border-border">
             <th scope="col" className="py-2 pr-4 font-medium">Title</th>
             <th scope="col" className="py-2 pr-4 font-medium">Folder</th>
+            <th scope="col" className="py-2 pr-4 font-medium">Tags</th>
+            <th scope="col" className="py-2 pr-4 font-medium">Size</th>
             <th scope="col" className="py-2 pr-4 font-medium">Updated</th>
             <th scope="col" className="w-10 py-2">
               <span className="sr-only">Actions</span>
@@ -169,10 +172,24 @@ export function ItemsTable({
                     <td className="py-2 pr-4 text-muted-foreground max-md:col-start-1 max-md:p-0 max-md:pl-6 max-md:text-xs">
                       {item.folderId ? (folderNames.get(item.folderId) ?? "") : "Top level"}
                     </td>
+                    <td className="py-2 pr-4 max-md:col-start-1 max-md:p-0 max-md:pl-6 max-md:empty:hidden">
+                      {item.tags.length > 0 && (
+                        <ul aria-label="Tags" className="flex flex-wrap gap-1">
+                          {item.tags.map((tag) => (
+                            <li key={tag.id}>
+                              <TagBadge name={tag.name} colour={tag.colour} />
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </td>
+                    <td className="py-2 pr-4 font-mono text-xs text-muted-foreground max-md:col-start-1 max-md:p-0 max-md:pl-6">
+                      {item.sizeBytes == null ? "" : formatBytes(item.sizeBytes)}
+                    </td>
                     <td className="py-2 pr-4 text-muted-foreground max-md:col-start-1 max-md:p-0 max-md:pl-6 max-md:text-xs">
                       <time dateTime={item.updatedAt}>{item.updatedAt.slice(0, 10)}</time>
                     </td>
-                    <td className="py-1 text-right max-md:col-start-2 max-md:row-span-3 max-md:row-start-1 max-md:self-center max-md:p-0">
+                    <td className="py-1 text-right max-md:col-start-2 max-md:row-span-5 max-md:row-start-1 max-md:self-center max-md:p-0">
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           id={`actions-${item.id}`}

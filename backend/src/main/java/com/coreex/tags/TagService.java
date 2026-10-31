@@ -1,6 +1,7 @@
 package com.coreex.tags;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.dao.DuplicateKeyException;
@@ -33,6 +34,11 @@ public class TagService {
 
 	public List<Tag> forItem(UUID ownerId, UUID itemId) {
 		return tags.forItem(ownerId, itemId);
+	}
+
+	/** The Tags of each of these Items, in one query; an Item with none is left out of the map. */
+	public Map<UUID, List<Tag>> forItems(UUID ownerId, List<UUID> itemIds) {
+		return itemIds.isEmpty() ? Map.of() : tags.forItems(ownerId, itemIds);
 	}
 
 	/** Puts the Tag with this name (found ignoring case, or created) on the Item. Adding it twice changes nothing. */
