@@ -9,6 +9,8 @@ import type { Folder } from "@/lib/folders";
 import { ancestorIds, childrenByParent, viewingFolderId } from "@/lib/folders";
 import { cn } from "@/lib/utils";
 
+import { ItemCount } from "./item-count";
+
 const row = "flex min-h-8 items-center gap-2 rounded-lg px-2 text-sm pointer-coarse:min-h-11";
 
 // The panel's tree. A Folder with subfolders collapses; it opens along the path to the Folder being viewed.
@@ -29,6 +31,7 @@ export function FolderTree({ folders }: { folders: Folder[] }) {
     >
       <FolderIcon aria-hidden className="size-4 shrink-0" />
       <span className="truncate">{folder.name}</span>
+      <ItemCount count={folder.itemCount} />
     </Link>
   );
 

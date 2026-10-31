@@ -57,10 +57,12 @@ class FolderController {
 
 	record FolderResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID parentId,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+					description = "Live Items directly in this Folder, not in its subfolders") long itemCount) {
 
 		static FolderResponse of(Folder folder) {
-			return new FolderResponse(folder.id(), folder.parentId(), folder.name());
+			return new FolderResponse(folder.id(), folder.parentId(), folder.name(), folder.itemCount());
 		}
 
 	}

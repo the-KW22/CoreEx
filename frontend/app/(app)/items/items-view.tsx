@@ -10,6 +10,7 @@ import type { Folder } from "@/lib/folders";
 import { pageInfo } from "@/lib/pages";
 import { parseCollapsed, parseView } from "@/lib/prefs";
 
+import { ItemCount } from "../folders/item-count";
 import { createNote } from "../notes/actions";
 import { PickButton } from "./item-menus";
 import { ItemsBrowser } from "./items-browser";
@@ -110,6 +111,7 @@ export async function ItemsView({ crumbs, title, folderId, cards, folders, tags,
                 >
                   <FolderIcon aria-hidden className="size-6 shrink-0 fill-primary/20 text-link transition-transform group-hover:-rotate-6" />
                   <span className="truncate text-sm font-medium">{folder.name}</span>
+                  <ItemCount count={folder.itemCount} />
                 </Link>
               </li>
             ))}

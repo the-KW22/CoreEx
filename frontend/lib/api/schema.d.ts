@@ -695,6 +695,11 @@ export interface components {
             /** Format: uuid */
             parentId: string | null;
             name: string;
+            /**
+             * Format: int64
+             * @description Live Items directly in this Folder, not in its subfolders
+             */
+            itemCount: number;
         };
         UpdateAssetRequest: {
             title: string;

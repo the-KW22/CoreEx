@@ -131,6 +131,27 @@ class FolderApiTest extends ApiTest {
 	}
 
 	@Test
+	void theFolderListCountsLiveItemsDirectlyInEachFolder() throws Exception {
+		var a = folder(userA, "A", null);
+		var inner = folder(userA, "Inner", a);
+		var empty = folder(userA, "Empty", null);
+		note(userA, "One", a);
+		note(userA, "Two", a);
+		note(userA, "Deep", inner);
+		var gone = note(userA, "Gone", a);
+		assertThat(delete("/api/notes/" + gone, userA).statusCode()).isEqualTo(204);
+		var other = folder(userB, "B's", null);
+		note(userB, "Not mine", other);
+
+		var listed = get("/api/folders", userA).body();
+
+		assertThat(listed).contains("\"id\":\"" + a + "\",\"parentId\":null,\"name\":\"A\",\"itemCount\":2")
+				.contains("\"id\":\"" + inner + "\",\"parentId\":\"" + a + "\",\"name\":\"Inner\",\"itemCount\":1")
+				.contains("\"id\":\"" + empty + "\",\"parentId\":null,\"name\":\"Empty\",\"itemCount\":0");
+		assertThat(get("/api/folders", userB).body()).contains("\"name\":\"B's\",\"itemCount\":1");
+	}
+
+	@Test
 	void folderListingsShowOnlyLiveItems() throws Exception {
 		var a = folder(userA, "A", null);
 		var kept = note(userA, "Kept", a);
