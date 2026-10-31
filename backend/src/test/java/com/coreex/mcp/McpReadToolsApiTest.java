@@ -153,6 +153,11 @@ class McpReadToolsApiTest extends ApiTest {
 	}
 
 	@Test
+	void aCursorThatIsNotANumberIsRefusedWithAClearMessage() throws Exception {
+		assertThat(callFails("list_items", "{\"cursor\":\"abc\"}")).contains("cursor is not valid");
+	}
+
+	@Test
 	void listItemsNarrowsByFolderAndType() throws Exception {
 		var folderId = folder("Inbox");
 		var inInbox = note(jwt, "In the inbox", "x", folderId);
