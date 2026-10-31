@@ -175,6 +175,9 @@ export function Rail({
           <DropdownMenuContent side="right" align="end" className="min-w-56">
             <DropdownMenuLabel className="truncate font-normal text-muted-foreground">{email}</DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/settings/tokens">Access tokens</Link>
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => signOut()}>Log out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

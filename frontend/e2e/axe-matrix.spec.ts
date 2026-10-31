@@ -177,6 +177,7 @@ for (const colorScheme of ["dark", "light"] as const) {
         await screen(page, failures, "admin overview", "/admin/overview", heading("Where the storage goes", 2));
         await screen(page, failures, "admin users", "/admin/users", heading("Admin"));
         await screen(page, failures, "admin invites", "/admin", heading("Admin"));
+        await screen(page, failures, "access tokens", "/settings/tokens", heading("Access tokens"));
         await screen(page, failures, "invite-only", "/invite-only", heading("CoreEx is invite-only"));
         await screen(page, failures, "disabled", "/disabled", heading("Your account is disabled"));
         await screen(page, failures, "reset password", "/reset-password", heading("Choose a new password"));
