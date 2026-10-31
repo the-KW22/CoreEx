@@ -13,8 +13,13 @@ describe("activeModule", () => {
     expect(activeModule("/admin/users")).toBe("admin");
   });
 
+  it("marks Assets on the Assets page and each Asset", () => {
+    expect(activeModule("/assets")).toBe("assets");
+    expect(activeModule("/assets/1")).toBe("assets");
+  });
+
   it("marks the Knowledge Base on every Item, Folder, Tag and Search page", () => {
-    for (const path of ["/items", "/folders/1", "/tags", "/tags/1", "/notes/1", "/assets/1", "/search"]) {
+    for (const path of ["/items", "/folders/1", "/tags", "/tags/1", "/notes/1", "/search"]) {
       expect(activeModule(path)).toBe("kb");
     }
   });

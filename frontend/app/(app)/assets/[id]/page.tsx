@@ -53,7 +53,7 @@ export default async function AssetPage({ params, searchParams }: PageProps<"/as
       <RecordOpen id={asset.id} />
       <ItemFrame
         crumbs={[
-          { href: "/items", label: "All Items" },
+          { href: "/assets", label: "Assets" },
           ...(asset.folderId ? pathTo(folders, asset.folderId) : []).map((f) => ({ href: `/folders/${f.id}`, label: f.name })),
         ]}
         current={asset.title}

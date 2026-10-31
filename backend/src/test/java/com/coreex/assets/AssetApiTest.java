@@ -343,6 +343,21 @@ class AssetApiTest extends ApiTest {
 	}
 
 	@Test
+	void theItemListCanBeNarrowedToAssetsOrNotesAndStaysPrivate() throws Exception {
+		asset(userA, "contract.pdf", "application/pdf", 500);
+		post("/api/notes", userA, "{\"title\":\"Plan\",\"body\":\"\"}");
+		asset(userB, "secret.pdf", "application/pdf", 500);
+
+		var assets = get("/api/items?type=ASSET", userA).body();
+		assertThat(assets).contains("contract.pdf").doesNotContain("Plan").doesNotContain("secret.pdf")
+				.contains("\"total\":1");
+		var notes = get("/api/items?type=NOTE", userA).body();
+		assertThat(notes).contains("Plan").doesNotContain("contract.pdf").contains("\"total\":1");
+		assertThat(get("/api/items", userA).body()).contains("\"total\":2");
+		assertThat(get("/api/items?type=OTHER", userA).statusCode()).isEqualTo(400);
+	}
+
+	@Test
 	void deletingAnAssetHidesItButKeepsItsFile() throws Exception {
 		var id = asset(userA, "gone.png", "image/png", 100);
 		var key = assetKey(id);

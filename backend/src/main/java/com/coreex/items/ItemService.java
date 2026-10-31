@@ -32,16 +32,16 @@ public class ItemService {
 	}
 
 	/**
-	 * All live Items, or only those in one Folder and/or with one Tag (a 404 if that Folder or Tag is missing, deleted
+	 * All live Items, or only those in one Folder, with one Tag and/or of one type (a 404 if that Folder or Tag is missing, deleted
 	 * or not theirs).
 	 */
-	List<Item> list(UUID ownerId, UUID folderId, UUID tagId, int page, int size) {
+	List<Item> list(UUID ownerId, UUID folderId, UUID tagId, Item.Type type, int page, int size) {
 		requireFilters(ownerId, folderId, tagId);
-		return items.findLivePage(ownerId, folderId, tagId, size, (long) page * size);
+		return items.findLivePage(ownerId, folderId, tagId, type, size, (long) page * size);
 	}
 
-	long total(UUID ownerId, UUID folderId, UUID tagId) {
-		return items.countLive(ownerId, folderId, tagId);
+	long total(UUID ownerId, UUID folderId, UUID tagId, Item.Type type) {
+		return items.countLive(ownerId, folderId, tagId, type);
 	}
 
 	/** Live Items whose title contains the text, titles starting with it first. */

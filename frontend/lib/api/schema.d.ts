@@ -2469,6 +2469,7 @@ export interface operations {
             query?: {
                 folderId?: string;
                 tagId?: string;
+                type?: "NOTE" | "ASSET";
                 page?: number;
                 size?: number;
             };

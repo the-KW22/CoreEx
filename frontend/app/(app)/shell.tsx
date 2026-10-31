@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
@@ -19,10 +20,11 @@ function Problem({ title, children }: { title: string; children: React.ReactNode
 export async function Shell({ children }: { children: React.ReactNode }) {
   const api = await getApi();
   // Together, not one after the other: each call is a round trip to the API.
-  const [result, folders, tags] = await Promise.all([
+  const [result, folders, tags, jar] = await Promise.all([
     api.GET("/api/me").catch(() => null),
     api.GET("/api/folders").catch(() => null),
     api.GET("/api/tags").catch(() => null),
+    cookies(),
   ]);
 
   if (!result) {
@@ -41,6 +43,7 @@ export async function Shell({ children }: { children: React.ReactNode }) {
     <AppFrame
       email={me.email}
       isAdmin={me.role === "ADMIN"}
+      railCollapsed={jar.get("rail")?.value === "collapsed"}
       folders={folders?.data?.items ?? null}
       tags={tags?.data?.items ?? null}
     >

@@ -34,11 +34,13 @@ type Props = {
   alert?: string;
   /** Anything the page adds under the list, such as managing the Folder. */
   children?: React.ReactNode;
+  /** The Assets page: Upload is its only action (a Note or an Import is not an Asset). */
+  assetsOnly?: boolean;
 };
 
 // The layout All Items, a Folder and a Tag share (docs/DESIGN.md section 6.2).
-export function ItemsView({ crumbs, title, folderId, cards, folders, tags, items, page, path, empty, alert, titleExtra, children }: Props) {
-  const newNote = (
+export function ItemsView({ crumbs, title, folderId, cards, folders, tags, items, page, path, empty, alert, titleExtra, children, assetsOnly }: Props) {
+  const newNote = assetsOnly ? null : (
     <form action={createNote}>
       {folderId && <input type="hidden" name="folderId" value={folderId} />}
       <Button type="submit">
@@ -78,7 +80,7 @@ export function ItemsView({ crumbs, title, folderId, cards, folders, tags, items
           <div className="flex flex-wrap gap-2">
             {newNote}
             <PickButton kind="upload" />
-            <PickButton kind="import" />
+            {!assetsOnly && <PickButton kind="import" />}
           </div>
         </div>
         {alert && (
