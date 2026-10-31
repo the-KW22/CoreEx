@@ -178,6 +178,9 @@ export function Rail({
             <DropdownMenuItem asChild>
               <Link href="/settings/tokens">Access tokens</Link>
             </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/help/mcp">Connect an Agent</Link>
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => signOut()}>Log out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -1,5 +1,7 @@
 # Connecting an Agent to CoreEx (MCP)
 
+Signed-in Users find the same guide inside CoreEx: **Connect an Agent** in the Account menu (`/help/mcp`). It shows this installation's own address in the commands.
+
 CoreEx has an MCP server (Model Context Protocol) at `/mcp`. It lets an **Agent** (an AI tool such as Claude Code, Codex or Claude Desktop) read, write and organise your knowledge base as you. It signs in with an **Access token** that you create in CoreEx. The design is in [ADR 0007](adr/0007-mcp-runs-in-process-with-access-tokens.md).
 
 ## What an Agent can do

@@ -328,6 +328,7 @@ Branch protection requires these checks to pass before merging. Production deplo
 | Hard-to-reverse decisions | `docs/adr/NNNN-*.md` | Before or with the PR that implements it |
 | UI design (tokens, layout, screens) | `docs/DESIGN.md` | With the PR that changes a screen's design |
 | How to run, test, deploy | `README.md`, `docs/` | When setup steps change |
+| The MCP tools | `frontend/lib/mcp-tools.ts` (the in-app guide) and `docs/MCP.md` | When a tool is added, renamed or removed: `McpDocsTest` fails until both match the server |
 | Plans and progress | GitHub issues (plan comment, checkboxes), PRs | Every ticket |
 | What you learned, session history | `wiki-vault/` (local only, gitignored) | End of every work session |
 
