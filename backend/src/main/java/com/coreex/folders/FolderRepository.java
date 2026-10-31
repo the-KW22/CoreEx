@@ -15,7 +15,12 @@ import org.springframework.stereotype.Repository;
 class FolderRepository {
 
 	private static final RowMapper<Folder> MAPPER = (rs, n) -> new Folder(rs.getObject("id", UUID.class),
-			rs.getObject("parent_id", UUID.class), rs.getString("name"));
+			rs.getObject("parent_id", UUID.class), rs.getString("name"), rs.getLong("item_count"));
+
+	/** The live Items directly in the Folder; served by the items_folder index. */
+	private static final String COLUMNS = """
+			id, parent_id, name, (select count(*) from items i where i.folder_id = folders.id
+			  and i.owner_id = folders.owner_id and i.deleted_at is null) as item_count""";
 
 	private final JdbcClient jdbc;
 
@@ -26,24 +31,24 @@ class FolderRepository {
 	Folder insert(UUID ownerId, UUID parentId, String name) {
 		return jdbc.sql("""
 				insert into folders (owner_id, parent_id, name) values (:owner, :parent, :name)
-				returning id, parent_id, name""").param("owner", ownerId).param("parent", parentId)
+				returning %s""".formatted(COLUMNS)).param("owner", ownerId).param("parent", parentId)
 				.param("name", name).query(MAPPER).single();
 	}
 
 	Optional<Folder> findLive(UUID ownerId, UUID id) {
-		return jdbc.sql("select id, parent_id, name from folders where id = :id and owner_id = :owner and deleted_at is null")
+		return jdbc.sql("select " + COLUMNS + " from folders where id = :id and owner_id = :owner and deleted_at is null")
 				.param("id", id).param("owner", ownerId).query(MAPPER).optional();
 	}
 
 	/** Like {@link #findLive} but takes a share lock, so a Folder deletion in progress finishes first. */
 	Optional<Folder> findLiveForShare(UUID ownerId, UUID id) {
-		return jdbc.sql("select id, parent_id, name from folders where id = :id and owner_id = :owner and deleted_at is null for share")
+		return jdbc.sql("select " + COLUMNS + " from folders where id = :id and owner_id = :owner and deleted_at is null for share")
 				.param("id", id).param("owner", ownerId).query(MAPPER).optional();
 	}
 
 	List<Folder> listLive(UUID ownerId) {
-		return jdbc.sql("""
-				select id, parent_id, name from folders where owner_id = :owner and deleted_at is null
+		return jdbc.sql("select " + COLUMNS + """
+				 from folders where owner_id = :owner and deleted_at is null
 				order by lower(name), id""").param("owner", ownerId).query(MAPPER).list();
 	}
 
