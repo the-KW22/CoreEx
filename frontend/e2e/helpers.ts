@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // A local-only test account. The API makes OWNER_EMAIL an Admin with no Invite, so use the same email there.
 export const email = process.env.E2E_EMAIL ?? "owner@example.com";
@@ -14,6 +14,8 @@ export async function submit(page: Page, button: "Sign in" | "Create account") {
 
 // Signs in, creating the account the first time on a fresh local database.
 export async function signIn(page: Page) {
+  // The Items pages open as a grid; most tests read them as a table, so they start in the list view.
+  await page.context().addCookies([{ name: "view", value: "list", url: test.info().project.use.baseURL! }]);
   await page.goto("/login");
   await submit(page, "Sign in");
   // Only the form's error: Next.js's route announcer is also an "alert", outside <main>.

@@ -10,7 +10,7 @@ import { pathTo, type Folder } from "@/lib/folders";
 import { formatBytes, itemHref } from "@/lib/items";
 import { relativeTime } from "@/lib/time";
 
-import { PickButton } from "./items/items-table";
+import { PickButton } from "./items/item-menus";
 import { createNote } from "./notes/actions";
 
 const failures: Record<string, string> = {

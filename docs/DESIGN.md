@@ -145,9 +145,12 @@ The same tokens are used by CSS, Motion and View Transitions. They are defined o
 
 ### 6.2 All Items, Folder and Tag pages
 
-- Header: breadcrumb, title, actions (New Note, Upload, Import).
+- Header: breadcrumb, title, a **Grid | List** toggle, and actions (New Note, Upload, Import). The choice is remembered (the `view` cookie); like Google Drive, the Items open as a grid until the list is chosen.
+- The **Folders** and **Items** sections fold away from their headings, and each remembers its state (the `collapsed` cookie).
 - **Folder cards** (drawn folder illustration): top-level Folders on All Items, sub-Folders on a Folder page, none on a Tag page. No Item counts yet.
-- **Items table:** Title (with Note or Asset icon), Folder, Updated; paginated by the API. Right-click (Context Menu) and a row "⋯" menu: Open, Move to Folder, Add Tag, Move to Trash.
+- **Items, Grid:** a card per Item (icon, title, Folder and date). The title's link covers the card.
+- **Items, List:** a table with Title (with Note or Asset icon), Folder, Updated; cards on a phone.
+- Both are paginated by the API and share one menu: right-click (Context Menu) and a "⋯" button give Open, Open in new tab, Move to Folder, Add Tag, Move to Trash (with Undo). The Assets page uses the same layout.
 - No type filter (the API cannot filter by type; a client-side filter on one page would show wrong totals).
 
 ### 6.3 Note (`/notes/[id]`)
