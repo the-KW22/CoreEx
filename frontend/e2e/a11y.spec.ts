@@ -191,6 +191,7 @@ test("the phone menu closes on Escape, gives focus back and keeps Tab inside", a
 test("on a tablet the Knowledge Base panel opens from the rail", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await signIn(page);
+  await page.goto("/items");
   await expect(page.getByRole("heading", { name: "Knowledge Base", exact: true })).toBeHidden();
   await page.getByRole("button", { name: "Show the Knowledge Base panel" }).click();
   await expect(page.getByRole("dialog", { name: "Knowledge Base" }).getByRole("radio", { name: "Folders" })).toBeVisible();
@@ -312,7 +313,8 @@ test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
   const tagName = `probe-${stamp}`;
   await newNote(page, title);
 
-  // A Folder to move into, from the panel.
+  // A Folder to move into, from the panel (a Note opens it on its Notes tab).
+  await page.getByRole("radio", { name: "Folders" }).click();
   await page.getByRole("button", { name: "New Folder" }).click();
   await page.getByLabel("Folder name").fill(folderName);
   await page.getByRole("button", { name: "Create Folder" }).click();
@@ -625,6 +627,7 @@ test("a Folder is renamed, given a subfolder, moved, and sent to the Trash from 
   const name = `fa${stamp}`;
   const renamed = `fb${stamp}`;
   const child = `fc${stamp}`;
+  await page.goto("/items");
   await page.getByRole("button", { name: "New Folder" }).click();
   await page.getByLabel("Folder name").fill(name);
   await page.getByRole("button", { name: "Create Folder" }).click();
@@ -680,6 +683,7 @@ test("the Note screen tags, moves, and remembers hidden Details", async ({ page 
   const stamp = Date.now();
   const tagName = `note-probe-${stamp}`;
   const folderName = `Note folder ${stamp}`;
+  await page.goto("/items");
   await page.getByRole("button", { name: "New Folder" }).click();
   await page.getByLabel("Folder name").fill(folderName);
   await page.getByRole("button", { name: "Create Folder" }).click();
@@ -877,4 +881,66 @@ test("the Assets page lists Assets only, with no Knowledge Base panel", async ({
   await page.getByRole("link", { name }).click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
+});
+
+test("the Knowledge Base panel shows on Knowledge Base pages only", async ({ page }) => {
+  await signIn(page);
+  const panel = page.getByRole("complementary", { name: "Knowledge Base" });
+  for (const path of ["/", "/trash", "/assets"]) {
+    await page.goto(path);
+    await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
+    await expect(panel).toHaveCount(0);
+  }
+  await page.goto("/items");
+  await expect(panel).toBeVisible();
+});
+
+test("the panel has Notes, Folders and Tags tabs, a plus that follows them, and a filter", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  const stamp = Date.now();
+  const title = `panelnote${stamp}`;
+  const tagName = `paneltag${stamp}`;
+  await page.goto("/items");
+  const panel = page.getByRole("complementary", { name: "Knowledge Base" });
+  for (const tab of ["Notes", "Folders", "Tags"]) await expect(panel.getByRole("radio", { name: tab })).toBeVisible();
+
+  // The plus button is New Folder on Folders, New Tag on Tags and New Note on Notes.
+  await expect(panel.getByRole("button", { name: "New Folder" })).toBeVisible();
+  await panel.getByRole("radio", { name: "Tags" }).click();
+  await expect(panel.getByRole("button", { name: "New Folder" })).toHaveCount(0);
+  await panel.getByRole("button", { name: "New Tag" }).click();
+  await page.getByLabel("Tag name").fill(tagName);
+  await page.getByRole("button", { name: "Create Tag" }).click();
+  await expect(panel.getByRole("link", { name: tagName })).toBeVisible();
+  // The same name again is refused and the form stays open.
+  await panel.getByRole("button", { name: "New Tag" }).click();
+  await page.getByLabel("Tag name").fill(tagName.toUpperCase());
+  await page.getByRole("button", { name: "Create Tag" }).click();
+  await expect(page.getByText("You already have a Tag with this name.")).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // The filter narrows the list in place; Ctrl+K stays the palette's.
+  await panel.getByRole("searchbox", { name: "Filter tags" }).fill(`nothing${stamp}`);
+  await expect(panel.getByText("No Tags match.")).toBeVisible();
+  await panel.getByRole("searchbox", { name: "Filter tags" }).fill(tagName.toUpperCase());
+  await expect(panel.getByRole("link", { name: tagName })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Command palette" })).toHaveCount(0);
+
+  await panel.getByRole("radio", { name: "Notes" }).click();
+  await expect(panel.getByRole("button", { name: "New Note" })).toBeVisible();
+  await newNote(page, title);
+  const notes = page.getByRole("complementary", { name: "Knowledge Base" });
+  await notes.getByRole("searchbox", { name: "Filter notes" }).fill(title);
+  await expect(notes.getByRole("link", { name: title })).toBeVisible();
+  // The search is fuzzy (trigrams), so a string that shares digits with the title would still find it.
+  await notes.getByRole("searchbox", { name: "Filter notes" }).fill("qqzzxxjj");
+  await expect(notes.getByText("No Notes match.")).toBeVisible();
+  await expectNoViolations(page);
+
+  // Tidy up.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+  await page.goto("/tags");
+  await deleteTag(page, tagName);
 });

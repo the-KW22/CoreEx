@@ -30,8 +30,8 @@ type Props = {
 // ≥ 1280px rail + panel; 768–1279px rail, panel in a Sheet; < 768px top bar, rail + panel in a Sheet.
 export function AppFrame({ email, isAdmin, railCollapsed, folders, tags, children }: Props) {
   const pathname = usePathname();
-  // Assets are sources, not knowledge: their pages get the whole width.
-  const showPanel = activeModule(pathname) !== "assets";
+  // The panel belongs to the Knowledge Base; every other module's pages get the whole width.
+  const showPanel = activeModule(pathname) === "kb";
   // Which Sheet is open, and on which page: following a link inside it closes it.
   const [sheet, setSheet] = useState<{ kind: "menu" | "panel"; at: string } | null>(null);
   const open = sheet?.at === pathname;

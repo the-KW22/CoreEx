@@ -37,7 +37,12 @@ The agreed design for the frontend redesign. It records **what** the UI looks li
 
 ### 3.2 Knowledge Base panel (beside the rail)
 
-Header "Knowledge Base" with a New Folder button, a search field that opens the command palette, a **Folders | Tags** toggle, the Folder tree (collapsible, no Item counts yet), and the "In <Folder>" list of Items when one Folder is selected.
+The panel belongs to the Knowledge Base module: it shows only on Knowledge Base routes (All Items, Folders, Tags, Notes, Search). Home, Assets, Trash and Admin use the full width, and a future module brings its own panel or none.
+
+- Header "Knowledge Base" with a "+" button that follows the active tab: **New Note** on Notes, **New Folder** on Folders, **New Tag** on Tags (the last two ask for a name in a small popover; a duplicate Tag name is refused with a message).
+- A **filter field** that narrows the active tab's list in place. Folders and Tags filter in the browser (Folders then show as a flat list, since a match can sit deep in the tree). Notes ask `/panel-notes`, which searches every Note by title. It does not open the command palette.
+- A **Notes | Folders | Tags** toggle. The first tab follows the route: Tags on `/tags`, Notes on a Note, otherwise Folders.
+- Notes: the 50 most recently updated Notes (the current one marked). Folders: the Folder tree (collapsible, no Item counts yet) and the "In <Folder>" list of Items when one Folder is selected. Tags: the Tag pills and "Manage Tags".
 
 ### 3.3 Routes
 
@@ -167,7 +172,7 @@ The same tokens are used by CSS, Motion and View Transitions. They are defined o
 
 ### 6.6 Command palette (Ctrl+K)
 
-- One entry point for search. The panel search field and the phone search icon open it.
+- The global search. Ctrl+K and the phone search icon open it; the panel's filter field is separate and only narrows its own list.
 - Empty query: recently opened Items, then actions (New Note, Upload, Import, Go to Trash, Toggle theme).
 - Typing: instant title matches (`/api/search/quick`) with Folder paths.
 - Last row: **Search all text for "…"**, which opens the `/search` results page.

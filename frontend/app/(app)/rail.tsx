@@ -117,8 +117,8 @@ export function Rail({
       {MODULES.map((m) => (
         <RailLink key={m.id} {...m} current={active === m.id} collapsed={collapsed} />
       ))}
-      {/* Assets have no panel of their own to open. */}
-      {onShowPanel && active !== "assets" && (
+      {/* Only the Knowledge Base has a panel to open. */}
+      {onShowPanel && active === "kb" && (
         <Hint label="Show the Knowledge Base panel" show={collapsed}>
           <button
             type="button"
