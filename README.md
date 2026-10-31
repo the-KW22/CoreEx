@@ -91,7 +91,11 @@ Press **Ctrl+K** (**Cmd+K** on a Mac) on any page to open the quick switcher: ty
 
 ### Access tokens
 
-**Access tokens** in the Account menu (bottom of the sidebar) creates the secret an Agent such as Claude Code or Codex uses to work with your knowledge base. Give it a name and an expiry (90 days unless you choose otherwise, or never), then copy it from the dialog: it is shown once, and only a hash of it is stored. **Revoke** stops it at once. Up to 10 tokens can be live at a time, and each is limited to 60 calls a minute (`coreex.tokens.*`). An Access token works only on the MCP server at `/mcp`, never on the rest of the API, and stops working if your account is disabled. The MCP server itself comes in the next tickets of #112.
+**Access tokens** in the Account menu (bottom of the sidebar) creates the secret an Agent such as Claude Code or Codex uses to work with your knowledge base. Give it a name and an expiry (90 days unless you choose otherwise, or never), then copy it from the dialog: it is shown once, and only a hash of it is stored. **Revoke** stops it at once. Up to 10 tokens can be live at a time, and each is limited to 60 calls a minute (`coreex.tokens.*`). An Access token works only on the MCP server at `/mcp`, never on the rest of the API, and stops working if your account is disabled.
+
+### MCP server (read tools)
+
+The API also speaks MCP (Model Context Protocol) at `/mcp`, so an Agent can read your knowledge base. Send your Access token as `Authorization: Bearer cx_pat_...`; it is stateless Streamable HTTP, so every request stands alone. The read tools are `search`, `list_items`, `get_item` (a Note's Markdown and version, or an Asset's facts, never its file), `list_folders`, `list_tags` and `list_trash`. Lists give 50 per page and a `nextCursor` to pass back as `cursor`. Everything is scoped to the token's User, and the Trash is hidden except from `list_trash`. Tools to change things, and a guide to connecting Claude Code and Codex, come in the next tickets of #112.
 
 ## Deploying
 
