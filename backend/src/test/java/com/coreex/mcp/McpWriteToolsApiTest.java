@@ -90,6 +90,17 @@ class McpWriteToolsApiTest extends McpApiTest {
 	}
 
 	@Test
+	void editNoteKeepsTheTitleUnlessItChangesTheFirstLine() throws Exception {
+		var id = note(jwt, "Meeting", "# Weekly sync\\nteh typo", null);
+
+		call("edit_note", "{\"id\":\"" + id + "\",\"version\":1,\"edits\":[{\"oldText\":\"teh\",\"newText\":\"the\"}]}");
+		assertThat(restNote(id).path("title").asString()).isEqualTo("Meeting");
+
+		call("edit_note", "{\"id\":\"" + id + "\",\"version\":2,\"edits\":[{\"oldText\":\"Weekly sync\",\"newText\":\"Daily sync\"}]}");
+		assertThat(restNote(id).path("title").asString()).isEqualTo("Daily sync");
+	}
+
+	@Test
 	void editNoteThatMatchesNothingOrTwiceSavesNothing() throws Exception {
 		var id = note(jwt, "Doc", "one two two", null);
 
@@ -121,6 +132,13 @@ class McpWriteToolsApiTest extends McpApiTest {
 
 		assertThat(callFails("create_note", "{\"title\":" + q(longTitle) + ",\"markdown\":\"x\"}")).contains("title");
 		assertThat(callFails("create_note", "{\"title\":\"ok\",\"markdown\":" + q(longBody) + "}")).contains("markdown");
+	}
+
+	@Test
+	void namesAreCheckedLikeTheRestApi() throws Exception {
+		assertThat(callFails("create_folder", "{\"name\":\"   \"}")).contains("must not be empty");
+		assertThat(callFails("create_tag", "{\"name\":" + q("t".repeat(51)) + "}")).contains("too long");
+		assertThat(callFails("create_note", "{\"title\":\"a\\u0000b\",\"markdown\":\"x\"}")).contains("NUL");
 	}
 
 	@Test

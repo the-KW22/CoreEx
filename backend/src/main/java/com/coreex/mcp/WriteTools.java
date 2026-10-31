@@ -133,7 +133,10 @@ class WriteTools {
 			text = text.substring(0, at) + newText + text.substring(at + oldText.length());
 		}
 		text = Input.markdown(text);
-		return save(agent, current, Input.title(null, text, current.title()), text, version);
+		// As in the editor, the title follows the heading only when the edit touched the first line.
+		var firstLineChanged = !text.lines().findFirst().equals(current.body().lines().findFirst());
+		return save(agent, current, firstLineChanged ? Input.title(null, text, current.title()) : current.title(), text,
+				version);
 	}
 
 	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "create_folder", description = "Create a Folder, at the top level or inside another Folder.")
