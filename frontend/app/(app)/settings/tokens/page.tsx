@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { getApi } from "@/lib/api/server";
 
 import { CreateToken } from "./create-token";
@@ -22,7 +24,10 @@ export default async function TokensPage() {
         <div className="grid gap-1">
           <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Access tokens</h1>
           <p className="text-sm text-muted-foreground">
-            An Access token lets an Agent such as Claude Code or Codex work with your knowledge base as you.
+            An Access token lets an Agent such as Claude Code or Codex work with your knowledge base as you.{" "}
+            <Link href="/help/mcp" className="text-link underline underline-offset-4">
+              How to connect an Agent
+            </Link>
           </p>
         </div>
         <CreateToken />
