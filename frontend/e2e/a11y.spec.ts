@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import {
   PIXEL,
+  chooseFolder,
   deleteTag,
   email,
   expectNoViolations,
@@ -327,7 +328,7 @@ test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
   await menu.click();
   await page.getByRole("menuitem", { name: "Move to Folder…" }).click();
   const move = page.getByRole("dialog", { name: "Move to Folder" });
-  await move.getByLabel("Folder").selectOption({ label: folderName });
+  await chooseFolder(page, move, "Folder", folderName);
   await move.getByRole("button", { name: "Move" }).click();
   await expect(row.getByRole("cell", { name: folderName })).toBeVisible();
   await expect(menu).toBeFocused();
@@ -648,9 +649,13 @@ test("a Folder is renamed, given a subfolder, moved, and sent to the Trash from 
   // A Folder cannot go into its own subfolder, so the Move dialog does not offer it.
   await page.getByRole("button", { name: `Move ${renamed}`, exact: true }).click();
   const move = page.getByRole("dialog", { name: "Move Folder" });
-  await expect(move.getByLabel("Move into")).toBeVisible();
-  await expect(move.getByLabel("Move into").locator("option", { hasText: child })).toHaveCount(0);
+  await move.getByRole("combobox", { name: "Move into" }).click();
+  await expect(page.getByRole("option", { name: "Top level" })).toBeVisible();
+  await expect(page.getByRole("option", { name: child })).toHaveCount(0);
   await page.keyboard.press("Escape");
+  await expect(page.getByRole("listbox")).toBeHidden();
+  await page.keyboard.press("Escape");
+  await expect(move).toBeHidden();
 
   await trashFolder(page, renamed);
   await expect(page).toHaveURL(/\/items$/);
@@ -700,7 +705,7 @@ test("the Note screen tags, moves, and remembers hidden Details", async ({ page 
 
   // The Details Folder select moves the Note; the breadcrumb follows.
   const details = page.getByRole("complementary", { name: "Details" });
-  await details.getByLabel("Folder").selectOption({ label: folderName });
+  await chooseFolder(page, details, "Folder", folderName);
   await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: folderName })).toBeVisible();
   await expect(details.getByText("Words")).toBeVisible();
 
@@ -818,6 +823,24 @@ test("an uploaded image opens on the Asset screen, edits in place and downloads"
   await expect(page.getByRole("link", { name: "Download" })).toHaveAttribute("download", "");
   const details = page.getByRole("complementary", { name: "Details" });
   await expect(details.getByText("PNG image")).toBeVisible();
+
+  // Labels sit apart from their fields, and the pencils mark what can be edited.
+  const labelBox = await details.getByText("Title", { exact: true }).boundingBox();
+  const fieldBox = await details.getByLabel("Title").boundingBox();
+  expect(fieldBox!.y - (labelBox!.y + labelBox!.height)).toBeGreaterThanOrEqual(4);
+  await expect(details.locator("svg.lucide-pencil")).toHaveCount(2);
+  // Dividers separate the details, the organization (Folder, Tags, Backlinks) and the Info block: each section but the
+  // last has a line under it.
+  const dividers = await details.evaluate((aside) =>
+    [...aside.firstElementChild!.children].slice(0, -1).map((el) => getComputedStyle(el).borderBottomWidth),
+  );
+  expect(dividers).toEqual(["1px", "1px"]);
+  // The Folder choice is the site's own listbox, not the browser's.
+  await details.getByRole("combobox", { name: "Folder" }).click();
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await expect(page.getByRole("option", { name: "Top level" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
   for (const colorScheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme });
     await expectNoViolations(page);

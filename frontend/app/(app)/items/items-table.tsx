@@ -210,9 +210,7 @@ export function ItemsTable({
                 <DialogDescription>{title(dialog.item)}</DialogDescription>
               </DialogHeader>
               {dialog.kind === "move" ? (
-                <div className="[&_label]:grid [&_label]:gap-1.5 [&_label]:text-sm [&_label]:font-medium [&_select]:h-9 [&_select]:rounded-lg [&_select]:border [&_select]:border-border [&_select]:bg-surface [&_select]:px-2">
-                  <FolderSelect name="folderId" label="Folder" folders={folders} selected={dialog.item.folderId} />
-                </div>
+                <FolderSelect name="folderId" label="Folder" folders={folders} selected={dialog.item.folderId} />
               ) : (
                 <label className="grid gap-1.5 text-sm font-medium">
                   Tag name

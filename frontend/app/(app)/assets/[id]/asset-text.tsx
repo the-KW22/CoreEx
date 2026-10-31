@@ -1,12 +1,15 @@
 "use client";
 
+import { PencilIcon } from "lucide-react";
 import { useRef } from "react";
 import { toast } from "sonner";
 
 import { saveAssetText } from "../actions";
 
+// A faint border at rest says "this is a field", and the pencil beside the label says it can be changed.
 const field =
-  "w-full rounded-lg border border-transparent bg-transparent px-2 py-1 text-foreground hover:border-border focus-visible:border-border focus-visible:bg-surface";
+  "w-full rounded-lg border border-border-subtle bg-transparent px-2.5 py-1.5 text-foreground hover:border-border focus-visible:border-link focus-visible:bg-surface";
+const label = "flex items-center gap-1.5 text-xs text-muted-foreground";
 
 // An Asset's title and description, edited where they are shown. Leaving a field (or Enter in the title) saves;
 // a failed save puts the last saved text back.
@@ -34,9 +37,12 @@ export function AssetText({ id, title, description }: { id: string; title: strin
   }
 
   return (
-    <div className="-mx-2 grid gap-1">
-      <label className="grid gap-0.5 px-2 text-xs text-muted-foreground">
-        Title
+    <div className="grid gap-4">
+      <label className="grid gap-1.5">
+        <span className={label}>
+          Title
+          <PencilIcon aria-hidden className="size-3" />
+        </span>
         <input
           ref={titleField}
           defaultValue={title}
@@ -44,11 +50,14 @@ export function AssetText({ id, title, description }: { id: string; title: strin
           maxLength={200}
           onBlur={() => void save()}
           onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
-          className={`${field} -mx-2 text-base font-semibold`}
+          className={`${field} text-base font-semibold`}
         />
       </label>
-      <label className="grid gap-0.5 px-2 text-xs text-muted-foreground">
-        Description
+      <label className="grid gap-1.5">
+        <span className={label}>
+          Description
+          <PencilIcon aria-hidden className="size-3" />
+        </span>
         <textarea
           ref={descriptionField}
           defaultValue={description}
@@ -56,7 +65,7 @@ export function AssetText({ id, title, description }: { id: string; title: strin
           rows={3}
           placeholder="Add a description"
           onBlur={() => void save()}
-          className={`${field} -mx-2 resize-y text-sm placeholder:text-muted-foreground`}
+          className={`${field} resize-y text-sm placeholder:text-muted-foreground`}
         />
       </label>
     </div>

@@ -55,7 +55,12 @@ export function ItemFrame({ crumbs, current, status, extra, trash, detailsCookie
     document.cookie = `details=${next}; path=/; max-age=31536000; samesite=lax`;
   }
 
-  const body = <div className="grid content-start gap-6">{details}</div>;
+  // Each child of `details` is a section; a divider sits between them.
+  const body = (
+    <div className="grid content-start divide-y divide-border-subtle [&>*]:py-5 [&>:first-child]:pt-0 [&>:last-child]:pb-0">
+      {details}
+    </div>
+  );
 
   return (
     <div className="-mx-4 -mt-2 flex min-h-[calc(100dvh-4.5rem)] md:-m-8 md:min-h-dvh">
