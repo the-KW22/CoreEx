@@ -53,7 +53,7 @@ export const TOOLS: Tool[][] = [
     { id: "codeBlock", label: "Code block", icon: SquareCodeIcon, command: toggleCodeBlock },
   ],
   [
-    { id: "link", label: "Link", shortcut: "Ctrl+K", icon: LinkIcon, command: insertLink },
+    { id: "link", label: "Link", icon: LinkIcon, command: insertLink },
     { id: "wikilink", label: "Link to a Note or Asset", icon: BracketsIcon, command: insertWikilink },
     { id: "table", label: "Table", icon: TableIcon, command: insertTable },
     { id: "divider", label: "Divider", icon: MinusIcon, command: insertDivider },

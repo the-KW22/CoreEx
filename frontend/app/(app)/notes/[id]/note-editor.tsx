@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ItemFrame } from "../../items/item-frame";
 import { deleteNote, linkPreview, loadNote, resolveLinks, saveNote, suggestLinks } from "../actions";
 import { smallestEdit } from "./edit";
-import { activeFormats, insertLink, toggleInline } from "./format";
+import { activeFormats, toggleInline } from "./format";
 import { type LinkTarget, linkCompletion, linkField, linkIds, setLinks } from "./links";
 import { livePreview } from "./live-preview";
 import { linkAt, titleFromBody, withHeading, wordCount } from "./text";
@@ -204,7 +204,6 @@ export function NoteEditor({
           keymap.of([
             { key: "Mod-b", run: toggleInline("bold") },
             { key: "Mod-i", run: toggleInline("italic") },
-            { key: "Mod-k", run: insertLink },
             ...defaultKeymap,
             ...historyKeymap,
           ]),
