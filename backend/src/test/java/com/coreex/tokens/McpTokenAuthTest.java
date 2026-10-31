@@ -7,6 +7,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -60,6 +61,10 @@ class McpTokenAuthTest extends ApiTest {
 
 	private boolean hasBeenUsed() {
 		return jdbc.sql("select last_used_at is not null from access_tokens").query(Boolean.class).single();
+	}
+
+	private OffsetDateTime lastUsedAt() {
+		return jdbc.sql("select last_used_at from access_tokens").query(OffsetDateTime.class).single();
 	}
 
 	@Test
@@ -118,6 +123,21 @@ class McpTokenAuthTest extends ApiTest {
 		mcp(token);
 
 		assertThat(hasBeenUsed()).isTrue();
+	}
+
+	@Test
+	void aBusyTokenRewritesLastUsedAtMostOncePerMinute() throws Exception {
+		var token = newToken();
+		mcp(token);
+		var first = lastUsedAt();
+
+		clock.advance(Duration.ofSeconds(30));
+		mcp(token);
+		assertThat(lastUsedAt()).isEqualTo(first);
+
+		clock.advance(Duration.ofSeconds(31));
+		mcp(token);
+		assertThat(lastUsedAt()).isAfter(first);
 	}
 
 	@Test
