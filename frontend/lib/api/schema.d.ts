@@ -1125,6 +1125,8 @@ export interface components {
             lastUsedAt?: string | null;
             /** Format: date-time */
             expiresAt?: string | null;
+            /** @description Its expiry has passed, so it no longer works */
+            expired: boolean;
         };
     };
     responses: never;

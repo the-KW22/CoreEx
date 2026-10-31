@@ -1,5 +1,6 @@
 package com.coreex.tokens;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -50,10 +51,12 @@ class AccessTokenController {
 	record TokenResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
-			@Schema(nullable = true) Instant lastUsedAt, @Schema(nullable = true) Instant expiresAt) {
+			@Schema(nullable = true) Instant lastUsedAt, @Schema(nullable = true) Instant expiresAt,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Its expiry has passed, so it no longer works") boolean expired) {
 
-		static TokenResponse of(AccessToken token) {
-			return new TokenResponse(token.id(), token.name(), token.createdAt(), token.lastUsedAt(), token.expiresAt());
+		static TokenResponse of(AccessToken token, Instant now) {
+			return new TokenResponse(token.id(), token.name(), token.createdAt(), token.lastUsedAt(), token.expiresAt(),
+					token.expiresAt() != null && !token.expiresAt().isAfter(now));
 		}
 
 	}
@@ -71,13 +74,16 @@ class AccessTokenController {
 
 	private final AccessTokenService tokens;
 
-	AccessTokenController(AccessTokenService tokens) {
+	private final Clock clock;
+
+	AccessTokenController(AccessTokenService tokens, Clock clock) {
 		this.tokens = tokens;
+		this.clock = clock;
 	}
 
 	@GetMapping
 	TokenList list(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user) {
-		var items = tokens.list(user.id()).stream().map(TokenResponse::of).toList();
+		var items = tokens.list(user.id()).stream().map(t -> TokenResponse.of(t, clock.instant())).toList();
 		return new TokenList(items, items.size());
 	}
 

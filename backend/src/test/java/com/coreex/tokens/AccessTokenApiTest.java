@@ -2,6 +2,7 @@ package com.coreex.tokens;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Duration;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -12,6 +13,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.coreex.ApiTest;
 import com.coreex.TestJwts;
+import com.coreex.TestSupportConfiguration.TestClock;
 
 class AccessTokenApiTest extends ApiTest {
 
@@ -19,6 +21,9 @@ class AccessTokenApiTest extends ApiTest {
 
 	@Autowired
 	JdbcClient jdbc;
+
+	@Autowired
+	TestClock clock;
 
 	@BeforeEach
 	void cleanDatabase() {
@@ -66,6 +71,17 @@ class AccessTokenApiTest extends ApiTest {
 		assertThat(post(TOKENS, jwt, "{\"name\":\"forever\",\"neverExpires\":true}").body())
 				.contains("\"expiresAt\":null");
 		assertThat(post(TOKENS, jwt, "{\"name\":\"short\",\"expiresInDays\":7}").statusCode()).isEqualTo(201);
+	}
+
+	@Test
+	void anExpiredTokenIsListedAsExpired() throws Exception {
+		var jwt = userToken("a@example.com");
+		create(jwt, "old");
+		assertThat(get(TOKENS, jwt).body()).contains("\"expired\":false");
+
+		clock.advance(Duration.ofDays(91));
+
+		assertThat(get(TOKENS, jwt).body()).contains("\"expired\":true");
 	}
 
 	@Test
