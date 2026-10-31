@@ -65,7 +65,7 @@ public class TagService {
 		return tags.listWithCounts(ownerId).stream().map(t -> new TagCount(t.id(), t.name(), t.colour(), t.itemCount())).toList();
 	}
 
-	Tag create(UUID ownerId, String name) {
+	public Tag create(UUID ownerId, String name) {
 		try {
 			return tags.create(ownerId, name);
 		}
@@ -74,7 +74,7 @@ public class TagService {
 		}
 	}
 
-	Tag rename(UUID ownerId, UUID id, String name) {
+	public Tag rename(UUID ownerId, UUID id, String name) {
 		try {
 			if (!tags.rename(ownerId, id, name)) {
 				throw notFound();
@@ -87,7 +87,7 @@ public class TagService {
 	}
 
 	/** Sets the colour, or null for automatic. */
-	Tag setColour(UUID ownerId, UUID id, TagColour colour) {
+	public Tag setColour(UUID ownerId, UUID id, TagColour colour) {
 		if (!tags.setColour(ownerId, id, colour)) {
 			throw notFound();
 		}

@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 
 import com.coreex.common.ApiException;
 import com.coreex.identity.IdentityService;
-import com.coreex.identity.User;
 
 @Service
 class AccessTokenService {
@@ -97,8 +96,8 @@ class AccessTokenService {
 		}
 	}
 
-	/** The User a presented secret acts for. Refuses unknown, revoked and expired tokens, Disabled Users, and a busy token. */
-	User authenticate(String secret) {
+	/** Who a presented secret acts for. Refuses unknown, revoked and expired tokens, Disabled Users, and a busy token. */
+	Agent authenticate(String secret) {
 		var now = clock.instant();
 		var token = tokens.findLive(hash(secret), now).orElseThrow(
 				() -> new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", "That Access token is not valid."));
@@ -109,7 +108,7 @@ class AccessTokenService {
 			throw new RateLimitedException(Math.max(1, Duration.between(now, window.start().plus(WINDOW)).toSeconds()));
 		}
 		tokens.touchLastUsed(token.id(), now, now.minus(properties.lastUsedThrottle()));
-		return identity.resolve(token.ownerId(), null);
+		return new Agent(identity.resolve(token.ownerId(), null), token.name());
 	}
 
 	private static String hash(String secret) {

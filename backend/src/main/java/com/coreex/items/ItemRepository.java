@@ -98,6 +98,12 @@ class ItemRepository {
 				.param("id", id).param("owner", ownerId).query(MAPPER).optional();
 	}
 
+	/** Names the Access token behind the Item's latest change; the User's own edits clear it where they are saved. */
+	void setEditedBy(UUID ownerId, UUID id, String agentName) {
+		jdbc.sql("update items set edited_by = :name where id = :id and owner_id = :owner").param("name", agentName)
+				.param("id", id).param("owner", ownerId).update();
+	}
+
 	/** False when the Item is missing or deleted. A null folderId is the top level. */
 	boolean moveLive(UUID ownerId, UUID id, UUID folderId) {
 		return jdbc.sql("update items set folder_id = :folder where id = :id and owner_id = :owner and deleted_at is null")

@@ -116,7 +116,7 @@ public class AssetService {
 				ttl.toSeconds());
 	}
 
-	Asset update(User user, UUID id, String title, String description) {
+	public Asset update(User user, UUID id, String title, String description) {
 		if (!assets.update(user.id(), id, title, description)) {
 			throw noSuchAsset();
 		}
@@ -124,7 +124,7 @@ public class AssetService {
 	}
 
 	/** Moves the Asset to the Trash. Its file stays in Storage, and still counts as used, until the Trash purges it. */
-	void delete(User user, UUID id) {
+	public void delete(User user, UUID id) {
 		if (!assets.softDelete(user.id(), id, clock.instant())) {
 			throw noSuchAsset();
 		}

@@ -15,14 +15,14 @@ import org.springframework.stereotype.Repository;
 class NoteRepository {
 
 	private static final String SELECT = """
-			select i.id, i.title, c.body, c.version, i.folder_id, i.created_at, i.updated_at
+			select i.id, i.title, c.body, c.version, i.folder_id, i.created_at, i.updated_at, i.edited_by
 			from items i join note_contents c on c.item_id = i.id
 			where i.id = :id and i.owner_id = :owner and i.type = 'NOTE' and i.deleted_at is null""";
 
 	private static final RowMapper<Note> MAPPER = (rs, n) -> new Note(rs.getObject("id", UUID.class),
 			rs.getString("title"), rs.getString("body"), rs.getInt("version"), rs.getObject("folder_id", UUID.class),
 			rs.getObject("created_at", OffsetDateTime.class).toInstant(),
-			rs.getObject("updated_at", OffsetDateTime.class).toInstant());
+			rs.getObject("updated_at", OffsetDateTime.class).toInstant(), rs.getString("edited_by"));
 
 	private final JdbcClient jdbc;
 
@@ -55,7 +55,7 @@ class NoteRepository {
 		if (saved == 0) {
 			return false;
 		}
-		jdbc.sql("update items set title = :title, updated_at = now() where id = :id").param("title", title)
+		jdbc.sql("update items set title = :title, edited_by = null, updated_at = now() where id = :id").param("title", title)
 				.param("id", id).update();
 		return true;
 	}

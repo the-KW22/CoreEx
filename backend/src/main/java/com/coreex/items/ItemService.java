@@ -74,9 +74,14 @@ public class ItemService {
 		}
 	}
 
+	/** Notes which Access token made an Agent's latest change to the Item, for the Details panel. */
+	public void recordAgentEdit(UUID ownerId, UUID id, String agentName) {
+		items.setEditedBy(ownerId, id, agentName);
+	}
+
 	/** Moves an Item into a Folder, or to the top level when folderId is null. */
 	@Transactional
-	Item move(UUID ownerId, UUID id, UUID folderId) {
+	public Item move(UUID ownerId, UUID id, UUID folderId) {
 		if (folderId != null) {
 			folders.requireLiveForWrite(ownerId, folderId);
 		}

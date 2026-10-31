@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import com.coreex.identity.CurrentUserInterceptor;
+import com.coreex.tokens.Agent;
 
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
@@ -17,10 +17,10 @@ import tools.jackson.databind.json.JsonMapper;
 @Configuration
 class McpConfig {
 
-	static final String USER = "user";
+	private static final String AGENT = "agent";
 
 	/**
-	 * The starter's own transport, plus one thing: it copies the User that the Access token filter put on the request
+	 * The starter's own transport, plus one thing: it copies the Agent that the Access token filter put on the request
 	 * into the MCP context. Tools run on another thread, where the security context is not available, so this is how
 	 * they learn who is calling.
 	 */
@@ -30,8 +30,13 @@ class McpConfig {
 		return WebMvcStatelessServerTransport.builder().jsonMapper(new JacksonMcpJsonMapper(json))
 				.messageEndpoint(properties.getMcpEndpoint())
 				.contextExtractor(request -> McpTransportContext
-						.create(Map.of(USER, request.servletRequest().getAttribute(CurrentUserInterceptor.ATTRIBUTE))))
+						.create(Map.of(AGENT, request.servletRequest().getAttribute(Agent.ATTRIBUTE))))
 				.build();
+	}
+
+	/** The caller of the tool being run. */
+	static Agent agent(McpTransportContext context) {
+		return (Agent) context.get(AGENT);
 	}
 
 }

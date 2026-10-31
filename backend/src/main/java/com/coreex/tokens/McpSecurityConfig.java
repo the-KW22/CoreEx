@@ -18,7 +18,6 @@ import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.coreex.common.ApiException;
-import com.coreex.identity.CurrentUserInterceptor;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -59,8 +58,9 @@ class McpSecurityConfig {
 					throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED",
 							"Send your Access token as a Bearer token.");
 				}
-				var user = tokens.authenticate(header.substring("Bearer ".length()).trim());
-				request.setAttribute(CurrentUserInterceptor.ATTRIBUTE, user);
+				var agent = tokens.authenticate(header.substring("Bearer ".length()).trim());
+				var user = agent.user();
+				request.setAttribute(Agent.ATTRIBUTE, agent);
 				SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken
 						.authenticated(user.id(), null, List.of(new SimpleGrantedAuthority("ROLE_" + user.role()))));
 			}

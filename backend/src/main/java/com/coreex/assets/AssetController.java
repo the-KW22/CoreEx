@@ -71,11 +71,13 @@ class AssetController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String mimeType,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) long sizeBytes,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID folderId,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+					description = "The name of the Access token that made the latest change; null when the User did") String editedBy) {
 
 		static AssetResponse of(Asset asset) {
 			return new AssetResponse(asset.id(), asset.title(), asset.description(), asset.mimeType(),
-					asset.sizeBytes(), asset.folderId(), asset.updatedAt());
+					asset.sizeBytes(), asset.folderId(), asset.updatedAt(), asset.editedBy());
 		}
 
 	}
