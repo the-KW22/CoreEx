@@ -21,7 +21,7 @@ import com.coreex.ApiTest;
 import com.coreex.TestJwts;
 import com.coreex.TestSupportConfiguration.TestClock;
 
-/** A request that gets through authentication reaches the test probe at /mcp (200); refusals are 401, 403 or 429. */
+/** A request that gets through authentication is answered by the MCP server (200); refusals are 401, 403 or 429. */
 @TestPropertySource(properties = "coreex.tokens.calls-per-minute=5")
 class McpTokenAuthTest extends ApiTest {
 
@@ -51,8 +51,11 @@ class McpTokenAuthTest extends ApiTest {
 		return matcher.group(1);
 	}
 
+	/** A harmless MCP request (ping), so a call that gets through authentication answers 200. */
 	private HttpResponse<String> mcp(String bearer) throws Exception {
-		var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/mcp"));
+		var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/mcp"))
+				.header("Content-Type", "application/json").header("Accept", "application/json, text/event-stream")
+				.POST(HttpRequest.BodyPublishers.ofString("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}"));
 		if (bearer != null) {
 			request.header("Authorization", "Bearer " + bearer);
 		}

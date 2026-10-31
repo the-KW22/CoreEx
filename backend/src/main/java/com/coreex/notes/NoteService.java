@@ -12,7 +12,7 @@ import com.coreex.folders.FolderService;
 import com.coreex.links.LinkService;
 
 @Service
-class NoteService {
+public class NoteService {
 
 	private final NoteRepository notes;
 
@@ -40,7 +40,7 @@ class NoteService {
 		return get(ownerId, id);
 	}
 
-	Note get(UUID ownerId, UUID id) {
+	public Note get(UUID ownerId, UUID id) {
 		return notes.find(ownerId, id).orElseThrow(NoteService::notFound);
 	}
 
