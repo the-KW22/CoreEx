@@ -61,7 +61,7 @@ public class TagService {
 		tags.unlink(itemId, tagId);
 	}
 
-	List<TagCount> list(UUID ownerId) {
+	public List<TagCount> list(UUID ownerId) {
 		return tags.listWithCounts(ownerId).stream().map(t -> new TagCount(t.id(), t.name(), t.colour(), t.itemCount())).toList();
 	}
 

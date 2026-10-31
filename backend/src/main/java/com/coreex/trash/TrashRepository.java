@@ -18,13 +18,13 @@ import org.springframework.transaction.annotation.Transactional;
  * about age only.
  */
 @Repository
-class TrashRepository {
+public class TrashRepository {
 
-	enum Kind {
+	public enum Kind {
 		FOLDER, NOTE, ASSET
 	}
 
-	record Entry(Kind kind, UUID id, String title, Instant deletedAt, long folderCount, long itemCount) {
+	public record Entry(Kind kind, UUID id, String title, Instant deletedAt, long folderCount, long itemCount) {
 	}
 
 	record TrashedItem(UUID id, UUID folderId) {

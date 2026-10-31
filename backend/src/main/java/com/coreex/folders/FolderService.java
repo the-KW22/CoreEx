@@ -65,7 +65,7 @@ public class FolderService {
 		return folders.insert(ownerId, parentId, name);
 	}
 
-	List<Folder> list(UUID ownerId) {
+	public List<Folder> list(UUID ownerId) {
 		return folders.listLive(ownerId);
 	}
 

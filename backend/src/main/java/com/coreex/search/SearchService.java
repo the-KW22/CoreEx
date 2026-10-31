@@ -14,16 +14,16 @@ import com.coreex.tags.TagService;
 
 /** Full-text search over the User's live Items, and the quick switcher's title lookup. */
 @Service
-class SearchService {
+public class SearchService {
 
-	record Segment(String text, boolean match) {
+	public record Segment(String text, boolean match) {
 	}
 
-	record Hit(UUID id, Item.Type type, String title, String folderPath, Instant updatedAt,
+	public record Hit(UUID id, Item.Type type, String title, String folderPath, Instant updatedAt,
 			List<Segment> snippet) {
 	}
 
-	record Page(List<Hit> hits, long total) {
+	public record Page(List<Hit> hits, long total) {
 	}
 
 	record QuickHit(UUID id, Item.Type type, String title, String folderPath) {
@@ -50,7 +50,7 @@ class SearchService {
 	}
 
 	/** An unknown Folder or Tag is a 404 (a Folder includes its subfolders); a blank query finds nothing. */
-	Page search(UUID ownerId, String text, Item.Type type, UUID tagId, UUID folderId, int page, int size) {
+	public Page search(UUID ownerId, String text, Item.Type type, UUID tagId, UUID folderId, int page, int size) {
 		var folderIds = folderId == null ? null : folders.subtreeIds(ownerId, folderId);
 		if (tagId != null) {
 			tags.requireTag(ownerId, tagId);

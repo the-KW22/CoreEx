@@ -22,7 +22,7 @@ import com.coreex.storage.Storage;
  * Storage is never called inside a database transaction.
  */
 @Service
-class AssetService {
+public class AssetService {
 
 	record Upload(UUID id, URI url) {
 	}
@@ -104,7 +104,7 @@ class AssetService {
 		return get(user, id);
 	}
 
-	Asset get(User user, UUID id) {
+	public Asset get(User user, UUID id) {
 		return assets.find(user.id(), id).orElseThrow(AssetService::noSuchAsset);
 	}
 

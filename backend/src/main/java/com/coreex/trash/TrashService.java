@@ -19,9 +19,9 @@ import com.coreex.trash.TrashRepository.Entry;
  * database rows second, so a Storage failure leaves everything in place and trying again is safe.
  */
 @Service
-class TrashService {
+public class TrashService {
 
-	record Row(Entry entry, long daysRemaining) {
+	public record Row(Entry entry, long daysRemaining) {
 	}
 
 	private final TrashRepository trash;
@@ -39,12 +39,12 @@ class TrashService {
 		this.clock = clock;
 	}
 
-	List<Row> list(UUID ownerId, int page, int size) {
+	public List<Row> list(UUID ownerId, int page, int size) {
 		return trash.page(ownerId, size, (long) page * size).stream()
 				.map(entry -> new Row(entry, daysRemaining(entry.deletedAt()))).toList();
 	}
 
-	long total(UUID ownerId) {
+	public long total(UUID ownerId) {
 		return trash.count(ownerId);
 	}
 
