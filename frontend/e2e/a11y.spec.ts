@@ -585,6 +585,52 @@ test("an Access token is created, its secret shown once, and revoked after a con
   await expect(row).toHaveCount(0);
 });
 
+test("an Agent's edit is named in the Details panel until you edit the Note yourself", async ({ page }) => {
+  await signIn(page);
+  const name = `agent-${Date.now()}`;
+  await page.goto("/settings/tokens");
+  await page.getByRole("button", { name: "New Access token" }).click();
+  await page.getByRole("dialog", { name: "New Access token" }).getByLabel("Name").fill(name);
+  await page.getByRole("button", { name: "Create token" }).click();
+  const secret = await page.getByRole("dialog", { name: "Copy your Access token" }).getByLabel("Access token").inputValue();
+  await page.getByRole("button", { name: "Done" }).click();
+
+  // The Agent writes a Note over MCP, the way Claude Code would.
+  const title = `Agent note ${Date.now()}`;
+  const api = process.env.API_URL ?? "http://localhost:8080";
+  const response = await page.request.post(`${api}/mcp`, {
+    headers: { Authorization: `Bearer ${secret}`, Accept: "application/json, text/event-stream" },
+    data: {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "create_note", arguments: { title, markdown: `# ${title}\nWritten by an Agent` } },
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  const created = JSON.parse((await response.json()).result.content[0].text) as { id: string };
+
+  await page.goto(`/notes/${created.id}`);
+  const details = page.getByRole("complementary", { name: "Details" });
+  await expect(details.getByText("Edited by")).toBeVisible();
+  await expect(details.getByText(name)).toBeVisible();
+
+  // Typing in the editor is the User's own change: the next save clears the name.
+  await page.getByRole("textbox").last().click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(" and then me");
+  await expectSaved(page);
+  await expect(details.getByText("Edited by")).toHaveCount(0);
+
+  // Tidy up.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+  await page.goto("/settings/tokens");
+  await page.getByRole("row").filter({ hasText: name }).getByRole("button", { name: `Revoke ${name}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Revoke" }).click();
+  await expect(page.getByRole("row").filter({ hasText: name })).toHaveCount(0);
+});
+
 test("the Users table shows you without Disable or Remove, and Overview has its chart", async ({ page }) => {
   await signIn(page);
   await page.goto("/admin/users");

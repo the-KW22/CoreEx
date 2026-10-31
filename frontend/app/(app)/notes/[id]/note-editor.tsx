@@ -67,7 +67,7 @@ export function NoteEditor({
   detailsCookie,
 }: {
   id: string;
-  initial: { title: string; body: string; version: number; createdAt: string; updatedAt: string };
+  initial: { title: string; body: string; version: number; createdAt: string; updatedAt: string; editedBy: string | null };
   crumbs: { href: string; label: string }[];
   tags: React.ReactNode;
   details: React.ReactNode;
@@ -78,6 +78,8 @@ export function NoteEditor({
   const [status, setStatus] = useState<Status>("saved");
   const [message, setMessage] = useState("");
   const [savedAt, setSavedAt] = useState(initial.updatedAt);
+  // The Access token behind the latest change, or null when it was this User; their own save always clears it.
+  const [editedBy, setEditedBy] = useState(initial.editedBy);
   const [words, setWords] = useState(() => wordCount(initial.body));
   const [preview, setPreview] = useState<Preview | null>(null);
   const [previewText, setPreviewText] = useState<Record<string, string | null>>({});
@@ -127,6 +129,7 @@ export function NoteEditor({
             version.current = result.version;
             saved.current = snapshot;
             setSavedAt(result.updatedAt);
+            setEditedBy(null);
             // The server may have turned a hand-typed [[Exact Title]] into a Link. Show that, unless more was typed.
             const editor = view.current;
             if (editor && result.body !== snapshot.body && latest.current.body === snapshot.body) {
@@ -332,6 +335,7 @@ export function NoteEditor({
     conflict.current = false;
     setTitle(theirs.title);
     setSavedAt(theirs.updatedAt);
+    setEditedBy(theirs.editedBy);
     external.current = true;
     const editor = view.current!;
     editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: theirs.body } });
@@ -369,6 +373,12 @@ export function NoteEditor({
               {new Date(savedAt).toLocaleString()}
             </time>
           </dd>
+          {editedBy && (
+            <>
+              <dt className="text-muted-foreground">Edited by</dt>
+              <dd className="break-words">{editedBy}</dd>
+            </>
+          )}
           <dt className="text-muted-foreground">Words</dt>
           <dd className="font-mono">{words}</dd>
         </dl>

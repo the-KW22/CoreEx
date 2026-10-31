@@ -717,6 +717,8 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+            /** @description The name of the Access token that made the latest change; null when the User did */
+            editedBy: string | null;
         };
         RenameFolderRequest: {
             name: string;
@@ -749,6 +751,8 @@ export interface components {
             folderId: string | null;
             /** Format: date-time */
             updatedAt: string;
+            /** @description The name of the Access token that made the latest change; null when the User did */
+            editedBy: string | null;
         };
         SetQuotaRequest: {
             /**
