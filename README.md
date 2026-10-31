@@ -95,9 +95,7 @@ Press **Ctrl+K** (**Cmd+K** on a Mac) on any page to open the quick switcher: ty
 
 ### MCP server
 
-The API also speaks MCP (Model Context Protocol) at `/mcp`, so an Agent can read and organise your knowledge base. Send your Access token as `Authorization: Bearer cx_pat_...`; it is stateless Streamable HTTP, so every request stands alone. The read tools are `search`, `list_items`, `get_item` (a Note's Markdown and version, or an Asset's facts, never its file), `list_folders`, `list_tags` and `list_trash`. Lists give 50 per page and a `nextCursor` to pass back as `cursor`. Everything is scoped to the token's User, and the Trash is hidden except from `list_trash`. 
-
-The write tools are `create_note`, `update_note` (replaces the text) and `edit_note` (replaces exact pieces of text, each of which must appear once), which both need the `version` you read with `get_item` and refuse if the Note changed since; `create_folder`, `rename_folder`, `move_folder`, `trash_folder`; `create_tag`, `rename_tag`, `set_tag_colour`, `set_tags` (makes an Item's Tags exactly the list you send); `move_item`, `trash_item`, `restore` and `update_asset` (title and description). An Agent can never delete anything for good, empty the Trash, delete a Tag, handle Asset files, import, or use Admin: the Trash is as far as it goes, and you can restore from it. A Note or Asset that an Agent last changed shows **Edited by** with the token's name in its Details panel, until you edit it yourself. A guide to connecting Claude Code and Codex comes in the last ticket of #112.
+The API also speaks MCP (Model Context Protocol) at `/mcp`, so an Agent (Claude Code, Codex, Claude Desktop) can read, write and organise your knowledge base with an Access token. It can never delete anything for good: the Trash is as far as it goes. A Note or Asset an Agent last changed shows **Edited by** in its Details panel. See [docs/MCP.md](docs/MCP.md) for the tools and how to connect.
 
 ## Deploying
 
