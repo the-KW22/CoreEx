@@ -24,7 +24,6 @@ import { createSubfolder, moveFolderTo, renameFolderTo, trashFolder } from "./ac
 
 const icon = "pointer-coarse:size-11";
 const input = "h-9 rounded-lg border border-border bg-surface px-3 font-normal";
-const selects = "[&_label]:grid [&_label]:gap-1.5 [&_label]:text-sm [&_label]:font-medium [&_select]:h-9 [&_select]:rounded-lg [&_select]:border [&_select]:border-border [&_select]:bg-surface [&_select]:px-2 [&_select]:font-normal";
 
 // New subfolder, Rename, Move and Move to Trash for the Folder being viewed, beside its title. Each is a Dialog that
 // reports with a toast, and Radix puts focus back on the button that opened it.
@@ -132,7 +131,7 @@ export function FolderActions({
         `Move ${folder.name}`,
         FolderInputIcon,
         "Move Folder",
-        <div className={selects}>
+        <div>
           <FolderSelect name="parentId" label="Move into" folders={folders} selected={folder.parentId} skip={folder.id} />
           {cycle && (
             <p role="alert" className="mt-1.5 text-xs text-destructive">

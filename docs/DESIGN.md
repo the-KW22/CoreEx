@@ -156,13 +156,13 @@ The same tokens are used by CSS, Motion and View Transitions. They are defined o
 - **Conflict:** a clear Alert banner above the editor with **Keep mine** and **Load theirs** (today's conflict behaviour, restyled).
 - **Writing column** (max 700px, centred): title field, Tags as coloured pills with "+ Tag" (Combobox), then the CodeMirror editor with the existing live preview and `[[Link]]` autocomplete, in Atkinson Hyperlegible Next.
 - **Link hover preview:** hovering *or focusing* a `[[Link]]` shows a Hover Card with the target's title, type, Folder and first lines (from the existing Note and Asset endpoints).
-- **Details panel** (right): Folder (select), Backlinks as cards, Info (Created, Updated, word count computed in the browser). Open by default on wide screens, closed on narrow ones; the choice is remembered.
+- **Details panel** (right): Folder (the site's own Select, indented by depth), Backlinks as cards, Info (Created, Updated, word count computed in the browser). Dividers separate the sections: details, organization (Folder, Tags, Backlinks) and Info last. Open by default on wide screens, closed on narrow ones; the choice is remembered.
 
 ### 6.4 Asset (`/assets/[id]`)
 
 - Same header and Details panel as a Note; header adds **Download**.
 - A neutral **viewer stage**: the image fitted, or the PDF in its viewer.
-- Details panel: title and description (edited in place), Folder, Tags, Backlinks, Info (type, size, updated).
+- Details panel: title and description (edited in place: a faint border and a pencil beside each label show they can be changed, with a gap between label and field), Folder, Tags, Backlinks, Info (type, size, updated), in three sections with dividers.
 
 ### 6.5 Uploading
 

@@ -56,10 +56,13 @@ test("from the keyboard: sign in, open a Note from the palette, tag it and move 
   await expect(page.getByRole("list", { name: "Tags" }).getByRole("link", { name: tagName })).toBeVisible();
   await expect(addTag).toBeFocused();
 
-  // Details: the Folder select is reachable by keyboard, and an arrow key moves the Note (a toast says so).
-  const folder = page.getByRole("complementary", { name: "Details" }).getByLabel("Folder");
+  // Details: the Folder select is reachable by keyboard; an arrow key opens it, another moves to the next Folder and
+  // Enter moves the Note (a toast says so).
+  const folder = page.getByRole("complementary", { name: "Details" }).getByRole("combobox", { name: "Folder" });
   await tabTo(page, folder);
   await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
   await expect(page.getByText("Moved", { exact: true })).toBeVisible();
 
   // Tidy up.
