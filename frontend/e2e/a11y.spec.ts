@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import {
   PIXEL,
+  chooseFolder,
   deleteTag,
   email,
   expectNoViolations,
@@ -327,7 +328,7 @@ test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
   await menu.click();
   await page.getByRole("menuitem", { name: "Move to Folder…" }).click();
   const move = page.getByRole("dialog", { name: "Move to Folder" });
-  await move.getByLabel("Folder").selectOption({ label: folderName });
+  await chooseFolder(page, move, "Folder", folderName);
   await move.getByRole("button", { name: "Move" }).click();
   await expect(row.getByRole("cell", { name: folderName })).toBeVisible();
   await expect(menu).toBeFocused();
@@ -648,9 +649,13 @@ test("a Folder is renamed, given a subfolder, moved, and sent to the Trash from 
   // A Folder cannot go into its own subfolder, so the Move dialog does not offer it.
   await page.getByRole("button", { name: `Move ${renamed}`, exact: true }).click();
   const move = page.getByRole("dialog", { name: "Move Folder" });
-  await expect(move.getByLabel("Move into")).toBeVisible();
-  await expect(move.getByLabel("Move into").locator("option", { hasText: child })).toHaveCount(0);
+  await move.getByRole("combobox", { name: "Move into" }).click();
+  await expect(page.getByRole("option", { name: "Top level" })).toBeVisible();
+  await expect(page.getByRole("option", { name: child })).toHaveCount(0);
   await page.keyboard.press("Escape");
+  await expect(page.getByRole("listbox")).toBeHidden();
+  await page.keyboard.press("Escape");
+  await expect(move).toBeHidden();
 
   await trashFolder(page, renamed);
   await expect(page).toHaveURL(/\/items$/);
@@ -700,7 +705,7 @@ test("the Note screen tags, moves, and remembers hidden Details", async ({ page 
 
   // The Details Folder select moves the Note; the breadcrumb follows.
   const details = page.getByRole("complementary", { name: "Details" });
-  await details.getByLabel("Folder").selectOption({ label: folderName });
+  await chooseFolder(page, details, "Folder", folderName);
   await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: folderName })).toBeVisible();
   await expect(details.getByText("Words")).toBeVisible();
 
@@ -728,11 +733,13 @@ test("hovering a Link previews its target", async ({ page }) => {
   const target = `Preview target ${stamp}`;
   await newNote(page, target);
   await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
   await page.keyboard.type("The first line of the target.");
   await expectSaved(page);
 
   await newNote(page, `Preview source ${stamp}`);
   await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
   await page.keyboard.type(`See [[Preview target ${stamp}`);
   await page.getByRole("option", { name: new RegExp(target) }).click();
   // Off the Link's line, it shows as a link.
@@ -818,6 +825,24 @@ test("an uploaded image opens on the Asset screen, edits in place and downloads"
   await expect(page.getByRole("link", { name: "Download" })).toHaveAttribute("download", "");
   const details = page.getByRole("complementary", { name: "Details" });
   await expect(details.getByText("PNG image")).toBeVisible();
+
+  // Labels sit apart from their fields, and the pencils mark what can be edited.
+  const labelBox = await details.getByText("Title", { exact: true }).boundingBox();
+  const fieldBox = await details.getByLabel("Title").boundingBox();
+  expect(fieldBox!.y - (labelBox!.y + labelBox!.height)).toBeGreaterThanOrEqual(4);
+  await expect(details.locator("svg.lucide-pencil")).toHaveCount(2);
+  // Dividers separate the details, the organization (Folder, Tags, Backlinks) and the Info block: each section but the
+  // last has a line under it.
+  const dividers = await details.evaluate((aside) =>
+    [...aside.firstElementChild!.children].slice(0, -1).map((el) => getComputedStyle(el).borderBottomWidth),
+  );
+  expect(dividers).toEqual(["1px", "1px"]);
+  // The Folder choice is the site's own listbox, not the browser's.
+  await details.getByRole("combobox", { name: "Folder" }).click();
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await expect(page.getByRole("option", { name: "Top level" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
   for (const colorScheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme });
     await expectNoViolations(page);
@@ -986,4 +1011,98 @@ test("the Items open as a grid, the view is chosen and remembered, and a section
   await page.getByRole("menuitem", { name: "Move to Trash" }).click();
   await expect(page.getByText(`Moved "${title}" to the Trash`)).toBeVisible();
   await expect(cards.getByRole("link", { name: title })).toHaveCount(0);
+});
+
+test("the editor toolbar formats text, shows where the caret is, and moves with the arrow keys", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  await newNote(page, `toolbar${Date.now()}`);
+  const body = page.getByRole("textbox", { name: "Note content" });
+  await body.click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("plain");
+  const toolbar = page.getByRole("toolbar", { name: "Formatting" });
+  const bold = toolbar.getByRole("button", { name: "Bold" });
+  await expect(bold).toHaveAttribute("aria-pressed", "false");
+
+  // A button wraps the selected words, and the same button (or Ctrl+B) takes it off again.
+  await page.keyboard.press("Shift+Home");
+  await bold.click();
+  await expect(bold).toHaveAttribute("aria-pressed", "true");
+  await expect(body).toBeFocused();
+  await page.keyboard.press("Control+b");
+  await expect(bold).toHaveAttribute("aria-pressed", "false");
+
+  // Lists and headings follow the caret too.
+  await toolbar.getByRole("button", { name: "Bulleted list" }).click();
+  await expect(toolbar.getByRole("button", { name: "Bulleted list" })).toHaveAttribute("aria-pressed", "true");
+  await toolbar.getByRole("button", { name: "Bulleted list" }).click();
+  await toolbar.getByRole("button", { name: "Heading" }).click();
+  await page.getByRole("menuitem", { name: "Heading 2" }).click();
+  await expect(toolbar.getByRole("button", { name: "Heading" })).toHaveAttribute("aria-pressed", "true");
+  await expectSaved(page);
+
+  // Arrow keys move between the buttons.
+  await toolbar.getByRole("button", { name: "Heading" }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(bold).toBeFocused();
+
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await expectNoViolations(page);
+  }
+
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("a Note's first-line heading and its title stay in step, both ways", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  const stamp = Date.now();
+  const title = `step${stamp}`;
+  await newNote(page, title);
+  const titleField = page.getByRole("textbox", { name: "Title" });
+  const lines = page.locator(".cm-line");
+  const body = page.getByRole("textbox", { name: "Note content" });
+
+  // The title typed in its field is the first line, as a heading.
+  await expect(lines.first()).toContainText(title);
+
+  // Typing in that heading changes the title.
+  await body.click();
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.press("End");
+  await page.keyboard.type(" edited");
+  await expect(titleField).toHaveValue(`${title} edited`);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByText(`${title} edited`)).toBeVisible();
+  await expectSaved(page);
+
+  // Changing the title rewrites the heading, and the saved Note has no conflict after a reload.
+  await titleField.fill(`renamed${stamp}`);
+  await expect(lines.first()).toContainText(`renamed${stamp}`);
+  await expectSaved(page);
+  await page.reload();
+  await expect(titleField).toHaveValue(`renamed${stamp}`);
+  await expect(page.getByText("changed somewhere else")).toHaveCount(0);
+
+  // A Note that starts with plain text gets its heading put in front when it is titled, and keeps its text.
+  await newNote(page, `plain${stamp}`);
+  await page.getByRole("textbox", { name: "Title" }).fill("");
+  await expectSaved(page);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.press("Control+a");
+  await page.keyboard.type("Just text");
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue("");
+  await page.getByRole("textbox", { name: "Title" }).fill(`named${stamp}`);
+  await expect(page.locator(".cm-line").first()).toContainText(`named${stamp}`);
+  await expect(page.locator(".cm-line").nth(1)).toContainText("Just text");
+  await expectSaved(page);
+
+  // Tidy up.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+  await page.getByRole("button", { name: /^Actions for renamed/ }).first().click();
+  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
 });

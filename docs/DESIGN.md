@@ -157,15 +157,17 @@ The same tokens are used by CSS, Motion and View Transitions. They are defined o
 
 - **Header bar:** Folder breadcrumb, save status (Saved, Saving, Unsaved), Move to Trash (icon button with Tooltip), Details toggle.
 - **Conflict:** a clear Alert banner above the editor with **Keep mine** and **Load theirs** (today's conflict behaviour, restyled).
-- **Writing column** (max 700px, centred): title field, Tags as coloured pills with "+ Tag" (Combobox), then the CodeMirror editor with the existing live preview and `[[Link]]` autocomplete, in Atkinson Hyperlegible Next.
+- **Writing column** (max 700px, centred): title field, Tags as coloured pills with "+ Tag" (Combobox), a **formatting toolbar**, then the CodeMirror editor with the existing live preview and `[[Link]]` autocomplete, in Atkinson Hyperlegible Next.
+- **Formatting toolbar** (a `role="toolbar"`, arrow keys move between buttons): heading level (Normal, 1 to 3), bold, italic, strikethrough, inline code, bulleted, numbered and checklist, quote, code block, link, `[[Link]]`, table, divider. Only what Markdown can express (ADR 0002), so no font size or colour. Each button toggles on the selection and shows pressed when the caret is already inside that format. Ctrl+B and Ctrl+I are shortcuts (Ctrl+K stays the command palette).
+- **Title and first line stay in step:** a first line written as `# Heading` is the Note's title. Typing in it changes the title field, and typing in the title field rewrites that line (or puts a heading in front when the Note has none). An empty title leaves the body alone and shows "Untitled". A Note whose title and heading already differ keeps both until one is edited.
 - **Link hover preview:** hovering *or focusing* a `[[Link]]` shows a Hover Card with the target's title, type, Folder and first lines (from the existing Note and Asset endpoints).
-- **Details panel** (right): Folder (select), Backlinks as cards, Info (Created, Updated, word count computed in the browser). Open by default on wide screens, closed on narrow ones; the choice is remembered.
+- **Details panel** (right): Folder (the site's own Select, indented by depth), Backlinks as cards, Info (Created, Updated, word count computed in the browser). Dividers separate the sections: details, organization (Folder, Tags, Backlinks) and Info last. Open by default on wide screens, closed on narrow ones; the choice is remembered.
 
 ### 6.4 Asset (`/assets/[id]`)
 
 - Same header and Details panel as a Note; header adds **Download**.
 - A neutral **viewer stage**: the image fitted, or the PDF in its viewer.
-- Details panel: title and description (edited in place), Folder, Tags, Backlinks, Info (type, size, updated).
+- Details panel: title and description (edited in place: a faint border and a pencil beside each label show they can be changed, with a gap between label and field), Folder, Tags, Backlinks, Info (type, size, updated), in three sections with dividers.
 
 ### 6.5 Uploading
 
@@ -278,6 +280,6 @@ Every screen ticket adds its screen to the axe check from step 1 and must pass i
 - Note text previews on cards (needs a snippet from the API).
 - Item counts in the Folder tree and on Folder cards (needs counts in the Folder list).
 - Type filter, Tags and size per row in the Items table.
-- Slash menu, formatting toolbar, focus mode in the editor.
+- Slash menu and focus mode in the editor.
 - A public **landing page**.
 - Planned modules in the rail (Graph, Jobs, Integrations) appear only when each module ships.

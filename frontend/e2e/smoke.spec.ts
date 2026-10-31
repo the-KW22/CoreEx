@@ -16,6 +16,7 @@ test("smoke: write, link, upload, search, and tidy up", async ({ page }) => {
   await newNote(page, first);
   const body = page.getByRole("textbox", { name: "Note content" });
   await body.click();
+  await page.keyboard.press("Control+End");
   await page.keyboard.type(`A line about ${word}.`);
   await page.keyboard.press("Enter");
   await page.keyboard.type("A second line.");
@@ -24,6 +25,7 @@ test("smoke: write, link, upload, search, and tidy up", async ({ page }) => {
   // 2. A second Note that links to the first with [[ autocomplete.
   await newNote(page, second);
   await body.click();
+  await page.keyboard.press("Control+End");
   await page.keyboard.type(`See [[${first}`);
   await page.getByRole("option", { name: new RegExp(first) }).click();
   await page.keyboard.press("Enter");

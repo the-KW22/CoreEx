@@ -55,10 +55,10 @@ export default async function NotePage({ params }: PageProps<"/notes/[id]">) {
           )
         }
         details={
-          <>
+          <div className="grid gap-6">
             <FolderPicker itemId={note.id} folderId={note.folderId} folders={folders} />
             <ItemBacklinks itemId={note.id} />
-          </>
+          </div>
         }
         detailsCookie={remembered === "open" || remembered === "closed" ? remembered : null}
       />
