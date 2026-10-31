@@ -26,6 +26,7 @@ test("from the keyboard: sign in, open a Note from the palette, tag it and move 
   const folderName = `kf${stamp}`;
 
   // Setup with the mouse: a Folder to move into, and a Note to find.
+  await page.goto("/items");
   await page.getByRole("button", { name: "New Folder" }).click();
   await page.getByLabel("Folder name").fill(folderName);
   await page.getByRole("button", { name: "Create Folder" }).click();

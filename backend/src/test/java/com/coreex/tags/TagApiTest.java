@@ -80,6 +80,22 @@ class TagApiTest extends ApiTest {
 	}
 
 	@Test
+	void aTagCanBeCreatedOnItsOwnAndIsPrivateToItsUser() throws Exception {
+		var created = post("/api/tags", userA, "{\"name\":\"  Ideas  \"}");
+		assertThat(created.statusCode()).isEqualTo(201);
+		assertThat(created.body()).contains("\"name\":\"Ideas\"");
+
+		assertThat(get("/api/tags", userA).body()).contains("Ideas").contains("\"itemCount\":0");
+		assertThat(get("/api/tags", userB).body()).doesNotContain("Ideas");
+		// The name is unique per User ignoring case, but another User may have the same one.
+		var again = post("/api/tags", userA, "{\"name\":\"IDEAS\"}");
+		assertThat(again.statusCode()).isEqualTo(409);
+		assertThat(again.body()).contains("TAG_EXISTS");
+		assertThat(post("/api/tags", userB, "{\"name\":\"Ideas\"}").statusCode()).isEqualTo(201);
+		assertThat(post("/api/tags", userA, "{\"name\":\"  \"}").statusCode()).isEqualTo(400);
+	}
+
+	@Test
 	void researchAndResearchAreTheSameTag() throws Exception {
 		var first = note(userA, "First");
 		var second = note(userA, "Second");
