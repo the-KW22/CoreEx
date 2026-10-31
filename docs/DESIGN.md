@@ -200,7 +200,7 @@ The same tokens are used by CSS, Motion and View Transitions. They are defined o
 
 ### 6.10 Access tokens (`/settings/tokens`)
 
-Opened from **Access tokens** in the Account menu. Title, one sentence on what an Access token lets an Agent do, and **New Access token**. A table of the User's tokens: Name, Created, Last used ("Never used"), Expires (a date, "Never", or an orange **Expired** Badge) and **Revoke** behind an Alert Dialog. On a phone each row becomes a card, as in Admin Invites. Empty state: "No Access tokens yet". The New Access token Dialog asks for a Name and an Expires-after Select (30 days, 90 days default, 1 year, Never); on success the same Dialog shows the secret once in a read-only field with **Copy token** and **Done**, and says it is never shown again.
+Opened from **Access tokens** in the Account menu. Title, one sentence on what an Access token lets an Agent do, and **New Access token**. A table of the User's tokens: Name, Created, Last used ("Never used"), Expires (a date, "Never", or an orange **Expired** Badge) and **Revoke** behind an Alert Dialog. On a phone each row becomes a card, as in Admin Invites. Empty state: "No Access tokens yet". (The Details panel of a Note or Asset shows an **Edited by** row, with the token's name, while an Agent made its latest content change; the User's next save clears it.) The New Access token Dialog asks for a Name and an Expires-after Select (30 days, 90 days default, 1 year, Never); on success the same Dialog shows the secret once in a read-only field with **Copy token** and **Done**, and says it is never shown again.
 
 ## 7. Component map (shadcn/ui)
 

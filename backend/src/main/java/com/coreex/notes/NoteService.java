@@ -30,7 +30,7 @@ public class NoteService {
 	}
 
 	@Transactional
-	Note create(UUID ownerId, UUID folderId, String title, String body) {
+	public Note create(UUID ownerId, UUID folderId, String title, String body) {
 		if (folderId != null) {
 			folders.requireLiveForWrite(ownerId, folderId);
 		}
@@ -45,7 +45,7 @@ public class NoteService {
 	}
 
 	@Transactional
-	Note save(UUID ownerId, UUID id, String title, String body, int seenVersion) {
+	public Note save(UUID ownerId, UUID id, String title, String body, int seenVersion) {
 		// Hand-typed [[Exact Title]] becomes [[id|Exact Title]] here, so the stored text is the rewritten one.
 		var text = links.rewriteTitles(ownerId, body);
 		if (!notes.save(ownerId, id, title, text, seenVersion)) {
@@ -58,7 +58,7 @@ public class NoteService {
 		return get(ownerId, id);
 	}
 
-	void delete(UUID ownerId, UUID id) {
+	public void delete(UUID ownerId, UUID id) {
 		if (!notes.softDelete(ownerId, id, clock.instant())) {
 			throw notFound();
 		}

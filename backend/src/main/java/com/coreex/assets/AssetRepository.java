@@ -21,14 +21,14 @@ class AssetRepository {
 	}
 
 	private static final String SELECT = """
-			select i.id, i.title, f.description, f.mime_type, f.size_bytes, i.folder_id, f.storage_key, i.updated_at
+			select i.id, i.title, f.description, f.mime_type, f.size_bytes, i.folder_id, f.storage_key, i.updated_at, i.edited_by
 			from items i join asset_files f on f.item_id = i.id
 			where i.id = :id and i.owner_id = :owner and i.type = 'ASSET' and i.deleted_at is null""";
 
 	private static final RowMapper<Asset> ASSET = (rs, n) -> new Asset(rs.getObject("id", UUID.class),
 			rs.getString("title"), rs.getString("description"), rs.getString("mime_type"), rs.getLong("size_bytes"),
 			rs.getObject("folder_id", UUID.class), rs.getString("storage_key"),
-			rs.getObject("updated_at", OffsetDateTime.class).toInstant());
+			rs.getObject("updated_at", OffsetDateTime.class).toInstant(), rs.getString("edited_by"));
 
 	private static final RowMapper<Pending> PENDING = (rs, n) -> new Pending(rs.getObject("id", UUID.class),
 			rs.getObject("owner_id", UUID.class), rs.getObject("folder_id", UUID.class),
@@ -98,7 +98,7 @@ class AssetRepository {
 	@Transactional
 	boolean update(UUID ownerId, UUID id, String title, String description) {
 		var changed = jdbc.sql("""
-				update items set title = :title, updated_at = now()
+				update items set title = :title, edited_by = null, updated_at = now()
 				where id = :id and owner_id = :owner and type = 'ASSET' and deleted_at is null""")
 				.param("title", title).param("id", id).param("owner", ownerId).update();
 		if (changed == 0) {

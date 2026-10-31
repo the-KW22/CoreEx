@@ -56,7 +56,7 @@ public class TrashService {
 
 	/** Brings the Item back, and any trashed Folders above it (but not what else was in them). */
 	@Transactional
-	void restoreItem(UUID ownerId, UUID id) {
+	public void restoreItem(UUID ownerId, UUID id) {
 		var item = trash.findTrashedItem(ownerId, id).orElseThrow(TrashService::notInTrash);
 		trash.restoreItem(ownerId, id);
 		if (item.folderId() != null) {
@@ -66,7 +66,7 @@ public class TrashService {
 
 	/** Brings back exactly what was deleted with the Folder, and any trashed Folders above it. */
 	@Transactional
-	void restoreFolder(UUID ownerId, UUID id) {
+	public void restoreFolder(UUID ownerId, UUID id) {
 		var folder = trash.findTrashedFolder(ownerId, id).orElseThrow(TrashService::notInTrash);
 		trash.restoreBatch(ownerId, folder.batchId());
 		if (folder.parentId() != null) {

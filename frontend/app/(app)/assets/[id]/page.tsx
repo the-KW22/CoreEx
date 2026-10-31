@@ -103,6 +103,12 @@ export default async function AssetPage({ params, searchParams }: PageProps<"/as
                 <dd>
                   <time dateTime={asset.updatedAt}>{asset.updatedAt.slice(0, 10)}</time>
                 </dd>
+                {asset.editedBy && (
+                  <>
+                    <dt className="text-muted-foreground">Edited by</dt>
+                    <dd className="break-words">{asset.editedBy}</dd>
+                  </>
+                )}
               </dl>
             </section>
           </>

@@ -180,7 +180,7 @@ class ReadTools {
 	}
 
 	private static User user(McpTransportContext context) {
-		return (User) context.get(McpConfig.USER);
+		return McpConfig.agent(context).user();
 	}
 
 	/** A cursor is the page number as text; none means the first page. */
