@@ -26,6 +26,9 @@ test.beforeAll(async ({ browser }) => {
   const page = seedPage;
   await signIn(page);
 
+  // New Folder is the plus button of the Knowledge Base panel's Folders tab; Home has no panel.
+  await page.goto("/items");
+  await page.getByRole("radio", { name: "Folders" }).click();
   await page.getByRole("button", { name: "New Folder" }).click();
   await page.getByLabel("Folder name").fill(folderName);
   await page.getByRole("button", { name: "Create Folder" }).click();
