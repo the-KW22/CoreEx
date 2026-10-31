@@ -550,6 +550,41 @@ test("an Invite is created, its link copied, and revoked after a confirm", async
   await expect(row.getByRole("button")).toHaveCount(0);
 });
 
+test("an Access token is created, its secret shown once, and revoked after a confirm", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await signIn(page);
+  const name = `agent-${Date.now()}`;
+  await page.goto("/settings/tokens");
+  await expect(page.getByRole("heading", { name: "Access tokens" })).toBeVisible();
+  // Settings is not the Knowledge Base, so it has no panel beside the page.
+  await expect(page.getByRole("complementary")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "New Access token" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Access token" });
+  await dialog.getByLabel("Name").fill(name);
+  await expectNoViolations(page);
+  await dialog.getByRole("button", { name: "Create token" }).click();
+
+  // The secret is in the dialog now, and only now.
+  const secret = page.getByRole("dialog", { name: "Copy your Access token" }).getByLabel("Access token");
+  await expect(secret).toHaveValue(/^cx_pat_/);
+  await page.getByRole("button", { name: "Copy token" }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^cx_pat_/);
+  await page.getByRole("button", { name: "Done" }).click();
+
+  const row = page.getByRole("row").filter({ hasText: name });
+  await expect(row).toContainText("Never used");
+  await expect(page.getByText(/cx_pat_/)).toHaveCount(0);
+  await expectNoViolations(page);
+
+  await row.getByRole("button", { name: `Revoke ${name}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
+  await expect(row).toBeVisible();
+  await row.getByRole("button", { name: `Revoke ${name}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Revoke" }).click();
+  await expect(row).toHaveCount(0);
+});
+
 test("the Users table shows you without Disable or Remove, and Overview has its chart", async ({ page }) => {
   await signIn(page);
   await page.goto("/admin/users");

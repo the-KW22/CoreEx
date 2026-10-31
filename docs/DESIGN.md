@@ -28,7 +28,7 @@ The agreed design for the frontend redesign. It records **what** the UI looks li
 | Top | CoreEx logo | All |
 | Modules | **Home**, **Knowledge Base**, **Assets** | All |
 | Divider, then | **Trash**, **Admin** | Admin only for Admin |
-| Bottom | Collapse toggle, Theme toggle, **Account** menu (email, Log out) | All |
+| Bottom | Collapse toggle, Theme toggle, **Account** menu (email, Access tokens, Log out) | All |
 
 - Planned modules (Graph, Jobs, Integrations) are **not shown** until they exist.
 - **Expanded by default:** every entry shows its icon and label side by side (14rem wide). The toggle at the bottom collapses it to icons only (4rem), and the choice is kept in the `rail` cookie, which the server reads so there is no flash. The phone menu Sheet always shows labels.
@@ -37,7 +37,7 @@ The agreed design for the frontend redesign. It records **what** the UI looks li
 
 ### 3.2 Knowledge Base panel (beside the rail)
 
-The panel belongs to the Knowledge Base module: it shows only on Knowledge Base routes (All Items, Folders, Tags, Notes, Search). Home, Assets, Trash and Admin use the full width, and a future module brings its own panel or none.
+The panel belongs to the Knowledge Base module: it shows only on Knowledge Base routes (All Items, Folders, Tags, Notes, Search). Home, Assets, Trash, Admin and Settings use the full width, and a future module brings its own panel or none.
 
 - Header "Knowledge Base" with a "+" button that follows the active tab: **New Note** on Notes, **New Folder** on Folders, **New Tag** on Tags (the last two ask for a name in a small popover; a duplicate Tag name is refused with a message).
 - A **filter field** that narrows the active tab's list in place. Folders and Tags filter in the browser (Folders then show as a flat list, since a match can sit deep in the tree). Notes ask `/panel-notes`, which searches every Note by title. It does not open the command palette.
@@ -55,6 +55,7 @@ The panel belongs to the Knowledge Base module: it shows only on Knowledge Base 
 | `/assets` | Assets: the same layout as All Items, with Assets only (`GET /api/items?type=ASSET`) and Upload as its one action |
 | `/tags`, `/trash`, `/search` | Tags, Trash, full-text Search results |
 | `/admin` (tabs: Overview, Users, Invites) | Admin |
+| `/settings/tokens` | Access tokens (from the Account menu; no panel beside it) |
 | `/login`, `/reset-password`, `/invite-only`, `/disabled`, 404, error | Sign-in and system pages |
 
 ## 4. Design tokens
@@ -196,6 +197,10 @@ The same tokens are used by CSS, Motion and View Transitions. They are defined o
 - **Centered card** on the background: logo, "Sign in to CoreEx", the invite-only sentence, Email, Password with "Forgot password?", **Sign in** (Mint), **Create account with your invite** (secondary).
 - Invite-only, Disabled, 404 and error pages use the same frame with the Empty component and one clear next action.
 - No marketing content. Explaining CoreEx to strangers is the job of the future landing page (section 13).
+
+### 6.10 Access tokens (`/settings/tokens`)
+
+Opened from **Access tokens** in the Account menu. Title, one sentence on what an Access token lets an Agent do, and **New Access token**. A table of the User's tokens: Name, Created, Last used ("Never used"), Expires (a date, "Never", or an orange **Expired** Badge) and **Revoke** behind an Alert Dialog. On a phone each row becomes a card, as in Admin Invites. Empty state: "No Access tokens yet". The New Access token Dialog asks for a Name and an Expires-after Select (30 days, 90 days default, 1 year, Never); on success the same Dialog shows the secret once in a read-only field with **Copy token** and **Done**, and says it is never shown again.
 
 ## 7. Component map (shadcn/ui)
 
