@@ -89,6 +89,14 @@ Press **Ctrl+K** (**Cmd+K** on a Mac) on any page to open the quick switcher: ty
 
 **Move to Trash** (on a Note, Asset or Folder) hides it; **Trash** in the sidebar lists what is there with the days left before it is removed for good (30). A deleted Folder is one row ("with 2 Folders and 5 Items"). **Restore** brings an Item back together with any trashed Folders above it (not what else was in them), and brings a Folder back with exactly what was deleted with it. Links to a restored Item work again. **Delete forever** and **Empty Trash** remove things for good, including the files in Storage, which frees your storage quota. Anything older than 30 days is removed by a background job every 6 hours while the app is awake, and by a daily scheduled GitHub Actions run that also wakes the free host (setup in `docs/DEPLOY.md`).
 
+### Access tokens
+
+**Access tokens** in the Account menu (bottom of the sidebar) creates the secret an Agent such as Claude Code or Codex uses to work with your knowledge base. Give it a name and an expiry (90 days unless you choose otherwise, or never), then copy it from the dialog: it is shown once, and only a hash of it is stored. **Revoke** stops it at once. Up to 10 tokens can be live at a time, and each is limited to 60 calls a minute (`coreex.tokens.*`). An Access token works only on the MCP server at `/mcp`, never on the rest of the API, and stops working if your account is disabled.
+
+### MCP server
+
+The API also speaks MCP (Model Context Protocol) at `/mcp`, so an Agent (Claude Code, Codex, Claude Desktop) can read, write and organise your knowledge base with an Access token. It can never delete anything for good: the Trash is as far as it goes. A Note or Asset an Agent last changed shows **Edited by** in its Details panel. See [docs/MCP.md](docs/MCP.md) for the tools and how to connect.
+
 ## Deploying
 
 Production (from `main`) is the only cloud environment: a Vercel frontend, a Render backend and one Supabase project. `staging` is the integration branch, checked by CI and by running the stack locally. See [docs/DEPLOY.md](docs/DEPLOY.md) for setup, variables and redeploying.

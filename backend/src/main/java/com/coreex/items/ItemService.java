@@ -35,14 +35,14 @@ public class ItemService {
 	 * All live Items, or only those in one Folder, with one Tag and/or of one type (a 404 if that Folder or Tag is missing, deleted
 	 * or not theirs).
 	 */
-	List<Item> list(UUID ownerId, UUID folderId, UUID tagId, Item.Type type, int page, int size) {
+	public List<Item> list(UUID ownerId, UUID folderId, UUID tagId, Item.Type type, int page, int size) {
 		requireFilters(ownerId, folderId, tagId);
 		var found = items.findLivePage(ownerId, folderId, tagId, type, size, (long) page * size);
 		var tagsByItem = tags.forItems(ownerId, found.stream().map(Item::id).toList());
 		return found.stream().map(i -> i.withTags(tagsByItem.getOrDefault(i.id(), List.of()))).toList();
 	}
 
-	long total(UUID ownerId, UUID folderId, UUID tagId, Item.Type type) {
+	public long total(UUID ownerId, UUID folderId, UUID tagId, Item.Type type) {
 		return items.countLive(ownerId, folderId, tagId, type);
 	}
 
@@ -74,9 +74,14 @@ public class ItemService {
 		}
 	}
 
+	/** Notes which Access token made an Agent's latest change to the Item, for the Details panel. */
+	public void recordAgentEdit(UUID ownerId, UUID id, String agentName) {
+		items.setEditedBy(ownerId, id, agentName);
+	}
+
 	/** Moves an Item into a Folder, or to the top level when folderId is null. */
 	@Transactional
-	Item move(UUID ownerId, UUID id, UUID folderId) {
+	public Item move(UUID ownerId, UUID id, UUID folderId) {
 		if (folderId != null) {
 			folders.requireLiveForWrite(ownerId, folderId);
 		}

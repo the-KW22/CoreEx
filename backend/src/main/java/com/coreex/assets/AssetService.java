@@ -22,7 +22,7 @@ import com.coreex.storage.Storage;
  * Storage is never called inside a database transaction.
  */
 @Service
-class AssetService {
+public class AssetService {
 
 	record Upload(UUID id, URI url) {
 	}
@@ -104,7 +104,7 @@ class AssetService {
 		return get(user, id);
 	}
 
-	Asset get(User user, UUID id) {
+	public Asset get(User user, UUID id) {
 		return assets.find(user.id(), id).orElseThrow(AssetService::noSuchAsset);
 	}
 
@@ -116,7 +116,7 @@ class AssetService {
 				ttl.toSeconds());
 	}
 
-	Asset update(User user, UUID id, String title, String description) {
+	public Asset update(User user, UUID id, String title, String description) {
 		if (!assets.update(user.id(), id, title, description)) {
 			throw noSuchAsset();
 		}
@@ -124,7 +124,7 @@ class AssetService {
 	}
 
 	/** Moves the Asset to the Trash. Its file stays in Storage, and still counts as used, until the Trash purges it. */
-	void delete(User user, UUID id) {
+	public void delete(User user, UUID id) {
 		if (!assets.softDelete(user.id(), id, clock.instant())) {
 			throw noSuchAsset();
 		}

@@ -58,6 +58,14 @@ _Avoid_: Account, member, customer, owner
 A User who can also manage Invites, see Users and their storage use, change a User's Storage Quota, and disable Users. An Admin can never read another User's Items.
 _Avoid_: Superuser, moderator, operator
 
+**Access token**:
+A secret a User creates so an Agent can act for them on the MCP server (`/mcp`). It carries the User's full access, can be revoked at any time, and expires (90 days unless chosen otherwise). It is shown once, when created. It works nowhere except `/mcp`.
+_Avoid_: API key, password, personal access token (outside this definition)
+
+**Agent**:
+An AI client, such as Claude Code or Codex, that works with a User's knowledge base through an Access token. An Agent can do what the User can, except remove anything for good.
+_Avoid_: Bot, assistant, integration, client
+
 **Invite**:
 Permission for one email address to create a CoreEx account. Sign-up is only possible with an Invite.
 _Avoid_: Allowlist entry, whitelist, access code

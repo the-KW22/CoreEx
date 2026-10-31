@@ -14,7 +14,7 @@ export type SaveResult =
   | { status: "conflict" }
   | { status: "error"; message: string };
 
-export type LoadedNote = { title: string; body: string; version: number; updatedAt: string };
+export type LoadedNote = { title: string; body: string; version: number; updatedAt: string; editedBy: string | null };
 
 // A Folder id in the form (the Folder being viewed) files the new Note there; without one it is top level.
 export async function createNote(formData: FormData) {

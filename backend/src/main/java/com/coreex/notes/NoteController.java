@@ -58,11 +58,13 @@ class NoteController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int version,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID folderId,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+					description = "The name of the Access token that made the latest change; null when the User did") String editedBy) {
 
 		static NoteResponse of(Note note) {
 			return new NoteResponse(note.id(), note.title(), note.body(), note.version(), note.folderId(),
-					note.createdAt(), note.updatedAt());
+					note.createdAt(), note.updatedAt(), note.editedBy());
 		}
 
 	}

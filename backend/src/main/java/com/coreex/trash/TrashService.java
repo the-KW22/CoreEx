@@ -19,9 +19,9 @@ import com.coreex.trash.TrashRepository.Entry;
  * database rows second, so a Storage failure leaves everything in place and trying again is safe.
  */
 @Service
-class TrashService {
+public class TrashService {
 
-	record Row(Entry entry, long daysRemaining) {
+	public record Row(Entry entry, long daysRemaining) {
 	}
 
 	private final TrashRepository trash;
@@ -39,12 +39,12 @@ class TrashService {
 		this.clock = clock;
 	}
 
-	List<Row> list(UUID ownerId, int page, int size) {
+	public List<Row> list(UUID ownerId, int page, int size) {
 		return trash.page(ownerId, size, (long) page * size).stream()
 				.map(entry -> new Row(entry, daysRemaining(entry.deletedAt()))).toList();
 	}
 
-	long total(UUID ownerId) {
+	public long total(UUID ownerId) {
 		return trash.count(ownerId);
 	}
 
@@ -56,7 +56,7 @@ class TrashService {
 
 	/** Brings the Item back, and any trashed Folders above it (but not what else was in them). */
 	@Transactional
-	void restoreItem(UUID ownerId, UUID id) {
+	public void restoreItem(UUID ownerId, UUID id) {
 		var item = trash.findTrashedItem(ownerId, id).orElseThrow(TrashService::notInTrash);
 		trash.restoreItem(ownerId, id);
 		if (item.folderId() != null) {
@@ -66,7 +66,7 @@ class TrashService {
 
 	/** Brings back exactly what was deleted with the Folder, and any trashed Folders above it. */
 	@Transactional
-	void restoreFolder(UUID ownerId, UUID id) {
+	public void restoreFolder(UUID ownerId, UUID id) {
 		var folder = trash.findTrashedFolder(ownerId, id).orElseThrow(TrashService::notInTrash);
 		trash.restoreBatch(ownerId, folder.batchId());
 		if (folder.parentId() != null) {

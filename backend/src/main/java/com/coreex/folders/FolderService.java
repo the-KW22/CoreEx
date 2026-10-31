@@ -58,19 +58,19 @@ public class FolderService {
 		return paths;
 	}
 
-	Folder create(UUID ownerId, UUID parentId, String name) {
+	public Folder create(UUID ownerId, UUID parentId, String name) {
 		if (parentId != null) {
 			requireLive(ownerId, parentId);
 		}
 		return folders.insert(ownerId, parentId, name);
 	}
 
-	List<Folder> list(UUID ownerId) {
+	public List<Folder> list(UUID ownerId) {
 		return folders.listLive(ownerId);
 	}
 
 	@Transactional
-	Folder rename(UUID ownerId, UUID id, String name) {
+	public Folder rename(UUID ownerId, UUID id, String name) {
 		if (!folders.rename(ownerId, id, name)) {
 			throw notFound();
 		}
@@ -79,7 +79,7 @@ public class FolderService {
 
 	// shortcut: two moves at the same moment could still form a cycle, lock the User's Folders if that ever matters.
 	@Transactional
-	Folder move(UUID ownerId, UUID id, UUID parentId) {
+	public Folder move(UUID ownerId, UUID id, UUID parentId) {
 		var subtree = subtree(ownerId, id);
 		if (parentId != null) {
 			requireLive(ownerId, parentId);
@@ -98,7 +98,7 @@ public class FolderService {
 	}
 
 	@Transactional
-	void delete(UUID ownerId, UUID id) {
+	public void delete(UUID ownerId, UUID id) {
 		folders.trash(ownerId, subtree(ownerId, id), UUID.randomUUID(), clock.instant());
 	}
 

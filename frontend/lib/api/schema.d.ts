@@ -372,7 +372,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/trash": {
+    "/api/access-tokens": {
         parameters: {
             query?: never;
             header?: never;
@@ -380,6 +380,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["list_4"];
+        put?: never;
+        post: operations["create_4"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_5"];
         put?: never;
         post?: never;
         delete: operations["empty"];
@@ -459,7 +475,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_5"];
+        get: operations["list_6"];
         put?: never;
         post?: never;
         delete?: never;
@@ -555,7 +571,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_6"];
+        get: operations["list_7"];
         put?: never;
         post?: never;
         delete?: never;
@@ -644,6 +660,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/access-tokens/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["revoke_1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -685,6 +717,8 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+            /** @description The name of the Access token that made the latest change; null when the User did */
+            editedBy: string | null;
         };
         RenameFolderRequest: {
             name: string;
@@ -717,6 +751,8 @@ export interface components {
             folderId: string | null;
             /** Format: date-time */
             updatedAt: string;
+            /** @description The name of the Access token that made the latest change; null when the User did */
+            editedBy: string | null;
         };
         SetQuotaRequest: {
             /**
@@ -893,6 +929,29 @@ export interface components {
             /** Format: date-time */
             acceptedAt?: string;
         };
+        CreateTokenRequest: {
+            name: string;
+            /**
+             * Format: int32
+             * @description Days until it expires; absent means the default (90)
+             */
+            expiresInDays?: number;
+            /** @description True for a token that never expires */
+            neverExpires?: boolean;
+        };
+        CreatedTokenResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastUsedAt?: string | null;
+            /** Format: date-time */
+            expiresAt?: string | null;
+            /** @description The secret. It is shown only now. */
+            token: string;
+        };
         TrashEntryResponse: {
             /** Format: uuid */
             id: string;
@@ -1054,6 +1113,24 @@ export interface components {
             items: components["schemas"]["InviteResponse"][];
             /** Format: int64 */
             total: number;
+        };
+        TokenList: {
+            items: components["schemas"]["TokenResponse"][];
+            /** Format: int64 */
+            total: number;
+        };
+        TokenResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastUsedAt?: string | null;
+            /** Format: date-time */
+            expiresAt?: string | null;
+            /** @description Its expiry has passed, so it no longer works */
+            expired: boolean;
         };
     };
     responses: never;
@@ -2373,6 +2450,68 @@ export interface operations {
     };
     list_4: {
         parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenList"];
+                };
+            };
+        };
+    };
+    create_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description The new Access token, with its secret */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedTokenResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code TOKEN_LIMIT: the User has too many live Access tokens */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_5: {
+        parameters: {
             query?: {
                 page?: number;
                 size?: number;
@@ -2530,7 +2669,7 @@ export interface operations {
             };
         };
     };
-    list_5: {
+    list_6: {
         parameters: {
             query?: {
                 folderId?: string;
@@ -2709,7 +2848,7 @@ export interface operations {
             };
         };
     };
-    list_6: {
+    list_7: {
         parameters: {
             query?: {
                 page?: number;
@@ -2896,6 +3035,35 @@ export interface operations {
             };
             /** @description Code STORAGE_UNAVAILABLE or AUTH_UNAVAILABLE; nothing was lost, retry */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    revoke_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND (also for another User's token) */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

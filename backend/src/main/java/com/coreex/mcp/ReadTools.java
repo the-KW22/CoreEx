@@ -1,0 +1,209 @@
+package com.coreex.mcp;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.ai.mcp.annotation.McpTool;
+import org.springframework.ai.mcp.annotation.McpToolParam;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
+
+import com.coreex.assets.AssetService;
+import com.coreex.common.ApiException;
+import com.coreex.folders.FolderService;
+import com.coreex.identity.User;
+import com.coreex.items.Item;
+import com.coreex.items.ItemService;
+import com.coreex.links.LinkService;
+import com.coreex.notes.NoteService;
+import com.coreex.search.SearchService;
+import com.coreex.tags.TagService;
+import com.coreex.trash.TrashService;
+
+import io.modelcontextprotocol.common.McpTransportContext;
+
+/**
+ * What an Agent can read. Every tool goes through a feature's service with the calling User's id, so the rules of the
+ * REST API (scoping, the Trash hiding things) apply here too (ADR 0007).
+ */
+@Component
+class ReadTools {
+
+	private static final int PAGE_SIZE = 50;
+
+	record TagRef(UUID id, String name) {
+	}
+
+	record ItemSummary(UUID id, Item.Type type, String title, UUID folderId, Instant updatedAt,
+			String snippet, Long sizeBytes,
+			List<String> tags) {
+	}
+
+	record ItemList(List<ItemSummary> items, long total,
+			String nextCursor) {
+	}
+
+	record SearchHit(UUID id, Item.Type type, String title, String folderPath, Instant updatedAt,
+			String snippet) {
+	}
+
+	record SearchResult(List<SearchHit> hits, long total, String nextCursor) {
+	}
+
+	record BacklinkRef(UUID id, String title) {
+	}
+
+	record ItemDetail(UUID id, Item.Type type, String title, UUID folderId, String folderPath, Instant updatedAt,
+			List<TagRef> tags, List<BacklinkRef> backlinks, String markdown, Integer version, String description,
+			String mimeType, Long sizeBytes) {
+	}
+
+	record FolderInfo(UUID id, UUID parentId, String name, String path, long itemCount) {
+	}
+
+	record FolderList(List<FolderInfo> folders) {
+	}
+
+	record TagInfo(UUID id, String name, String colour, long itemCount) {
+	}
+
+	record TagList(List<TagInfo> tags) {
+	}
+
+	record TrashEntry(String kind, UUID id, String title, Instant deletedAt, long daysRemaining, long folderCount,
+			long itemCount) {
+	}
+
+	record TrashList(List<TrashEntry> entries, long total, String nextCursor) {
+	}
+
+	private final ItemService items;
+
+	private final NoteService notes;
+
+	private final AssetService assets;
+
+	private final SearchService search;
+
+	private final FolderService folders;
+
+	private final TagService tags;
+
+	private final LinkService links;
+
+	private final TrashService trash;
+
+	ReadTools(ItemService items, NoteService notes, AssetService assets, SearchService search, FolderService folders,
+			TagService tags, LinkService links, TrashService trash) {
+		this.items = items;
+		this.notes = notes;
+		this.assets = assets;
+		this.search = search;
+		this.folders = folders;
+		this.tags = tags;
+		this.links = links;
+		this.trash = trash;
+	}
+
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "search", description = "Find Notes and Assets by words in a Note's title or text, an Asset's title or description, or a Tag name. Use this when you know what you are looking for; use list_items to browse. Words are matched exactly (ignoring case); put a phrase in \"quotes\", use or for either word, and -word to leave one out. Returns titles, ids and snippets, not full Notes: call get_item to read one.")
+	SearchResult search(McpTransportContext context,
+			@McpToolParam(description = "What to search for") String query,
+			@McpToolParam(required = false, description = "Only Notes (NOTE) or only Assets (ASSET)") Item.Type type,
+			@McpToolParam(required = false, description = "Only Items with this Tag (an id from list_tags)") UUID tagId,
+			@McpToolParam(required = false, description = "Only Items in this Folder or its subfolders (an id from list_folders)") UUID folderId,
+			@McpToolParam(required = false, description = "The nextCursor of the previous page") String cursor) {
+		var page = page(cursor);
+		var found = search.search(user(context).id(), query, type, tagId, folderId, page, PAGE_SIZE);
+		var hits = found.hits().stream().map(h -> new SearchHit(h.id(), h.type(), h.title(), h.folderPath(), h.updatedAt(),
+				snippet(h.snippet()))).toList();
+		return new SearchResult(hits, found.total(), next(page, found.total()));
+	}
+
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "list_items", description = "List Notes and Assets, most recently updated first, 50 per page. Use this to browse a Folder, a Tag or one type of Item; use search to find something by words. Returns summaries with Tags and a short preview: call get_item to read one.")
+	ItemList listItems(McpTransportContext context,
+			@McpToolParam(required = false, description = "Only Items in this Folder (an id from list_folders)") UUID folderId,
+			@McpToolParam(required = false, description = "Only Items with this Tag (an id from list_tags)") UUID tagId,
+			@McpToolParam(required = false, description = "Only Notes (NOTE) or only Assets (ASSET)") Item.Type type,
+			@McpToolParam(required = false, description = "The nextCursor of the previous page") String cursor) {
+		var user = user(context);
+		var page = page(cursor);
+		var total = items.total(user.id(), folderId, tagId, type);
+		var list = items.list(user.id(), folderId, tagId, type, page, PAGE_SIZE).stream().map(i -> new ItemSummary(i.id(),
+				i.type(), i.title(), i.folderId(), i.updatedAt(), i.snippet(), i.sizeBytes(),
+				i.tags().stream().map(t -> t.name()).toList())).toList();
+		return new ItemList(list, total, next(page, total));
+	}
+
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_item", description = "Read one Note or Asset by id. For a Note: its full Markdown, its version (you need it to edit the Note), Tags, Folder and the Notes that link to it (Backlinks). For an Asset: its title, description, type and size; the file itself is not available.")
+	ItemDetail getItem(McpTransportContext context, @McpToolParam(description = "The Item's id") UUID id) {
+		var user = user(context);
+		var item = items.findLive(user.id(), List.of(id)).stream().findFirst()
+				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "There is no such Item."));
+		var path = item.folderId() == null ? null : folders.paths(user.id()).get(item.folderId());
+		var itemTags = tags.forItem(user.id(), id).stream().map(t -> new TagRef(t.id(), t.name())).toList();
+		var backlinks = links.backlinks(user.id(), id).stream().map(b -> new BacklinkRef(b.id(), b.title())).toList();
+		if (item.type() == Item.Type.NOTE) {
+			var note = notes.get(user.id(), id);
+			return new ItemDetail(id, item.type(), note.title(), note.folderId(), path, note.updatedAt(), itemTags,
+					backlinks, note.body(), note.version(), null, null, null);
+		}
+		var asset = assets.get(user, id);
+		return new ItemDetail(id, item.type(), asset.title(), asset.folderId(), path, asset.updatedAt(), itemTags,
+				backlinks, null, null, asset.description(), asset.mimeType(), asset.sizeBytes());
+	}
+
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "list_folders", description = "List every Folder with its id, parent id, full path and how many Items it holds directly. Use it to learn how the knowledge base is organised and to get a Folder id for the other tools.")
+	FolderList listFolders(McpTransportContext context) {
+		var user = user(context);
+		var paths = folders.paths(user.id());
+		return new FolderList(folders.list(user.id()).stream()
+				.map(f -> new FolderInfo(f.id(), f.parentId(), f.name(), paths.get(f.id()), f.itemCount())).toList());
+	}
+
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "list_tags", description = "List every Tag with its id, colour and how many Items have it. Use it to get a Tag id for search or list_items.")
+	TagList listTags(McpTransportContext context) {
+		return new TagList(tags.list(user(context).id()).stream().map(
+				t -> new TagInfo(t.id(), t.name(), t.colour() == null ? null : t.colour().name(), t.itemCount())).toList());
+	}
+
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "list_trash", description = "List what is in the Trash, newest first, 50 per page, with the days left before it is removed for good. Trashed Notes and Assets do not appear in any other tool.")
+	TrashList listTrash(McpTransportContext context,
+			@McpToolParam(required = false, description = "The nextCursor of the previous page") String cursor) {
+		var user = user(context);
+		var page = page(cursor);
+		var total = trash.total(user.id());
+		var entries = trash.list(user.id(), page, PAGE_SIZE).stream().map(r -> new TrashEntry(r.entry().kind().name(),
+				r.entry().id(), r.entry().title(), r.entry().deletedAt(), r.daysRemaining(), r.entry().folderCount(),
+				r.entry().itemCount())).toList();
+		return new TrashList(entries, total, next(page, total));
+	}
+
+	private static User user(McpTransportContext context) {
+		return McpConfig.agent(context).user();
+	}
+
+	/** A cursor is the page number as text; none means the first page. */
+	private static int page(String cursor) {
+		if (cursor == null || cursor.isBlank()) {
+			return 0;
+		}
+		try {
+			return Math.max(0, Integer.parseInt(cursor));
+		}
+		catch (NumberFormatException e) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "That cursor is not valid.");
+		}
+	}
+
+	private static String next(int page, long total) {
+		return (long) (page + 1) * PAGE_SIZE < total ? String.valueOf(page + 1) : null;
+	}
+
+	private static String snippet(List<SearchService.Segment> segments) {
+		var text = new StringBuilder();
+		segments.forEach(s -> text.append(s.match() ? "**" + s.text() + "**" : s.text()));
+		return text.toString();
+	}
+
+}
