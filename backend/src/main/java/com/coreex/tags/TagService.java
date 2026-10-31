@@ -59,6 +59,15 @@ public class TagService {
 		return tags.listWithCounts(ownerId).stream().map(t -> new TagCount(t.id(), t.name(), t.colour(), t.itemCount())).toList();
 	}
 
+	Tag create(UUID ownerId, String name) {
+		try {
+			return tags.create(ownerId, name);
+		}
+		catch (DuplicateKeyException e) {
+			throw tagExists();
+		}
+	}
+
 	Tag rename(UUID ownerId, UUID id, String name) {
 		try {
 			if (!tags.rename(ownerId, id, name)) {
@@ -66,7 +75,7 @@ public class TagService {
 			}
 		}
 		catch (DuplicateKeyException e) {
-			throw new ApiException(HttpStatus.CONFLICT, "TAG_EXISTS", "You already have a Tag with this name.");
+			throw tagExists();
 		}
 		return requireTag(ownerId, id);
 	}
@@ -84,6 +93,10 @@ public class TagService {
 		if (!tags.delete(ownerId, id)) {
 			throw notFound();
 		}
+	}
+
+	private static ApiException tagExists() {
+		return new ApiException(HttpStatus.CONFLICT, "TAG_EXISTS", "You already have a Tag with this name.");
 	}
 
 	private static ApiException notFound() {

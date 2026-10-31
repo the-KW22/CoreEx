@@ -36,6 +36,12 @@ class TagRepository {
 				.param("owner", ownerId).param("name", name).query(MAPPER).single();
 	}
 
+	/** A new Tag; a DuplicateKeyException when the User already has one with this name (ignoring case). */
+	Tag create(UUID ownerId, String name) {
+		return jdbc.sql("insert into tags (owner_id, name) values (:owner, :name) returning id, name, colour")
+				.param("owner", ownerId).param("name", name).query(MAPPER).single();
+	}
+
 	Optional<Tag> find(UUID ownerId, UUID id) {
 		return jdbc.sql("select id, name, colour from tags where id = :id and owner_id = :owner").param("id", id)
 				.param("owner", ownerId).query(MAPPER).optional();

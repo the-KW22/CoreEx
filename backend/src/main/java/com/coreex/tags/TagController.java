@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -33,6 +34,15 @@ import jakarta.validation.constraints.Size;
 class TagController {
 
 	private static final String JSON = MediaType.APPLICATION_JSON_VALUE;
+
+	record CreateTagRequest(@NotBlank @Size(max = 50) @Pattern(regexp = "[^\u0000]*") String name) {
+
+		// Typed names often carry spaces; trim before validation.
+		CreateTagRequest {
+			name = name == null ? null : name.trim();
+		}
+
+	}
 
 	record RenameTagRequest(@NotBlank @Size(max = 50) @Pattern(regexp = "[^\\u0000]*") String name) {
 
@@ -75,6 +85,20 @@ class TagController {
 		var items = tags.list(user.id()).stream()
 				.map(t -> new TagCountResponse(t.id(), t.name(), t.colour(), t.itemCount())).toList();
 		return new TagList(items, items.size());
+	}
+
+	@PostMapping(consumes = JSON)
+	@ResponseStatus(HttpStatus.CREATED)
+	@ApiResponse(responseCode = "201", description = "The new Tag", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = TagResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "409", description = "Code TAG_EXISTS: the User already has a Tag with this name",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	TagResponse create(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@Valid @RequestBody CreateTagRequest request) {
+		var tag = tags.create(user.id(), request.name());
+		return new TagResponse(tag.id(), tag.name(), tag.colour());
 	}
 
 	@PutMapping(value = "/{id}", consumes = JSON)
