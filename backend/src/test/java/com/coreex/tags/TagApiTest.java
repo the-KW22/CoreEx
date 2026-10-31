@@ -67,6 +67,23 @@ class TagApiTest extends ApiTest {
 	}
 
 	@Test
+	void theItemListShowsEachItemsTagsByName() throws Exception {
+		var tagged = note(userA, "Tagged");
+		var plain = note(userA, "Plain");
+		tagId(userA, tagged, "Beta");
+		tagId(userA, tagged, "alpha");
+
+		var list = get("/api/items", userA).body();
+
+		assertThat(list).contains("\"tags\":[{\"id\":\"");
+		assertThat(list.indexOf("\"name\":\"alpha\"")).isPositive().isLessThan(list.indexOf("\"name\":\"Beta\""));
+		// The Item with no Tags has an empty list, and nobody else sees these Tags.
+		assertThat(list).contains("\"title\":\"Plain\"").contains("\"tags\":[]");
+		assertThat(get("/api/items", userB).body()).doesNotContain("alpha");
+		assertThat(plain).isNotEqualTo(tagged);
+	}
+
+	@Test
 	void aTagIsAddedByNameAndShownOnTheItem() throws Exception {
 		var item = note(userA, "N");
 

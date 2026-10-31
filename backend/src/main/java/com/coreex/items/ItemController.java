@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.coreex.common.ErrorBody;
 import com.coreex.identity.CurrentUserInterceptor;
 import com.coreex.identity.User;
+import com.coreex.tags.TagColour;
 
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -33,16 +34,26 @@ class ItemController {
 
 	private static final String JSON = MediaType.APPLICATION_JSON_VALUE;
 
+	record TagRef(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+			@Schema(nullable = true) TagColour colour) {
+	}
+
 	record ItemResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Item.Type type,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID folderId,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
-					description = "A Note's text as a short plain-text preview; set in the list only, null otherwise") String snippet) {
+					description = "A Note's text as a short plain-text preview; set in the list only, null otherwise") String snippet,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+					description = "An Asset's file size or a Note's text size in bytes; set in the list only, null otherwise") Long sizeBytes,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+					description = "The Item's Tags by name; set in the list only, empty otherwise") List<TagRef> tags) {
 
 		static ItemResponse of(Item item) {
-			return new ItemResponse(item.id(), item.type(), item.title(), item.folderId(), item.updatedAt(), item.snippet());
+			return new ItemResponse(item.id(), item.type(), item.title(), item.folderId(), item.updatedAt(), item.snippet(),
+					item.sizeBytes(), item.tags().stream().map(t -> new TagRef(t.id(), t.name(), t.colour())).toList());
 		}
 
 	}

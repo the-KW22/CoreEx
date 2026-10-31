@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
+import { parseType } from "@/lib/items";
 import { pageInfo } from "@/lib/pages";
 
 import { ItemsView, PAGE_SIZE } from "../../items/items-view";
@@ -8,12 +9,13 @@ import { TagActions } from "../tag-actions";
 
 export default async function TagPage({ params, searchParams }: PageProps<"/tags/[id]">) {
   const { id } = await params;
-  const { page: raw } = await searchParams;
+  const { page: raw, type: rawType } = await searchParams;
+  const type = parseType(rawType);
   const requested = pageInfo(0, raw, PAGE_SIZE).page;
   const api = await getApi();
   const [list, items, folders] = await Promise.all([
     api.GET("/api/tags").catch(() => null),
-    api.GET("/api/items", { params: { query: { tagId: id, page: requested, size: PAGE_SIZE } } }).catch(() => null),
+    api.GET("/api/items", { params: { query: { tagId: id, type, page: requested, size: PAGE_SIZE } } }).catch(() => null),
     api.GET("/api/folders").catch(() => null),
   ]);
 
@@ -40,6 +42,7 @@ export default async function TagPage({ params, searchParams }: PageProps<"/tags
       items={items.data}
       page={pageInfo(items.data.total, raw, PAGE_SIZE)}
       path={`/tags/${id}`}
+      type={type}
       empty="No Items have this Tag yet."
     />
   );

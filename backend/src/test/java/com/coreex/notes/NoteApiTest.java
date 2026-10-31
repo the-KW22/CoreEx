@@ -69,7 +69,9 @@ class NoteApiTest extends ApiTest {
 		var list = get("/api/items", userA).body();
 
 		assertThat(list).contains("\"title\":\"Plans\"").contains("\"snippet\":\"Ship it soon\"")
-				.contains("\"snippet\":null");
+				.contains("\"snippet\":null")
+				// The text's size in bytes: "# Plans", a blank line and "Ship **it** soon".
+				.contains("\"sizeBytes\":25").contains("\"sizeBytes\":0");
 	}
 
 	@Test
