@@ -90,7 +90,7 @@ Claude Desktop reaches remote servers **from Anthropic's cloud**, so this works 
 1. Open **Customize > Connectors**, click **+ Add**, then **Add custom connector**.
 2. Name: `CoreEx`. URL: `https://coreex-api-prod.onrender.com/mcp`. Continue.
 3. Set **Authentication** to **No sign in** (CoreEx uses your token, not OAuth).
-4. Under **Request headers**, add the header `Authorization` with the value `Bearer cx_pat_YOUR_TOKEN`.
+4. Under **Request headers**, add the header `Authorization: Bearer cx_pat_YOUR_TOKEN`. (If the form has separate boxes, the name is `Authorization` and the value is `Bearer cx_pat_YOUR_TOKEN`; Anthropic's article does not show the exact form.)
 5. **Add**. In a chat, use the **+** button, then **Connectors**, and switch CoreEx on.
 
 The steps come from [Anthropic's help article](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp); menu names may change.
