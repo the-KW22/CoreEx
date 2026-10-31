@@ -1,11 +1,11 @@
 "use client";
 
-import { autocompletion, startCompletion } from "@codemirror/autocomplete";
+import { autocompletion, completionStatus, startCompletion } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState, type StateCommand } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
-import { FileTextIcon, ImageIcon, TriangleAlertIcon } from "lucide-react";
+import { FileTextIcon, ImageIcon, MinimizeIcon, TriangleAlertIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { smallestEdit } from "./edit";
 import { activeFormats, toggleInline } from "./format";
 import { type LinkTarget, linkCompletion, linkField, linkIds, setLinks } from "./links";
 import { livePreview } from "./live-preview";
+import { slashCompletion } from "./slash";
 import { linkAt, titleFromBody, withHeading, wordCount } from "./text";
 import { EditorToolbar } from "./toolbar";
 
@@ -82,8 +83,11 @@ export function NoteEditor({
   const [previewText, setPreviewText] = useState<Record<string, string | null>>({});
   // What the caret is inside (bold, a list...), as a space-separated list, for the toolbar's pressed buttons.
   const [active, setActive] = useState("");
+  // Focus mode: the writing column fills the window and the rest of the page is out of reach.
+  const [focus, setFocus] = useState(false);
 
   const host = useRef<HTMLDivElement>(null);
+  const layer = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const version = useRef(initial.version);
   const saved = useRef<Text>({ title: initial.title, body: initial.body });
@@ -204,19 +208,24 @@ export function NoteEditor({
           keymap.of([
             { key: "Mod-b", run: toggleInline("bold") },
             { key: "Mod-i", run: toggleInline("italic") },
+            { key: "Mod-Shift-f", run: () => (setFocus((on) => !on), true) },
             ...defaultKeymap,
             ...historyKeymap,
           ]),
           markdown({ base: markdownLanguage }),
           linkField,
           livePreview,
-          autocompletion({ override: [linkCompletion(suggestLinks)] }),
+          autocompletion({ override: [linkCompletion(suggestLinks), slashCompletion] }),
           EditorView.lineWrapping,
           noteTheme,
           EditorView.contentAttributes.of({ "aria-label": "Note content" }),
           EditorView.domEventHandlers({
-            keydown: (event) => {
-              if (event.key === "Escape") setPreview(null);
+            keydown: (event, editor) => {
+              if (event.key === "Escape") {
+                setPreview(null);
+                // Escape closes an open menu first; with none open it leaves Focus mode.
+                if (!completionStatus(editor.state)) setFocus(false);
+              }
               return false;
             },
           }),
@@ -272,6 +281,21 @@ export function NoteEditor({
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [status]);
+
+  // In Focus mode everything outside the writing layer is inert: not clickable, not tabbable, not read out.
+  useEffect(() => {
+    const top = layer.current;
+    if (!focus || !top) return;
+    const marked: Element[] = [];
+    for (let node: Element = top; node.parentElement; node = node.parentElement) {
+      for (const sibling of node.parentElement.children) {
+        if (sibling === node || sibling.hasAttribute("inert")) continue;
+        sibling.setAttribute("inert", "");
+        marked.push(sibling);
+      }
+    }
+    return () => marked.forEach((el) => el.removeAttribute("inert"));
+  }, [focus]);
 
   // The preview's first lines, loaded once per Link target.
   const previewId = preview?.id;
@@ -352,30 +376,47 @@ export function NoteEditor({
     </>
   );
   const PreviewIcon = preview?.target.type === "ASSET" ? ImageIcon : FileTextIcon;
+  const saveStatus = (
+    <p role="status" className="shrink-0 text-xs text-muted-foreground">
+      {status === "saving" && "Saving…"}
+      {status === "unsaved" && "Unsaved changes"}
+      {status === "saved" && (
+        <>
+          Saved at{" "}
+          <time dateTime={savedAt} suppressHydrationWarning>
+            {new Date(savedAt).toLocaleTimeString()}
+          </time>
+        </>
+      )}
+      {(status === "conflict" || status === "error") && "Not saved"}
+    </p>
+  );
+  // Turning Focus mode on or off keeps the editor (and its caret) where it is, then puts the keyboard back in it.
+  const setFocusMode = (on: boolean) => {
+    setFocus(on);
+    requestAnimationFrame(() => view.current?.focus());
+  };
 
   return (
     <ItemFrame
       crumbs={crumbs}
       current={title || "Untitled"}
-      status={
-        <p role="status" className="shrink-0 text-xs text-muted-foreground">
-          {status === "saving" && "Saving…"}
-          {status === "unsaved" && "Unsaved changes"}
-          {status === "saved" && (
-            <>
-              Saved at{" "}
-              <time dateTime={savedAt} suppressHydrationWarning>
-                {new Date(savedAt).toLocaleTimeString()}
-              </time>
-            </>
-          )}
-          {(status === "conflict" || status === "error") && "Not saved"}
-        </p>
-      }
+      status={saveStatus}
       trash={{ id, action: deleteNote }}
       detailsCookie={detailsCookie}
       details={detailsBody}
     >
+      {/* Always here, so the editor is not rebuilt when Focus mode starts: only its look changes. */}
+      <div ref={layer} className={focus ? "fixed inset-0 z-50 overflow-y-auto bg-background" : "contents"}>
+        {focus && (
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-background/90 px-4 py-2 backdrop-blur">
+            {saveStatus}
+            <Button type="button" size="sm" variant="outline" onClick={() => setFocusMode(false)}>
+              <MinimizeIcon aria-hidden />
+              Exit Focus mode
+            </Button>
+          </div>
+        )}
         <div className="mx-auto grid w-full max-w-[700px] content-start gap-5 px-4 py-8 md:px-0">
           {status === "conflict" && (
             <div role="alert" className="grid gap-3 rounded-[10px] border border-destructive/50 bg-destructive/10 p-4">
@@ -430,8 +471,10 @@ export function NoteEditor({
               className="w-full bg-transparent p-0 text-3xl font-semibold tracking-tight placeholder:text-muted-foreground focus-visible:outline-none md:text-4xl"
             />
           </label>
-          {tags}
-          <EditorToolbar run={run} active={active} />
+          <div className={focus ? "hidden" : "contents"}>{tags}</div>
+          <div className={focus ? "hidden" : "contents"}>
+            <EditorToolbar run={run} active={active} onFocusMode={() => setFocusMode(true)} />
+          </div>
           {/* Mouse previews are heard here: CodeMirror leaves events inside a Link widget to the widget. */}
           <div
             ref={host}
@@ -483,6 +526,7 @@ export function NoteEditor({
           </span>
         </div>
       )}
+      </div>
     </ItemFrame>
   );
 }

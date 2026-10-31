@@ -159,6 +159,8 @@ The same tokens are used by CSS, Motion and View Transitions. They are defined o
 - **Conflict:** a clear Alert banner above the editor with **Keep mine** and **Load theirs** (today's conflict behaviour, restyled).
 - **Writing column** (max 700px, centred): title field, Tags as coloured pills with "+ Tag" (Combobox), a **formatting toolbar**, then the CodeMirror editor with the existing live preview and `[[Link]]` autocomplete, in Atkinson Hyperlegible Next.
 - **Formatting toolbar** (a `role="toolbar"`, arrow keys move between buttons): heading level (Normal, 1 to 3), bold, italic, strikethrough, inline code, bulleted, numbered and checklist, quote, code block, link, `[[Link]]`, table, divider. Only what Markdown can express (ADR 0002), so no font size or colour. Each button toggles on the selection and shows pressed when the caret is already inside that format. Ctrl+B and Ctrl+I are shortcuts (Ctrl+K stays the command palette).
+- **Slash menu:** typing `/` at the start of a line or after a space opens a list of blocks (Heading 1 to 3, Bulleted list, Numbered list, Checklist, Quote, Code block, Link to a Note or Asset, Table, Divider); typing filters it, Enter inserts the block and removes the `/text`, Escape closes it. A `/` inside a word, a URL or code opens nothing. It is CodeMirror's autocomplete list, so it is keyboard operable and announced like the `[[Link]]` suggestions.
+- **Focus mode:** the last button of the toolbar, or Ctrl+Shift+F, hides the rail, panel, header, Tags and toolbar and leaves the title and text centred in the window, with the save status and an Exit button on a thin bar at the top. Escape leaves it (first it closes an open menu). The rest of the page is `inert` while it is on. The editor is not rebuilt, so the caret and unsaved text stay.
 - **Title and first line stay in step:** a first line written as `# Heading` is the Note's title. Typing in it changes the title field, and typing in the title field rewrites that line (or puts a heading in front when the Note has none). An empty title leaves the body alone and shows "Untitled". A Note whose title and heading already differ keeps both until one is edited.
 - **Link hover preview:** hovering *or focusing* a `[[Link]]` shows a Hover Card with the target's title, type, Folder and first lines (from the existing Note and Asset endpoints).
 - **Details panel** (right): Folder (the site's own Select, indented by depth), Backlinks as cards, Info (Created, Updated, word count computed in the browser). Dividers separate the sections: details, organization (Folder, Tags, Backlinks) and Info last. Open by default on wide screens, closed on narrow ones; the choice is remembered.
@@ -277,9 +279,5 @@ Every screen ticket adds its screen to the axe check from step 1 and must pass i
 
 ## 13. Not in this redesign (follow-up tickets)
 
-- Note text previews on cards (needs a snippet from the API).
-- Item counts in the Folder tree and on Folder cards (needs counts in the Folder list).
-- Type filter, Tags and size per row in the Items table.
-- Slash menu and focus mode in the editor.
 - A public **landing page**.
 - Planned modules in the rail (Graph, Jobs, Integrations) appear only when each module ships.
