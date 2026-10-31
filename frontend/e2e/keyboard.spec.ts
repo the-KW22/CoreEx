@@ -61,6 +61,7 @@ test("from the keyboard: sign in, open a Note from the palette, tag it and move 
   const folder = page.getByRole("complementary", { name: "Details" }).getByRole("combobox", { name: "Folder" });
   await tabTo(page, folder);
   await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("listbox")).toBeVisible();
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(page.getByText("Moved", { exact: true })).toBeVisible();

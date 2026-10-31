@@ -653,7 +653,9 @@ test("a Folder is renamed, given a subfolder, moved, and sent to the Trash from 
   await expect(page.getByRole("option", { name: "Top level" })).toBeVisible();
   await expect(page.getByRole("option", { name: child })).toHaveCount(0);
   await page.keyboard.press("Escape");
+  await expect(page.getByRole("listbox")).toBeHidden();
   await page.keyboard.press("Escape");
+  await expect(move).toBeHidden();
 
   await trashFolder(page, renamed);
   await expect(page).toHaveURL(/\/items$/);
@@ -827,9 +829,10 @@ test("an uploaded image opens on the Asset screen, edits in place and downloads"
   const fieldBox = await details.getByLabel("Title").boundingBox();
   expect(fieldBox!.y - (labelBox!.y + labelBox!.height)).toBeGreaterThanOrEqual(4);
   await expect(details.locator("svg.lucide-pencil")).toHaveCount(2);
-  // Dividers separate the details, the organization (Folder, Tags, Backlinks) and the Info block.
+  // Dividers separate the details, the organization (Folder, Tags, Backlinks) and the Info block: each section but the
+  // last has a line under it.
   const dividers = await details.evaluate((aside) =>
-    [...aside.firstElementChild!.children].slice(1).map((el) => getComputedStyle(el).borderTopWidth),
+    [...aside.firstElementChild!.children].slice(0, -1).map((el) => getComputedStyle(el).borderBottomWidth),
   );
   expect(dividers).toEqual(["1px", "1px"]);
   // The Folder choice is the site's own listbox, not the browser's.
