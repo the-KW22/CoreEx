@@ -1,9 +1,9 @@
 "use client";
 
-import { autocompletion } from "@codemirror/autocomplete";
+import { autocompletion, startCompletion } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { EditorState } from "@codemirror/state";
+import { EditorState, type StateCommand } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { FileTextIcon, ImageIcon, TriangleAlertIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -13,13 +13,16 @@ import { Button } from "@/components/ui/button";
 import { ItemFrame } from "../../items/item-frame";
 import { deleteNote, linkPreview, loadNote, resolveLinks, saveNote, suggestLinks } from "../actions";
 import { smallestEdit } from "./edit";
+import { activeFormats, toggleInline } from "./format";
 import { type LinkTarget, linkCompletion, linkField, linkIds, setLinks } from "./links";
 import { livePreview } from "./live-preview";
-import { linkAt, wordCount } from "./text";
+import { linkAt, titleFromBody, withHeading, wordCount } from "./text";
+import { EditorToolbar } from "./toolbar";
 
 const DEBOUNCE_MS = 1000;
 const LINK_LOOKUP_MS = 500;
 const PREVIEW_DELAY_MS = 300;
+const TITLE_MAX = 200;
 
 type Status = "saved" | "unsaved" | "saving" | "conflict" | "error";
 type Text = { title: string; body: string };
@@ -77,6 +80,8 @@ export function NoteEditor({
   const [words, setWords] = useState(() => wordCount(initial.body));
   const [preview, setPreview] = useState<Preview | null>(null);
   const [previewText, setPreviewText] = useState<Record<string, string | null>>({});
+  // What the caret is inside (bold, a list...), as a space-separated list, for the toolbar's pressed buttons.
+  const [active, setActive] = useState("");
 
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -195,7 +200,13 @@ export function NoteEditor({
         doc: initialBody.current,
         extensions: [
           history(),
-          keymap.of([...defaultKeymap, ...historyKeymap]),
+          // Ahead of the default keys, which use Ctrl+I to select the parent syntax node.
+          keymap.of([
+            { key: "Mod-b", run: toggleInline("bold") },
+            { key: "Mod-i", run: toggleInline("italic") },
+            ...defaultKeymap,
+            ...historyKeymap,
+          ]),
           markdown({ base: markdownLanguage }),
           linkField,
           livePreview,
@@ -220,8 +231,18 @@ export function NoteEditor({
               if (update.view.hasFocus && main.empty) showPreview(update.view, main.head, "caret");
               else setPreview((p) => (p?.by === "caret" ? null : p));
             }
+            if (update.selectionSet || update.docChanged) setActive([...activeFormats(update.state)].sort().join(" "));
             if (!update.docChanged || external.current) return;
             latest.current.body = update.state.doc.toString();
+            // The first line as "# Heading" is the Note's title: typing in it changes the title too. Only when that
+            // line was touched, so an older Note whose title differs keeps it until its heading is edited.
+            if (update.changes.touchesRange(0, update.startState.doc.line(1).to)) {
+              const heading = titleFromBody(latest.current.body)?.slice(0, TITLE_MAX);
+              if (heading !== undefined && heading !== latest.current.title) {
+                latest.current.title = heading;
+                setTitle(heading);
+              }
+            }
             changed();
           }),
         ],
@@ -294,6 +315,15 @@ export function NoteEditor({
     setWords(wordCount(theirs.body));
     setStatus("saved");
   }
+
+  // A toolbar button: runs its command on the editor, keeps the editor focused, and opens the Link suggestions for [[ ]].
+  const run = useCallback((command: StateCommand, id?: string) => {
+    const editor = view.current;
+    if (!editor) return;
+    command({ state: editor.state, dispatch: (tr) => editor.dispatch(tr) });
+    editor.focus();
+    if (id === "wikilink") startCompletion(editor);
+  }, []);
 
   const detailsBody = (
     <>
@@ -379,17 +409,29 @@ export function NoteEditor({
             <span className="sr-only">Title</span>
             <input
               value={title}
-              maxLength={200}
+              maxLength={TITLE_MAX}
               placeholder="Untitled"
               onChange={(event) => {
-                setTitle(event.target.value);
-                latest.current.title = event.target.value;
+                const value = event.target.value;
+                setTitle(value);
+                latest.current.title = value;
+                // The title is the first line too: rewrite that line (or put a heading in front), as an outside edit
+                // so the editor does not echo it back into the title.
+                const editor = view.current;
+                const next = withHeading(latest.current.body, value);
+                if (editor && next !== latest.current.body) {
+                  external.current = true;
+                  editor.dispatch({ changes: smallestEdit(latest.current.body, next) });
+                  external.current = false;
+                  latest.current.body = next;
+                }
                 changed();
               }}
               className="w-full bg-transparent p-0 text-3xl font-semibold tracking-tight placeholder:text-muted-foreground focus-visible:outline-none md:text-4xl"
             />
           </label>
           {tags}
+          <EditorToolbar run={run} active={active} />
           {/* Mouse previews are heard here: CodeMirror leaves events inside a Link widget to the widget. */}
           <div
             ref={host}

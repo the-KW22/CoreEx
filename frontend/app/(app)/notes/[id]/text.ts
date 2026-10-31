@@ -36,3 +36,21 @@ export function firstLines(body: string, max = 160): string {
   const cut = text.slice(0, max);
   return `${cut.slice(0, cut.lastIndexOf(" ") > 0 ? cut.lastIndexOf(" ") : max).trimEnd()}…`;
 }
+
+// The Note's title as its first line says it: "# Heading" gives "Heading". Any other first line says nothing.
+export function titleFromBody(body: string): string | null {
+  const match = /^#[ \t]+(.*?)\s*$/.exec(body.split("\n", 1)[0]);
+  return match ? match[1] : null;
+}
+
+// The body with its first line as "# title": that line is rewritten when it already is a heading, and put in front when
+// it is not. An empty title leaves the body alone.
+export function withHeading(body: string, title: string): string {
+  const text = title.trim();
+  if (!text) return body;
+  const end = body.indexOf("\n");
+  const first = end === -1 ? body : body.slice(0, end);
+  if (/^#[ \t]+/.test(first)) return `# ${text}${end === -1 ? "" : body.slice(end)}`;
+  // An empty Note gets a second line too, so there is somewhere to write under the heading.
+  return `# ${text}\n${body}`;
+}

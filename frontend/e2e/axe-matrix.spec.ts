@@ -33,6 +33,7 @@ test.beforeAll(async ({ browser }) => {
   // A tagged Note with a word in its body, and a second Note that links to it.
   await newNote(page, noteA);
   await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
   await page.keyboard.type(`The first line about ${word}.`);
   await expectSaved(page);
   await page.getByRole("button", { name: "Tag", exact: true }).click();
@@ -43,6 +44,7 @@ test.beforeAll(async ({ browser }) => {
 
   await newNote(page, noteB);
   await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
   await page.keyboard.type(`See [[${noteA}`);
   await page.getByRole("option", { name: new RegExp(noteA) }).click();
   await page.keyboard.press("Enter");
