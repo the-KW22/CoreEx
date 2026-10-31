@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { firstLines, linkAt, wordCount } from "./text";
+import { firstLines, linkAt, wordCount, titleFromBody, withHeading } from "./text";
 
 const ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
 
@@ -47,5 +47,47 @@ describe("firstLines", () => {
     expect(out.length).toBeLessThanOrEqual(31);
     expect(out.endsWith("…")).toBe(true);
     expect(out).not.toMatch(/ …$/);
+  });
+});
+
+describe("titleFromBody", () => {
+  it("is the text of a first-line heading, without the spaces around it", () => {
+    expect(titleFromBody("# My Note\nbody")).toBe("My Note");
+    expect(titleFromBody("#   Spaced  \nbody")).toBe("Spaced");
+    expect(titleFromBody("# Only a heading")).toBe("Only a heading");
+  });
+
+  it("is empty for a heading with no words", () => {
+    expect(titleFromBody("# \nbody")).toBe("");
+  });
+
+  it("is nothing when the first line is not a level 1 heading", () => {
+    expect(titleFromBody("body\n# Later")).toBeNull();
+    expect(titleFromBody("## Level two")).toBeNull();
+    expect(titleFromBody("#hashtag")).toBeNull();
+    expect(titleFromBody("")).toBeNull();
+    expect(titleFromBody("```\n# in a fence")).toBeNull();
+  });
+});
+
+describe("withHeading", () => {
+  it("rewrites a first-line heading and keeps the rest", () => {
+    expect(withHeading("# Old\nbody\n# Later", "New")).toBe("# New\nbody\n# Later");
+    expect(withHeading("# Old", "New")).toBe("# New");
+  });
+
+  it("puts a heading in front when the first line is not one", () => {
+    expect(withHeading("body", "Title")).toBe("# Title\nbody");
+    expect(withHeading("## Level two\nx", "Title")).toBe("# Title\n## Level two\nx");
+    expect(withHeading("", "Title")).toBe("# Title\n");
+  });
+
+  it("leaves the body alone when the title is empty", () => {
+    expect(withHeading("# Old\nbody", "")).toBe("# Old\nbody");
+    expect(withHeading("body", "   ")).toBe("body");
+  });
+
+  it("reads back as the same title", () => {
+    expect(titleFromBody(withHeading("body", "  Round trip "))).toBe("Round trip");
   });
 });

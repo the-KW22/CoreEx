@@ -110,6 +110,7 @@ test("from the keyboard: the editor keeps what is typed and the save status foll
   const title = `Keys edit ${Date.now()}`;
   await newNote(page, title);
   await page.getByRole("textbox", { name: "Note content" }).focus();
+  await page.keyboard.press("Control+End");
   await page.keyboard.type("Typed without a mouse.");
   await expectSaved(page);
   await page.getByRole("button", { name: "Move to Trash" }).focus();
