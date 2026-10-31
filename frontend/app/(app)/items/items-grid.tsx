@@ -35,7 +35,7 @@ export function ItemsGrid({
               <li key={item.id}>
                 <ContextMenu>
                   <ContextMenuTrigger asChild>
-                    <div className="group relative grid overflow-hidden rounded-[14px] border border-border bg-surface transition-colors focus-within:border-link hover:border-link">
+                    <div className="group relative grid overflow-hidden rounded-[14px] border border-border bg-surface transition-colors focus-within:border-link focus-within:ring-2 focus-within:ring-ring/50 hover:border-link">
                       <div className="grid h-24 place-items-center bg-panel text-muted-foreground">
                         <Icon aria-hidden className="size-8" />
                       </div>
