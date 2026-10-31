@@ -1,8 +1,10 @@
 package com.coreex.tags;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -67,6 +69,19 @@ class TagRepository {
 				select t.id, t.name, t.colour from item_tags it join tags t on t.id = it.tag_id
 				where it.item_id = :item and t.owner_id = :owner order by lower(t.name), t.id""")
 				.param("item", itemId).param("owner", ownerId).query(MAPPER).list();
+	}
+
+	private record ItemTag(UUID itemId, Tag tag) {
+	}
+
+	/** The Tags of all these Items in one query, each Item's by name; an Item with none is not in the map. */
+	Map<UUID, List<Tag>> forItems(UUID ownerId, List<UUID> itemIds) {
+		return jdbc.sql("""
+				select it.item_id, t.id, t.name, t.colour from item_tags it join tags t on t.id = it.tag_id
+				where it.item_id in (:items) and t.owner_id = :owner order by lower(t.name), t.id""")
+				.param("items", itemIds).param("owner", ownerId)
+				.query((rs, n) -> new ItemTag(rs.getObject("item_id", UUID.class), MAPPER.mapRow(rs, n))).list().stream()
+				.collect(Collectors.groupingBy(ItemTag::itemId, Collectors.mapping(ItemTag::tag, Collectors.toList())));
 	}
 
 	/** Takes a share lock on the Tag so it cannot be deleted before the caller's transaction ends; false if it is gone. */

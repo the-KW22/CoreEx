@@ -7,13 +7,16 @@ import { PageGone, Pager } from "@/components/pager";
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/schema";
 import type { Folder } from "@/lib/folders";
+import { listHref, type ItemType } from "@/lib/items";
 import { pageInfo } from "@/lib/pages";
 import { parseCollapsed, parseView } from "@/lib/prefs";
 
+import { ItemCount } from "../folders/item-count";
 import { createNote } from "../notes/actions";
 import { PickButton } from "./item-menus";
 import { ItemsBrowser } from "./items-browser";
 import { Section } from "./section";
+import { TypeFilter } from "./type-filter";
 import { ViewToggle } from "./view-toggle";
 
 export const PAGE_SIZE = 50;
@@ -32,6 +35,8 @@ type Props = {
   page: ReturnType<typeof pageInfo>;
   /** This page's path, for the paging links. */
   path: string;
+  /** The ?type= filter in use, if any. */
+  type?: ItemType;
   empty: string;
   /** Beside the title, for the actions of what is being viewed. */
   titleExtra?: React.ReactNode;
@@ -44,7 +49,7 @@ type Props = {
 };
 
 // The layout All Items, a Folder, a Tag and Assets share (docs/DESIGN.md section 6.2).
-export async function ItemsView({ crumbs, title, folderId, cards, folders, tags, items, page, path, empty, alert, titleExtra, children, assetsOnly }: Props) {
+export async function ItemsView({ crumbs, title, folderId, cards, folders, tags, items, page, path, type, empty, alert, titleExtra, children, assetsOnly }: Props) {
   const jar = await cookies();
   const view = parseView(jar.get("view")?.value);
   const collapsed = parseCollapsed(jar.get("collapsed")?.value);
@@ -57,7 +62,7 @@ export async function ItemsView({ crumbs, title, folderId, cards, folders, tags,
       </Button>
     </form>
   );
-  const pageHref = (n: number) => (n === 0 ? path : `${path}?page=${n}`);
+  const pageHref = (n: number) => listHref(path, n, type);
 
   return (
     <div className="mx-auto grid max-w-5xl gap-8">
@@ -110,6 +115,7 @@ export async function ItemsView({ crumbs, title, folderId, cards, folders, tags,
                 >
                   <FolderIcon aria-hidden className="size-6 shrink-0 fill-primary/20 text-link transition-transform group-hover:-rotate-6" />
                   <span className="truncate text-sm font-medium">{folder.name}</span>
+                  <ItemCount count={folder.itemCount} />
                 </Link>
               </li>
             ))}
@@ -126,7 +132,10 @@ export async function ItemsView({ crumbs, title, folderId, cards, folders, tags,
         }
         open={!collapsed.has("items")}
       >
-        {items.total === 0 ? (
+        {!assetsOnly && (items.total > 0 || type) && <TypeFilter path={path} type={type} />}
+        {items.total === 0 && type ? (
+          <p className="text-muted-foreground">No {type === "NOTE" ? "Notes" : "Assets"} here.</p>
+        ) : items.total === 0 ? (
           <div className="grid justify-items-center gap-3 rounded-[14px] border border-dashed border-border p-10 text-center">
             <p className="text-muted-foreground">{empty}</p>
             <div className="flex flex-wrap justify-center gap-2">
@@ -135,7 +144,7 @@ export async function ItemsView({ crumbs, title, folderId, cards, folders, tags,
             </div>
           </div>
         ) : items.items.length === 0 ? (
-          <PageGone first={path} />
+          <PageGone first={pageHref(0)} />
         ) : (
           <ItemsBrowser saved={view} items={items.items} folders={folders} tags={tags} />
         )}

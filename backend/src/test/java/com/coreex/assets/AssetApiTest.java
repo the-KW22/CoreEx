@@ -123,7 +123,8 @@ class AssetApiTest extends ApiTest {
 		var id = field(confirmed.body(), "id");
 		assertThat(pendingCount()).isZero();
 		var items = get("/api/items", userA).body();
-		assertThat(items).contains("\"total\":1").contains("\"type\":\"ASSET\"").contains("photo.png");
+		assertThat(items).contains("\"total\":1").contains("\"type\":\"ASSET\"").contains("photo.png")
+				.contains("\"sizeBytes\":1999");
 		assertThat(get("/api/assets/" + id, userA).body()).contains("\"sizeBytes\":1999");
 		assertThat(get("/api/assets/usage", userA).body()).contains("\"usedBytes\":1999")
 				.contains("\"quotaBytes\":104857600");

@@ -11,6 +11,7 @@ import {
   ListChecksIcon,
   ListIcon,
   ListOrderedIcon,
+  MaximizeIcon,
   MinusIcon,
   QuoteIcon,
   SquareCodeIcon,
@@ -72,9 +73,11 @@ const HEADINGS: { level: 0 | 1 | 2 | 3; label: string }[] = [
 export function EditorToolbar({
   run,
   active,
+  onFocusMode,
 }: {
   run: (command: StateCommand, id?: string) => void;
   active: string;
+  onFocusMode: () => void;
 }) {
   const on = new Set(active.split(" "));
   const headingOn = ["heading1", "heading2", "heading3"].some((h) => on.has(h));
@@ -128,6 +131,20 @@ export function EditorToolbar({
           })}
         </div>
       ))}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <ToolbarPrimitive.Button
+            type="button"
+            aria-label="Focus mode"
+            aria-keyshortcuts="Control+Shift+F"
+            onClick={onFocusMode}
+            className={`${button} ml-auto`}
+          >
+            <MaximizeIcon aria-hidden />
+          </ToolbarPrimitive.Button>
+        </TooltipTrigger>
+        <TooltipContent>Focus mode (Ctrl+Shift+F)</TooltipContent>
+      </Tooltip>
     </ToolbarPrimitive.Root>
   );
 }

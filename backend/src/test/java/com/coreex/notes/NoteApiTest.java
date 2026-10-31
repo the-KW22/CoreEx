@@ -62,6 +62,19 @@ class NoteApiTest extends ApiTest {
 	}
 
 	@Test
+	void theItemListCarriesAPlainTextSnippetOfEachNote() throws Exception {
+		createNote(userA, "{\"title\":\"Plans\",\"body\":\"# Plans\\n\\nShip **it** soon\"}");
+		createNote(userA, "{\"title\":\"Empty\"}");
+
+		var list = get("/api/items", userA).body();
+
+		assertThat(list).contains("\"title\":\"Plans\"").contains("\"snippet\":\"Ship it soon\"")
+				.contains("\"snippet\":null")
+				// The text's size in bytes: "# Plans", a blank line and "Ship **it** soon".
+				.contains("\"sizeBytes\":25").contains("\"sizeBytes\":0");
+	}
+
+	@Test
 	void userCreatesReadsSavesAndListsNotesByLastUpdated() throws Exception {
 		var first = createNote(userA, "{\"title\":\"First\",\"body\":\"# One\"}");
 		createNote(userA, "{\"title\":\"Second\"}");

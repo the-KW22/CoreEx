@@ -1,15 +1,17 @@
 import { getApi } from "@/lib/api/server";
 import { childrenByParent } from "@/lib/folders";
+import { parseType } from "@/lib/items";
 import { pageInfo } from "@/lib/pages";
 
 import { ItemsView, PAGE_SIZE } from "./items-view";
 
 export default async function AllItemsPage({ searchParams }: PageProps<"/items">) {
-  const { page: raw } = await searchParams;
+  const { page: raw, type: rawType } = await searchParams;
+  const type = parseType(rawType);
   const requested = pageInfo(0, raw, PAGE_SIZE).page;
   const api = await getApi();
   const [items, folders, tags] = await Promise.all([
-    api.GET("/api/items", { params: { query: { page: requested, size: PAGE_SIZE } } }).catch(() => null),
+    api.GET("/api/items", { params: { query: { type, page: requested, size: PAGE_SIZE } } }).catch(() => null),
     api.GET("/api/folders").catch(() => null),
     api.GET("/api/tags").catch(() => null),
   ]);
@@ -32,6 +34,7 @@ export default async function AllItemsPage({ searchParams }: PageProps<"/items">
       items={items.data}
       page={pageInfo(items.data.total, raw, PAGE_SIZE)}
       path="/items"
+      type={type}
       empty="No Items here yet."
     />
   );
