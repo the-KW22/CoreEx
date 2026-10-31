@@ -944,3 +944,46 @@ test("the panel has Notes, Folders and Tags tabs, a plus that follows them, and 
   await page.goto("/tags");
   await deleteTag(page, tagName);
 });
+
+test("the Items open as a grid, the view is chosen and remembered, and a section folds", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  const title = `gridnote${Date.now()}`;
+  await newNote(page, title);
+
+  // With no choice made yet, the Items are a grid of cards.
+  await page.context().clearCookies({ name: "view" });
+  await page.goto("/items");
+  const view = page.getByRole("radiogroup", { name: "View" });
+  await expect(view.getByRole("radio", { name: "Grid" })).toBeChecked();
+  const cards = page.getByRole("list", { name: "Items, most recently updated first" });
+  await expect(cards.getByRole("link", { name: title })).toBeVisible();
+  await expect(page.getByRole("table")).toHaveCount(0);
+  await expectNoViolations(page);
+
+  // The list is a table, and the choice survives a reload.
+  await view.getByRole("radio", { name: "List" }).click();
+  await expect(page.getByRole("table")).toBeVisible();
+  await page.reload();
+  await expect(view.getByRole("radio", { name: "List" })).toBeChecked();
+  await expect(page.getByRole("table")).toBeVisible();
+  await expectNoViolations(page);
+
+  // The Items section folds away and stays folded after a reload.
+  const heading = page.getByRole("button", { name: /^Items \(\d+\)$/ });
+  await expect(heading).toHaveAttribute("aria-expanded", "true");
+  await heading.click();
+  await expect(page.getByRole("table")).toBeHidden();
+  await page.reload();
+  await expect(heading).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("table")).toBeHidden();
+  await heading.click();
+  await expect(page.getByRole("table")).toBeVisible();
+
+  // A card has the same menu as a row, and Move to Trash works from it.
+  await view.getByRole("radio", { name: "Grid" }).click();
+  await page.getByRole("button", { name: `Actions for ${title}` }).click();
+  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await expect(page.getByText(`Moved "${title}" to the Trash`)).toBeVisible();
+  await expect(cards.getByRole("link", { name: title })).toHaveCount(0);
+});
