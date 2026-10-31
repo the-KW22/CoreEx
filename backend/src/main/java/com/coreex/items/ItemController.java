@@ -37,10 +37,12 @@ class ItemController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Item.Type type,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID folderId,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+					description = "A Note's text as a short plain-text preview; set in the list only, null otherwise") String snippet) {
 
 		static ItemResponse of(Item item) {
-			return new ItemResponse(item.id(), item.type(), item.title(), item.folderId(), item.updatedAt());
+			return new ItemResponse(item.id(), item.type(), item.title(), item.folderId(), item.updatedAt(), item.snippet());
 		}
 
 	}

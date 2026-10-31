@@ -207,6 +207,7 @@ async function HomeSections() {
                   <TypeIcon type={item.type} />
                   <span className="truncate">{item.title || "Untitled"}</span>
                 </span>
+                {item.snippet && <span className="line-clamp-2 text-sm text-muted-foreground">{item.snippet}</span>}
                 <span className="truncate text-xs text-muted-foreground">{folderPath(allFolders, item.folderId)}</span>
                 <time dateTime={item.updatedAt} className="text-xs text-muted-foreground">
                   {Number.isNaN(now) ? item.updatedAt.slice(0, 10) : `Edited ${relativeTime(item.updatedAt, now)}`}

@@ -15,11 +15,16 @@ import org.springframework.stereotype.Repository;
 @Repository
 class ItemRepository {
 
-	private static final String COLUMNS = "id, type, title, folder_id, updated_at";
+	private static final String COLUMNS = "id, type, title, folder_id, updated_at, null as body_head";
+
+	// Only the list shows previews; the first 600 characters are plenty for a 160-character snippet.
+	private static final String LIST_COLUMNS = "id, type, title, folder_id, updated_at, "
+			+ "(select left(body, 600) from note_contents c where c.item_id = items.id) as body_head";
 
 	private static final RowMapper<Item> MAPPER = (rs, n) -> new Item(rs.getObject("id", UUID.class),
 			Item.Type.valueOf(rs.getString("type")), rs.getString("title"), rs.getObject("folder_id", UUID.class),
-			rs.getObject("updated_at", OffsetDateTime.class).toInstant());
+			rs.getObject("updated_at", OffsetDateTime.class).toInstant(),
+			Snippet.of(rs.getString("title"), rs.getString("body_head")));
 
 	private final JdbcClient jdbc;
 
@@ -29,7 +34,7 @@ class ItemRepository {
 
 	/** All live Items, narrowed to one Folder, one Tag and/or one type when those are not null. */
 	List<Item> findLivePage(UUID ownerId, UUID folderId, UUID tagId, Item.Type type, int limit, long offset) {
-		var query = jdbc.sql("select " + COLUMNS + " from items where " + where(folderId, tagId, type)
+		var query = jdbc.sql("select " + LIST_COLUMNS + " from items where " + where(folderId, tagId, type)
 				+ " order by updated_at desc, id limit :limit offset :offset").param("owner", ownerId)
 				.param("limit", limit).param("offset", offset);
 		return withFilters(query, folderId, tagId, type).query(MAPPER).list();

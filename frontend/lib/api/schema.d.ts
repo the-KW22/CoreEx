@@ -829,6 +829,8 @@ export interface components {
             folderId: string | null;
             /** Format: date-time */
             updatedAt: string;
+            /** @description A Note's text as a short plain-text preview; set in the list only, null otherwise */
+            snippet: string | null;
         };
         CreateFolderRequest: {
             name: string;
