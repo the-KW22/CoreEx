@@ -48,8 +48,8 @@ const TROUBLESHOOTING = [
       "A server on a free hosting plan may be asleep. Wait a minute and try again.",
   },
   {
-    problem: "A plain GET to the address answers 405",
-    answer: "That is normal. The server is stateless and answers only POST requests, which is what MCP tools send.",
+    problem: "A plain GET to the address answers 405 (or 401 without a token)",
+    answer: "That is normal. The server is stateless and answers only POST requests, which is what MCP tools send. Without a token you get 401 first.",
   },
   {
     problem: "Claude Desktop cannot connect",

@@ -117,7 +117,7 @@ Ask the Agent to "list my CoreEx Folders", or "search CoreEx for notes about ...
 | `429` `RATE_LIMITED` | More than 60 calls in a minute for that token. Wait the number of seconds in `Retry-After`. |
 | "This Note was changed somewhere else" | The Note changed since the Agent read it (you edited it, or another Agent did). The Agent should read it again with `get_item` and redo its change. Nothing was lost. |
 | First call is slow or times out | The free Render backend was asleep. Wait a minute and try again. |
-| A plain `GET /mcp` gives `405` | Normal. The server is stateless and answers only `POST`. |
+| A plain `GET /mcp` gives `405` (or `401` without a token) | Normal. The server is stateless and answers only `POST`; without a token it refuses with 401 first. |
 
 To test the connection without any tool, send one request yourself:
 

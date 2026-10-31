@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { MCP_TOOLS } from "../lib/mcp-tools";
+
 import {
   PIXEL,
   chooseFolder,
@@ -573,7 +575,7 @@ test("the MCP guide shows this server's address and the tools, and a command can
   expect(await page.getByRole("main").innerText()).not.toMatch(/cx_pat_(?!YOUR_TOKEN)/);
 
   // Every tool is listed, and the page's own links work.
-  await expect(page.locator("#tools dt")).toHaveCount(21);
+  await expect(page.locator("#tools dt")).toHaveCount(MCP_TOOLS.length);
   await page.getByRole("navigation", { name: "On this page" }).getByRole("link", { name: "Troubleshooting" }).click();
   await expect(page).toHaveURL(/#troubleshooting$/);
   await page.getByText("429 RATE_LIMITED").click();
