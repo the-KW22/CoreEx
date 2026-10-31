@@ -40,9 +40,9 @@ public class IdentityService {
 		return users.existsByEmail(email);
 	}
 
-	/** The User behind a valid token. First sign-in provisions them, but only the owner or an invited person. */
+	/** The User behind a valid token. First sign-in provisions them, but only the owner or an invited person (a null email never provisions: an Access token only exists for a User who is already here). */
 	@Transactional
-	User resolve(UUID id, String email) {
+	public User resolve(UUID id, String email) {
 		// Every API call comes here. Asking the database each time costs three round trips, which is most of a
 		// request's time when the database is in another region, so a User is remembered for a short while.
 		var ttl = properties.userCacheTtl();
