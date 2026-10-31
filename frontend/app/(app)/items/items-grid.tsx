@@ -36,9 +36,13 @@ export function ItemsGrid({
                 <ContextMenu>
                   <ContextMenuTrigger asChild>
                     <div className="group relative grid overflow-hidden rounded-[14px] border border-border bg-surface transition-colors focus-within:border-link focus-within:ring-2 focus-within:ring-ring/50 hover:border-link">
-                      <div className="grid h-24 place-items-center bg-panel text-muted-foreground">
-                        <Icon aria-hidden className="size-8" />
-                      </div>
+                      {item.snippet ? (
+                        <p className="line-clamp-4 h-24 overflow-hidden bg-panel p-3 text-xs text-muted-foreground">{item.snippet}</p>
+                      ) : (
+                        <div className="grid h-24 place-items-center bg-panel text-muted-foreground">
+                          <Icon aria-hidden className="size-8" />
+                        </div>
+                      )}
                       <div className="flex items-start gap-1 p-3 pr-2">
                         <div className="grid min-w-0 flex-1 gap-0.5">
                           <Link
