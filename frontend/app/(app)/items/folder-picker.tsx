@@ -1,46 +1,38 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { flatten, type Folder } from "@/lib/folders";
+import type { Folder } from "@/lib/folders";
 
+import { FolderSelect } from "../folders/folder-select";
 import { moveItemTo } from "./actions";
 
 // Moves the Item as soon as another Folder is chosen.
 export function FolderPicker({ itemId, folderId, folders }: { itemId: string; folderId: string | null; folders: Folder[] }) {
   const [pending, startTransition] = useTransition();
+  // Bumped when a move fails, so the Select shows where the Item still is, not where it failed to go.
+  const [failures, setFailures] = useState(0);
   return (
-    <label className="grid gap-1.5 text-xs text-muted-foreground">
-      Folder
-      <select
-        // A new key after a move resets the choice to what the server now says.
-        key={folderId ?? ""}
-        defaultValue={folderId ?? ""}
-        disabled={pending}
-        onChange={(event) => {
-          const select = event.currentTarget;
-          const to = select.value || null;
-          startTransition(async () => {
-            if (await moveItemTo(itemId, to)) {
-              toast.success("Moved");
-            } else {
-              // Show where it still is, not where it failed to go.
-              select.value = folderId ?? "";
-              toast.error("Could not move it. Try again.");
-            }
-          });
-        }}
-        className="h-9 rounded-lg border border-border bg-surface px-2 text-sm text-foreground"
-      >
-        <option value="">Top level</option>
-        {flatten(folders).map((folder) => (
-          <option key={folder.id} value={folder.id}>
-            {"  ".repeat(folder.depth)}
-            {folder.name}
-          </option>
-        ))}
-      </select>
-    </label>
+    <FolderSelect
+      // A new key after a move resets the choice to what the server now says.
+      key={`${folderId ?? ""}:${failures}`}
+      name="folderId"
+      label="Folder"
+      folders={folders}
+      selected={folderId}
+      disabled={pending}
+      className="text-xs font-normal text-muted-foreground [&_button]:text-sm"
+      onChange={(to) =>
+        startTransition(async () => {
+          if (await moveItemTo(itemId, to)) {
+            toast.success("Moved");
+          } else {
+            setFailures((n) => n + 1);
+            toast.error("Could not move it. Try again.");
+          }
+        })
+      }
+    />
   );
 }

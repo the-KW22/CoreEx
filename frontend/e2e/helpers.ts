@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // A local-only test account. The API makes OWNER_EMAIL an Admin with no Invite, so use the same email there.
 export const email = process.env.E2E_EMAIL ?? "owner@example.com";
@@ -14,6 +14,8 @@ export async function submit(page: Page, button: "Sign in" | "Create account") {
 
 // Signs in, creating the account the first time on a fresh local database.
 export async function signIn(page: Page) {
+  // The Items pages open as a grid; most tests read them as a table, so they start in the list view.
+  await page.context().addCookies([{ name: "view", value: "list", url: test.info().project.use.baseURL! }]);
   await page.goto("/login");
   await submit(page, "Sign in");
   // Only the form's error: Next.js's route announcer is also an "alert", outside <main>.
@@ -84,6 +86,12 @@ export async function noteWithTag(page: Page, title: string, tagName: string) {
   await page.getByPlaceholder("Find or create a Tag").fill(tagName);
   await page.getByRole("option", { name: `Create “${tagName}”` }).click();
   await expect(page.getByRole("list", { name: "Tags" }).getByRole("link", { name: tagName })).toBeVisible();
+}
+
+// Picks a Folder in a Folder Select, a styled listbox rather than a native <select>.
+export async function chooseFolder(page: Page, scope: Page | Locator, label: string, folder: string) {
+  await scope.getByRole("combobox", { name: label }).click();
+  await page.getByRole("option", { name: folder, exact: true }).click();
 }
 
 // Opens a confirm with its button and presses the confirm's action, retrying the pair: a click before React has

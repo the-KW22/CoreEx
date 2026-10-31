@@ -27,28 +27,33 @@ class ItemRepository {
 		this.jdbc = jdbc;
 	}
 
-	/** All live Items, narrowed to one Folder and/or one Tag when those ids are not null. */
-	List<Item> findLivePage(UUID ownerId, UUID folderId, UUID tagId, int limit, long offset) {
-		var query = jdbc.sql("select " + COLUMNS + " from items where " + where(folderId, tagId)
+	/** All live Items, narrowed to one Folder, one Tag and/or one type when those are not null. */
+	List<Item> findLivePage(UUID ownerId, UUID folderId, UUID tagId, Item.Type type, int limit, long offset) {
+		var query = jdbc.sql("select " + COLUMNS + " from items where " + where(folderId, tagId, type)
 				+ " order by updated_at desc, id limit :limit offset :offset").param("owner", ownerId)
 				.param("limit", limit).param("offset", offset);
-		return withFilters(query, folderId, tagId).query(MAPPER).list();
+		return withFilters(query, folderId, tagId, type).query(MAPPER).list();
 	}
 
-	long countLive(UUID ownerId, UUID folderId, UUID tagId) {
-		var query = jdbc.sql("select count(*) from items where " + where(folderId, tagId)).param("owner", ownerId);
-		return withFilters(query, folderId, tagId).query(Long.class).single();
+	long countLive(UUID ownerId, UUID folderId, UUID tagId, Item.Type type) {
+		var query = jdbc.sql("select count(*) from items where " + where(folderId, tagId, type)).param("owner", ownerId);
+		return withFilters(query, folderId, tagId, type).query(Long.class).single();
 	}
 
 	// The Tag filter reads item_tags directly: a join is the simple way to filter without loading ids into memory.
-	private static String where(UUID folderId, UUID tagId) {
+	private static String where(UUID folderId, UUID tagId, Item.Type type) {
 		return "owner_id = :owner and deleted_at is null" + (folderId == null ? "" : " and folder_id = :folder")
+				+ (type == null ? "" : " and type = :type")
 				+ (tagId == null ? "" : " and exists (select 1 from item_tags it where it.item_id = items.id and it.tag_id = :tag)");
 	}
 
-	private static JdbcClient.StatementSpec withFilters(JdbcClient.StatementSpec query, UUID folderId, UUID tagId) {
+	private static JdbcClient.StatementSpec withFilters(JdbcClient.StatementSpec query, UUID folderId, UUID tagId,
+			Item.Type type) {
 		if (folderId != null) {
 			query = query.param("folder", folderId);
+		}
+		if (type != null) {
+			query = query.param("type", type.name());
 		}
 		return tagId == null ? query : query.param("tag", tagId);
 	}

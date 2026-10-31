@@ -26,16 +26,23 @@ The agreed design for the frontend redesign. It records **what** the UI looks li
 | Position | Entry | Who |
 |---|---|---|
 | Top | CoreEx logo | All |
-| Modules | **Home**, **Knowledge Base** | All |
+| Modules | **Home**, **Knowledge Base**, **Assets** | All |
 | Divider, then | **Trash**, **Admin** | Admin only for Admin |
-| Bottom | Theme toggle, avatar menu (email, Log out) | All |
+| Bottom | Collapse toggle, Theme toggle, **Account** menu (email, Log out) | All |
 
 - Planned modules (Graph, Jobs, Integrations) are **not shown** until they exist.
-- Each icon has a Tooltip and an accessible name.
+- **Expanded by default:** every entry shows its icon and label side by side (14rem wide). The toggle at the bottom collapses it to icons only (4rem), and the choice is kept in the `rail` cookie, which the server reads so there is no flash. The phone menu Sheet always shows labels.
+- Each icon has an accessible name; when collapsed it also has a Tooltip.
+- **Assets** are sources for Notes (and later for text extraction and image analysis), so they are a module of their own, not part of the Knowledge Base. Their pages have no panel beside the rail.
 
 ### 3.2 Knowledge Base panel (beside the rail)
 
-Header "Knowledge Base" with a New Folder button, a search field that opens the command palette, a **Folders | Tags** toggle, the Folder tree (collapsible, no Item counts yet), and the "In <Folder>" list of Items when one Folder is selected.
+The panel belongs to the Knowledge Base module: it shows only on Knowledge Base routes (All Items, Folders, Tags, Notes, Search). Home, Assets, Trash and Admin use the full width, and a future module brings its own panel or none.
+
+- Header "Knowledge Base" with a "+" button that follows the active tab: **New Note** on Notes, **New Folder** on Folders, **New Tag** on Tags (the last two ask for a name in a small popover; a duplicate Tag name is refused with a message).
+- A **filter field** that narrows the active tab's list in place. Folders and Tags filter in the browser (Folders then show as a flat list, since a match can sit deep in the tree). Notes ask `/panel-notes`, which searches every Note by title. It does not open the command palette.
+- A **Notes | Folders | Tags** toggle. The first tab follows the route: Tags on `/tags`, Notes on a Note, otherwise Folders.
+- Notes: the 50 most recently updated Notes (the current one marked). Folders: the Folder tree (collapsible, no Item counts yet) and the "In <Folder>" list of Items when one Folder is selected. Tags: the Tag pills and "Manage Tags".
 
 ### 3.3 Routes
 
@@ -45,6 +52,7 @@ Header "Knowledge Base" with a New Folder button, a search field that opens the 
 | `/items` | Knowledge Base: All Items (new route; today's list moves here from `/`) |
 | `/folders/[id]`, `/tags/[id]` | Same layout as All Items, scoped |
 | `/notes/[id]`, `/assets/[id]` | Note, Asset |
+| `/assets` | Assets: the same layout as All Items, with Assets only (`GET /api/items?type=ASSET`) and Upload as its one action |
 | `/tags`, `/trash`, `/search` | Tags, Trash, full-text Search results |
 | `/admin` (tabs: Overview, Users, Invites) | Admin |
 | `/login`, `/reset-password`, `/invite-only`, `/disabled`, 404, error | Sign-in and system pages |
@@ -137,24 +145,29 @@ The same tokens are used by CSS, Motion and View Transitions. They are defined o
 
 ### 6.2 All Items, Folder and Tag pages
 
-- Header: breadcrumb, title, actions (New Note, Upload, Import).
+- Header: breadcrumb, title, a **Grid | List** toggle, and actions (New Note, Upload, Import). The choice is remembered (the `view` cookie); like Google Drive, the Items open as a grid until the list is chosen.
+- The **Folders** and **Items** sections fold away from their headings, and each remembers its state (the `collapsed` cookie).
 - **Folder cards** (drawn folder illustration): top-level Folders on All Items, sub-Folders on a Folder page, none on a Tag page. No Item counts yet.
-- **Items table:** Title (with Note or Asset icon), Folder, Updated; paginated by the API. Right-click (Context Menu) and a row "⋯" menu: Open, Move to Folder, Add Tag, Move to Trash.
+- **Items, Grid:** a card per Item (icon, title, Folder and date). The title's link covers the card.
+- **Items, List:** a table with Title (with Note or Asset icon), Folder, Updated; cards on a phone.
+- Both are paginated by the API and share one menu: right-click (Context Menu) and a "⋯" button give Open, Open in new tab, Move to Folder, Add Tag, Move to Trash (with Undo). The Assets page uses the same layout.
 - No type filter (the API cannot filter by type; a client-side filter on one page would show wrong totals).
 
 ### 6.3 Note (`/notes/[id]`)
 
 - **Header bar:** Folder breadcrumb, save status (Saved, Saving, Unsaved), Move to Trash (icon button with Tooltip), Details toggle.
 - **Conflict:** a clear Alert banner above the editor with **Keep mine** and **Load theirs** (today's conflict behaviour, restyled).
-- **Writing column** (max 700px, centred): title field, Tags as coloured pills with "+ Tag" (Combobox), then the CodeMirror editor with the existing live preview and `[[Link]]` autocomplete, in Atkinson Hyperlegible Next.
+- **Writing column** (max 700px, centred): title field, Tags as coloured pills with "+ Tag" (Combobox), a **formatting toolbar**, then the CodeMirror editor with the existing live preview and `[[Link]]` autocomplete, in Atkinson Hyperlegible Next.
+- **Formatting toolbar** (a `role="toolbar"`, arrow keys move between buttons): heading level (Normal, 1 to 3), bold, italic, strikethrough, inline code, bulleted, numbered and checklist, quote, code block, link, `[[Link]]`, table, divider. Only what Markdown can express (ADR 0002), so no font size or colour. Each button toggles on the selection and shows pressed when the caret is already inside that format. Ctrl+B and Ctrl+I are shortcuts (Ctrl+K stays the command palette).
+- **Title and first line stay in step:** a first line written as `# Heading` is the Note's title. Typing in it changes the title field, and typing in the title field rewrites that line (or puts a heading in front when the Note has none). An empty title leaves the body alone and shows "Untitled". A Note whose title and heading already differ keeps both until one is edited.
 - **Link hover preview:** hovering *or focusing* a `[[Link]]` shows a Hover Card with the target's title, type, Folder and first lines (from the existing Note and Asset endpoints).
-- **Details panel** (right): Folder (select), Backlinks as cards, Info (Created, Updated, word count computed in the browser). Open by default on wide screens, closed on narrow ones; the choice is remembered.
+- **Details panel** (right): Folder (the site's own Select, indented by depth), Backlinks as cards, Info (Created, Updated, word count computed in the browser). Dividers separate the sections: details, organization (Folder, Tags, Backlinks) and Info last. Open by default on wide screens, closed on narrow ones; the choice is remembered.
 
 ### 6.4 Asset (`/assets/[id]`)
 
 - Same header and Details panel as a Note; header adds **Download**.
 - A neutral **viewer stage**: the image fitted, or the PDF in its viewer.
-- Details panel: title and description (edited in place), Folder, Tags, Backlinks, Info (type, size, updated).
+- Details panel: title and description (edited in place: a faint border and a pencil beside each label show they can be changed, with a gap between label and field), Folder, Tags, Backlinks, Info (type, size, updated), in three sections with dividers.
 
 ### 6.5 Uploading
 
@@ -164,7 +177,7 @@ The same tokens are used by CSS, Motion and View Transitions. They are defined o
 
 ### 6.6 Command palette (Ctrl+K)
 
-- One entry point for search. The panel search field and the phone search icon open it.
+- The global search. Ctrl+K and the phone search icon open it; the panel's filter field is separate and only narrows its own list.
 - Empty query: recently opened Items, then actions (New Note, Upload, Import, Go to Trash, Toggle theme).
 - Typing: instant title matches (`/api/search/quick`) with Folder paths.
 - Last row: **Search all text for "…"**, which opens the `/search` results page.
@@ -267,6 +280,6 @@ Every screen ticket adds its screen to the axe check from step 1 and must pass i
 - Note text previews on cards (needs a snippet from the API).
 - Item counts in the Folder tree and on Folder cards (needs counts in the Folder list).
 - Type filter, Tags and size per row in the Items table.
-- Slash menu, formatting toolbar, focus mode in the editor.
+- Slash menu and focus mode in the editor.
 - A public **landing page**.
 - Planned modules in the rail (Graph, Jobs, Integrations) appear only when each module ships.

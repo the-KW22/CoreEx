@@ -1,4 +1,5 @@
 import { ChevronRightIcon, FilePlusIcon, FolderIcon } from "lucide-react";
+import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { Alert } from "@/components/alert";
@@ -7,9 +8,13 @@ import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/schema";
 import type { Folder } from "@/lib/folders";
 import { pageInfo } from "@/lib/pages";
+import { parseCollapsed, parseView } from "@/lib/prefs";
 
 import { createNote } from "../notes/actions";
-import { ItemsTable, PickButton } from "./items-table";
+import { PickButton } from "./item-menus";
+import { ItemsBrowser } from "./items-browser";
+import { Section } from "./section";
+import { ViewToggle } from "./view-toggle";
 
 export const PAGE_SIZE = 50;
 
@@ -34,11 +39,16 @@ type Props = {
   alert?: string;
   /** Anything the page adds under the list, such as managing the Folder. */
   children?: React.ReactNode;
+  /** The Assets page: Upload is its only action (a Note or an Import is not an Asset). */
+  assetsOnly?: boolean;
 };
 
-// The layout All Items, a Folder and a Tag share (docs/DESIGN.md section 6.2).
-export function ItemsView({ crumbs, title, folderId, cards, folders, tags, items, page, path, empty, alert, titleExtra, children }: Props) {
-  const newNote = (
+// The layout All Items, a Folder, a Tag and Assets share (docs/DESIGN.md section 6.2).
+export async function ItemsView({ crumbs, title, folderId, cards, folders, tags, items, page, path, empty, alert, titleExtra, children, assetsOnly }: Props) {
+  const jar = await cookies();
+  const view = parseView(jar.get("view")?.value);
+  const collapsed = parseCollapsed(jar.get("collapsed")?.value);
+  const newNote = assetsOnly ? null : (
     <form action={createNote}>
       {folderId && <input type="hidden" name="folderId" value={folderId} />}
       <Button type="submit">
@@ -75,10 +85,11 @@ export function ItemsView({ crumbs, title, folderId, cards, folders, tags, items
             <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">{title}</h1>
             {titleExtra}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {items.total > 0 && <ViewToggle saved={view} />}
             {newNote}
             <PickButton kind="upload" />
-            <PickButton kind="import" />
+            {!assetsOnly && <PickButton kind="import" />}
           </div>
         </div>
         {alert && (
@@ -89,10 +100,7 @@ export function ItemsView({ crumbs, title, folderId, cards, folders, tags, items
       </header>
 
       {cards.length > 0 && (
-        <section aria-labelledby="folders-heading" className="grid gap-3">
-          <h2 id="folders-heading" className="text-sm font-semibold text-muted-foreground">
-            Folders
-          </h2>
+        <Section id="folders" heading="Folders" open={!collapsed.has("folders")}>
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-3">
             {cards.map((folder) => (
               <li key={folder.id}>
@@ -106,13 +114,18 @@ export function ItemsView({ crumbs, title, folderId, cards, folders, tags, items
               </li>
             ))}
           </ul>
-        </section>
+        </Section>
       )}
 
-      <section aria-labelledby="items-heading" className="grid gap-3">
-        <h2 id="items-heading" className="text-sm font-semibold text-muted-foreground">
-          Items <span className="font-mono font-normal">({items.total})</span>
-        </h2>
+      <Section
+        id="items"
+        heading={
+          <>
+            Items <span className="font-mono font-normal">({items.total})</span>
+          </>
+        }
+        open={!collapsed.has("items")}
+      >
         {items.total === 0 ? (
           <div className="grid justify-items-center gap-3 rounded-[14px] border border-dashed border-border p-10 text-center">
             <p className="text-muted-foreground">{empty}</p>
@@ -124,10 +137,10 @@ export function ItemsView({ crumbs, title, folderId, cards, folders, tags, items
         ) : items.items.length === 0 ? (
           <PageGone first={path} />
         ) : (
-          <ItemsTable items={items.items} folders={folders} tags={tags} />
+          <ItemsBrowser saved={view} items={items.items} folders={folders} tags={tags} />
         )}
         <Pager page={page} href={pageHref} />
-      </section>
+      </Section>
 
       {children}
     </div>

@@ -15,7 +15,7 @@ An Item whose content is Markdown text written or edited by the user.
 _Avoid_: Page, doc, post
 
 **Asset**:
-An Item whose content is an uploaded binary file (an image or a PDF). It stands on its own; it is not owned by a Note.
+An Item whose content is an uploaded binary file (an image or a PDF). It stands on its own; it is not owned by a Note. Assets are sources rather than knowledge: they are the origin material for Notes, and the future text extraction and image analysis read them. They have their own place in the app (the Assets module), though for now they can still be put in Folders, tagged and linked like any Item.
 _Avoid_: File, attachment, upload, media
 
 **Import**:

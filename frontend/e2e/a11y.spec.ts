@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import {
   PIXEL,
+  chooseFolder,
   deleteTag,
   email,
   expectNoViolations,
@@ -191,6 +192,7 @@ test("the phone menu closes on Escape, gives focus back and keeps Tab inside", a
 test("on a tablet the Knowledge Base panel opens from the rail", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await signIn(page);
+  await page.goto("/items");
   await expect(page.getByRole("heading", { name: "Knowledge Base", exact: true })).toBeHidden();
   await page.getByRole("button", { name: "Show the Knowledge Base panel" }).click();
   await expect(page.getByRole("dialog", { name: "Knowledge Base" }).getByRole("radio", { name: "Folders" })).toBeVisible();
@@ -198,7 +200,7 @@ test("on a tablet the Knowledge Base panel opens from the rail", async ({ page }
 
 test("the account menu opens from the keyboard and closes on Escape", async ({ page }) => {
   await signIn(page);
-  const account = page.getByRole("button", { name: /^Account: / });
+  const account = page.getByRole("button", { name: /^Account/ });
   await account.focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("menuitem", { name: "Log out" })).toBeVisible();
@@ -312,7 +314,8 @@ test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
   const tagName = `probe-${stamp}`;
   await newNote(page, title);
 
-  // A Folder to move into, from the panel.
+  // A Folder to move into, from the panel (a Note opens it on its Notes tab).
+  await page.getByRole("radio", { name: "Folders" }).click();
   await page.getByRole("button", { name: "New Folder" }).click();
   await page.getByLabel("Folder name").fill(folderName);
   await page.getByRole("button", { name: "Create Folder" }).click();
@@ -325,7 +328,7 @@ test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
   await menu.click();
   await page.getByRole("menuitem", { name: "Move to Folder…" }).click();
   const move = page.getByRole("dialog", { name: "Move to Folder" });
-  await move.getByLabel("Folder").selectOption({ label: folderName });
+  await chooseFolder(page, move, "Folder", folderName);
   await move.getByRole("button", { name: "Move" }).click();
   await expect(row.getByRole("cell", { name: folderName })).toBeVisible();
   await expect(menu).toBeFocused();
@@ -625,6 +628,7 @@ test("a Folder is renamed, given a subfolder, moved, and sent to the Trash from 
   const name = `fa${stamp}`;
   const renamed = `fb${stamp}`;
   const child = `fc${stamp}`;
+  await page.goto("/items");
   await page.getByRole("button", { name: "New Folder" }).click();
   await page.getByLabel("Folder name").fill(name);
   await page.getByRole("button", { name: "Create Folder" }).click();
@@ -645,9 +649,13 @@ test("a Folder is renamed, given a subfolder, moved, and sent to the Trash from 
   // A Folder cannot go into its own subfolder, so the Move dialog does not offer it.
   await page.getByRole("button", { name: `Move ${renamed}`, exact: true }).click();
   const move = page.getByRole("dialog", { name: "Move Folder" });
-  await expect(move.getByLabel("Move into")).toBeVisible();
-  await expect(move.getByLabel("Move into").locator("option", { hasText: child })).toHaveCount(0);
+  await move.getByRole("combobox", { name: "Move into" }).click();
+  await expect(page.getByRole("option", { name: "Top level" })).toBeVisible();
+  await expect(page.getByRole("option", { name: child })).toHaveCount(0);
   await page.keyboard.press("Escape");
+  await expect(page.getByRole("listbox")).toBeHidden();
+  await page.keyboard.press("Escape");
+  await expect(move).toBeHidden();
 
   await trashFolder(page, renamed);
   await expect(page).toHaveURL(/\/items$/);
@@ -680,6 +688,7 @@ test("the Note screen tags, moves, and remembers hidden Details", async ({ page 
   const stamp = Date.now();
   const tagName = `note-probe-${stamp}`;
   const folderName = `Note folder ${stamp}`;
+  await page.goto("/items");
   await page.getByRole("button", { name: "New Folder" }).click();
   await page.getByLabel("Folder name").fill(folderName);
   await page.getByRole("button", { name: "Create Folder" }).click();
@@ -696,7 +705,7 @@ test("the Note screen tags, moves, and remembers hidden Details", async ({ page 
 
   // The Details Folder select moves the Note; the breadcrumb follows.
   const details = page.getByRole("complementary", { name: "Details" });
-  await details.getByLabel("Folder").selectOption({ label: folderName });
+  await chooseFolder(page, details, "Folder", folderName);
   await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: folderName })).toBeVisible();
   await expect(details.getByText("Words")).toBeVisible();
 
@@ -724,11 +733,13 @@ test("hovering a Link previews its target", async ({ page }) => {
   const target = `Preview target ${stamp}`;
   await newNote(page, target);
   await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
   await page.keyboard.type("The first line of the target.");
   await expectSaved(page);
 
   await newNote(page, `Preview source ${stamp}`);
   await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
   await page.keyboard.type(`See [[Preview target ${stamp}`);
   await page.getByRole("option", { name: new RegExp(target) }).click();
   // Off the Link's line, it shows as a link.
@@ -814,6 +825,24 @@ test("an uploaded image opens on the Asset screen, edits in place and downloads"
   await expect(page.getByRole("link", { name: "Download" })).toHaveAttribute("download", "");
   const details = page.getByRole("complementary", { name: "Details" });
   await expect(details.getByText("PNG image")).toBeVisible();
+
+  // Labels sit apart from their fields, and the pencils mark what can be edited.
+  const labelBox = await details.getByText("Title", { exact: true }).boundingBox();
+  const fieldBox = await details.getByLabel("Title").boundingBox();
+  expect(fieldBox!.y - (labelBox!.y + labelBox!.height)).toBeGreaterThanOrEqual(4);
+  await expect(details.locator("svg.lucide-pencil")).toHaveCount(2);
+  // Dividers separate the details, the organization (Folder, Tags, Backlinks) and the Info block: each section but the
+  // last has a line under it.
+  const dividers = await details.evaluate((aside) =>
+    [...aside.firstElementChild!.children].slice(0, -1).map((el) => getComputedStyle(el).borderBottomWidth),
+  );
+  expect(dividers).toEqual(["1px", "1px"]);
+  // The Folder choice is the site's own listbox, not the browser's.
+  await details.getByRole("combobox", { name: "Folder" }).click();
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await expect(page.getByRole("option", { name: "Top level" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
   for (const colorScheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme });
     await expectNoViolations(page);
@@ -832,4 +861,248 @@ test("an uploaded image opens on the Asset screen, edits in place and downloads"
 
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
+});
+
+test("the rail shows its labels, collapses to icons and remembers the choice", async ({ page }) => {
+  await signIn(page);
+  const rail = page.getByRole("navigation", { name: "Main" });
+  for (const label of ["Home", "Knowledge Base", "Assets", "Trash"]) {
+    await expect(rail.getByRole("link", { name: label }).getByText(label, { exact: true })).toBeVisible();
+  }
+  await expectNoViolations(page);
+
+  await rail.getByRole("button", { name: "Collapse the menu" }).click();
+  await expect(rail.getByText("Knowledge Base", { exact: true })).toBeHidden();
+  await expect(rail.getByRole("link", { name: "Knowledge Base" })).toBeVisible();
+  await expectNoViolations(page);
+
+  // The cookie is read on the server, so the choice is there from the first paint.
+  await page.reload();
+  await expect(rail.getByRole("button", { name: "Expand the menu" })).toBeVisible();
+  await expect(rail.getByText("Knowledge Base", { exact: true })).toBeHidden();
+  await rail.getByRole("button", { name: "Expand the menu" }).click();
+  await expect(rail.getByText("Knowledge Base", { exact: true })).toBeVisible();
+});
+
+test("the Assets page lists Assets only, with no Knowledge Base panel", async ({ page }) => {
+  await signIn(page);
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Assets" }).click();
+  await expect(page.getByRole("heading", { name: "Assets", level: 1 })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Knowledge Base" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "New Note" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Import" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Upload", exact: true }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Upload files" });
+  const name = `asset-page-${Date.now()}.png`;
+  await dialog.getByLabel("Choose files").setInputFiles({ name, mimeType: "image/png", buffer: PIXEL });
+  await dialog.getByRole("link", { name }).click();
+  await expect(page).toHaveURL(/\/assets\//);
+  // An Asset belongs to the Assets module, so its breadcrumb starts there.
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Assets" })).toBeVisible();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Assets" }).click();
+  await expect(page.getByRole("link", { name })).toBeVisible();
+
+  await page.getByRole("link", { name }).click();
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("the Knowledge Base panel shows on Knowledge Base pages only", async ({ page }) => {
+  await signIn(page);
+  const panel = page.getByRole("complementary", { name: "Knowledge Base" });
+  for (const path of ["/", "/trash", "/assets"]) {
+    await page.goto(path);
+    await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
+    await expect(panel).toHaveCount(0);
+  }
+  await page.goto("/items");
+  await expect(panel).toBeVisible();
+});
+
+test("the panel has Notes, Folders and Tags tabs, a plus that follows them, and a filter", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  const stamp = Date.now();
+  const title = `panelnote${stamp}`;
+  const tagName = `paneltag${stamp}`;
+  await page.goto("/items");
+  const panel = page.getByRole("complementary", { name: "Knowledge Base" });
+  for (const tab of ["Notes", "Folders", "Tags"]) await expect(panel.getByRole("radio", { name: tab })).toBeVisible();
+
+  // The plus button is New Folder on Folders, New Tag on Tags and New Note on Notes.
+  await expect(panel.getByRole("button", { name: "New Folder" })).toBeVisible();
+  await panel.getByRole("radio", { name: "Tags" }).click();
+  await expect(panel.getByRole("button", { name: "New Folder" })).toHaveCount(0);
+  await panel.getByRole("button", { name: "New Tag" }).click();
+  await page.getByLabel("Tag name").fill(tagName);
+  await page.getByRole("button", { name: "Create Tag" }).click();
+  await expect(panel.getByRole("link", { name: tagName })).toBeVisible();
+  // The same name again is refused and the form stays open.
+  await panel.getByRole("button", { name: "New Tag" }).click();
+  await page.getByLabel("Tag name").fill(tagName.toUpperCase());
+  await page.getByRole("button", { name: "Create Tag" }).click();
+  await expect(page.getByText("You already have a Tag with this name.")).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // The filter narrows the list in place; Ctrl+K stays the palette's.
+  await panel.getByRole("searchbox", { name: "Filter tags" }).fill(`nothing${stamp}`);
+  await expect(panel.getByText("No Tags match.")).toBeVisible();
+  await panel.getByRole("searchbox", { name: "Filter tags" }).fill(tagName.toUpperCase());
+  await expect(panel.getByRole("link", { name: tagName })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Command palette" })).toHaveCount(0);
+
+  await panel.getByRole("radio", { name: "Notes" }).click();
+  await expect(panel.getByRole("button", { name: "New Note" })).toBeVisible();
+  await newNote(page, title);
+  const notes = page.getByRole("complementary", { name: "Knowledge Base" });
+  await notes.getByRole("searchbox", { name: "Filter notes" }).fill(title);
+  await expect(notes.getByRole("link", { name: title })).toBeVisible();
+  // The search is fuzzy (trigrams), so a string that shares digits with the title would still find it.
+  await notes.getByRole("searchbox", { name: "Filter notes" }).fill("qqzzxxjj");
+  await expect(notes.getByText("No Notes match.")).toBeVisible();
+  await expectNoViolations(page);
+
+  // Tidy up.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+  await page.goto("/tags");
+  await deleteTag(page, tagName);
+});
+
+test("the Items open as a grid, the view is chosen and remembered, and a section folds", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  const title = `gridnote${Date.now()}`;
+  await newNote(page, title);
+
+  // With no choice made yet, the Items are a grid of cards.
+  await page.context().clearCookies({ name: "view" });
+  await page.goto("/items");
+  const view = page.getByRole("radiogroup", { name: "View" });
+  await expect(view.getByRole("radio", { name: "Grid" })).toBeChecked();
+  const cards = page.getByRole("list", { name: "Items, most recently updated first" });
+  await expect(cards.getByRole("link", { name: title })).toBeVisible();
+  await expect(page.getByRole("table")).toHaveCount(0);
+  await expectNoViolations(page);
+
+  // The list is a table, and the choice survives a reload.
+  await view.getByRole("radio", { name: "List" }).click();
+  await expect(page.getByRole("table")).toBeVisible();
+  await page.reload();
+  await expect(view.getByRole("radio", { name: "List" })).toBeChecked();
+  await expect(page.getByRole("table")).toBeVisible();
+  await expectNoViolations(page);
+
+  // The Items section folds away and stays folded after a reload.
+  const heading = page.getByRole("button", { name: /^Items \(\d+\)$/ });
+  await expect(heading).toHaveAttribute("aria-expanded", "true");
+  await heading.click();
+  await expect(page.getByRole("table")).toBeHidden();
+  await page.reload();
+  await expect(heading).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("table")).toBeHidden();
+  await heading.click();
+  await expect(page.getByRole("table")).toBeVisible();
+
+  // A card has the same menu as a row, and Move to Trash works from it.
+  await view.getByRole("radio", { name: "Grid" }).click();
+  await page.getByRole("button", { name: `Actions for ${title}` }).click();
+  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await expect(page.getByText(`Moved "${title}" to the Trash`)).toBeVisible();
+  await expect(cards.getByRole("link", { name: title })).toHaveCount(0);
+});
+
+test("the editor toolbar formats text, shows where the caret is, and moves with the arrow keys", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  await newNote(page, `toolbar${Date.now()}`);
+  const body = page.getByRole("textbox", { name: "Note content" });
+  await body.click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("plain");
+  const toolbar = page.getByRole("toolbar", { name: "Formatting" });
+  const bold = toolbar.getByRole("button", { name: "Bold" });
+  await expect(bold).toHaveAttribute("aria-pressed", "false");
+
+  // A button wraps the selected words, and the same button (or Ctrl+B) takes it off again.
+  await page.keyboard.press("Shift+Home");
+  await bold.click();
+  await expect(bold).toHaveAttribute("aria-pressed", "true");
+  await expect(body).toBeFocused();
+  await page.keyboard.press("Control+b");
+  await expect(bold).toHaveAttribute("aria-pressed", "false");
+
+  // Lists and headings follow the caret too.
+  await toolbar.getByRole("button", { name: "Bulleted list" }).click();
+  await expect(toolbar.getByRole("button", { name: "Bulleted list" })).toHaveAttribute("aria-pressed", "true");
+  await toolbar.getByRole("button", { name: "Bulleted list" }).click();
+  await toolbar.getByRole("button", { name: "Heading" }).click();
+  await page.getByRole("menuitem", { name: "Heading 2" }).click();
+  await expect(toolbar.getByRole("button", { name: "Heading" })).toHaveAttribute("aria-pressed", "true");
+  await expectSaved(page);
+
+  // Arrow keys move between the buttons.
+  await toolbar.getByRole("button", { name: "Heading" }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(bold).toBeFocused();
+
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await expectNoViolations(page);
+  }
+
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("a Note's first-line heading and its title stay in step, both ways", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  const stamp = Date.now();
+  const title = `step${stamp}`;
+  await newNote(page, title);
+  const titleField = page.getByRole("textbox", { name: "Title" });
+  const lines = page.locator(".cm-line");
+  const body = page.getByRole("textbox", { name: "Note content" });
+
+  // The title typed in its field is the first line, as a heading.
+  await expect(lines.first()).toContainText(title);
+
+  // Typing in that heading changes the title.
+  await body.click();
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.press("End");
+  await page.keyboard.type(" edited");
+  await expect(titleField).toHaveValue(`${title} edited`);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByText(`${title} edited`)).toBeVisible();
+  await expectSaved(page);
+
+  // Changing the title rewrites the heading, and the saved Note has no conflict after a reload.
+  await titleField.fill(`renamed${stamp}`);
+  await expect(lines.first()).toContainText(`renamed${stamp}`);
+  await expectSaved(page);
+  await page.reload();
+  await expect(titleField).toHaveValue(`renamed${stamp}`);
+  await expect(page.getByText("changed somewhere else")).toHaveCount(0);
+
+  // A Note that starts with plain text gets its heading put in front when it is titled, and keeps its text.
+  await newNote(page, `plain${stamp}`);
+  await page.getByRole("textbox", { name: "Title" }).fill("");
+  await expectSaved(page);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.press("Control+a");
+  await page.keyboard.type("Just text");
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue("");
+  await page.getByRole("textbox", { name: "Title" }).fill(`named${stamp}`);
+  await expect(page.locator(".cm-line").first()).toContainText(`named${stamp}`);
+  await expect(page.locator(".cm-line").nth(1)).toContainText("Just text");
+  await expectSaved(page);
+
+  // Tidy up.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+  await page.getByRole("button", { name: /^Actions for renamed/ }).first().click();
+  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
 });

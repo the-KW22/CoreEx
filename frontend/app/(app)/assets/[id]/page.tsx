@@ -53,7 +53,7 @@ export default async function AssetPage({ params, searchParams }: PageProps<"/as
       <RecordOpen id={asset.id} />
       <ItemFrame
         crumbs={[
-          { href: "/items", label: "All Items" },
+          { href: "/assets", label: "Assets" },
           ...(asset.folderId ? pathTo(folders, asset.folderId) : []).map((f) => ({ href: `/folders/${f.id}`, label: f.name })),
         ]}
         current={asset.title}
@@ -73,20 +73,23 @@ export default async function AssetPage({ params, searchParams }: PageProps<"/as
           <>
             {/* No key from the text: a refresh after saving must not rebuild it while the other field is being typed in. */}
             <AssetText id={asset.id} title={asset.title} description={asset.description} />
-            <FolderPicker itemId={asset.id} folderId={asset.folderId} folders={folders} />
-            <section aria-labelledby="asset-tags-heading" className="grid gap-2">
-              <h2 id="asset-tags-heading" className="text-xs font-semibold text-muted-foreground">
-                Tags
-              </h2>
-              {itemTags?.data ? (
-                <TagEditor itemId={asset.id} tags={itemTags.data.items} allTags={allTags?.data?.items ?? []} />
-              ) : (
-                <p role="alert" className="text-sm">
-                  Could not load the Tags.
-                </p>
-              )}
-            </section>
-            <ItemBacklinks itemId={asset.id} />
+            {/* Where it lives and what it connects to, one section. */}
+            <div className="grid gap-6">
+              <FolderPicker itemId={asset.id} folderId={asset.folderId} folders={folders} />
+              <section aria-labelledby="asset-tags-heading" className="grid gap-2">
+                <h2 id="asset-tags-heading" className="text-xs font-semibold text-muted-foreground">
+                  Tags
+                </h2>
+                {itemTags?.data ? (
+                  <TagEditor itemId={asset.id} tags={itemTags.data.items} allTags={allTags?.data?.items ?? []} />
+                ) : (
+                  <p role="alert" className="text-sm">
+                    Could not load the Tags.
+                  </p>
+                )}
+              </section>
+              <ItemBacklinks itemId={asset.id} />
+            </div>
             <section aria-labelledby="info-heading" className="grid gap-2">
               <h2 id="info-heading" className="text-xs font-semibold text-muted-foreground">
                 Info
