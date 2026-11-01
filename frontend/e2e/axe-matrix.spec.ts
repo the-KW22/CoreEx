@@ -26,6 +26,9 @@ test.beforeAll(async ({ browser }) => {
   const page = seedPage;
   await signIn(page);
 
+  // New Folder is the plus button of the Knowledge Base panel's Folders tab; Home has no panel.
+  await page.goto("/items");
+  await page.getByRole("radio", { name: "Folders" }).click();
   await page.getByRole("button", { name: "New Folder" }).click();
   await page.getByLabel("Folder name").fill(folderName);
   await page.getByRole("button", { name: "Create Folder" }).click();
@@ -178,6 +181,7 @@ for (const colorScheme of ["dark", "light"] as const) {
         await screen(page, failures, "admin users", "/admin/users", heading("Admin"));
         await screen(page, failures, "admin invites", "/admin", heading("Admin"));
         await screen(page, failures, "access tokens", "/settings/tokens", heading("Access tokens"));
+        await screen(page, failures, "mcp guide", "/help/mcp", heading("Connect an Agent"));
         await screen(page, failures, "invite-only", "/invite-only", heading("CoreEx is invite-only"));
         await screen(page, failures, "disabled", "/disabled", heading("Your account is disabled"));
         await screen(page, failures, "reset password", "/reset-password", heading("Choose a new password"));

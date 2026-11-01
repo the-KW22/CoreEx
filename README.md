@@ -95,7 +95,7 @@ Press **Ctrl+K** (**Cmd+K** on a Mac) on any page to open the quick switcher: ty
 
 ### MCP server
 
-The API also speaks MCP (Model Context Protocol) at `/mcp`, so an Agent (Claude Code, Codex, Claude Desktop) can read, write and organise your knowledge base with an Access token. It can never delete anything for good: the Trash is as far as it goes. A Note or Asset an Agent last changed shows **Edited by** in its Details panel. See [docs/MCP.md](docs/MCP.md) for the tools and how to connect.
+The API also speaks MCP (Model Context Protocol) at `/mcp`, so an Agent (Claude Code, Codex, Claude Desktop) can read, write and organise your knowledge base with an Access token. It can never delete anything for good: the Trash is as far as it goes. A Note or Asset an Agent last changed shows **Edited by** in its Details panel. In the app, **Connect an Agent** in the Account menu opens a guide with the tools, how to connect each tool and what to watch out for; [docs/MCP.md](docs/MCP.md) is the same for readers of the repository.
 
 ## Deploying
 

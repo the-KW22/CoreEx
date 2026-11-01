@@ -17,6 +17,10 @@ describe("activeModule", () => {
     expect(activeModule("/settings/tokens")).toBe("settings");
   });
 
+  it("keeps Help out of the Knowledge Base, so it has no panel", () => {
+    expect(activeModule("/help/mcp")).toBe("help");
+  });
+
   it("marks Assets on the Assets page and each Asset", () => {
     expect(activeModule("/assets")).toBe("assets");
     expect(activeModule("/assets/1")).toBe("assets");

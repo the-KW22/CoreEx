@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { MCP_TOOLS } from "../lib/mcp-tools";
+
 import {
   PIXEL,
   chooseFolder,
@@ -548,6 +550,42 @@ test("an Invite is created, its link copied, and revoked after a confirm", async
   await page.getByRole("alertdialog").getByRole("button", { name: "Revoke" }).click();
   await expect(row).toContainText("Revoked");
   await expect(row.getByRole("button")).toHaveCount(0);
+});
+
+test("the MCP guide shows this server's address and the tools, and a command can be copied", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await signIn(page);
+
+  // It opens from the Account menu, and has no Knowledge Base panel beside it.
+  await page.getByRole("button", { name: /^Account/ }).click();
+  await page.getByRole("menuitem", { name: "Connect an Agent" }).click();
+  await expect(page).toHaveURL(/\/help\/mcp$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Connect an Agent" })).toBeVisible();
+  await expect(page.getByRole("complementary")).toHaveCount(0);
+  for (const name of ["What an Agent can do", "Connect your tool", "Tools", "Access tokens and safety", "Limits", "Troubleshooting"]) {
+    await expect(page.getByRole("heading", { level: 2, name })).toBeVisible();
+  }
+
+  // The address is this installation's own, and every command uses a placeholder, never a real token.
+  const address = page.getByRole("group", { name: "CoreEx server address" });
+  await expect(address).toContainText("/mcp");
+  await address.getByRole("button", { name: "Copy CoreEx server address" }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^https?:\/\/.+\/mcp$/);
+  await expect(page.getByRole("group", { name: "Claude Code command" })).toContainText("Bearer cx_pat_YOUR_TOKEN");
+  expect(await page.getByRole("main").innerText()).not.toMatch(/cx_pat_(?!YOUR_TOKEN)/);
+
+  // Every tool is listed, and the page's own links work.
+  await expect(page.locator("#tools dt")).toHaveCount(MCP_TOOLS.length);
+  await page.getByRole("navigation", { name: "On this page" }).getByRole("link", { name: "Troubleshooting" }).click();
+  await expect(page).toHaveURL(/#troubleshooting$/);
+  await page.getByText("429 RATE_LIMITED").click();
+  await expect(page.getByText("more than 60 calls in a minute")).toBeVisible();
+  await expectNoViolations(page);
+
+  // And from the Access tokens page.
+  await page.goto("/settings/tokens");
+  await page.getByRole("link", { name: "How to connect an Agent" }).click();
+  await expect(page).toHaveURL(/\/help\/mcp$/);
 });
 
 test("an Access token is created, its secret shown once, and revoked after a confirm", async ({ page, context }) => {

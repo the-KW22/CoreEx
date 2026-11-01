@@ -1,5 +1,7 @@
 # Connecting an Agent to CoreEx (MCP)
 
+Signed-in Users find the same guide inside CoreEx: **Connect an Agent** in the Account menu (`/help/mcp`). It shows this installation's own address in the commands.
+
 CoreEx has an MCP server (Model Context Protocol) at `/mcp`. It lets an **Agent** (an AI tool such as Claude Code, Codex or Claude Desktop) read, write and organise your knowledge base as you. It signs in with an **Access token** that you create in CoreEx. The design is in [ADR 0007](adr/0007-mcp-runs-in-process-with-access-tokens.md).
 
 ## What an Agent can do
@@ -115,7 +117,7 @@ Ask the Agent to "list my CoreEx Folders", or "search CoreEx for notes about ...
 | `429` `RATE_LIMITED` | More than 60 calls in a minute for that token. Wait the number of seconds in `Retry-After`. |
 | "This Note was changed somewhere else" | The Note changed since the Agent read it (you edited it, or another Agent did). The Agent should read it again with `get_item` and redo its change. Nothing was lost. |
 | First call is slow or times out | The free Render backend was asleep. Wait a minute and try again. |
-| A plain `GET /mcp` gives `405` | Normal. The server is stateless and answers only `POST`. |
+| A plain `GET /mcp` gives `405` (or `401` without a token) | Normal. The server is stateless and answers only `POST`; without a token it refuses with 401 first. |
 
 To test the connection without any tool, send one request yourself:
 
