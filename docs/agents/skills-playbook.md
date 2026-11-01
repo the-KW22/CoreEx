@@ -37,7 +37,7 @@ Follows `DEVELOPMENT.md` section 4 step by step.
 
 ### 1–2. Pick and plan
 
-1. Pick an unblocked issue labelled `ready-for-agent`, assign yourself.
+1. Pick an open issue with no open blockers (`DEVELOPMENT.md` section 4), skipping ones labelled `needs-triage` or `needs-info`, and assign yourself.
 2. Read `CONTEXT.md`, the ADRs for the area, and for UI work `docs/DESIGN.md`.
 3. Post the implementation plan comment. If the plan has an open design question you can't settle from the docs, stop and ask the human; don't grill them unless they ask.
 4. For a ticket that touches a trust boundary (auth, uploads, signed URLs, MCP tokens, Markdown rendering, admin), note the threat in the plan's "risks". Use `security-threat-model` only if the human asks for a threat model.
@@ -64,7 +64,7 @@ Branch as `<type>/<issue>-<slug>` from an up-to-date `staging`. Then, by kind of
 |---|---|
 | Every PR | `ponytail-review`, fix "Must fix" items |
 | PR touches auth, uploads, MCP, admin, or rendering | + Claude Code's `security-review`, or `security-best-practices` for frontend code |
-| PR changes a screen | Its Playwright test and axe-matrix cell (`DEVELOPMENT.md` section 9), time-boxed; + `design:accessibility-review` if you want a second look |
+| PR changes a screen | Its Playwright test and axe-matrix cell (`DEVELOPMENT.md` section 9), time-boxed; + `design:accessibility-review` (Claude Code) if you want a second look |
 
 ### 7–9. CI, merge, verify
 
