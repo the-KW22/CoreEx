@@ -49,6 +49,8 @@ Never `git add` anything under `wiki-vault/`.
 
 ## Agent skills
 
+**Which skill to use at each stage of a ticket is in `docs/agents/skills-playbook.md`.** Read it before your first change, alongside `docs/DEVELOPMENT.md`.
+
 ### Issue tracker
 
 GitHub Issues on `the-KW22/CoreEx`, using native sub-issues and "blocked by" dependencies. External PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
