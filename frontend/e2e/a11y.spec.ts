@@ -1388,8 +1388,10 @@ test("a Note's Connections show its Links as a small graph and a list, kept curr
   const targetNode = connections.getByRole("link", { name: new RegExp(`^${target}, Note`) });
   await expect(targetNode).toBeVisible();
   await expect(connections.getByRole("link", { name: "Open in Graph" })).toHaveAttribute("href", "/graph");
-  await expect(connections.getByRole("link", { name: "2 Links away" })).toBeVisible();
   await expectNoViolations(page);
+  await connections.getByRole("link", { name: "2 Links away" }).click();
+  await expect(page).toHaveURL(/depth=2/);
+  await expect(connections.getByRole("link", { name: "2 Links away" })).toHaveAttribute("aria-current", "true");
 
   // A node opens its Item, whose Connections show the Note linking to it.
   await targetNode.locator("circle").last().click();

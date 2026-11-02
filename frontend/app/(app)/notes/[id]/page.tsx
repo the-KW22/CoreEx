@@ -59,7 +59,7 @@ export default async function NotePage({ params, searchParams }: PageProps<"/not
           <div className="grid gap-6">
             <FolderPicker itemId={note.id} folderId={note.folderId} folders={folders} />
             <ItemBacklinks itemId={note.id} />
-            <ItemConnections itemId={note.id} folderId={note.folderId} depth={depth} />
+            <ItemConnections itemId={note.id} type="NOTE" folderId={note.folderId} depth={depth} />
           </div>
         }
         detailsCookie={remembered === "open" || remembered === "closed" ? remembered : null}

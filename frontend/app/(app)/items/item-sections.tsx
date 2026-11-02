@@ -50,7 +50,17 @@ export const parseDepth = (raw: string | string[] | undefined) => (raw === "2" ?
 
 // The local graph (docs/DESIGN.md section 6.12): the Item, what it links to and what links to it, `depth` Links away.
 // Backlinks already list what links here, so the text alternative only adds the Links going out.
-export async function ItemConnections({ itemId, folderId, depth }: { itemId: string; folderId: string | null; depth: 1 | 2 }) {
+export async function ItemConnections({
+  itemId,
+  type,
+  folderId,
+  depth,
+}: {
+  itemId: string;
+  type: "NOTE" | "ASSET";
+  folderId: string | null;
+  depth: 1 | 2;
+}) {
   const api = await getApi();
   const graph = await api
     .GET("/api/items/{id}/graph", { params: { path: { id: itemId }, query: { depth } } })
@@ -87,7 +97,9 @@ export async function ItemConnections({ itemId, folderId, depth }: { itemId: str
           Could not load the Connections.
         </p>
       ) : graph.data.edges.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No Links yet. Type [[ in the Note to link it.</p>
+        <p className="text-sm text-muted-foreground">
+          {type === "NOTE" ? "No Links yet. Type [[ in the Note to link it." : "No Links yet. Link to it from a Note with [[."}
+        </p>
       ) : (
         <>
           <GraphCanvas

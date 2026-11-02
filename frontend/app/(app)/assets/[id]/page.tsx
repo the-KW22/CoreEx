@@ -90,7 +90,7 @@ export default async function AssetPage({ params, searchParams }: PageProps<"/as
                 )}
               </section>
               <ItemBacklinks itemId={asset.id} />
-              <ItemConnections itemId={asset.id} folderId={asset.folderId} depth={depth} />
+              <ItemConnections itemId={asset.id} type="ASSET" folderId={asset.folderId} depth={depth} />
             </div>
             <section aria-labelledby="info-heading" className="grid gap-2">
               <h2 id="info-heading" className="text-xs font-semibold text-muted-foreground">

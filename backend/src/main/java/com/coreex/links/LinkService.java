@@ -156,6 +156,8 @@ public class LinkService {
 		return new Graph(kept, keptEdges, all.size(), all.size() > kept.size());
 	}
 
+	// shortcut: the walk collects every neighbour before the 500 cap (two bind values each), fine for a personal vault;
+	// cap the frontier when an Item can have thousands of Links.
 	/**
 	 * The local graph of an Item: the Item, the Items linked to or from it up to {@code depth} (1 or 2) Links away,
 	 * and every Link among them. The cap keeps the Item and its nearest neighbours first. A 404 for a missing,
