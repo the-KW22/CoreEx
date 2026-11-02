@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Alert } from "@/components/alert";
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/schema";
-import type { Folder } from "@/lib/folders";
+import { graphFolderChoices, type Folder } from "@/lib/folders";
 import { linkMaps, where, type GraphNode } from "@/lib/graph";
 import { itemHref } from "@/lib/items";
 
@@ -42,7 +42,7 @@ export function GraphView({
           <FolderSelect
             name="folderId"
             label="Folder"
-            folders={folders}
+            folders={graphFolderChoices(folders, folderId)}
             selected={folderId}
             emptyLabel="All Items"
             onChange={(id) => router.push(id ? `/graph?folderId=${id}` : "/graph")}

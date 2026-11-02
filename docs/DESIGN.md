@@ -215,7 +215,7 @@ The documentation for the MCP server, written for Users, in the shape SaaS produ
 
 ### 6.12 Graph (`/graph`)
 
-The Knowledge Graph of one Folder and its subfolders (`?folderId=`), or of All Items. It opens from **Graph** in the rail, which has a **Folder** Select (first choice "All Items"), and from a third **Graph** button in the Grid | List toggle of All Items and every Folder page. On the Graph page the same toggle goes back to the list. Obsidian's graph is a reference for the feel, not a template; the look is CoreEx's own:
+The Knowledge Graph of one Folder and its subfolders (`?folderId=`), or of All Items. It opens from **Graph** in the rail, which has a **Folder** Select (first choice "All Items", then top-level Folders only, since a Folder's graph already holds its subfolders; a subfolder opened through `?folderId=` is added as one more choice so the Select names what is shown), and from a third **Graph** button in the Grid | List toggle of All Items and every Folder page. On the Graph page the same toggle goes back to the list. Obsidian's graph is a reference for the feel, not a template; the look is CoreEx's own:
 
 - **Shape shows the kind:** Notes are circles and Assets are rounded squares, both `muted-foreground`. The node under hover or focus is `foreground`. A node grows with its Link count (radius 5 to 18).
 - **Mint only for Links and focus** (principle 3): Links are thin `muted-foreground` lines. Hovering or focusing a node turns its Links Mint (`--link`) with an arrow for direction, and dims everything not connected to it.
