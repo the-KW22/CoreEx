@@ -60,7 +60,14 @@ export function GraphView({
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const titles = useMemo(() => new Map(nodes.map((n) => [n.id, n.title])), [nodes]);
   const { out, into } = useMemo(() => linkMaps(edges), [edges]);
-  const [pos, setPos] = useState(() => layout(nodes, edges));
+  // A server action refreshes the page with new data (lib/refresh.ts), so lay the graph out again when it changes.
+  const [laidOut, setLaidOut] = useState(() => ({ graph, pos: layout(nodes, edges) }));
+  let pos = laidOut.pos;
+  if (laidOut.graph !== graph) {
+    pos = layout(nodes, edges);
+    setLaidOut({ graph, pos });
+  }
+  const setPos = (next: (p: Map<string, Point>) => Map<string, Point>) => setLaidOut((l) => ({ ...l, pos: next(l.pos) }));
   const [size, setSize] = useState<{ w: number; h: number }>();
   const [view, setView] = useState<View>();
   const [hovered, setHovered] = useState<string | null>(null);

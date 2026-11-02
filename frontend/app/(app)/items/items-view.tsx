@@ -94,7 +94,7 @@ export async function ItemsView({ crumbs, title, folderId, cards, folders, tags,
             {items.total > 0 && (
               <ViewToggle
                 saved={view}
-                graphHref={assetsOnly ? undefined : folderId ? `/graph?folderId=${folderId}` : "/graph"}
+                graphHref={path === "/items" ? "/graph" : path.startsWith("/folders/") ? `/graph?folderId=${folderId}` : undefined}
               />
             )}
             {newNote}
