@@ -1,6 +1,6 @@
 "use client";
 
-import { FilesIcon, HouseIcon, LibraryIcon, PanelLeftCloseIcon, PanelLeftIcon, PanelLeftOpenIcon, ShieldIcon, Trash2Icon } from "lucide-react";
+import { FilesIcon, HouseIcon, WaypointsIcon, LibraryIcon, PanelLeftCloseIcon, PanelLeftIcon, PanelLeftOpenIcon, ShieldIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -34,6 +34,7 @@ const MODULES: { id: Module; href: string; label: string; icon: typeof HouseIcon
   { id: "home", href: "/", label: "Home", icon: HouseIcon },
   { id: "kb", href: "/items", label: "Knowledge Base", icon: LibraryIcon },
   { id: "assets", href: "/assets", label: "Assets", icon: FilesIcon },
+  { id: "graph", href: "/graph", label: "Graph", icon: WaypointsIcon },
 ];
 
 // A Tooltip only when the label is not already on screen.

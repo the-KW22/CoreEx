@@ -26,6 +26,10 @@ describe("activeModule", () => {
     expect(activeModule("/assets/1")).toBe("assets");
   });
 
+  it("keeps the Graph out of the Knowledge Base, so it has no panel", () => {
+    expect(activeModule("/graph")).toBe("graph");
+  });
+
   it("marks the Knowledge Base on every Item, Folder, Tag and Search page", () => {
     for (const path of ["/items", "/folders/1", "/tags", "/tags/1", "/notes/1", "/search"]) {
       expect(activeModule(path)).toBe("kb");

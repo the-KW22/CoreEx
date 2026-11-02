@@ -468,6 +468,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/links/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["graph"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/items": {
         parameters: {
             query?: never;
@@ -1039,6 +1055,38 @@ export interface components {
             email: string;
             /** @enum {string} */
             role: "ADMIN" | "USER";
+        };
+        GraphEdgeResponse: {
+            /** Format: uuid */
+            source: string;
+            /** Format: uuid */
+            target: string;
+        };
+        GraphNodeResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "NOTE" | "ASSET";
+            title: string;
+            /** @description The Folder path such as "Work / CoreEx", null at the top level */
+            folderPath: string | null;
+            /**
+             * Format: int32
+             * @description Links to and from this Item within the graph
+             */
+            linkCount: number;
+            /** @description True for an Item outside the Folder, linked to or from inside it */
+            stub: boolean;
+        };
+        GraphResponse: {
+            nodes: components["schemas"]["GraphNodeResponse"][];
+            edges: components["schemas"]["GraphEdgeResponse"][];
+            /**
+             * Format: int32
+             * @description Nodes before the cap of 500 most-linked
+             */
+            total: number;
+            truncated: boolean;
         };
         ItemPage: {
             items: components["schemas"]["ItemResponse"][];
@@ -2665,6 +2713,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LinkTargetList"];
+                };
+            };
+        };
+    };
+    graph: {
+        parameters: {
+            query?: {
+                folderId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Items as nodes and Links as edges */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GraphResponse"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Folder) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
