@@ -170,7 +170,9 @@ class ReadTools {
 				.map(f -> new FolderInfo(f.id(), f.parentId(), f.name(), paths.get(f.id()), f.itemCount())).toList());
 	}
 
-	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_graph", description = "Map how Items link to each other: every Note and Asset as a node with its linkCount (Links to and from it), and every Link as an edge from the linking Note to its target. Use it to find orphans (linkCount 0), hubs (the highest linkCount) and groups of Items that never connect. Covers a Folder and its subfolders, or everything without folderId. An Item outside the Folder that is linked to or from it is included with stub true. At most 500 nodes, the most-linked first: total is how many there were and truncated says some were left out. Returns titles and ids, not text: call get_item to read one.")
+	// shortcut: only the nodes are capped (500), not the Links between them, so 500 Items with thousands of Links make a
+	// result of hundreds of KB. The description tells an Agent to narrow by folderId; cap or page the edges if one still hits it.
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_graph", description = "Map how Items link to each other: every Note and Asset as a node with its linkCount (Links to and from it), and every Link as an edge from the linking Note to its target. Use it to find orphans (linkCount 0), hubs (the highest linkCount) and groups of Items that never connect. Covers a Folder and its subfolders, or everything without folderId. An Item outside the Folder that is linked to or from it is included with stub true. At most 500 nodes, the most-linked first: total is how many there were and truncated says some were left out. In a big knowledge base pass folderId, because every Link is listed and the result can get large. Returns titles and ids, not text: call get_item to read one.")
 	GraphResult getGraph(McpTransportContext context,
 			@McpToolParam(required = false, description = "Only this Folder and its subfolders (an id from list_folders)") UUID folderId) {
 		var graph = links.graph(user(context).id(), folderId);
