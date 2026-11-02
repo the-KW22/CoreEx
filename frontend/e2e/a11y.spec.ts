@@ -1277,3 +1277,38 @@ test("a Folder opens as a Graph, its Items reached by keyboard and listed as a t
     await expect(item).toHaveCount(0);
   }
 });
+
+test("a dragged Graph node stays where it was dropped, until Reset layout", async ({ page }) => {
+  await signIn(page);
+  const title = `Layout node ${Date.now()}`;
+  await newNote(page, title);
+  await page.goto("/graph");
+  const node = page.getByRole("link", { name: new RegExp(`^${title}, Note`) });
+  const box = (await node.boundingBox())!;
+
+  // Saving answers a server-action POST; wait for it before reloading.
+  const saved = page.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/graph"));
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 90, box.y + 60, { steps: 5 });
+  await page.mouse.up();
+  await saved;
+  // Where the node sits, rounded: the saved number loses its last digits on the way through the database.
+  const at = async () => ((await node.getAttribute("transform")) ?? "").match(/-?[\d.]+/g)!.map((n) => Math.round(Number(n)));
+  const dropped = await at();
+
+  await page.reload();
+  await expect.poll(at).toEqual(dropped);
+
+  const reset = page.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/graph"));
+  await page.getByRole("button", { name: "Reset layout" }).click();
+  await reset;
+  await page.reload();
+  await expect.poll(at).not.toEqual(dropped);
+
+  // Tidy up.
+  await node.click();
+  await expect(page).toHaveURL(/\/notes\//);
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});

@@ -52,6 +52,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/links/graph/positions/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["place"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/folders/{id}": {
         parameters: {
             query?: never;
@@ -644,6 +660,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/links/graph/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["resetLayout"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/items/{id}/tags/{tagId}": {
         parameters: {
             query?: never;
@@ -735,6 +767,12 @@ export interface components {
             updatedAt: string;
             /** @description The name of the Access token that made the latest change; null when the User did */
             editedBy: string | null;
+        };
+        PositionRequest: {
+            /** Format: double */
+            x: number;
+            /** Format: double */
+            y: number;
         };
         RenameFolderRequest: {
             name: string;
@@ -1077,6 +1115,13 @@ export interface components {
             linkCount: number;
             /** @description True for an Item outside the Folder, linked to or from inside it */
             stub: boolean;
+            /**
+             * Format: double
+             * @description Where the User left the node in this graph, null when never placed
+             */
+            x: number | null;
+            /** Format: double */
+            y: number | null;
         };
         GraphResponse: {
             nodes: components["schemas"]["GraphNodeResponse"][];
@@ -1418,6 +1463,50 @@ export interface operations {
                 content?: never;
             };
             /** @description Code NOT_FOUND (also for another User's Note) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    place: {
+        parameters: {
+            query?: {
+                folderId?: string;
+            };
+            header?: never;
+            path: {
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PositionRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Item or Folder) */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -3037,6 +3126,35 @@ export interface operations {
             };
             /** @description Code STORAGE_UNAVAILABLE: nothing was deleted */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    resetLayout: {
+        parameters: {
+            query?: {
+                folderId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cleared */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND (also for another User's Folder) */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

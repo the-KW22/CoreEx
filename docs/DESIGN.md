@@ -221,7 +221,7 @@ The Knowledge Graph of one Folder and its subfolders (`?folderId=`), or of All I
 - **Mint only for Links and focus** (principle 3): Links are thin `muted-foreground` lines. Hovering or focusing a node turns its Links Mint (`--link`) with an arrow for direction, and dims everything not connected to it.
 - **Stubs:** an Item outside the Folder that is linked to or from inside it is a dashed, hollow node, joined by dashed Links. Its hover card says "In <Folder>".
 - **Hover card:** the popover style of the Link preview (section 6.3): title, then "Note · 2 Links · 1 Backlinks". It also shows for the focused node, so nothing is hover-only.
-- **Canvas:** a bordered panel (70vh) with a faint dot grid in `--border`. Zoom in, Zoom out and Fit buttons sit in its bottom-right corner. The wheel zooms, dragging the background pans, and dragging a node moves it.
+- **Canvas:** a bordered panel (70vh) with a faint dot grid in `--border`. Zoom in, Zoom out and Fit buttons sit in its bottom-right corner. The wheel zooms and dragging the background pans. Dragging a node moves it and saves its place in the Graph layout (no Save button, and a toast if it fails). Saved nodes stay pinned and new Items settle around them. **Reset layout** (beside Fit) forgets that graph's saved places and fits the fresh layout.
 - **Labels** show for the hovered or focused node and its neighbours, and for all nodes from 1.5× zoom.
 - **Keyboard:** every node is a link with a name such as "Energy, Note, links to 2: Sound, Atoms, linked from 1". Tab reaches it, Enter opens the Item, and the arrow keys move to the neighbour lying most nearly that way.
 - **Show as table:** the same graph as a table of each Item, Kind, Links to and Linked from.

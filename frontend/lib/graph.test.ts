@@ -9,6 +9,8 @@ const node = (over: Partial<GraphNode>): GraphNode => ({
   folderPath: null,
   linkCount: 0,
   stub: false,
+  x: null,
+  y: null,
   ...over,
 });
 
