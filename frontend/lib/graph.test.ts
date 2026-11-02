@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { labelOpacity, linkMaps, nodeLabel, step, type GraphNode } from "./graph";
+import { graphIsNotFound, labelOpacity, linkMaps, nodeLabel, step, type GraphNode } from "./graph";
 
 const node = (over: Partial<GraphNode>): GraphNode => ({
   id: "a",
@@ -63,5 +63,21 @@ describe("labelOpacity", () => {
     expect(labelOpacity(1.25)).toBeCloseTo(0.5);
     expect(labelOpacity(1.5)).toBe(1);
     expect(labelOpacity(4)).toBe(1);
+  });
+});
+
+describe("graphIsNotFound", () => {
+  const notFound = { code: "NOT_FOUND" };
+  it("is true for a bad or missing Folder", () => {
+    expect(graphIsNotFound(404, "f1", notFound)).toBe(true);
+    expect(graphIsNotFound(400, "f1", { code: "INVALID_REQUEST" })).toBe(true);
+  });
+  it("is false for All Items, whatever the status", () => {
+    expect(graphIsNotFound(404, null, notFound)).toBe(false);
+    expect(graphIsNotFound(404, null, undefined)).toBe(false);
+  });
+  it("is false for a 404 that is not the API's own error, such as a missing route", () => {
+    expect(graphIsNotFound(404, "f1", { status: 404, error: "Not Found" })).toBe(false);
+    expect(graphIsNotFound(404, "f1", undefined)).toBe(false);
   });
 });

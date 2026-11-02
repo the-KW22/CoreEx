@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
+import { graphIsNotFound } from "@/lib/graph";
 
 import { GraphView } from "./graph-view";
 
@@ -17,8 +18,11 @@ export default async function GraphPage({ searchParams }: PageProps<"/graph">) {
   if (!graph || !folders) {
     return <p role="alert">Cannot reach the CoreEx API. Is the backend running?</p>;
   }
-  // Missing, deleted, someone else's, or not a UUID: all look the same.
-  if (graph.response.status === 404 || graph.response.status === 400) notFound();
+  // A Folder that is missing, deleted, someone else's, or not a UUID: all look the same.
+  if (graphIsNotFound(graph.response.status, folderId, graph.error)) notFound();
+  if (graph.response.status === 404) {
+    return <p role="alert">The Graph could not be loaded. The server may be updating, so try again in a minute.</p>;
+  }
   if (!graph.data || !folders.data) {
     return <p role="alert">Could not load the graph. Try again.</p>;
   }

@@ -59,3 +59,12 @@ export function step(from: Point, key: keyof typeof DIRECTIONS, neighbours: { id
   }
   return best?.id;
 }
+
+// A failed graph request is "Page not found" only when a Folder was asked for and the API
+// answered about it. A 404 without the API's own error `code` is a missing route (the backend
+// is older than this frontend), and without a folderId nothing can be missing.
+export function graphIsNotFound(status: number, folderId: string | null, error: unknown): boolean {
+  if (!folderId) return false;
+  if (status === 400) return true;
+  return status === 404 && (error as { code?: unknown } | null)?.code === "NOT_FOUND";
+}
