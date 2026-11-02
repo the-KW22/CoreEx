@@ -1,7 +1,7 @@
 "use client";
 
-import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
 import { MinusIcon, PlusIcon, RotateCcwIcon, ScanIcon } from "lucide-react";
+import { useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -11,36 +11,34 @@ import { Alert } from "@/components/alert";
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/schema";
 import type { Folder } from "@/lib/folders";
-import { isArrow, linkMaps, nodeLabel, nodeRadius, step, where, type GraphEdge, type GraphNode, type Point } from "@/lib/graph";
+import { isArrow, labelOpacity, linkMaps, nodeLabel, nodeRadius, step, where, type GraphNode, type Point } from "@/lib/graph";
 import { itemHref } from "@/lib/items";
 
 import { FolderSelect } from "../folders/folder-select";
 import { ViewToggle } from "../items/view-toggle";
 import { resetLayout, savePosition } from "./actions";
+import { useLayout } from "./use-layout";
 
 type View = { x: number; y: number; k: number };
 type Gesture = { kind: "pan"; from: Point; view: View } | { kind: "node"; id: string; moved: boolean };
 
 const clampZoom = (k: number) => Math.min(Math.max(k, 0.2), 4);
 
-// Runs the simulation to rest up front, so the graph appears settled and never moves on its own. Nodes with a saved
-// position (the Graph layout) are pinned there, and the others settle around them.
-function layout(nodes: GraphNode[], edges: GraphEdge[]) {
-  const placed = nodes.map((n) => {
-    const saved = n.x != null && n.y != null ? { x: n.x, y: n.y, fx: n.x, fy: n.y } : {};
-    return { id: n.id, r: nodeRadius(n.linkCount), ...saved } as { id: string; r: number; x?: number; y?: number };
-  });
-  forceSimulation(placed)
-    .force("link", forceLink(edges.map((e) => ({ ...e }))).id((d) => (d as { id: string }).id).distance(70))
-    .force("charge", forceManyBody().strength(-140))
-    .force("collide", forceCollide<(typeof placed)[number]>((d) => d.r + 6))
-    // A gentle pull to the middle keeps Items without Links from drifting away.
-    .force("x", forceX(0).strength(0.04))
-    .force("y", forceY(0).strength(0.04))
-    .stop()
-    .tick(300);
-  return new Map(placed.map((p) => [p.id, { x: p.x ?? 0, y: p.y ?? 0 }]));
-}
+// What animates when a node is hovered or focused: the dimming, and the Links turning Mint. The global reduced-motion
+// rule in globals.css makes these instant.
+const fade = "transition-[opacity,fill,stroke,stroke-opacity] duration-(--duration-base) ease-(--ease-out)";
+
+// Class strings are fixed up front: this runs for every node and Link on every frame.
+const LINK_ON = `stroke-link ${fade}`;
+const LINK_OFF = `stroke-muted-foreground ${fade}`;
+const NODE = `cursor-pointer outline-none ${fade}`;
+const SHAPE = {
+  stub: `fill-background stroke-muted-foreground ${fade}`,
+  active: `fill-foreground ${fade}`,
+  idle: `fill-muted-foreground ${fade}`,
+};
+// Labels have no transition: their opacity already follows the zoom, and they are only drawn while visible.
+const LABEL = "pointer-events-none fill-foreground";
 
 // The View that fits every node into a w × h box.
 function fit(pos: Map<string, Point>, w: number, h: number): View {
@@ -66,22 +64,26 @@ export function GraphView({
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const titles = useMemo(() => new Map(nodes.map((n) => [n.id, n.title])), [nodes]);
   const { out, into } = useMemo(() => linkMaps(edges), [edges]);
-  // A server action refreshes the page with new data (lib/refresh.ts), so lay the graph out again when it changes.
-  const [laidOut, setLaidOut] = useState(() => ({ graph, pos: layout(nodes, edges) }));
+  const names = useMemo(
+    () => new Map(nodes.map((n) => [n.id, nodeLabel(n, titles, out.get(n.id) ?? [], into.get(n.id) ?? [])])),
+    [nodes, titles, out, into],
+  );
+  const reduceMotion = !!useReducedMotion();
+  const layout = useLayout(nodes, edges, reduceMotion);
+  const pos = layout.pos;
   const [size, setSize] = useState<{ w: number; h: number }>();
   const [view, setView] = useState<View>();
   const [refit, setRefit] = useState(false);
-  let pos = laidOut.pos;
-  if (laidOut.graph !== graph) {
-    pos = layout(nodes, edges);
-    setLaidOut({ graph, pos });
+  // A server action refreshes the page with new data (lib/refresh.ts), which lays the graph out again.
+  const [laidOut, setLaidOut] = useState(layout.key);
+  if (laidOut !== layout.key) {
+    setLaidOut(layout.key);
     // After Reset layout, show the fresh layout whole.
     if (refit && size) {
       setRefit(false);
       setView(fit(pos, size.w, size.h));
     }
   }
-  const setPos = (next: (p: Map<string, Point>) => Map<string, Point>) => setLaidOut((l) => ({ ...l, pos: next(l.pos) }));
   const [hovered, setHovered] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
   const [table, setTable] = useState(false);
@@ -113,13 +115,26 @@ export function GraphView({
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
+    // Wheel events can outnumber frames, so they are added up and applied once per frame.
+    let frame = 0;
+    let wheel = 0;
+    let at: Point = { x: 0, y: 0 };
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const rect = svg.getBoundingClientRect();
-      zoomAt({ x: e.clientX - rect.left, y: e.clientY - rect.top }, Math.exp(-e.deltaY * 0.0015));
+      at = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      wheel += e.deltaY;
+      frame ||= requestAnimationFrame(() => {
+        zoomAt(at, Math.exp(-wheel * 0.0015));
+        frame = 0;
+        wheel = 0;
+      });
     };
     svg.addEventListener("wheel", onWheel, { passive: false });
-    return () => svg.removeEventListener("wheel", onWheel);
+    return () => {
+      svg.removeEventListener("wheel", onWheel);
+      cancelAnimationFrame(frame);
+    };
   }, [table]);
 
   function zoomAt(at: Point, factor: number) {
@@ -149,7 +164,7 @@ export function GraphView({
       setView({ ...g.view, x: g.view.x + at.x - g.from.x, y: g.view.y + at.y - g.from.y });
     } else {
       g.moved = true;
-      setPos((p) => new Map(p).set(g.id, { x: (at.x - view.x) / view.k, y: (at.y - view.y) / view.k }));
+      layout.place(g.id, { x: (at.x - view.x) / view.k, y: (at.y - view.y) / view.k });
     }
   }
 
@@ -165,7 +180,7 @@ export function GraphView({
     const at = pointer(e);
     const x = (at.x - view!.x) / view!.k;
     const y = (at.y - view!.y) / view!.k;
-    setPos((p) => new Map(p).set(g.id, { x, y }));
+    layout.place(g.id, { x, y });
     if (!(await savePosition(g.id, folderId, x, y))) toast.error("Could not save where you put it. Try again.");
   }
 
@@ -188,6 +203,7 @@ export function GraphView({
     }
   }
 
+  const labels = view ? labelOpacity(view.k) : 0;
   const scope = folderId ? (folders.find((f) => f.id === folderId)?.name ?? "this Folder") : "All Items";
   const card = active && view ? byId.get(active) : undefined;
   const cardAt = card && view ? pos.get(card.id)! : undefined;
@@ -268,10 +284,10 @@ export function GraphView({
                       y1={a.y}
                       x2={b.x - (b.x - a.x) * gap}
                       y2={b.y - (b.y - a.y) * gap}
-                      className={on ? "stroke-link" : "stroke-muted-foreground"}
+                      className={on ? LINK_ON : LINK_OFF}
                       strokeWidth={(on ? 1.6 : 0.8) / view.k}
                       strokeDasharray={stub ? `${4 / view.k} ${4 / view.k}` : undefined}
-                      strokeOpacity={on ? 1 : lit ? 0.12 : 0.35}
+                      style={{ strokeOpacity: on ? 1 : lit ? 0.12 : 0.35 }}
                       markerEnd={on ? "url(#graph-arrow)" : undefined}
                     />
                   );
@@ -280,12 +296,7 @@ export function GraphView({
                   const p = pos.get(n.id)!;
                   const r = nodeRadius(n.linkCount);
                   const dim = lit !== null && !lit.has(n.id);
-                  const showLabel = view.k >= 1.5 || (lit?.has(n.id) ?? false);
-                  const shape = n.stub
-                    ? "fill-background stroke-muted-foreground"
-                    : n.id === active
-                      ? "fill-foreground"
-                      : "fill-muted-foreground";
+                  const shape = n.stub ? SHAPE.stub : n.id === active ? SHAPE.active : SHAPE.idle;
                   const shapeProps = { className: shape, strokeWidth: 1.2 / view.k, strokeDasharray: n.stub ? `${3 / view.k} ${3 / view.k}` : undefined };
                   return (
                     <g
@@ -296,10 +307,9 @@ export function GraphView({
                       }}
                       role="link"
                       tabIndex={0}
-                      aria-label={nodeLabel(n, titles, out.get(n.id) ?? [], into.get(n.id) ?? [])}
+                      aria-label={names.get(n.id)}
                       transform={`translate(${p.x} ${p.y})`}
-                      opacity={dim ? 0.25 : 1}
-                      className="cursor-pointer outline-none"
+                      className={`${NODE} ${dim ? "opacity-25" : "opacity-100"}`}
                       onPointerDown={(e) => onPointerDown(e, n.id)}
                       onPointerEnter={() => setHovered(n.id)}
                       onPointerLeave={() => setHovered(null)}
@@ -313,8 +323,16 @@ export function GraphView({
                       ) : (
                         <rect x={-r} y={-r} width={2 * r} height={2 * r} rx={r / 3} {...shapeProps} />
                       )}
-                      {showLabel && (
-                        <text y={r + 14 / view.k} textAnchor="middle" className="fill-foreground" fontSize={12 / view.k}>
+                      {/* The node's name already says it all, so the label is only for the eye. */}
+                      {(labels > 0 || lit?.has(n.id)) && (
+                        <text
+                          y={r + 14 / view.k}
+                          textAnchor="middle"
+                          aria-hidden
+                          className={LABEL}
+                          style={{ opacity: lit?.has(n.id) ? 1 : labels }}
+                          fontSize={12 / view.k}
+                        >
                           {n.title}
                         </text>
                       )}
