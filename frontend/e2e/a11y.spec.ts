@@ -1407,3 +1407,22 @@ test("a Note's Connections show its Links as a small graph and a list, kept curr
     await expect(item).toHaveCount(0);
   }
 });
+
+test("the Graph goes full screen, refits, and the button returns", async ({ page }) => {
+  await signIn(page);
+  await newNote(page, `Full screen ${Date.now()}`);
+  await page.goto("/graph");
+  const canvas = page.getByRole("group", { name: /graph/i }).first();
+  await expect(canvas).toBeVisible();
+  const before = (await canvas.boundingBox())!;
+
+  await page.getByRole("button", { name: "Full screen" }).click();
+  await expect(page.getByRole("button", { name: "Exit full screen" })).toBeVisible();
+  expect(await page.evaluate(() => !!document.fullscreenElement)).toBe(true);
+  await expect.poll(async () => (await canvas.boundingBox())!.height).toBeGreaterThan(before.height);
+  await expectNoViolations(page);
+
+  await page.getByRole("button", { name: "Exit full screen" }).click();
+  await expect(page.getByRole("button", { name: "Full screen" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+});

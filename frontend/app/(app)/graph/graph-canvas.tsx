@@ -1,20 +1,20 @@
 "use client";
 
-import { MinusIcon, PlusIcon, RotateCcwIcon, ScanIcon } from "lucide-react";
+import { MaximizeIcon, MinimizeIcon, MinusIcon, PlusIcon, RotateCcwIcon, ScanIcon } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { Button } from "@/components/ui/button";
-import { isArrow, labelOpacity, linkMaps, nodeLabel, nodeRadius, step, where, type GraphEdge, type GraphNode, type Point } from "@/lib/graph";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { fit, isArrow, labelOpacity, linkMaps, nodeLabel, nodeRadius, step, where, type GraphEdge, type GraphNode, type Point, type View } from "@/lib/graph";
 import { itemHref } from "@/lib/items";
 
 import { useLayout } from "./use-layout";
 
-type View = { x: number; y: number; k: number };
 type Gesture = { kind: "pan"; from: Point; view: View } | { kind: "node"; id: string; moved: boolean };
 
-const clampZoom = (k: number) => Math.min(Math.max(k, 0.2), 4);
+const clampZoom = (k: number) => Math.min(Math.max(k, 0.02), 4);
 
 // What animates when a node is hovered or focused: the dimming, and the Links turning Mint. The global reduced-motion
 // rule in globals.css makes these instant.
@@ -31,15 +31,6 @@ const SHAPE = {
 };
 // Labels have no transition: their opacity already follows the zoom, and they are only drawn while visible.
 const LABEL = "pointer-events-none fill-foreground";
-
-// The View that fits every node into a w × h box.
-function fit(pos: Map<string, Point>, w: number, h: number): View {
-  const xs = [...pos.values()].map((p) => p.x);
-  const ys = [...pos.values()].map((p) => p.y);
-  const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-  const k = clampZoom(Math.min(w / (maxX - minX + 120), h / (maxY - minY + 120), 1.5));
-  return { k, x: w / 2 - ((minX + maxX) / 2) * k, y: h / 2 - ((minY + maxY) / 2) * k };
-}
 
 // The picture of a graph that the Graph page and an Item's Connections share: pan, zoom, hover cards, keyboard, and
 // dragging nodes. `onDrop` saves where a node was left and `onReset` adds Reset layout; the local graph has neither.
@@ -91,6 +82,23 @@ export function GraphCanvas({
   const [hovered, setHovered] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const refitOnResize = useRef(false);
+  const [full, setFull] = useState(false);
+  // shortcut: no fallback where an element cannot go full screen (iPhone Safari), add a fixed overlay if that matters.
+  const canFull = useSyncExternalStore(
+    () => () => {},
+    () => document.fullscreenEnabled,
+    () => false,
+  );
+  useEffect(() => {
+    const onChange = () => {
+      refitOnResize.current = true;
+      setFull(document.fullscreenElement === panelRef.current);
+    };
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
   const nodeRefs = useRef(new Map<string, SVGGElement>());
   const gesture = useRef<Gesture | null>(null);
 
@@ -106,7 +114,8 @@ export function GraphCanvas({
       const { width: w, height: h } = entry.contentRect;
       setSize({ w, h });
       // The first time the graph has a size, fit it in.
-      setView((v) => v ?? fit(pos, w, h));
+      setView((v) => (v && !refitOnResize.current ? v : fit(pos, w, h)));
+      refitOnResize.current = false;
     });
     observer.observe(svg);
     return () => observer.disconnect();
@@ -209,7 +218,7 @@ export function GraphCanvas({
   const cardAt = card && view ? pos.get(card.id)! : undefined;
 
   return (
-    <div className={`relative ${className} overflow-hidden rounded-[14px] border border-border bg-[radial-gradient(var(--border)_1px,transparent_1px)] bg-size-[20px_20px]`}>
+    <div ref={panelRef} className={`relative ${full ? "bg-background" : className} overflow-hidden rounded-[14px] border border-border bg-[radial-gradient(var(--border)_1px,transparent_1px)] bg-size-[20px_20px]`}>
       <svg
         ref={svgRef}
         role="group"
@@ -316,15 +325,33 @@ export function GraphCanvas({
       )}
 
       <div className="absolute right-3 bottom-3 flex gap-1">
-        <Button variant="outline" size="icon" aria-label="Zoom in" onClick={() => size && zoomAt({ x: size.w / 2, y: size.h / 2 }, 1.25)}>
-          <PlusIcon aria-hidden />
-        </Button>
-        <Button variant="outline" size="icon" aria-label="Zoom out" onClick={() => size && zoomAt({ x: size.w / 2, y: size.h / 2 }, 0.8)}>
-          <MinusIcon aria-hidden />
-        </Button>
-        <Button variant="outline" size="icon" aria-label="Fit the graph" onClick={() => size && setView(fit(pos, size.w, size.h))}>
-          <ScanIcon aria-hidden />
-        </Button>
+        <Tip text="Zoom in">
+          <Button variant="outline" size="icon" aria-label="Zoom in" onClick={() => size && zoomAt({ x: size.w / 2, y: size.h / 2 }, 1.25)}>
+            <PlusIcon aria-hidden />
+          </Button>
+        </Tip>
+        <Tip text="Zoom out">
+          <Button variant="outline" size="icon" aria-label="Zoom out" onClick={() => size && zoomAt({ x: size.w / 2, y: size.h / 2 }, 0.8)}>
+            <MinusIcon aria-hidden />
+          </Button>
+        </Tip>
+        <Tip text="Fit the graph">
+          <Button variant="outline" size="icon" aria-label="Fit the graph" onClick={() => size && setView(fit(pos, size.w, size.h))}>
+            <ScanIcon aria-hidden />
+          </Button>
+        </Tip>
+        {canFull && (
+          <Tip text={full ? "Exit full screen" : "Full screen"}>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={full ? "Exit full screen" : "Full screen"}
+              onClick={() => (full ? document.exitFullscreen() : panelRef.current?.requestFullscreen())}
+            >
+              {full ? <MinimizeIcon aria-hidden /> : <MaximizeIcon aria-hidden />}
+            </Button>
+          </Tip>
+        )}
         {onReset && (
           <Button variant="outline" onClick={reset}>
             <RotateCcwIcon aria-hidden />
@@ -333,5 +360,14 @@ export function GraphCanvas({
         )}
       </div>
     </div>
+  );
+}
+
+function Tip({ text, children }: { text: string; children: React.ReactElement }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent>{text}</TooltipContent>
+    </Tooltip>
   );
 }
