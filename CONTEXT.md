@@ -52,6 +52,16 @@ _Avoid_: Directory, collection, space, notebook
 Where deleted Items and Folders wait for 30 days before being permanently removed. Anything in the Trash can be restored until then.
 _Avoid_: Bin, archive, recycle bin
 
+### Search
+
+**Semantic search**:
+Finding Notes by what they mean, not only by the words they contain, so a search for "car" can find a Note about an automobile. It sits beside exact-word search, and the Search page shows both as one list.
+_Avoid_: Vector search, AI search, smart search
+
+**Chunk**:
+A piece of a Note, about 250 words, cut at headings and whole paragraphs, that Semantic search matches and shows as the snippet. A short Note is one Chunk.
+_Avoid_: Segment, passage, fragment, block
+
 ### People
 
 **User**:
