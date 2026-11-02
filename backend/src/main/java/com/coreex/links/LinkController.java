@@ -58,6 +58,28 @@ class LinkController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) long total) {
 	}
 
+	record GraphNodeResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Item.Type type,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+					description = "The Folder path such as \"Work / CoreEx\", null at the top level") String folderPath,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+					description = "Links to and from this Item within the graph") int linkCount,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+					description = "True for an Item outside the Folder, linked to or from inside it") boolean stub) {
+	}
+
+	record GraphEdgeResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID source,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID target) {
+	}
+
+	record GraphResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<GraphNodeResponse> nodes,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<GraphEdgeResponse> edges,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+					description = "Nodes before the cap of 500 most-linked") int total,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean truncated) {
+	}
+
 	private final LinkService links;
 
 	LinkController(LinkService links) {
@@ -81,6 +103,21 @@ class LinkController {
 			@Valid @RequestBody ResolveRequest request) {
 		return new LinkTargetList(
 				links.resolve(user.id(), request.ids()).stream().map(LinkTargetResponse::of).toList());
+	}
+
+	/** The Knowledge Graph of a Folder and its subfolders, or of all Items without folderId. */
+	@GetMapping("/api/links/graph")
+	@ApiResponse(responseCode = "200", description = "Items as nodes and Links as edges", content = @Content(
+			mediaType = JSON, schema = @Schema(implementation = GraphResponse.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's Folder)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	GraphResponse graph(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@RequestParam(required = false) UUID folderId) {
+		var graph = links.graph(user.id(), folderId);
+		return new GraphResponse(graph.nodes().stream()
+				.map(n -> new GraphNodeResponse(n.id(), n.type(), n.title(), n.folderPath(), n.linkCount(), n.stub()))
+				.toList(), graph.edges().stream().map(e -> new GraphEdgeResponse(e.source(), e.target())).toList(),
+				graph.total(), graph.truncated());
 	}
 
 	/** The live Notes that link to the Item. */
