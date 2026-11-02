@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { linkMaps, nodeLabel, step, type GraphNode } from "./graph";
+import { labelOpacity, linkMaps, nodeLabel, step, type GraphNode } from "./graph";
 
 const node = (over: Partial<GraphNode>): GraphNode => ({
   id: "a",
@@ -53,5 +53,15 @@ describe("nodeLabel", () => {
     expect(nodeLabel(node({ type: "ASSET", stub: true, folderPath: "Chemistry" }), titles, [], [])).toBe(
       "Energy, Asset, In Chemistry, links to 0, linked from 0",
     );
+  });
+});
+
+describe("labelOpacity", () => {
+  it("hides labels at 1× and below, shows them from 1.5× up, and fades in between", () => {
+    expect(labelOpacity(0.5)).toBe(0);
+    expect(labelOpacity(1)).toBe(0);
+    expect(labelOpacity(1.25)).toBeCloseTo(0.5);
+    expect(labelOpacity(1.5)).toBe(1);
+    expect(labelOpacity(4)).toBe(1);
   });
 });
