@@ -15,7 +15,8 @@ class LinkRepository {
 	record Backlink(UUID id, String title) {
 	}
 
-	record GraphItem(UUID id, Item.Type type, String title, UUID folderId, boolean stub) {
+	/** x and y are where the User left the node in this graph, null when never placed. */
+	record GraphItem(UUID id, Item.Type type, String title, UUID folderId, boolean stub, Double x, Double y) {
 	}
 
 	record GraphEdge(UUID source, UUID target) {
@@ -74,15 +75,18 @@ class LinkRepository {
 				.query((rs, n) -> new Backlink(rs.getObject("id", UUID.class), rs.getString("title"))).list();
 	}
 
-	/** Every Item in scope, plus the outside Items linked to or from them (as stubs). */
-	List<GraphItem> graphItems(UUID ownerId, List<UUID> folderIds) {
+	/** Every Item in scope, plus the outside Items linked to or from them (as stubs), with their saved positions. */
+	List<GraphItem> graphItems(UUID ownerId, UUID folderId, List<UUID> folderIds) {
 		var sql = jdbc.sql(scope(folderIds) + """
-				select i.id, i.type, i.title, i.folder_id, i.id not in (select id from scope) as stub from items i
+				select i.id, i.type, i.title, i.folder_id, i.id not in (select id from scope) as stub, p.x, p.y
+				from items i left join graph_positions p on p.owner_id = :owner and p.item_id = i.id
+				  and p.folder_id is not distinct from cast(:scope as uuid)
 				where i.id in (select id from scope union select source_id from edge union select target_id from edge)
-				""").param("owner", ownerId);
+				""").param("owner", ownerId).param("scope", folderId);
 		return (folderIds == null ? sql : sql.param("folders", folderIds))
 				.query((rs, n) -> new GraphItem(rs.getObject("id", UUID.class), Item.Type.valueOf(rs.getString("type")),
-						rs.getString("title"), rs.getObject("folder_id", UUID.class), rs.getBoolean("stub")))
+						rs.getString("title"), rs.getObject("folder_id", UUID.class), rs.getBoolean("stub"),
+						rs.getObject("x", Double.class), rs.getObject("y", Double.class)))
 				.list();
 	}
 
@@ -92,6 +96,21 @@ class LinkRepository {
 				.query((rs, n) -> new GraphEdge(rs.getObject("source_id", UUID.class),
 						rs.getObject("target_id", UUID.class)))
 				.list();
+	}
+
+
+	/** Saves where the User left an Item in a graph (folderId null for All Items), replacing any earlier position. */
+	void place(UUID ownerId, UUID folderId, UUID itemId, double x, double y) {
+		jdbc.sql("""
+				insert into graph_positions (owner_id, folder_id, item_id, x, y) values (:owner, :folder, :item, :x, :y)
+				on conflict (owner_id, folder_id, item_id) do update set x = excluded.x, y = excluded.y""")
+				.param("owner", ownerId).param("folder", folderId).param("item", itemId).param("x", x).param("y", y)
+				.update();
+	}
+
+	void clearPositions(UUID ownerId, UUID folderId) {
+		jdbc.sql("delete from graph_positions where owner_id = :owner and folder_id is not distinct from cast(:folder as uuid)")
+				.param("owner", ownerId).param("folder", folderId).update();
 	}
 
 }

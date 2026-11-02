@@ -370,8 +370,75 @@ class LinkApiTest extends ApiTest {
 		assertThat(Pattern.compile("\"stub\":").matcher(body).results().count()).isEqualTo(500);
 	}
 
+	private int place(String token, String folderId, String itemId, String xy) throws Exception {
+		return put("/api/links/graph/positions/" + itemId + (folderId == null ? "" : "?folderId=" + folderId), token,
+				xy).statusCode();
+	}
+
+	@Test
+	void aSavedPositionComesBackInItsOwnScopeOnly() throws Exception {
+		var folder = field(post("/api/folders", userA, "{\"name\":\"Physics\"}").body(), "id");
+		var item = field(post("/api/notes", userA, "{\"title\":\"Energy\",\"folderId\":\"" + folder + "\"}").body(),
+				"id");
+
+		assertThat(place(userA, folder, item, "{\"x\":12.5,\"y\":-40}")).isEqualTo(204);
+		assertThat(place(userA, folder, item, "{\"x\":20,\"y\":30}")).isEqualTo(204);
+
+		assertThat(graph(userA, folder)).contains("\"title\":\"Energy\"", "\"x\":20.0,\"y\":30.0");
+		assertThat(graph(userA)).contains("\"title\":\"Energy\"").contains("\"x\":null,\"y\":null");
+	}
+
+	@Test
+	void resetLayoutClearsOnlyThatScope() throws Exception {
+		var folder = field(post("/api/folders", userA, "{\"name\":\"Physics\"}").body(), "id");
+		var item = field(post("/api/notes", userA, "{\"title\":\"Energy\",\"folderId\":\"" + folder + "\"}").body(),
+				"id");
+		place(userA, folder, item, "{\"x\":1,\"y\":2}");
+		place(userA, null, item, "{\"x\":3,\"y\":4}");
+
+		assertThat(delete("/api/links/graph/positions?folderId=" + folder, userA).statusCode()).isEqualTo(204);
+
+		assertThat(graph(userA, folder)).contains("\"x\":null,\"y\":null");
+		assertThat(graph(userA)).contains("\"x\":3.0,\"y\":4.0");
+	}
+
+	@Test
+	void anotherUsersFolderOrItemCannotBePlaced() throws Exception {
+		var bFolder = field(post("/api/folders", userB, "{\"name\":\"Mine\"}").body(), "id");
+		var bItem = note(userB, "B Item", "");
+		var aItem = note(userA, "A Item", "");
+
+		assertThat(place(userA, null, bItem, "{\"x\":1,\"y\":2}")).isEqualTo(404);
+		assertThat(place(userA, bFolder, aItem, "{\"x\":1,\"y\":2}")).isEqualTo(404);
+		assertThat(delete("/api/links/graph/positions?folderId=" + bFolder, userA).statusCode()).isEqualTo(404);
+		assertThat(jdbc.sql("select count(*) from graph_positions").query(Long.class).single()).isZero();
+	}
+
+	@Test
+	void aPositionIsRefusedWhenOutOfRangeOrMissing() throws Exception {
+		var item = note(userA, "Energy", "");
+
+		assertThat(place(userA, null, item, "{\"x\":1e9,\"y\":2}")).isEqualTo(400);
+		assertThat(place(userA, null, item, "{\"x\":1}")).isEqualTo(400);
+	}
+
+	@Test
+	void aTrashedItemIsNotPlacedAndDeletingItForGoodDropsItsPosition() throws Exception {
+		var item = note(userA, "Energy", "");
+		place(userA, null, item, "{\"x\":1,\"y\":2}");
+		delete("/api/notes/" + item, userA);
+
+		assertThat(place(userA, null, item, "{\"x\":5,\"y\":6}")).isEqualTo(404);
+		assertThat(graph(userA)).doesNotContain(item);
+
+		assertThat(delete("/api/trash/items/" + item, userA).statusCode()).isEqualTo(204);
+		assertThat(jdbc.sql("select count(*) from graph_positions").query(Long.class).single()).isZero();
+	}
+
 	@Test
 	void theGraphNeedsASignedInUser() throws Exception {
+		assertThat(put("/api/links/graph/positions/" + UUID.randomUUID(), null, "{\"x\":1,\"y\":2}").statusCode())
+				.isEqualTo(401);
 		assertThat(get("/api/links/graph").statusCode()).isEqualTo(401);
 	}
 
