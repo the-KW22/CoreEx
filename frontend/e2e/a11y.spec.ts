@@ -1225,3 +1225,55 @@ test("a Note's first-line heading and its title stay in step, both ways", async 
   await page.getByRole("button", { name: /^Actions for renamed/ }).first().click();
   await page.getByRole("menuitem", { name: "Move to Trash" }).click();
 });
+
+test("a Folder opens as a Graph, its Items reached by keyboard and listed as a table", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const target = `Graph target ${stamp}`;
+  const source = `Graph source ${stamp}`;
+  await newNote(page, target);
+  await newNote(page, source);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(`See [[${target}`);
+  await page.getByRole("option", { name: new RegExp(target) }).click();
+  await page.keyboard.press("Enter");
+  await expectSaved(page);
+
+  // All Items switches to its Graph, where each Item is a named link.
+  await page.goto("/items");
+  await page.getByRole("radio", { name: "Graph" }).click();
+  await expect(page).toHaveURL(/\/graph$/);
+  const sourceNode = page.getByRole("link", { name: `${source}, Note, links to 1: ${target}, linked from 0` });
+  await expect(sourceNode).toBeVisible();
+  await expectNoViolations(page);
+
+  // Tab reaches a node; an arrow key follows its Link; Enter opens the Item.
+  await sourceNode.focus();
+  const targetNode = page.getByRole("link", { name: new RegExp(`^${target}, Note`) });
+  for (const key of ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"]) {
+    if (await targetNode.evaluate((el) => el === document.activeElement)) break;
+    await sourceNode.focus();
+    await page.keyboard.press(key);
+  }
+  await expect(targetNode).toBeFocused();
+
+  // The same graph as a table.
+  await page.getByRole("button", { name: "Show as table" }).click();
+  await expect(page.getByRole("row", { name: `${source} Note ${target} None` })).toBeVisible();
+  await expectNoViolations(page);
+  await page.getByRole("button", { name: "Show as graph" }).click();
+  await targetNode.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/notes\//);
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(target);
+
+  // Tidy up both Notes.
+  await page.goto("/items");
+  for (const title of [source, target]) {
+    const item = page.getByRole("row").filter({ hasText: title });
+    await item.getByRole("button", { name: `Actions for ${title}` }).click();
+    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+    await expect(item).toHaveCount(0);
+  }
+});

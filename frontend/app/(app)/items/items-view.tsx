@@ -91,7 +91,12 @@ export async function ItemsView({ crumbs, title, folderId, cards, folders, tags,
             {titleExtra}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {items.total > 0 && <ViewToggle saved={view} />}
+            {items.total > 0 && (
+              <ViewToggle
+                saved={view}
+                graphHref={assetsOnly ? undefined : folderId ? `/graph?folderId=${folderId}` : "/graph"}
+              />
+            )}
             {newNote}
             <PickButton kind="upload" />
             {!assetsOnly && <PickButton kind="import" />}
