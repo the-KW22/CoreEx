@@ -172,10 +172,14 @@ class ReadTools {
 
 	// shortcut: only the nodes are capped (500), not the Links between them, so 500 Items with thousands of Links make a
 	// result of hundreds of KB. The description tells an Agent to narrow by folderId; cap or page the edges if one still hits it.
-	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_graph", description = "Map how Items link to each other: every Note and Asset as a node with its linkCount (Links to and from it), and every Link as an edge from the linking Note to its target. Use it to find orphans (linkCount 0), hubs (the highest linkCount) and groups of Items that never connect. Covers a Folder and its subfolders, or everything without folderId. An Item outside the Folder that is linked to or from it is included with stub true. At most 500 nodes, the most-linked first: total is how many there were and truncated says some were left out. In a big knowledge base pass folderId, because every Link is listed and the result can get large. Returns titles and ids, not text: call get_item to read one.")
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_graph", description = "Map how Items link to each other: every Note and Asset as a node with its linkCount (Links to and from it), and every Link as an edge from the linking Note to its target. Use it to find orphans (linkCount 0), hubs (the highest linkCount) and groups of Items that never connect. Covers a Folder and its subfolders, or everything without folderId. An Item outside the Folder that is linked to or from it is included with stub true. At most 500 nodes, the most-linked first: total is how many there were and truncated says some were left out. In a big knowledge base pass folderId, because every Link is listed and the result can get large. With itemId it maps what is around one Note or Asset instead: that Item (first) and the Items linked to or from it, up to depth Links away, nearest first. Returns titles and ids, not text: call get_item to read one.")
 	GraphResult getGraph(McpTransportContext context,
-			@McpToolParam(required = false, description = "Only this Folder and its subfolders (an id from list_folders)") UUID folderId) {
-		var graph = links.graph(user(context).id(), folderId);
+			@McpToolParam(required = false, description = "Only this Folder and its subfolders (an id from list_folders)") UUID folderId,
+			@McpToolParam(required = false, description = "Only what is around this Item (folderId is then ignored)") UUID itemId,
+			@McpToolParam(required = false, description = "With itemId: 1 for the Items linked to or from it (the default), 2 to add their neighbours too") Integer depth) {
+		var userId = user(context).id();
+		var graph = itemId == null ? links.graph(userId, folderId)
+				: links.localGraph(userId, itemId, depth == null ? 1 : depth);
 		return new GraphResult(
 				graph.nodes().stream().map(n -> new GraphNodeInfo(n.id(), n.type(), n.title(), n.folderPath(),
 						n.linkCount(), n.stub())).toList(),

@@ -2,14 +2,20 @@ package com.coreex.links;
 
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import com.coreex.common.ApiException;
 import com.coreex.folders.FolderService;
 import com.coreex.items.Item;
 import com.coreex.items.ItemService;
@@ -148,6 +154,50 @@ public class LinkService {
 		var keptEdges = edges.stream().filter(e -> keptIds.contains(e.source()) && keptIds.contains(e.target()))
 				.map(e -> new GraphEdge(e.source(), e.target())).toList();
 		return new Graph(kept, keptEdges, all.size(), all.size() > kept.size());
+	}
+
+	/**
+	 * The local graph of an Item: the Item, the Items linked to or from it up to {@code depth} (1 or 2) Links away,
+	 * and every Link among them. The cap keeps the Item and its nearest neighbours first. A 404 for a missing,
+	 * trashed or foreign Item.
+	 */
+	public Graph localGraph(UUID ownerId, UUID itemId, int depth) {
+		if (depth < 1 || depth > 2) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "The depth must be 1 or 2.");
+		}
+		items.requireLive(ownerId, itemId);
+		var distance = new HashMap<UUID, Integer>(Map.of(itemId, 0));
+		Set<UUID> frontier = Set.of(itemId);
+		for (var d = 1; d <= depth && !frontier.isEmpty(); d++) {
+			var next = new HashSet<UUID>();
+			for (var edge : links.edgesTouching(ownerId, frontier)) {
+				for (var id : List.of(edge.source(), edge.target())) {
+					if (distance.putIfAbsent(id, d) == null) {
+						next.add(id);
+					}
+				}
+			}
+			frontier = next;
+		}
+		var edges = links.edgesTouching(ownerId, distance.keySet()).stream()
+				.filter(e -> distance.containsKey(e.source()) && distance.containsKey(e.target())).toList();
+		var linkCount = new HashMap<UUID, Integer>();
+		for (var edge : edges) {
+			linkCount.merge(edge.source(), 1, Integer::sum);
+			linkCount.merge(edge.target(), 1, Integer::sum);
+		}
+		var keptIds = distance.keySet().stream()
+				.sorted(Comparator.<UUID>comparingInt(distance::get).thenComparingInt(id -> -linkCount.getOrDefault(id, 0))
+						.thenComparing(id -> id))
+				.limit(MAX_GRAPH_NODES).toList();
+		var byId = items.findLive(ownerId, keptIds).stream().collect(Collectors.toMap(Item::id, i -> i));
+		var paths = folders.paths(ownerId);
+		var kept = keptIds.stream().map(byId::get).filter(Objects::nonNull)
+				.map(i -> new GraphNode(i.id(), i.type(), i.title(), paths.get(i.folderId()),
+						linkCount.getOrDefault(i.id(), 0), false, null, null))
+				.toList();
+		return new Graph(kept, edges.stream().filter(e -> byId.containsKey(e.source()) && byId.containsKey(e.target()))
+				.map(e -> new GraphEdge(e.source(), e.target())).toList(), distance.size(), distance.size() > kept.size());
 	}
 
 	/** Saves where the User left an Item in a Folder's graph (null for All Items); a 404 for a foreign one. */

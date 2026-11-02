@@ -435,11 +435,92 @@ class LinkApiTest extends ApiTest {
 		assertThat(jdbc.sql("select count(*) from graph_positions").query(Long.class).single()).isZero();
 	}
 
+	private String localGraph(String token, String id, int depth) throws Exception {
+		var response = get("/api/items/" + id + "/graph?depth=" + depth, token);
+		assertThat(response.statusCode()).as(response.body()).isEqualTo(200);
+		return response.body();
+	}
+
+	@Test
+	void aLocalGraphHasTheItemAndItsNeighboursInBothDirectionsUpToTheDepth() throws Exception {
+		var far = note(userA, "Far", "");
+		var near = note(userA, "Near", "[[" + far + "|F]]");
+		var item = note(userA, "Item", "[[" + near + "|N]]");
+		var into = note(userA, "Into", "[[" + item + "|I]] [[" + near + "|N]]");
+		var unrelated = note(userA, "Unrelated", "");
+
+		var one = localGraph(userA, item, 1);
+		assertThat(one).contains(item, near, into).doesNotContain(far).doesNotContain(unrelated);
+		// Every Link among the nodes, also the one between two neighbours, but none that leaves them.
+		assertThat(one).contains("\"source\":\"" + into + "\",\"target\":\"" + near + "\"", "\"stub\":false",
+				"\"total\":3");
+		assertThat(Pattern.compile("\"source\":").matcher(one).results().count()).isEqualTo(3);
+
+		var two = localGraph(userA, item, 2);
+		assertThat(two).contains(item, near, into, far).doesNotContain(unrelated).contains("\"total\":4");
+		// The open Item comes first.
+		assertThat(two).startsWith("{\"nodes\":[{\"id\":\"" + item + "\"");
+	}
+
+	@Test
+	void aLocalGraphLeavesOutTrashedAndOtherUsersNeighbours() throws Exception {
+		var bItem = note(userB, "B Item", "");
+		var trashed = note(userA, "Trashed", "");
+		var item = note(userA, "Item", "[[" + trashed + "|T]]");
+		jdbc.sql("insert into links (source_id, target_id) values (:s, :t)").param("s", UUID.fromString(item))
+				.param("t", UUID.fromString(bItem)).update();
+		delete("/api/notes/" + trashed, userA);
+
+		assertThat(localGraph(userA, item, 2)).contains(item).doesNotContain(trashed).doesNotContain(bItem)
+				.contains("\"edges\":[]");
+	}
+
+	@Test
+	void anotherUsersOrATrashedItemHasNoLocalGraph() throws Exception {
+		var bItem = note(userB, "B Item", "");
+		var trashed = note(userA, "Trashed", "");
+		delete("/api/notes/" + trashed, userA);
+
+		assertThat(get("/api/items/" + bItem + "/graph", userA).statusCode()).isEqualTo(404);
+		assertThat(get("/api/items/" + trashed + "/graph", userA).statusCode()).isEqualTo(404);
+		assertThat(get("/api/items/" + UUID.randomUUID() + "/graph", userA).statusCode()).isEqualTo(404);
+	}
+
+	@Test
+	void aLocalGraphIsOneOrTwoDeepAndOneByDefault() throws Exception {
+		var far = note(userA, "Far", "");
+		var item = note(userA, "Item", "[[" + note(userA, "Near", "[[" + far + "|F]]") + "|N]]");
+
+		var response = get("/api/items/" + item + "/graph", userA);
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(response.body()).doesNotContain(far);
+		assertThat(get("/api/items/" + item + "/graph?depth=0", userA).statusCode()).isEqualTo(400);
+		assertThat(get("/api/items/" + item + "/graph?depth=3", userA).statusCode()).isEqualTo(400);
+	}
+
+	@Test
+	void aLocalGraphIsCutAtTheCapKeepingTheItemAndItsNearestNeighbours() throws Exception {
+		var owner = jdbc.sql("select id from users where email = 'a@example.com'").query(UUID.class).single();
+		var near = note(userA, "Near", "");
+		var item = note(userA, "Item", "[[" + near + "|N]]");
+		// 500 Items two steps away, each linked from Near; Near itself must survive the cap.
+		jdbc.sql("insert into items (owner_id, type, title) select :o, 'NOTE', 'n' || g from generate_series(1, 500) g")
+				.param("o", owner).update();
+		jdbc.sql("insert into links (source_id, target_id) select :near, id from items where title like 'n%'")
+				.param("near", UUID.fromString(near)).update();
+
+		var body = localGraph(userA, item, 2);
+
+		assertThat(body).contains("\"truncated\":true", "\"total\":502", item, near);
+		assertThat(Pattern.compile("\"stub\":").matcher(body).results().count()).isEqualTo(500);
+	}
+
 	@Test
 	void theGraphNeedsASignedInUser() throws Exception {
 		assertThat(put("/api/links/graph/positions/" + UUID.randomUUID(), null, "{\"x\":1,\"y\":2}").statusCode())
 				.isEqualTo(401);
 		assertThat(get("/api/links/graph").statusCode()).isEqualTo(401);
+		assertThat(get("/api/items/" + UUID.randomUUID() + "/graph").statusCode()).isEqualTo(401);
 	}
 
 }
