@@ -37,7 +37,7 @@ const SHAPE = {
   active: `fill-foreground ${fade}`,
   idle: `fill-muted-foreground ${fade}`,
 };
-// Labels have no transition: their opacity already follows the zoom.
+// Labels have no transition: their opacity already follows the zoom, and they are only drawn while visible.
 const LABEL = "pointer-events-none fill-foreground";
 
 // The View that fits every node into a w × h box.
@@ -203,6 +203,7 @@ export function GraphView({
     }
   }
 
+  const labels = view ? labelOpacity(view.k) : 0;
   const scope = folderId ? (folders.find((f) => f.id === folderId)?.name ?? "this Folder") : "All Items";
   const card = active && view ? byId.get(active) : undefined;
   const cardAt = card && view ? pos.get(card.id)! : undefined;
@@ -292,7 +293,6 @@ export function GraphView({
                   );
                 })}
                 {nodes.map((n) => {
-                  const labels = labelOpacity(view.k);
                   const p = pos.get(n.id)!;
                   const r = nodeRadius(n.linkCount);
                   const dim = lit !== null && !lit.has(n.id);
@@ -324,16 +324,18 @@ export function GraphView({
                         <rect x={-r} y={-r} width={2 * r} height={2 * r} rx={r / 3} {...shapeProps} />
                       )}
                       {/* The node's name already says it all, so the label is only for the eye. */}
-                      <text
-                        y={r + 14 / view.k}
-                        textAnchor="middle"
-                        aria-hidden
-                        className={LABEL}
-                        style={{ opacity: lit?.has(n.id) ? 1 : labels }}
-                        fontSize={12 / view.k}
-                      >
-                        {n.title}
-                      </text>
+                      {(labels > 0 || lit?.has(n.id)) && (
+                        <text
+                          y={r + 14 / view.k}
+                          textAnchor="middle"
+                          aria-hidden
+                          className={LABEL}
+                          style={{ opacity: lit?.has(n.id) ? 1 : labels }}
+                          fontSize={12 / view.k}
+                        >
+                          {n.title}
+                        </text>
+                      )}
                     </g>
                   );
                 })}

@@ -1334,15 +1334,14 @@ test("Graph labels fade in with zoom, and the graph settles live unless motion i
 
   // A label is hidden zoomed out, shown zoomed in, and shown at any zoom while its node is focused.
   const label = node.locator("text");
-  const opacity = () => label.evaluate((el) => getComputedStyle(el).opacity);
   for (let i = 0; i < 8; i++) await page.getByRole("button", { name: "Zoom out" }).click();
-  await expect.poll(opacity).toBe("0");
+  await expect(label).toHaveCount(0);
   await node.focus();
-  await expect.poll(opacity).toBe("1");
+  await expect(label).toHaveCSS("opacity", "1");
   await node.blur();
-  await expect.poll(opacity).toBe("0");
+  await expect(label).toHaveCount(0);
   for (let i = 0; i < 14; i++) await page.getByRole("button", { name: "Zoom in" }).click();
-  await expect.poll(opacity).toBe("1");
+  await expect(label).toHaveCSS("opacity", "1");
 
   // Dimming and the Mint Links animate with the motion tokens.
   const transition = () => node.evaluate((el) => getComputedStyle(el).transitionDuration);
@@ -1353,7 +1352,8 @@ test("Graph labels fade in with zoom, and the graph settles live unless motion i
   await page.reload();
   await expect(node).toBeVisible();
   const still = await where();
-  await page.waitForTimeout(700);
+  // Two frames: a graph that was settling would have moved by then.
+  await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
   expect(await where()).toBe(still);
   expect(parseFloat(await transition())).toBeLessThan(0.001);
 
