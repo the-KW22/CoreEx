@@ -3,14 +3,18 @@ package com.coreex.links;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.coreex.common.ErrorBody;
@@ -23,6 +27,8 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -58,6 +64,35 @@ class LinkController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) long total) {
 	}
 
+	record GraphNodeResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Item.Type type,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+					description = "The Folder path such as \"Work / CoreEx\", null at the top level") String folderPath,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+					description = "Links to and from this Item within the graph") int linkCount,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+					description = "True for an Item outside the Folder, linked to or from inside it") boolean stub,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+					description = "Where the User left the node in this graph, null when never placed") Double x,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) Double y) {
+	}
+
+	record GraphEdgeResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID source,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID target) {
+	}
+
+	record GraphResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<GraphNodeResponse> nodes,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<GraphEdgeResponse> edges,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+					description = "Nodes before the cap of 500 most-linked") int total,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean truncated) {
+	}
+
+	record PositionRequest(@NotNull @DecimalMin("-1000000") @DecimalMax("1000000") Double x,
+			@NotNull @DecimalMin("-1000000") @DecimalMax("1000000") Double y) {
+	}
+
 	private final LinkService links;
 
 	LinkController(LinkService links) {
@@ -81,6 +116,47 @@ class LinkController {
 			@Valid @RequestBody ResolveRequest request) {
 		return new LinkTargetList(
 				links.resolve(user.id(), request.ids()).stream().map(LinkTargetResponse::of).toList());
+	}
+
+	/** The Knowledge Graph of a Folder and its subfolders, or of all Items without folderId. */
+	@GetMapping("/api/links/graph")
+	@ApiResponse(responseCode = "200", description = "Items as nodes and Links as edges", content = @Content(
+			mediaType = JSON, schema = @Schema(implementation = GraphResponse.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's Folder)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	GraphResponse graph(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@RequestParam(required = false) UUID folderId) {
+		var graph = links.graph(user.id(), folderId);
+		return new GraphResponse(graph.nodes().stream()
+				.map(n -> new GraphNodeResponse(n.id(), n.type(), n.title(), n.folderPath(), n.linkCount(), n.stub(), n.x(),
+						n.y()))
+				.toList(), graph.edges().stream().map(e -> new GraphEdgeResponse(e.source(), e.target())).toList(),
+				graph.total(), graph.truncated());
+	}
+
+	/** Saves where the User left an Item in the graph of a Folder, or of All Items without folderId. */
+	@PutMapping(value = "/api/links/graph/positions/{itemId}", consumes = JSON)
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@ApiResponse(responseCode = "204", description = "Saved")
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's Item or Folder)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	void place(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID itemId, @RequestParam(required = false) UUID folderId,
+			@Valid @RequestBody PositionRequest request) {
+		links.place(user.id(), folderId, itemId, request.x(), request.y());
+	}
+
+	/** Reset layout: forgets every saved position in the graph of a Folder, or of All Items without folderId. */
+	@DeleteMapping("/api/links/graph/positions")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@ApiResponse(responseCode = "204", description = "Cleared")
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's Folder)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	void resetLayout(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@RequestParam(required = false) UUID folderId) {
+		links.resetLayout(user.id(), folderId);
 	}
 
 	/** The live Notes that link to the Item. */

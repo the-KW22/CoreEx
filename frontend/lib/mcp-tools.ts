@@ -28,6 +28,12 @@ export const MCP_TOOLS: McpTool[] = [
     useWhen: "Before editing a Note: it gives the version the edit needs.",
   },
   {
+    name: "get_graph",
+    kind: "read",
+    summary: "How Items link to each other: every Note and Asset with its number of Links, and every Link between them, for a Folder or everything. At most 500 Items, the most-linked.",
+    useWhen: "You want orphans, hubs or groups that never connect, without reading every Note.",
+  },
+  {
     name: "list_folders",
     kind: "read",
     summary: "Every Folder with its full path and how many Items it holds.",

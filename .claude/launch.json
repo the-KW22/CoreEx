@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "D:/Apps/Git/usr/bin/bash.exe",
+      "runtimeArgs": ["-lc", "cd backend && set -a && . ./.env && set +a && ./mvnw -q spring-boot:run"],
+      "port": 8080
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "D:/Apps/Git/usr/bin/bash.exe",
+      "runtimeArgs": ["-lc", "cd frontend && npm run dev"],
+      "port": 3000
+    }
+  ]
+}

@@ -173,6 +173,9 @@ for (const colorScheme of ["dark", "light"] as const) {
           await expect(page.getByRole("img", { name: `matrix-${word}.png` })).toBeVisible();
         });
         await screen(page, failures, "assets", "/assets", heading("Assets"));
+        await screen(page, failures, "graph", "/graph", async () => {
+          await expect(page.getByRole("link", { name: new RegExp(`^${noteB}, Note`) })).toBeVisible();
+        });
         await screen(page, failures, "trash", "/trash", heading("Trash"));
         await screen(page, failures, "search", `/search?q=${word}`, async () => {
           await expect(page.locator("main mark").first()).toBeVisible();

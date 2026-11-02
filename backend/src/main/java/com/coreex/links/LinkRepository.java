@@ -7,10 +7,34 @@ import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
+import com.coreex.items.Item;
+
 @Repository
 class LinkRepository {
 
 	record Backlink(UUID id, String title) {
+	}
+
+	/** x and y are where the User left the node in this graph, null when never placed. */
+	record GraphItem(UUID id, Item.Type type, String title, UUID folderId, boolean stub, Double x, Double y) {
+	}
+
+	record GraphEdge(UUID source, UUID target) {
+	}
+
+	/**
+	 * The live Items in scope (all of the User's, or those in the given Folders), and the Links touching them whose
+	 * both ends are live Items of the User.
+	 */
+	private static String scope(List<UUID> folderIds) {
+		return """
+				with scope as (select id from items where owner_id = :owner and deleted_at is null %s),
+				edge as (
+				  select l.source_id, l.target_id from links l
+				  join items s on s.id = l.source_id and s.owner_id = :owner and s.deleted_at is null
+				  join items t on t.id = l.target_id and t.owner_id = :owner and t.deleted_at is null
+				  where l.source_id in (select id from scope) or l.target_id in (select id from scope))
+				""".formatted(folderIds == null ? "" : "and folder_id in (:folders)");
 	}
 
 	private final JdbcClient jdbc;
@@ -49,6 +73,44 @@ class LinkRepository {
 				order by src.updated_at desc, src.id limit :limit""").param("target", targetId)
 				.param("owner", ownerId).param("limit", limit)
 				.query((rs, n) -> new Backlink(rs.getObject("id", UUID.class), rs.getString("title"))).list();
+	}
+
+	/** Every Item in scope, plus the outside Items linked to or from them (as stubs), with their saved positions. */
+	List<GraphItem> graphItems(UUID ownerId, UUID folderId, List<UUID> folderIds) {
+		var sql = jdbc.sql(scope(folderIds) + """
+				select i.id, i.type, i.title, i.folder_id, i.id not in (select id from scope) as stub, p.x, p.y
+				from items i left join graph_positions p on p.owner_id = :owner and p.item_id = i.id
+				  and p.folder_id is not distinct from cast(:scope as uuid)
+				where i.id in (select id from scope union select source_id from edge union select target_id from edge)
+				""").param("owner", ownerId).param("scope", folderId);
+		return (folderIds == null ? sql : sql.param("folders", folderIds))
+				.query((rs, n) -> new GraphItem(rs.getObject("id", UUID.class), Item.Type.valueOf(rs.getString("type")),
+						rs.getString("title"), rs.getObject("folder_id", UUID.class), rs.getBoolean("stub"),
+						rs.getObject("x", Double.class), rs.getObject("y", Double.class)))
+				.list();
+	}
+
+	List<GraphEdge> graphEdges(UUID ownerId, List<UUID> folderIds) {
+		var sql = jdbc.sql(scope(folderIds) + "select source_id, target_id from edge").param("owner", ownerId);
+		return (folderIds == null ? sql : sql.param("folders", folderIds))
+				.query((rs, n) -> new GraphEdge(rs.getObject("source_id", UUID.class),
+						rs.getObject("target_id", UUID.class)))
+				.list();
+	}
+
+
+	/** Saves where the User left an Item in a graph (folderId null for All Items), replacing any earlier position. */
+	void place(UUID ownerId, UUID folderId, UUID itemId, double x, double y) {
+		jdbc.sql("""
+				insert into graph_positions (owner_id, folder_id, item_id, x, y) values (:owner, :folder, :item, :x, :y)
+				on conflict (owner_id, folder_id, item_id) do update set x = excluded.x, y = excluded.y""")
+				.param("owner", ownerId).param("folder", folderId).param("item", itemId).param("x", x).param("y", y)
+				.update();
+	}
+
+	void clearPositions(UUID ownerId, UUID folderId) {
+		jdbc.sql("delete from graph_positions where owner_id = :owner and folder_id is not distinct from cast(:folder as uuid)")
+				.param("owner", ownerId).param("folder", folderId).update();
 	}
 
 }

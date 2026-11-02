@@ -26,11 +26,11 @@ The agreed design for the frontend redesign. It records **what** the UI looks li
 | Position | Entry | Who |
 |---|---|---|
 | Top | CoreEx logo | All |
-| Modules | **Home**, **Knowledge Base**, **Assets** | All |
+| Modules | **Home**, **Knowledge Base**, **Assets**, **Graph** | All |
 | Divider, then | **Trash**, **Admin** | Admin only for Admin |
 | Bottom | Collapse toggle, Theme toggle, **Account** menu (email, Access tokens, Connect an Agent, Log out) | All |
 
-- Planned modules (Graph, Jobs, Integrations) are **not shown** until they exist.
+- Planned modules (Jobs, Integrations) are **not shown** until they exist.
 - **Expanded by default:** every entry shows its icon and label side by side (14rem wide). The toggle at the bottom collapses it to icons only (4rem), and the choice is kept in the `rail` cookie, which the server reads so there is no flash. The phone menu Sheet always shows labels.
 - Each icon has an accessible name; when collapsed it also has a Tooltip.
 - **Assets** are sources for Notes (and later for text extraction and image analysis), so they are a module of their own, not part of the Knowledge Base. Their pages have no panel beside the rail.
@@ -213,6 +213,21 @@ The documentation for the MCP server, written for Users, in the shape SaaS produ
 - Links inside a sentence are always underlined; the section list is not.
 - The tool list comes from `frontend/lib/mcp-tools.ts`. `McpDocsTest` fails when it differs from the tools the server has.
 
+### 6.12 Graph (`/graph`)
+
+The Knowledge Graph of one Folder and its subfolders (`?folderId=`), or of All Items. It opens from **Graph** in the rail, which has a **Folder** Select (first choice "All Items"), and from a third **Graph** button in the Grid | List toggle of All Items and every Folder page. On the Graph page the same toggle goes back to the list. Obsidian's graph is a reference for the feel, not a template; the look is CoreEx's own:
+
+- **Shape shows the kind:** Notes are circles and Assets are rounded squares, both `muted-foreground`. The node under hover or focus is `foreground`. A node grows with its Link count (radius 5 to 18).
+- **Mint only for Links and focus** (principle 3): Links are thin `muted-foreground` lines. Hovering or focusing a node turns its Links Mint (`--link`) with an arrow for direction, and dims everything not connected to it.
+- **Stubs:** an Item outside the Folder that is linked to or from inside it is a dashed, hollow node, joined by dashed Links. Its hover card says "In <Folder>".
+- **Hover card:** the popover style of the Link preview (section 6.3): title, then "Note · 2 Links · 1 Backlinks". It also shows for the focused node, so nothing is hover-only.
+- **Canvas:** a bordered panel (70vh) with a faint dot grid in `--border`. Zoom in, Zoom out and Fit buttons sit in its bottom-right corner. The wheel zooms and dragging the background pans. Dragging a node moves it and saves its place in the Graph layout (no Save button, and a toast if it fails). Saved nodes stay pinned and new Items settle around them. **Reset layout** (beside Fit) forgets that graph's saved places and fits the fresh layout.
+- **Labels** fade in with the zoom: hidden at 1× and below, fully shown from 1.5× up (`labelOpacity` in `frontend/lib/graph.ts`), and always shown for the hovered or focused node and its neighbours.
+- **Motion:** the graph opens nearly settled and then settles live (the d3-force simulation runs one tick per frame). Dragging a node holds it under the pointer and its neighbours follow. Dimming and the Links turning Mint animate with `--duration-base` and `--ease-out`. With `prefers-reduced-motion` the layout is run to rest before the first paint, dragging moves only the node, and the transitions are instant (the global rule in `globals.css`).
+- **Keyboard:** every node is a link with a name such as "Energy, Note, links to 2: Sound, Atoms, linked from 1". Tab reaches it, Enter opens the Item, and the arrow keys move to the neighbour lying most nearly that way.
+- **Show as table:** the same graph as a table of each Item, Kind, Links to and Linked from.
+- More than 500 Items: the 500 most-linked show, under a note "Showing 500 of N Items. Open a smaller Folder to see them all." Empty: "Map how your Items connect" with a link back to the list.
+
 ## 7. Component map (shadcn/ui)
 
 Use shadcn components first (DEVELOPMENT.md §11), restyled to these tokens. Reach for the whole catalogue, not only tables and dialogs.
@@ -296,4 +311,4 @@ Every screen ticket adds its screen to the axe check from step 1 and must pass i
 ## 13. Not in this redesign (follow-up tickets)
 
 - A public **landing page**.
-- Planned modules in the rail (Graph, Jobs, Integrations) appear only when each module ships.
+- Planned modules in the rail (Jobs, Integrations) appear only when each module ships.

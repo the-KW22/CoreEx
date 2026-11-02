@@ -40,6 +40,10 @@ _Avoid_: Reference, connection, relation, wikilink
 A Link seen from the target's side — the list of Notes that link to a given Item.
 _Avoid_: Inbound link, mention, reference
 
+**Graph layout**:
+Where a User left the nodes of one graph in the Graph module: each Folder's graph, and the All Items graph, keeps its own. A node keeps its place until the User drags it again or chooses Reset layout.
+_Avoid_: Graph positions, node layout, saved view
+
 **Folder**:
 A container that holds Items and other Folders, forming a tree. Each Item lives in at most one Folder; an Item in no Folder sits at the top level.
 _Avoid_: Directory, collection, space, notebook

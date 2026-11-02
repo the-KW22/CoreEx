@@ -1225,3 +1225,144 @@ test("a Note's first-line heading and its title stay in step, both ways", async 
   await page.getByRole("button", { name: /^Actions for renamed/ }).first().click();
   await page.getByRole("menuitem", { name: "Move to Trash" }).click();
 });
+
+test("a Folder opens as a Graph, its Items reached by keyboard and listed as a table", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const target = `Graph target ${stamp}`;
+  const source = `Graph source ${stamp}`;
+  await newNote(page, target);
+  await newNote(page, source);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(`See [[${target}`);
+  await page.getByRole("option", { name: new RegExp(target) }).click();
+  await page.keyboard.press("Enter");
+  await expectSaved(page);
+
+  // All Items switches to its Graph, where each Item is a named link.
+  await page.goto("/items");
+  await page.getByRole("radio", { name: "Graph" }).click();
+  await expect(page).toHaveURL(/\/graph$/);
+  const sourceNode = page.getByRole("link", { name: `${source}, Note, links to 1: ${target}, linked from 0` });
+  await expect(sourceNode).toBeVisible();
+  await expectNoViolations(page);
+
+  // Tab reaches a node; an arrow key follows its Link; Enter opens the Item.
+  await sourceNode.focus();
+  const targetNode = page.getByRole("link", { name: new RegExp(`^${target}, Note`) });
+  for (const key of ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"]) {
+    if (await targetNode.evaluate((el) => el === document.activeElement)) break;
+    await sourceNode.focus();
+    await page.keyboard.press(key);
+  }
+  await expect(targetNode).toBeFocused();
+
+  // The same graph as a table.
+  await page.getByRole("button", { name: "Show as table" }).click();
+  await expect(page.getByRole("row", { name: `${source} Note ${target} None` })).toBeVisible();
+  await expectNoViolations(page);
+  await page.getByRole("button", { name: "Show as graph" }).click();
+  await targetNode.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/notes\//);
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(target);
+
+  // Tidy up both Notes.
+  await page.goto("/items");
+  for (const title of [source, target]) {
+    const item = page.getByRole("row").filter({ hasText: title });
+    await item.getByRole("button", { name: `Actions for ${title}` }).click();
+    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+    await expect(item).toHaveCount(0);
+  }
+});
+
+test("a dragged Graph node stays where it was dropped, until Reset layout", async ({ page }) => {
+  await signIn(page);
+  const title = `Layout node ${Date.now()}`;
+  await newNote(page, title);
+  // At rest from the start: a node still settling would drift out from under the pointer.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/graph");
+  const node = page.getByRole("link", { name: new RegExp(`^${title}, Note`) });
+  // The dot itself: the node's own box also holds its label.
+  const box = (await node.locator("circle").boundingBox())!;
+
+  // Saving answers a server-action POST; wait for it before reloading.
+  const saved = page.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/graph"));
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 90, box.y + 60, { steps: 5 });
+  await page.mouse.up();
+  await saved;
+  // Where the node sits, rounded: the saved number loses its last digits on the way through the database.
+  const at = async () => ((await node.getAttribute("transform")) ?? "").match(/-?[\d.]+/g)!.map((n) => Math.round(Number(n)));
+  const dropped = await at();
+
+  await page.reload();
+  await expect.poll(at).toEqual(dropped);
+
+  const reset = page.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/graph"));
+  await page.getByRole("button", { name: "Reset layout" }).click();
+  await reset;
+  await page.reload();
+  await expect.poll(at).not.toEqual(dropped);
+
+  // Tidy up.
+  await node.locator("circle").click();
+  await expect(page).toHaveURL(/\/notes\//);
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("Graph labels fade in with zoom, and the graph settles live unless motion is reduced", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const titles = [`Fade a ${stamp}`, `Fade b ${stamp}`, `Fade c ${stamp}`];
+  for (const title of titles) await newNote(page, title);
+
+  await page.goto("/graph");
+  const nodes = page.locator("svg[role=group] g[role=link]");
+  const node = page.getByRole("link", { name: new RegExp(`^${titles[0]}, Note`) });
+  await expect(node).toBeVisible();
+
+  // It settles while you watch: some node moves in the seconds after it opens.
+  const where = () => nodes.evaluateAll((els) => els.map((el) => el.getAttribute("transform")).join("|"));
+  const opened = await where();
+  await expect.poll(where, { timeout: 8000 }).not.toBe(opened);
+
+  // A label is hidden zoomed out, shown zoomed in, and shown at any zoom while its node is focused.
+  const label = node.locator("text");
+  for (let i = 0; i < 8; i++) await page.getByRole("button", { name: "Zoom out" }).click();
+  await expect(label).toHaveCount(0);
+  await node.focus();
+  await expect(label).toHaveCSS("opacity", "1");
+  await node.blur();
+  await expect(label).toHaveCount(0);
+  for (let i = 0; i < 14; i++) await page.getByRole("button", { name: "Zoom in" }).click();
+  await expect(label).toHaveCSS("opacity", "1");
+
+  // Dimming and the Mint Links animate with the motion tokens.
+  const transition = () => node.evaluate((el) => getComputedStyle(el).transitionDuration);
+  expect(await transition()).toBe("0.2s");
+
+  // With reduced motion the layout is already at rest and nothing animates.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.reload();
+  await expect(node).toBeVisible();
+  const still = await where();
+  // Two frames: a graph that was settling would have moved by then.
+  await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
+  expect(await where()).toBe(still);
+  expect(parseFloat(await transition())).toBeLessThan(0.001);
+
+  // Tidy up.
+  await page.goto("/items");
+  for (const title of titles) {
+    const item = page.getByRole("row").filter({ hasText: title });
+    await item.getByRole("button", { name: `Actions for ${title}` }).click();
+    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+    await expect(item).toHaveCount(0);
+  }
+});

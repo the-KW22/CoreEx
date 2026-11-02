@@ -275,4 +275,171 @@ class LinkApiTest extends ApiTest {
 		assertThat(post("/api/links/resolve", null, "{\"ids\":[]}").statusCode()).isEqualTo(401);
 	}
 
+	private String graph(String token) throws Exception {
+		return graph(token, null);
+	}
+
+	private String graph(String token, String folderId) throws Exception {
+		var response = get("/api/links/graph" + (folderId == null ? "" : "?folderId=" + folderId), token);
+		assertThat(response.statusCode()).as(response.body()).isEqualTo(200);
+		return response.body();
+	}
+
+	@Test
+	void theGraphHasEveryLiveItemAndTheLinksBetweenThem() throws Exception {
+		var target = note(userA, "Target", "");
+		var source = note(userA, "Source", "[[" + target + "|T]]");
+		var lonely = note(userA, "Lonely", "");
+
+		var body = graph(userA);
+
+		assertThat(body).contains("\"id\":\"" + target + "\"", "\"id\":\"" + source + "\"",
+				"\"id\":\"" + lonely + "\"", "\"truncated\":false");
+		assertThat(body).contains("\"source\":\"" + source + "\",\"target\":\"" + target + "\"");
+	}
+
+	@Test
+	void theGraphLeavesOutTrashedItemsAndTheirLinks() throws Exception {
+		var target = note(userA, "Target", "");
+		var source = note(userA, "Source", "[[" + target + "|T]]");
+		delete("/api/notes/" + target, userA);
+
+		var body = graph(userA);
+
+		assertThat(body).contains(source).doesNotContain(target).contains("\"edges\":[]");
+	}
+
+	@Test
+	void theGraphNeverShowsAnotherUsersItemsOrLinksIntoThem() throws Exception {
+		var bItem = note(userB, "B Item", "");
+		var aItem = note(userA, "A Item", "");
+		jdbc.sql("insert into links (source_id, target_id) values (:s, :t)").param("s", UUID.fromString(aItem))
+				.param("t", UUID.fromString(bItem)).update();
+
+		var body = graph(userA);
+
+		assertThat(body).contains(aItem).doesNotContain(bItem).contains("\"edges\":[]");
+		assertThat(graph(userB)).doesNotContain(aItem).contains("\"edges\":[]");
+	}
+
+	@Test
+	void aFolderGraphHasItsSubfoldersAndShowsOutsideItemsAsStubs() throws Exception {
+		var folder = field(post("/api/folders", userA, "{\"name\":\"Physics\"}").body(), "id");
+		var sub = field(post("/api/folders", userA, "{\"name\":\"Waves\",\"parentId\":\"" + folder + "\"}").body(),
+				"id");
+		var other = field(post("/api/folders", userA, "{\"name\":\"Chemistry\"}").body(), "id");
+		var outside = note(userA, "Atoms", "");
+		jdbc.sql("update items set folder_id = :f where id = :i").param("f", UUID.fromString(other))
+				.param("i", UUID.fromString(outside)).update();
+		var deep = note(userA, "Sound", "");
+		jdbc.sql("update items set folder_id = :f where id = :i").param("f", UUID.fromString(sub))
+				.param("i", UUID.fromString(deep)).update();
+		var inside = field(post("/api/notes", userA, "{\"title\":\"Energy\",\"folderId\":\"" + folder
+				+ "\",\"body\":\"[[" + deep + "|S]] [[" + outside + "|A]]\"}").body(), "id");
+		var unrelated = note(userA, "Unrelated", "");
+
+		var body = graph(userA, folder);
+
+		assertThat(body).contains(inside, deep, outside).doesNotContain(unrelated);
+		assertThat(body).contains("\"id\":\"" + outside + "\",\"type\":\"NOTE\",\"title\":\"Atoms\","
+				+ "\"folderPath\":\"Chemistry\",\"linkCount\":1,\"stub\":true");
+		assertThat(body).contains("\"id\":\"" + deep + "\",\"type\":\"NOTE\",\"title\":\"Sound\","
+				+ "\"folderPath\":\"Physics / Waves\",\"linkCount\":1,\"stub\":false");
+		assertThat(body).contains("\"source\":\"" + inside + "\",\"target\":\"" + outside + "\"", "\"total\":3");
+	}
+
+	@Test
+	void anotherUsersFolderHasNoGraph() throws Exception {
+		var folder = field(post("/api/folders", userB, "{\"name\":\"Mine\"}").body(), "id");
+
+		assertThat(get("/api/links/graph?folderId=" + folder, userA).statusCode()).isEqualTo(404);
+	}
+
+	@Test
+	void theGraphIsCutAtTheCapKeepingTheMostLinkedAndSaysSo() throws Exception {
+		var target = note(userA, "Hub", "");
+		note(userA, "Source", "[[" + target + "|H]]");
+		var owner = jdbc.sql("select id from users where email = 'a@example.com'").query(UUID.class).single();
+		jdbc.sql("insert into items (owner_id, type, title) select :o, 'NOTE', 'n' || g from generate_series(1, 500) g")
+				.param("o", owner).update();
+
+		var body = graph(userA);
+
+		assertThat(body).contains("\"truncated\":true", "\"total\":502", target)
+				.contains("\"source\":\"");
+		assertThat(Pattern.compile("\"stub\":").matcher(body).results().count()).isEqualTo(500);
+	}
+
+	private int place(String token, String folderId, String itemId, String xy) throws Exception {
+		return put("/api/links/graph/positions/" + itemId + (folderId == null ? "" : "?folderId=" + folderId), token,
+				xy).statusCode();
+	}
+
+	@Test
+	void aSavedPositionComesBackInItsOwnScopeOnly() throws Exception {
+		var folder = field(post("/api/folders", userA, "{\"name\":\"Physics\"}").body(), "id");
+		var item = field(post("/api/notes", userA, "{\"title\":\"Energy\",\"folderId\":\"" + folder + "\"}").body(),
+				"id");
+
+		assertThat(place(userA, folder, item, "{\"x\":12.5,\"y\":-40}")).isEqualTo(204);
+		assertThat(place(userA, folder, item, "{\"x\":20,\"y\":30}")).isEqualTo(204);
+
+		assertThat(graph(userA, folder)).contains("\"title\":\"Energy\"", "\"x\":20.0,\"y\":30.0");
+		assertThat(graph(userA)).contains("\"title\":\"Energy\"").contains("\"x\":null,\"y\":null");
+	}
+
+	@Test
+	void resetLayoutClearsOnlyThatScope() throws Exception {
+		var folder = field(post("/api/folders", userA, "{\"name\":\"Physics\"}").body(), "id");
+		var item = field(post("/api/notes", userA, "{\"title\":\"Energy\",\"folderId\":\"" + folder + "\"}").body(),
+				"id");
+		place(userA, folder, item, "{\"x\":1,\"y\":2}");
+		place(userA, null, item, "{\"x\":3,\"y\":4}");
+
+		assertThat(delete("/api/links/graph/positions?folderId=" + folder, userA).statusCode()).isEqualTo(204);
+
+		assertThat(graph(userA, folder)).contains("\"x\":null,\"y\":null");
+		assertThat(graph(userA)).contains("\"x\":3.0,\"y\":4.0");
+	}
+
+	@Test
+	void anotherUsersFolderOrItemCannotBePlaced() throws Exception {
+		var bFolder = field(post("/api/folders", userB, "{\"name\":\"Mine\"}").body(), "id");
+		var bItem = note(userB, "B Item", "");
+		var aItem = note(userA, "A Item", "");
+
+		assertThat(place(userA, null, bItem, "{\"x\":1,\"y\":2}")).isEqualTo(404);
+		assertThat(place(userA, bFolder, aItem, "{\"x\":1,\"y\":2}")).isEqualTo(404);
+		assertThat(delete("/api/links/graph/positions?folderId=" + bFolder, userA).statusCode()).isEqualTo(404);
+		assertThat(jdbc.sql("select count(*) from graph_positions").query(Long.class).single()).isZero();
+	}
+
+	@Test
+	void aPositionIsRefusedWhenOutOfRangeOrMissing() throws Exception {
+		var item = note(userA, "Energy", "");
+
+		assertThat(place(userA, null, item, "{\"x\":1e9,\"y\":2}")).isEqualTo(400);
+		assertThat(place(userA, null, item, "{\"x\":1}")).isEqualTo(400);
+	}
+
+	@Test
+	void aTrashedItemIsNotPlacedAndDeletingItForGoodDropsItsPosition() throws Exception {
+		var item = note(userA, "Energy", "");
+		place(userA, null, item, "{\"x\":1,\"y\":2}");
+		delete("/api/notes/" + item, userA);
+
+		assertThat(place(userA, null, item, "{\"x\":5,\"y\":6}")).isEqualTo(404);
+		assertThat(graph(userA)).doesNotContain(item);
+
+		assertThat(delete("/api/trash/items/" + item, userA).statusCode()).isEqualTo(204);
+		assertThat(jdbc.sql("select count(*) from graph_positions").query(Long.class).single()).isZero();
+	}
+
+	@Test
+	void theGraphNeedsASignedInUser() throws Exception {
+		assertThat(put("/api/links/graph/positions/" + UUID.randomUUID(), null, "{\"x\":1,\"y\":2}").statusCode())
+				.isEqualTo(401);
+		assertThat(get("/api/links/graph").statusCode()).isEqualTo(401);
+	}
+
 }
