@@ -203,7 +203,8 @@ export function GraphCanvas({
   }
 
   const radius = (n: GraphNode) => nodeRadius(n.linkCount) * (n.id === centre ? 1.5 : 1);
-  const labels = view ? labelOpacity(view.k) : 0;
+  // A local graph is small enough to name every node, so its labels never fade.
+  const labels = centre ? 1 : view ? labelOpacity(view.k) : 0;
   const card = active && view ? byId.get(active) : undefined;
   const cardAt = card && view ? pos.get(card.id)! : undefined;
 

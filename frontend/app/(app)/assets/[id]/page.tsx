@@ -10,7 +10,7 @@ import { formatBytes } from "@/lib/items";
 
 import { FolderPicker } from "../../items/folder-picker";
 import { ItemFrame } from "../../items/item-frame";
-import { ItemBacklinks } from "../../items/item-sections";
+import { ItemBacklinks, ItemConnections, parseDepth } from "../../items/item-sections";
 import { TagEditor } from "../../items/tag-editor";
 import { RecordOpen } from "../../search/record-open";
 import { deleteAsset } from "../actions";
@@ -19,7 +19,8 @@ import { AssetText } from "./asset-text";
 // The Asset screen (docs/DESIGN.md section 6.4): the Note's frame, a viewer stage, and Download.
 export default async function AssetPage({ params, searchParams }: PageProps<"/assets/[id]">) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, depth: rawDepth } = await searchParams;
+  const depth = parseDepth(rawDepth);
   const api = await getApi();
   const [result, list, view, download, itemTags, allTags, jar] = await Promise.all([
     api.GET("/api/assets/{id}", { params: { path: { id } } }).catch(() => null),
@@ -89,6 +90,7 @@ export default async function AssetPage({ params, searchParams }: PageProps<"/as
                 )}
               </section>
               <ItemBacklinks itemId={asset.id} />
+              <ItemConnections itemId={asset.id} folderId={asset.folderId} depth={depth} />
             </div>
             <section aria-labelledby="info-heading" className="grid gap-2">
               <h2 id="info-heading" className="text-xs font-semibold text-muted-foreground">

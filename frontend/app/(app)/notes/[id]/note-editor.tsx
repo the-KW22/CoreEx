@@ -6,6 +6,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState, type StateCommand } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { FileTextIcon, ImageIcon, MinimizeIcon, TriangleAlertIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -97,6 +98,7 @@ export function NoteEditor({
   const saving = useRef(false);
   const conflict = useRef(false);
   const external = useRef(false);
+  const router = useRouter();
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const linkTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const previewTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -125,6 +127,8 @@ export function NoteEditor({
           const result = await saveNote(id, snapshot.title, snapshot.body, version.current, overwrite);
           overwrite = false;
           if (result.status === "saved") {
+            // Saving does not refresh the page, so the Connections are reloaded when the Links changed.
+            if (linkIds(saved.current.body).sort().join() !== linkIds(result.body).sort().join()) router.refresh();
             conflict.current = false;
             version.current = result.version;
             saved.current = snapshot;
@@ -157,7 +161,7 @@ export function NoteEditor({
         saving.current = false;
       }
     },
-    [id],
+    [id, router],
   );
 
   const changed = useCallback(() => {
