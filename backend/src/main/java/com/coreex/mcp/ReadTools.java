@@ -65,6 +65,15 @@ class ReadTools {
 	record FolderList(List<FolderInfo> folders) {
 	}
 
+	record GraphNodeInfo(UUID id, Item.Type type, String title, String folderPath, int linkCount, boolean stub) {
+	}
+
+	record GraphEdgeInfo(UUID source, UUID target) {
+	}
+
+	record GraphResult(List<GraphNodeInfo> nodes, List<GraphEdgeInfo> edges, int total, boolean truncated) {
+	}
+
 	record TagInfo(UUID id, String name, String colour, long itemCount) {
 	}
 
@@ -159,6 +168,17 @@ class ReadTools {
 		var paths = folders.paths(user.id());
 		return new FolderList(folders.list(user.id()).stream()
 				.map(f -> new FolderInfo(f.id(), f.parentId(), f.name(), paths.get(f.id()), f.itemCount())).toList());
+	}
+
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_graph", description = "Map how Items link to each other: every Note and Asset as a node with its linkCount (Links to and from it), and every Link as an edge from the linking Note to its target. Use it to find orphans (linkCount 0), hubs (the highest linkCount) and groups of Items that never connect. Covers a Folder and its subfolders, or everything without folderId. An Item outside the Folder that is linked to or from it is included with stub true. At most 500 nodes, the most-linked first: total is how many there were and truncated says some were left out. Returns titles and ids, not text: call get_item to read one.")
+	GraphResult getGraph(McpTransportContext context,
+			@McpToolParam(required = false, description = "Only this Folder and its subfolders (an id from list_folders)") UUID folderId) {
+		var graph = links.graph(user(context).id(), folderId);
+		return new GraphResult(
+				graph.nodes().stream().map(n -> new GraphNodeInfo(n.id(), n.type(), n.title(), n.folderPath(),
+						n.linkCount(), n.stub())).toList(),
+				graph.edges().stream().map(e -> new GraphEdgeInfo(e.source(), e.target())).toList(), graph.total(),
+				graph.truncated());
 	}
 
 	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "list_tags", description = "List every Tag with its id, colour and how many Items have it. Use it to get a Tag id for search or list_items.")

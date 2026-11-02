@@ -15,8 +15,14 @@ class McpReadToolsApiTest extends McpApiTest {
 
 		var names = new java.util.ArrayList<String>();
 		tools.forEach(t -> names.add(t.path("name").asString()));
-		assertThat(names).contains("search", "list_items", "get_item", "list_folders", "list_tags", "list_trash");
+		assertThat(names).contains("search", "list_items", "get_item", "list_folders", "list_tags", "list_trash",
+				"get_graph");
 		tools.forEach(t -> assertThat(t.path("description").asString()).isNotBlank());
+		tools.forEach(t -> {
+			if (t.path("name").asString().equals("get_graph")) {
+				assertThat(t.path("annotations").path("readOnlyHint").asBoolean()).isTrue();
+			}
+		});
 	}
 
 	@Test
@@ -162,6 +168,69 @@ class McpReadToolsApiTest extends McpApiTest {
 		assertThat(call("list_items", "{}").path("items").size()).isZero();
 		assertThat(call("list_folders", "{}").path("folders").size()).isZero();
 		assertThat(callFails("list_items", "{\"folderId\":\"" + theirFolder + "\"}")).containsIgnoringCase("no such");
+		assertThat(call("get_graph", "{}").path("nodes").size()).isZero();
+		assertThat(callFails("get_graph", "{\"folderId\":\"" + theirFolder + "\"}")).containsIgnoringCase("no such");
+	}
+
+	/** The node with this id in a get_graph result. */
+	private static JsonNode node(JsonNode graph, String id) {
+		for (JsonNode n : graph.path("nodes")) {
+			if (n.path("id").asString().equals(id)) {
+				return n;
+			}
+		}
+		throw new AssertionError("no node " + id + " in " + graph);
+	}
+
+	@Test
+	void getGraphShowsItemsAndLinksSoOrphansAndHubsCanBeFound() throws Exception {
+		var hub = note(jwt, "Hub", "", null);
+		var a = note(jwt, "A", "[[Hub]]", null);
+		note(jwt, "B", "[[Hub]]", null);
+		var orphan = note(jwt, "Orphan", "", null);
+
+		var graph = call("get_graph", "{}");
+
+		assertThat(graph.path("nodes").size()).isEqualTo(4);
+		assertThat(graph.path("total").asInt()).isEqualTo(4);
+		assertThat(graph.path("truncated").asBoolean()).isFalse();
+		assertThat(node(graph, hub).path("linkCount").asInt()).isEqualTo(2);
+		assertThat(node(graph, orphan).path("linkCount").asInt()).isZero();
+		assertThat(graph.path("edges").size()).isEqualTo(2);
+		for (JsonNode edge : graph.path("edges")) {
+			assertThat(edge.path("target").asString()).isEqualTo(hub);
+		}
+		assertThat(node(graph, a).path("type").asString()).isEqualTo("NOTE");
+	}
+
+	@Test
+	void getGraphForAFolderMarksItemsOutsideItAsStubsAndLeavesOutUnrelatedOnes() throws Exception {
+		var folderId = folder("Research");
+		var outside = note(jwt, "Outside", "", null);
+		var inside = note(jwt, "Inside", "[[Outside]]", folderId);
+		var unrelated = note(jwt, "Unrelated", "", null);
+
+		var graph = call("get_graph", "{\"folderId\":\"" + folderId + "\"}");
+
+		assertThat(graph.path("nodes").size()).isEqualTo(2);
+		assertThat(node(graph, inside).path("stub").asBoolean()).isFalse();
+		assertThat(node(graph, inside).path("folderPath").asString()).isEqualTo("Research");
+		assertThat(node(graph, outside).path("stub").asBoolean()).isTrue();
+		assertThat(graph.toString()).doesNotContain(unrelated);
+	}
+
+	@Test
+	void getGraphLeavesOutTrashedItemsAndNeverSendsLayoutPositions() throws Exception {
+		var kept = note(jwt, "Kept", "", null);
+		var gone = note(jwt, "Gone", "[[Kept]]", null);
+		put("/api/links/graph/positions/" + kept, jwt, "{\"x\":12,\"y\":34}");
+		delete("/api/notes/" + gone, jwt);
+
+		var graph = call("get_graph", "{}");
+
+		assertThat(graph.path("nodes").size()).isEqualTo(1);
+		assertThat(graph.path("edges").size()).isZero();
+		assertThat(graph.toString()).doesNotContain(gone).doesNotContain("\"x\"").doesNotContain("\"y\"");
 	}
 
 }
