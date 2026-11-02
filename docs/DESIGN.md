@@ -165,13 +165,13 @@ The same tokens are used by CSS, Motion and View Transitions. They are defined o
 - **Focus mode:** the last button of the toolbar, or Ctrl+Shift+F, hides the rail, panel, header, Tags and toolbar and leaves the title and text centred in the window, with the save status and an Exit button on a thin bar at the top. Escape leaves it (first it closes an open menu). The rest of the page is `inert` while it is on. The editor is not rebuilt, so the caret and unsaved text stay.
 - **Title and first line stay in step:** a first line written as `# Heading` is the Note's title. Typing in it changes the title field, and typing in the title field rewrites that line (or puts a heading in front when the Note has none). An empty title leaves the body alone and shows "Untitled". A Note whose title and heading already differ keeps both until one is edited.
 - **Link hover preview:** hovering *or focusing* a `[[Link]]` shows a Hover Card with the target's title, type, Folder and first lines (from the existing Note and Asset endpoints).
-- **Details panel** (right): Folder (the site's own Select, indented by depth), Backlinks as cards, Info (Created, Updated, word count computed in the browser). Dividers separate the sections: details, organization (Folder, Tags, Backlinks) and Info last. Open by default on wide screens, closed on narrow ones; the choice is remembered.
+- **Details panel** (right): Folder (the site's own Select, indented by depth), Backlinks as cards, **Connections** (the local graph, section 6.12), Info (Created, Updated, word count computed in the browser). Dividers separate the sections: details, organization (Folder, Tags, Backlinks, Connections) and Info last. Open by default on wide screens, closed on narrow ones; the choice is remembered.
 
 ### 6.4 Asset (`/assets/[id]`)
 
 - Same header and Details panel as a Note; header adds **Download**.
 - A neutral **viewer stage**: the image fitted, or the PDF in its viewer.
-- Details panel: title and description (edited in place: a faint border and a pencil beside each label show they can be changed, with a gap between label and field), Folder, Tags, Backlinks, Info (type, size, updated), in three sections with dividers.
+- Details panel: title and description (edited in place: a faint border and a pencil beside each label show they can be changed, with a gap between label and field), Folder, Tags, Backlinks, Connections, Info (type, size, updated), in three sections with dividers.
 
 ### 6.5 Uploading
 
@@ -227,6 +227,7 @@ The Knowledge Graph of one Folder and its subfolders (`?folderId=`), or of All I
 - **Keyboard:** every node is a link with a name such as "Energy, Note, links to 2: Sound, Atoms, linked from 1". Tab reaches it, Enter opens the Item, and the arrow keys move to the neighbour lying most nearly that way.
 - **Show as table:** the same graph as a table of each Item, Kind, Links to and Linked from.
 - More than 500 Items: the 500 most-linked show, under a note "Showing 500 of N Items. Open a smaller Folder to see them all." Empty: "Map how your Items connect" with a link back to the list.
+- **Local graph (Connections):** the last organization section of a Note's or Asset's Details panel (so on a phone it is in the Details Sheet). The same canvas (`graph/graph-canvas.tsx`), 14rem high, showing the open Item (drawn 1.5× larger) and the Items linked to or from it, with every Link among them. A **1 | 2** switch beside the heading picks how many Links away (`?depth=`, 1 by default). Labels are always shown, since the graph is small. No saved layout and no Reset layout; it fits itself again whenever its data changes (a Note's save that adds or removes a Link refreshes it). Below it a **Links to** list of cards (Backlinks already lists what links in), then **Open in Graph** (the Item's Folder graph). Empty: "No Links yet. Type [[ in the Note to link it."
 
 ## 7. Component map (shadcn/ui)
 

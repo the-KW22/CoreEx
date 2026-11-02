@@ -1366,3 +1366,44 @@ test("Graph labels fade in with zoom, and the graph settles live unless motion i
     await expect(item).toHaveCount(0);
   }
 });
+
+test("a Note's Connections show its Links as a small graph and a list, kept current as you type", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const target = `Connect target ${stamp}`;
+  const source = `Connect source ${stamp}`;
+  await newNote(page, target);
+  const connections = page.getByRole("region", { name: "Connections" });
+  await expect(connections.getByText("No Links yet. Type [[ in the Note to link it.")).toBeVisible();
+
+  // A Link typed in the Note shows up in its Connections without a reload.
+  await newNote(page, source);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(`See [[${target}`);
+  await page.getByRole("option", { name: new RegExp(target) }).click();
+  await page.keyboard.press("Enter");
+  await expectSaved(page);
+  await expect(connections.getByRole("list", { name: "Links to" }).getByRole("link", { name: target })).toBeVisible();
+  const targetNode = connections.getByRole("link", { name: new RegExp(`^${target}, Note`) });
+  await expect(targetNode).toBeVisible();
+  await expect(connections.getByRole("link", { name: "Open in Graph" })).toHaveAttribute("href", "/graph");
+  await expectNoViolations(page);
+  await connections.getByRole("link", { name: "2 Links away" }).click();
+  await expect(page).toHaveURL(/depth=2/);
+  await expect(connections.getByRole("link", { name: "2 Links away" })).toHaveAttribute("aria-current", "true");
+
+  // A node opens its Item, whose Connections show the Note linking to it.
+  await targetNode.locator("circle").last().click();
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(target);
+  await expect(connections.getByRole("link", { name: new RegExp(`^${source}, Note, links to 1`) })).toBeVisible();
+
+  // Tidy up both Notes.
+  await page.goto("/items");
+  for (const title of [source, target]) {
+    const item = page.getByRole("row").filter({ hasText: title });
+    await item.getByRole("button", { name: `Actions for ${title}` }).click();
+    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+    await expect(item).toHaveCount(0);
+  }
+});
