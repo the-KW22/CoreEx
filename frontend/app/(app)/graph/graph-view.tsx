@@ -1,10 +1,11 @@
 "use client";
 
 import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
-import { MinusIcon, PlusIcon, ScanIcon } from "lucide-react";
+import { MinusIcon, PlusIcon, RotateCcwIcon, ScanIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { Alert } from "@/components/alert";
 import { Button } from "@/components/ui/button";
@@ -15,15 +16,20 @@ import { itemHref } from "@/lib/items";
 
 import { FolderSelect } from "../folders/folder-select";
 import { ViewToggle } from "../items/view-toggle";
+import { resetLayout, savePosition } from "./actions";
 
 type View = { x: number; y: number; k: number };
 type Gesture = { kind: "pan"; from: Point; view: View } | { kind: "node"; id: string; moved: boolean };
 
 const clampZoom = (k: number) => Math.min(Math.max(k, 0.2), 4);
 
-// Runs the simulation to rest up front, so the graph appears settled and never moves on its own.
+// Runs the simulation to rest up front, so the graph appears settled and never moves on its own. Nodes with a saved
+// position (the Graph layout) are pinned there, and the others settle around them.
 function layout(nodes: GraphNode[], edges: GraphEdge[]) {
-  const placed = nodes.map((n) => ({ id: n.id, r: nodeRadius(n.linkCount) }) as { id: string; r: number; x?: number; y?: number });
+  const placed = nodes.map((n) => {
+    const saved = n.x != null && n.y != null ? { x: n.x, y: n.y, fx: n.x, fy: n.y } : {};
+    return { id: n.id, r: nodeRadius(n.linkCount), ...saved } as { id: string; r: number; x?: number; y?: number };
+  });
   forceSimulation(placed)
     .force("link", forceLink(edges.map((e) => ({ ...e }))).id((d) => (d as { id: string }).id).distance(70))
     .force("charge", forceManyBody().strength(-140))
@@ -62,14 +68,20 @@ export function GraphView({
   const { out, into } = useMemo(() => linkMaps(edges), [edges]);
   // A server action refreshes the page with new data (lib/refresh.ts), so lay the graph out again when it changes.
   const [laidOut, setLaidOut] = useState(() => ({ graph, pos: layout(nodes, edges) }));
+  const [size, setSize] = useState<{ w: number; h: number }>();
+  const [view, setView] = useState<View>();
+  const [refit, setRefit] = useState(false);
   let pos = laidOut.pos;
   if (laidOut.graph !== graph) {
     pos = layout(nodes, edges);
     setLaidOut({ graph, pos });
+    // After Reset layout, show the fresh layout whole.
+    if (refit && size) {
+      setRefit(false);
+      setView(fit(pos, size.w, size.h));
+    }
   }
   const setPos = (next: (p: Map<string, Point>) => Map<string, Point>) => setLaidOut((l) => ({ ...l, pos: next(l.pos) }));
-  const [size, setSize] = useState<{ w: number; h: number }>();
-  const [view, setView] = useState<View>();
   const [hovered, setHovered] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
   const [table, setTable] = useState(false);
@@ -141,10 +153,28 @@ export function GraphView({
     }
   }
 
-  function onPointerUp() {
+  async function onPointerUp(e: React.PointerEvent) {
     const g = gesture.current;
     gesture.current = null;
-    if (g?.kind === "node" && !g.moved) router.push(itemHref(byId.get(g.id)!));
+    if (g?.kind !== "node") return;
+    if (!g.moved) {
+      router.push(itemHref(byId.get(g.id)!));
+      return;
+    }
+    // From the pointer itself: the last move may not have rendered yet.
+    const at = pointer(e);
+    const x = (at.x - view!.x) / view!.k;
+    const y = (at.y - view!.y) / view!.k;
+    setPos((p) => new Map(p).set(g.id, { x, y }));
+    if (!(await savePosition(g.id, folderId, x, y))) toast.error("Could not save where you put it. Try again.");
+  }
+
+  async function reset() {
+    setRefit(true);
+    if (!(await resetLayout(folderId))) {
+      setRefit(false);
+      toast.error("Could not reset the layout. Try again.");
+    }
   }
 
   function onKeyDown(e: React.KeyboardEvent, node: GraphNode) {
@@ -319,6 +349,10 @@ export function GraphView({
             </Button>
             <Button variant="outline" size="icon" aria-label="Fit the graph" onClick={() => size && setView(fit(pos, size.w, size.h))}>
               <ScanIcon aria-hidden />
+            </Button>
+            <Button variant="outline" onClick={reset}>
+              <RotateCcwIcon aria-hidden />
+              Reset layout
             </Button>
           </div>
         </div>
