@@ -18,6 +18,9 @@ export function linkMaps(edges: GraphEdge[]) {
   return { out, into };
 }
 
+// Labels fade in as the User zooms in: none at 1× and below, all the way from 1.5× up.
+export const labelOpacity = (zoom: number) => Math.min(Math.max((zoom - 1) / 0.5, 0), 1);
+
 export const where = (node: GraphNode) => (node.folderPath ? `In ${node.folderPath}` : "Top level");
 
 /** What a screen reader says for a node, such as "Energy, Note, links to 2: Sound, Atoms, linked from 1". */

@@ -1282,9 +1282,12 @@ test("a dragged Graph node stays where it was dropped, until Reset layout", asyn
   await signIn(page);
   const title = `Layout node ${Date.now()}`;
   await newNote(page, title);
+  // At rest from the start: a node still settling would drift out from under the pointer.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/graph");
   const node = page.getByRole("link", { name: new RegExp(`^${title}, Note`) });
-  const box = (await node.boundingBox())!;
+  // The dot itself: the node's own box also holds its label.
+  const box = (await node.locator("circle").boundingBox())!;
 
   // Saving answers a server-action POST; wait for it before reloading.
   const saved = page.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/graph"));
@@ -1307,8 +1310,59 @@ test("a dragged Graph node stays where it was dropped, until Reset layout", asyn
   await expect.poll(at).not.toEqual(dropped);
 
   // Tidy up.
-  await node.click();
+  await node.locator("circle").click();
   await expect(page).toHaveURL(/\/notes\//);
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
+});
+
+test("Graph labels fade in with zoom, and the graph settles live unless motion is reduced", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const titles = [`Fade a ${stamp}`, `Fade b ${stamp}`, `Fade c ${stamp}`];
+  for (const title of titles) await newNote(page, title);
+
+  await page.goto("/graph");
+  const nodes = page.locator("svg[role=group] g[role=link]");
+  const node = page.getByRole("link", { name: new RegExp(`^${titles[0]}, Note`) });
+  await expect(node).toBeVisible();
+
+  // It settles while you watch: some node moves in the seconds after it opens.
+  const where = () => nodes.evaluateAll((els) => els.map((el) => el.getAttribute("transform")).join("|"));
+  const opened = await where();
+  await expect.poll(where, { timeout: 8000 }).not.toBe(opened);
+
+  // A label is hidden zoomed out, shown zoomed in, and shown at any zoom while its node is focused.
+  const label = node.locator("text");
+  for (let i = 0; i < 8; i++) await page.getByRole("button", { name: "Zoom out" }).click();
+  await expect(label).toHaveCount(0);
+  await node.focus();
+  await expect(label).toHaveCSS("opacity", "1");
+  await node.blur();
+  await expect(label).toHaveCount(0);
+  for (let i = 0; i < 14; i++) await page.getByRole("button", { name: "Zoom in" }).click();
+  await expect(label).toHaveCSS("opacity", "1");
+
+  // Dimming and the Mint Links animate with the motion tokens.
+  const transition = () => node.evaluate((el) => getComputedStyle(el).transitionDuration);
+  expect(await transition()).toBe("0.2s");
+
+  // With reduced motion the layout is already at rest and nothing animates.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.reload();
+  await expect(node).toBeVisible();
+  const still = await where();
+  // Two frames: a graph that was settling would have moved by then.
+  await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
+  expect(await where()).toBe(still);
+  expect(parseFloat(await transition())).toBeLessThan(0.001);
+
+  // Tidy up.
+  await page.goto("/items");
+  for (const title of titles) {
+    const item = page.getByRole("row").filter({ hasText: title });
+    await item.getByRole("button", { name: `Actions for ${title}` }).click();
+    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+    await expect(item).toHaveCount(0);
+  }
 });
