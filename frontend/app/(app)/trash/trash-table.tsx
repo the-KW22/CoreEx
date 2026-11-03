@@ -106,12 +106,15 @@ export function TrashTable({ entries }: { entries: Entry[] }) {
           return (
             <tr
               key={entry.id}
-              className="border-b border-border-subtle hover:bg-surface max-md:grid max-md:gap-1 max-md:rounded-[10px] max-md:border max-md:border-border max-md:p-3"
+              className="border-b border-border-subtle hover:bg-surface max-md:grid max-md:grid-cols-[minmax(0,1fr)] max-md:gap-1 max-md:rounded-[10px] max-md:border max-md:border-border max-md:p-3"
             >
-              <td className="py-2 pr-4 max-md:p-0">
+              {/* w-full max-w-0: the name takes the leftover width and truncates, instead of widening the table. */}
+              <td className="py-2 pr-4 max-md:p-0 md:w-full md:max-w-0">
                 <span className="flex items-center gap-2 font-medium">
                   <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="truncate">{name(entry)}</span>
+                  <span className="truncate" title={name(entry)}>
+                    {name(entry)}
+                  </span>
                 </span>
                 {entry.kind === "FOLDER" && (entry.folderCount > 0 || entry.itemCount > 0) && (
                   <span className="block pl-6 text-xs text-muted-foreground">

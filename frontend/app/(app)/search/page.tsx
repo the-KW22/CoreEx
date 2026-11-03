@@ -140,11 +140,16 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
             {result.data.items.map((hit) => {
               const Icon = hit.type === "NOTE" ? FileTextIcon : ImageIcon;
               return (
-                <li key={hit.id} className="grid gap-1 rounded-[10px] border border-border px-4 py-3 hover:bg-surface">
+                <li
+                  key={hit.id}
+                  className="grid grid-cols-[minmax(0,1fr)] gap-1 rounded-[10px] border border-border px-4 py-3 hover:bg-surface"
+                >
                   <Link href={itemHref(hit)} className="flex items-center gap-2 font-medium hover:underline">
                     <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
                     <span className="sr-only">{hit.type === "NOTE" ? "Note:" : "Asset:"}</span>
-                    <span className="truncate">{hit.title || "Untitled"}</span>
+                    <span className="truncate" title={hit.title || undefined}>
+                      {hit.title || "Untitled"}
+                    </span>
                   </Link>
                   <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                     {hit.folderPath && (
