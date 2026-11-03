@@ -202,10 +202,16 @@ async function HomeSections() {
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {items.data.items.map((item) => (
             <li key={item.id}>
-              <Link href={itemHref(item)} className={`${card} grid h-full gap-2 p-4 transition-colors hover:border-link`}>
+              {/* minmax(0,1fr): an auto column would grow to the title's width, leaving truncate nothing to cut against. */}
+              <Link
+                href={itemHref(item)}
+                className={`${card} grid h-full grid-cols-[minmax(0,1fr)] gap-2 p-4 transition-colors hover:border-link`}
+              >
                 <span className="flex items-center gap-2 font-medium">
                   <TypeIcon type={item.type} />
-                  <span className="truncate">{item.title || "Untitled"}</span>
+                  <span className="truncate" title={item.title || undefined}>
+                    {item.title || "Untitled"}
+                  </span>
                 </span>
                 {item.snippet && <span className="line-clamp-2 text-sm text-muted-foreground">{item.snippet}</span>}
                 <span className="truncate text-xs text-muted-foreground">{folderPath(allFolders, item.folderId)}</span>

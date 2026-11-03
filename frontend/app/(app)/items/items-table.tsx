@@ -161,12 +161,15 @@ export function ItemsTable({
             return (
               <ContextMenu key={item.id}>
                 <ContextMenuTrigger asChild>
-                  <tr className="border-b border-border-subtle hover:bg-surface max-md:grid max-md:grid-cols-[1fr_auto] max-md:rounded-[10px] max-md:border max-md:border-border max-md:p-3">
-                    <td className="py-2 pr-4 max-md:p-0">
+                  <tr className="border-b border-border-subtle hover:bg-surface max-md:grid max-md:grid-cols-[minmax(0,1fr)_auto] max-md:rounded-[10px] max-md:border max-md:border-border max-md:p-3">
+                    {/* w-full max-w-0: the title takes the leftover width and truncates, instead of widening the table. */}
+                    <td className="py-2 pr-4 max-md:p-0 md:w-full md:max-w-0">
                       <Link href={itemHref(item)} className="flex items-center gap-2 font-medium text-foreground hover:underline">
                         <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
                         <span className="sr-only">{item.type === "NOTE" ? "Note:" : "Asset:"}</span>
-                        <span className="truncate">{title(item)}</span>
+                        <span className="truncate" title={title(item)}>
+                          {title(item)}
+                        </span>
                       </Link>
                     </td>
                     <td className="py-2 pr-4 text-muted-foreground max-md:col-start-1 max-md:p-0 max-md:pl-6 max-md:text-xs">

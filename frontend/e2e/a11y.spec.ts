@@ -800,6 +800,46 @@ test("Home shows a new Note under Recently edited and Jump back in", async ({ pa
   await expect(page).toHaveURL(/\/items$/);
 });
 
+test("Home truncates a long title inside its Recently edited card, and other lists keep it on screen", async ({ page }) => {
+  await signIn(page);
+  const word = `overflow${Date.now()}`;
+  const title = `Home ${word} ${"a-very-long-unbroken-title-".repeat(6)}end`;
+  await newNote(page, title);
+  const sizes = [{ width: 1280, height: 800 }, { width: 375, height: 812 }];
+  // The truncated title (it carries the full one as a tooltip) ends inside the window.
+  const onScreen = async (url: string) => {
+    await page.goto(url);
+    const name = page.locator("main").getByTitle(title);
+    const b = (await name.boundingBox())!;
+    expect(b.x + b.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  };
+
+  for (const size of sizes) {
+    await page.setViewportSize(size);
+    await onScreen(`/search?q=${word}`);
+    await onScreen("/items");
+    await page.goto("/");
+    const card = page.getByRole("region", { name: "Recently edited" }).getByRole("link", { name: new RegExp(title) });
+    const name = card.locator("span.truncate").first();
+    await expect(name).toHaveAttribute("title", title);
+    // The title is cut with an ellipsis, and nothing in the card reaches past its right edge.
+    const box = (await card.boundingBox())!;
+    for (const part of [name, card.locator("span").last()]) {
+      const b = (await part.boundingBox())!;
+      expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width);
+    }
+    expect(await name.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+  }
+
+  await page.getByRole("region", { name: "Recently edited" }).getByRole("link", { name: new RegExp(title) }).click();
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+  for (const size of sizes) {
+    await page.setViewportSize(size);
+    await onScreen("/trash");
+  }
+});
+
 test("the Note screen tags, moves, and remembers hidden Details", async ({ page }) => {
   // Many steps, and the first visit to each page compiles it on the dev server.
   test.slow();
