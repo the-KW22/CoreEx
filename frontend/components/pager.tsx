@@ -1,8 +1,17 @@
 import Link from "next/link";
 
-import type { pageInfo } from "@/lib/pages";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import { pageRange, type pageInfo } from "@/lib/pages";
 
-// Previous, "Page x of y" and Next for a list the API returns a page at a time. `href` builds the link to a page.
+// Previous, the page numbers and Next for a list the API returns a page at a time. `href` builds the link to a page.
 export function Pager({
   page,
   href,
@@ -13,27 +22,28 @@ export function Pager({
   label?: string;
 }) {
   if (page.pages <= 1) return null;
-  const link = "text-link underline-offset-4 hover:underline";
   return (
-    <nav aria-label={label} className="flex items-center justify-between gap-4 text-sm">
-      {page.prev !== null ? (
-        <Link href={href(page.prev)} className={link}>
-          ← Previous
-        </Link>
-      ) : (
-        <span />
-      )}
-      <span className="text-muted-foreground">
-        Page {page.page + 1} of {page.pages}
-      </span>
-      {page.next !== null ? (
-        <Link href={href(page.next)} className={link}>
-          Next →
-        </Link>
-      ) : (
-        <span />
-      )}
-    </nav>
+    <Pagination aria-label={label}>
+      <PaginationContent>
+        <PaginationItem>
+          <PaginationPrevious href={page.prev !== null ? href(page.prev) : undefined} />
+        </PaginationItem>
+        {pageRange(page.page, page.pages).map((n, i) => (
+          <PaginationItem key={n === "..." ? `gap-${i}` : n}>
+            {n === "..." ? (
+              <PaginationEllipsis />
+            ) : (
+              <PaginationLink href={href(n)} isActive={n === page.page} aria-label={`Page ${n + 1}`}>
+                {n + 1}
+              </PaginationLink>
+            )}
+          </PaginationItem>
+        ))}
+        <PaginationItem>
+          <PaginationNext href={page.next !== null ? href(page.next) : undefined} />
+        </PaginationItem>
+      </PaginationContent>
+    </Pagination>
   );
 }
 
