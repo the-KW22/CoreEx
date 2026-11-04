@@ -1122,6 +1122,11 @@ export interface components {
             /** @enum {string} */
             type: "NOTE" | "ASSET";
             title: string;
+            /**
+             * Format: uuid
+             * @description The Folder the Item is in, null at the top level
+             */
+            folderId: string | null;
             /** @description The Folder path such as "Work / CoreEx", null at the top level */
             folderPath: string | null;
             /**

@@ -6,6 +6,7 @@ const node = (over: Partial<GraphNode>): GraphNode => ({
   id: "a",
   type: "NOTE",
   title: "Energy",
+  folderId: null,
   folderPath: null,
   linkCount: 0,
   stub: false,

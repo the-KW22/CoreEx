@@ -35,7 +35,7 @@ public class LinkService {
 	}
 
 	/** x and y are where the User left the node in this graph (its Graph layout), null when never placed. */
-	public record GraphNode(UUID id, Item.Type type, String title, String folderPath, int linkCount, boolean stub,
+	public record GraphNode(UUID id, Item.Type type, String title, UUID folderId, String folderPath, int linkCount, boolean stub,
 			Double x, Double y) {
 	}
 
@@ -147,7 +147,7 @@ public class LinkService {
 				.sorted(Comparator.<LinkRepository.GraphItem>comparingInt(i -> -linkCount.getOrDefault(i.id(), 0))
 						.thenComparing(LinkRepository.GraphItem::title).thenComparing(LinkRepository.GraphItem::id))
 				.limit(MAX_GRAPH_NODES)
-				.map(i -> new GraphNode(i.id(), i.type(), i.title(), paths.get(i.folderId()),
+				.map(i -> new GraphNode(i.id(), i.type(), i.title(), i.folderId(), paths.get(i.folderId()),
 						linkCount.getOrDefault(i.id(), 0), i.stub(), i.x(), i.y()))
 				.toList();
 		var keptIds = kept.stream().map(GraphNode::id).collect(Collectors.toSet());
@@ -195,7 +195,7 @@ public class LinkService {
 		var byId = items.findLive(ownerId, keptIds).stream().collect(Collectors.toMap(Item::id, i -> i));
 		var paths = folders.paths(ownerId);
 		var kept = keptIds.stream().map(byId::get).filter(Objects::nonNull)
-				.map(i -> new GraphNode(i.id(), i.type(), i.title(), paths.get(i.folderId()),
+				.map(i -> new GraphNode(i.id(), i.type(), i.title(), i.folderId(), paths.get(i.folderId()),
 						linkCount.getOrDefault(i.id(), 0), false, null, null))
 				.toList();
 		return new Graph(kept, edges.stream().filter(e -> byId.containsKey(e.source()) && byId.containsKey(e.target()))

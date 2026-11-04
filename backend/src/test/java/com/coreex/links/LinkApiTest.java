@@ -342,9 +342,9 @@ class LinkApiTest extends ApiTest {
 
 		assertThat(body).contains(inside, deep, outside).doesNotContain(unrelated);
 		assertThat(body).contains("\"id\":\"" + outside + "\",\"type\":\"NOTE\",\"title\":\"Atoms\","
-				+ "\"folderPath\":\"Chemistry\",\"linkCount\":1,\"stub\":true");
+				+ "\"folderId\":\"" + other + "\",\"folderPath\":\"Chemistry\",\"linkCount\":1,\"stub\":true");
 		assertThat(body).contains("\"id\":\"" + deep + "\",\"type\":\"NOTE\",\"title\":\"Sound\","
-				+ "\"folderPath\":\"Physics / Waves\",\"linkCount\":1,\"stub\":false");
+				+ "\"folderId\":\"" + sub + "\",\"folderPath\":\"Physics / Waves\",\"linkCount\":1,\"stub\":false");
 		assertThat(body).contains("\"source\":\"" + inside + "\",\"target\":\"" + outside + "\"", "\"total\":3");
 	}
 

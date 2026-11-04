@@ -68,6 +68,8 @@ class LinkController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Item.Type type,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+					description = "The Folder the Item is in, null at the top level") UUID folderId,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
 					description = "The Folder path such as \"Work / CoreEx\", null at the top level") String folderPath,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
 					description = "Links to and from this Item within the graph") int linkCount,
@@ -90,7 +92,7 @@ class LinkController {
 
 		static GraphResponse of(LinkService.Graph graph) {
 			return new GraphResponse(graph.nodes().stream()
-					.map(n -> new GraphNodeResponse(n.id(), n.type(), n.title(), n.folderPath(), n.linkCount(), n.stub(),
+					.map(n -> new GraphNodeResponse(n.id(), n.type(), n.title(), n.folderId(), n.folderPath(), n.linkCount(), n.stub(),
 							n.x(), n.y()))
 					.toList(), graph.edges().stream().map(e -> new GraphEdgeResponse(e.source(), e.target())).toList(),
 					graph.total(), graph.truncated());
