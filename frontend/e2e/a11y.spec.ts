@@ -93,11 +93,13 @@ for (const [colorScheme, background] of [
       const word = `zq${Date.now()}`;
       await newNote(page, `Trash axe ${word}`);
       await page.locator(".cm-content").click();
+      // The title is the body's first line, and a click in the middle of the editor lands on it.
+      await page.keyboard.press("Control+End");
       await page.keyboard.type(`about ${word}`);
       await expectSaved(page);
 
       await page.goto(`/search?q=${word}`);
-      await expect(page.locator("main mark")).toBeVisible();
+      await expect(page.locator("main mark").first()).toBeVisible();
       await expectNoViolations(page);
 
       await page.getByRole("link", { name: new RegExp(word) }).click();
@@ -503,6 +505,8 @@ test("Search highlights the match, filters by type and says when nothing matches
   const title = `Search probe ${word}`;
   await newNote(page, title);
   await page.locator(".cm-content").click();
+  // The title is the body's first line, and a click in the middle of the editor lands on it.
+  await page.keyboard.press("Control+End");
   await page.keyboard.type(`a line about ${word} here`);
   await expectSaved(page);
 
@@ -513,7 +517,8 @@ test("Search highlights the match, filters by type and says when nothing matches
   await expect(page).toHaveURL(new RegExp(`q=${word}`));
   await expect(page.getByText(`1 result for "${word}"`)).toBeVisible();
   const hit = page.getByRole("listitem").filter({ hasText: title });
-  await expect(hit.locator("mark")).toHaveText(word);
+  // The word is in the heading line and in the line below it.
+  await expect(hit.locator("mark")).toHaveText([word, word]);
   await expect(hit).toContainText("Edited");
 
   // An Asset-only filter finds nothing, and says so.
@@ -525,6 +530,29 @@ test("Search highlights the match, filters by type and says when nothing matches
   await hit.getByRole("link").click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
+});
+
+test("a long Tag name keeps the Search filters inside the window", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const tagName = `long-filter-tag-${stamp}-keeps-going`;
+  await noteWithTag(page, `Filter probe ${stamp}`, tagName);
+  const note = page.url();
+
+  for (const width of [1280, 640]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/search");
+    const box = (await page.getByRole("combobox", { name: "Tag" }).boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+  }
+
+  // Tidy up.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(note);
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+  await page.goto("/tags");
+  await deleteTag(page, tagName);
 });
 
 test("an Invite is created, its link copied, and revoked after a confirm", async ({ page, context }) => {

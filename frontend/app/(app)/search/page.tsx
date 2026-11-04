@@ -16,9 +16,10 @@ const PAGE_SIZE = 20;
 // A query-string value can be a string or a list; take the first string.
 const one = (value: string | string[] | undefined) => (typeof value === "string" ? value : (value?.[0] ?? ""));
 
-// The filters are native selects, styled like the Folder picker on the Note screen.
+// The filters are native selects, styled like the Folder picker on the Note screen. A native select is as wide as its
+// longest option unless it is told otherwise, so a long Tag name would push it out of its column.
 const field =
-  "grid gap-1.5 text-sm font-medium [&_select]:h-9 [&_select]:rounded-lg [&_select]:border [&_select]:border-border [&_select]:bg-surface [&_select]:px-2 [&_select]:font-normal";
+  "grid grid-cols-[minmax(0,1fr)] gap-1.5 text-sm font-medium [&_select]:h-9 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-border [&_select]:bg-surface [&_select]:px-2 [&_select]:font-normal";
 
 // The Search screen (docs/DESIGN.md section 6.10). The command palette's "Search all text" row lands here.
 export default async function SearchPage({ searchParams }: PageProps<"/search">) {
