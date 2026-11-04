@@ -36,6 +36,11 @@ services:
         sync: false
       - key: STORAGE_BUCKET
         value: assets
+      # The embed Edge Function for Semantic search (docs/DEPLOY.md, "The embed Edge Function").
+      - key: EMBED_URL
+        sync: false
+      - key: EMBED_SECRET
+        sync: false
       # The OpenAPI page is only for developers; not scanning for it shortens start-up.
       - key: SPRINGDOC_API_DOCS_ENABLED
         value: "false"

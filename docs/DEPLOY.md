@@ -33,6 +33,8 @@ Because the cloud database holds real data, a migration is first exercised on lo
 | `STORAGE_URL` | `https://<project ref>.supabase.co/storage/v1` (needed for Assets, see "Storage for Assets") |
 | `STORAGE_SERVICE_KEY` | The project's **secret** key (Project Settings > API Keys). It can do anything in Storage, and it is also used to delete a removed User's Supabase sign-in (Admin > Users > Remove), so it lives only here, never in the frontend |
 | `STORAGE_BUCKET` | `assets` (the default) |
+| `EMBED_URL` | `https://<project ref>.supabase.co/functions/v1/embed-8ba850b7e5aa` (needed for Semantic search, see "The embed Edge Function") |
+| `EMBED_SECRET` | A long random secret, the same value as the function's secret in Supabase |
 
 **Frontend (Vercel, under the Production environment).**
 
@@ -66,6 +68,28 @@ Assets (images and PDFs) are kept in a private Supabase Storage bucket. The back
 3. **Check it.** Sign in, upload a small PNG on the home page, open it, and download it. If the upload says storage is unavailable, check the two variables and the bucket name in the Render logs (the log says "Storage is not configured" or the HTTP status Storage answered).
 
 Browsers upload straight to `https://<project ref>.supabase.co`, which allows cross-origin requests from any site by default; nothing needs changing there. Each User has a 100 MB quota by default (`coreex.assets.default-quota-bytes`), and a file is at most 5 MB.
+
+## The embed Edge Function (the owner does this once, and again when it changes)
+
+Semantic search (ADR 0008) turns text into vectors with Supabase's built-in `gte-small` model, inside the `embed` Edge Function in `supabase/functions/embed-8ba850b7e5aa/`. Only the API may call it: the function refuses any request that does not carry `EMBED_SECRET`. Its name has a random part (`embed-8ba850b7e5aa`) because the project ref is public: a plain `embed` URL could be guessed and called to use up the 500,000 monthly invocations, even though each call would be refused. Treat the name like a second secret: do not paste it into public places, and if the repository is ever made public, rename the folder, the `[functions.…]` entry in `supabase/config.toml` and these commands, deploy again and update `EMBED_URL`. Until this is done, embeddings are off, search stays exact-word, and the rest of the app works as before.
+
+1. **Make a secret**, for example `openssl rand -base64 32`. It is not a Supabase key and unlocks nothing else.
+2. **Set it in Supabase**: `supabase secrets set EMBED_SECRET=<the secret> --project-ref <project ref>` (or Edge Functions > Secrets in the dashboard).
+3. **Deploy the function**: `supabase functions deploy embed-8ba850b7e5aa --project-ref <project ref>`. `supabase/config.toml` already sets `verify_jwt = false` for it, because the secret is its only guard and the API sends no Supabase key.
+4. **Set the same secret on Render** as `EMBED_SECRET`, add `EMBED_URL` (above), and redeploy the backend.
+5. **Check it.** A call without the secret must answer `401`:
+
+   ```bash
+   curl -i -X POST https://<project ref>.supabase.co/functions/v1/embed-8ba850b7e5aa -H "Content-Type: application/json" -d '{"texts":["hi"]}'
+   ```
+
+   With the header `X-Embed-Secret: <the secret>` it answers `200` and one vector of 384 numbers per text. The first call after a quiet spell loads the model and can take several seconds.
+
+A function change reaches production only when you run step 3 again, so list it in the release checklist whenever `supabase/functions/` changed. (`shortcut: manual Edge Function deploy, move to CI when the function changes more than rarely`: a CI deploy needs a Supabase access token with power over the whole account.)
+
+**Limits.** A call carries at most 3 texts (`MAX_BATCH` in the function, `coreex.embeddings.batch-size` in the API: keep them equal) because an Edge Function gets 2 s of CPU per request and a 220-word Chunk takes about 0.3 s. The free plan allows 500,000 calls a month. The API waits at most 3 s for one call (`coreex.embeddings.timeout`).
+
+**Locally.** `supabase start` runs the Edge Runtime. Put `EMBED_SECRET=<any value>` in `supabase/functions/.env` (it is git-ignored), run `supabase functions serve embed-8ba850b7e5aa --env-file supabase/functions/.env`, and set `EMBED_URL=http://127.0.0.1:54321/functions/v1/embed-8ba850b7e5aa` and the same `EMBED_SECRET` in `backend/.env`. The function's own tests need no Supabase: `deno test supabase/functions/embed-8ba850b7e5aa`.
 
 ## Scheduled Trash purge (the owner does this once)
 

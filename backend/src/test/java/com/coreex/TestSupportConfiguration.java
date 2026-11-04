@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 
-/** Swaps Supabase's real keys, Storage and the wall clock for ones the tests control. */
+/** Swaps Supabase's real keys, Storage, embeddings and the wall clock for ones the tests control. */
 @TestConfiguration(proxyBeanMethods = false)
 public class TestSupportConfiguration {
 
@@ -25,6 +25,13 @@ public class TestSupportConfiguration {
 	@Primary
 	public TestStorage testStorage() {
 		return new TestStorage();
+	}
+
+	/** Replaces the embed Edge Function, so no test touches the network. */
+	@Bean
+	@Primary
+	public TestEmbedder testEmbedder() {
+		return new TestEmbedder();
 	}
 
 	/** Replaces Supabase Auth's admin API, so no test deletes a real sign-in. */

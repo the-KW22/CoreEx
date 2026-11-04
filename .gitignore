@@ -3,3 +3,6 @@
 
 # Local-only LLM Wiki vault (private learning notes and session records; never pushed)
 wiki-vault/
+
+# Local Edge Function secrets (supabase functions serve --env-file)
+supabase/functions/.env
