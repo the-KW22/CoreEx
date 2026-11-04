@@ -385,8 +385,9 @@ deno_version = 2
 # secret_key = "env(SECRET_VALUE)"
 
 # The function checks its own EMBED_SECRET (ADR 0008); Supabase's default check would also accept the public
-# publishable key, and the API sends no Supabase key.
-[functions.embed]
+# publishable key, and the API sends no Supabase key. Its name has a random part on purpose: the project ref is
+# public, so a plain "embed" URL could be guessed and called to use up the monthly invocations.
+[functions.embed-8ba850b7e5aa]
 verify_jwt = false
 
 [analytics]

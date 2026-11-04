@@ -1,5 +1,5 @@
 // Supabase Edge Function `embed`: turns texts into 384-number `gte-small` vectors for Semantic search (ADR 0008).
-// shortcut: deployed by hand (`supabase functions deploy embed`), move to CI when the function changes more than rarely.
+// shortcut: deployed by hand (`supabase functions deploy embed-8ba850b7e5aa`), move to CI when the function changes more than rarely.
 import "jsr:@supabase/functions-js@2/edge-runtime.d.ts";
 import { handle } from "./handler.ts";
 

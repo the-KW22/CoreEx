@@ -180,7 +180,7 @@ Release when `staging` holds a set of verified work worth shipping. For V1, abou
 3. Merge with a **merge commit**, not a squash, so `main` and `staging` keep the same history.
 4. Tag the release: create a GitHub Release `vX.Y.Z` on `main` with release notes.
 5. Production deploys from `main` automatically. Smoke-test the production site: sign in, open a Note.
-6. If the release changed `supabase/functions/`, deploy it too (`supabase functions deploy embed`, `docs/DEPLOY.md`): Supabase does not deploy it from `main`.
+6. If the release changed `supabase/functions/`, deploy it too (`supabase functions deploy embed-8ba850b7e5aa`, `docs/DEPLOY.md`): Supabase does not deploy it from `main`.
 
 **Versioning:** Semantic Versioning starting at `v0.1.0`. While in `0.x`, bump the minor version for features (`v0.2.0`) and the patch version for fixes only (`v0.2.1`). `v1.0.0` is the first release of V1, when all V1 tickets are done.
 
