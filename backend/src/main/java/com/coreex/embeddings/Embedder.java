@@ -12,6 +12,9 @@ public interface Embedder {
 	/** How many numbers each vector has: what {@code gte-small} produces. */
 	int DIMENSIONS = 384;
 
+	/** The model's name, kept with every stored Chunk: vectors of different models cannot be compared. */
+	String MODEL = "gte-small";
+
 	/**
 	 * One vector per text, in the same order, or empty when embedding is unavailable (not set up, unreachable, too
 	 * slow, or answering something unexpected). It never throws: search falls back to exact words and a sweep tries
