@@ -116,6 +116,18 @@ export async function trashedNote(page: Page, title: string) {
   await expect(page).toHaveURL(/\/items$/);
 }
 
+// Sends Items to the Trash from their rows in All Items. A fresh page for each: the toast from one can sit over the
+// next one's menu and take its click.
+export async function trashRows(page: Page, titles: string[]) {
+  for (const title of titles) {
+    await page.goto("/items");
+    const row = page.getByRole("row").filter({ hasText: title });
+    await row.getByRole("button", { name: `Actions for ${title}` }).click();
+    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+    await expect(row).toHaveCount(0);
+  }
+}
+
 // A 1×1 PNG.
 export const PIXEL = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkaPhfDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",

@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
-import { PIXEL, expectNoViolations, expectSaved, newNote, openPalette, signIn } from "./helpers";
+import { PIXEL, expectNoViolations, expectSaved, newNote, openPalette, signIn, trashRows } from "./helpers";
 
 // The whole UI against WCAG 2.2 AA (docs/DESIGN.md section 10): every main screen and every open state, in both
 // themes, at desktop width and at 375px. The data is seeded once and tidied up at the end. Run one cell while
@@ -93,13 +93,7 @@ test.afterAll(async () => {
   await page.goto(seed.folder);
   await page.getByRole("button", { name: `Move ${folderName} to Trash` }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Move Folder to Trash" }).click();
-  await page.goto("/items");
-  for (const title of [noteA, noteB, `matrix-${word}.png`]) {
-    const row = page.getByRole("row").filter({ hasText: title });
-    await row.getByRole("button", { name: `Actions for ${title}` }).click();
-    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
-    await expect(row).toHaveCount(0);
-  }
+  await trashRows(page, [noteA, noteB, `matrix-${word}.png`]);
   await page.goto("/trash");
   for (const title of [noteA, noteB, `matrix-${word}.png`, trashed, folderName]) {
     const row = page.getByRole("row").filter({ hasText: title });
