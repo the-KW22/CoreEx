@@ -48,7 +48,6 @@ Deno.test("rejects input it cannot embed", async () => {
     { texts: [] },
     { texts: [1] },
     { texts: [""] },
-    { texts: ["x".repeat(MAX_TEXT_CHARS + 1)] },
     { texts: Array(MAX_BATCH + 1).fill("a") },
   ];
   for (const body of bad) {
@@ -56,6 +55,13 @@ Deno.test("rejects input it cannot embed", async () => {
     assertEquals((await handle(call(body), SECRET, model.embed)).status, 400, JSON.stringify(body));
     assertEquals(model.seen, []);
   }
+});
+
+Deno.test("cuts a text over the cap instead of refusing the batch", async () => {
+  const model = fakeModel();
+  const response = await handle(call({ texts: ["x".repeat(MAX_TEXT_CHARS + 500), "ok"] }), SECRET, model.embed);
+  assertEquals(response.status, 200);
+  assertEquals(model.seen.map((t) => t.length), [MAX_TEXT_CHARS, 2]);
 });
 
 Deno.test("accepts a full batch of the longest text", async () => {

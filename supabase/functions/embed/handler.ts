@@ -7,7 +7,10 @@
  * leaves room for a slower host. Keep it equal to the API's `coreex.embeddings.batch-size`.
  */
 export const MAX_BATCH = 3;
-/** A Chunk is about 250 words (under 2,000 characters); this only stops a mistake from running the model for long. */
+/**
+ * The model reads only its first 512 tokens (about 2,000 characters) of any text, so what is past this cap is cut,
+ * not refused: one long code block must not make the whole batch fail, and the same batch fail again every minute.
+ */
 export const MAX_TEXT_CHARS = 8000;
 
 export type Embed = (text: string) => Promise<number[]>;
@@ -37,7 +40,7 @@ export async function handle(request: Request, secret: string, embed: Embed): Pr
   const texts = body?.texts;
   if (
     !Array.isArray(texts) || texts.length < 1 || texts.length > MAX_BATCH ||
-    !texts.every((t) => typeof t === "string" && t.length > 0 && t.length <= MAX_TEXT_CHARS)
+    !texts.every((t) => typeof t === "string" && t.length > 0)
   ) {
     return json({ code: "BAD_REQUEST" }, 400);
   }
@@ -45,7 +48,7 @@ export async function handle(request: Request, secret: string, embed: Embed): Pr
   try {
     // One at a time: the CPU limit is per request, and a failure stops the rest.
     const vectors: number[][] = [];
-    for (const text of texts) vectors.push(await embed(text));
+    for (const text of texts) vectors.push(await embed(text.slice(0, MAX_TEXT_CHARS)));
     return json({ vectors }, 200);
   } catch (e) {
     console.error("embed failed:", e instanceof Error ? e.name : "unknown"); // never the text

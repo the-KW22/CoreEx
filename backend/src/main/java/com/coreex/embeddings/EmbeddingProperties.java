@@ -13,4 +13,12 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 @ConfigurationProperties("coreex.embeddings")
 record EmbeddingProperties(@DefaultValue("") String url, @DefaultValue("") String secret,
 		@DefaultValue("PT3S") Duration timeout, @DefaultValue("3") int batchSize) {
+
+	EmbeddingProperties {
+		// A batch of 0 would loop forever sending nothing.
+		if (batchSize < 1) {
+			throw new IllegalArgumentException("coreex.embeddings.batch-size must be at least 1");
+		}
+	}
+
 }

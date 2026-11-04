@@ -1,6 +1,7 @@
 package com.coreex.embeddings;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -165,6 +166,12 @@ class SupabaseEmbedderTest {
 		assertThat(embedder("", "s3cret", Duration.ofSeconds(1), 3).embed(List.of("a"))).isEmpty();
 		assertThat(embedder(url, "", Duration.ofSeconds(1), 3).embed(List.of("a"))).isEmpty();
 		assertThat(seen).isEmpty();
+	}
+
+	@Test
+	void aBatchSizeBelowOneIsRefusedAtStartUp() {
+		assertThatThrownBy(() -> new EmbeddingProperties(url, "s3cret", Duration.ofSeconds(1), 0))
+				.isInstanceOf(IllegalArgumentException.class);
 	}
 
 	@Test
