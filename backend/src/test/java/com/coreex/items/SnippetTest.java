@@ -2,6 +2,9 @@ package com.coreex.items;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.junit.jupiter.api.Test;
 
 class SnippetTest {
@@ -63,6 +66,23 @@ class SnippetTest {
 	@Test
 	void isNullWhenOnlyMarkdownSyntaxIsLeft() {
 		assertThat(Snippet.of("T", "---\ndate: 2026-10-29\n---\n\n---\n```\n```")).isNull();
+	}
+
+	// A regex that recurses per repeat would overflow the stack here, and one such Note would fail the whole Item list.
+	@Test
+	void survivesALineThatIsOneLongRunOfMarks() throws Exception {
+		var failure = new AtomicReference<Throwable>();
+		var thread = new Thread(null, () -> {
+			for (var mark : List.of("-", "- ", "=", "> ", "- > ", "1. ", "# ")) {
+				Snippet.of("T", mark.repeat(2000 / mark.length()));
+				Snippet.of("T", mark.repeat(2000 / mark.length()) + "x");
+			}
+		}, "small-stack", 256 * 1024);
+		thread.setUncaughtExceptionHandler((t, e) -> failure.set(e));
+		thread.start();
+		thread.join();
+
+		assertThat(failure.get()).isNull();
 	}
 
 	@Test

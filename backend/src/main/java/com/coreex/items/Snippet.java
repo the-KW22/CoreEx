@@ -8,13 +8,15 @@ final class Snippet {
 
 	static final int MAX = 160;
 
-	// Repeated, so a nested "> - item" loses both marks.
-	private static final Pattern LINE_MARK = Pattern.compile("^\\s*(#{1,6}\\s+|>\\s*|[-*+]\\s+(\\[[ xX]]\\s+)?|\\d+[.)]\\s+)+");
+	// Repeated, so a nested "> - item" loses both marks. Capped: an unbounded repeated group recurses, and a long enough
+	// run of marks would overflow the stack and fail the whole Item list.
+	private static final Pattern LINE_MARK = Pattern.compile("^\\s*(#{1,6}\\s+|>\\s*|[-*+]\\s+(\\[[ xX]]\\s+)?|\\d+[.)]\\s+){1,8}");
 
 	// A line with nothing to read: a rule or setext underline, a code fence (the code inside stays), a table separator.
-	private static final Pattern SYNTAX_LINE = Pattern.compile("\\s*(([-*_=]\\s*){3,}|(```|~~~).*|(?=.*\\|)[\\s:|-]+)");
+	private static final Pattern SYNTAX_LINE = Pattern.compile("[-*_=\\s]{3,}|\\s*(```|~~~).*|(?=.*\\|)[\\s:|-]+");
 
-	// What the first line of a front matter block looks like, so two rules around ordinary text are not mistaken for one.
+	// shortcut: front matter is recognised by its first line alone, so a rule followed by "Note: some text" is taken for
+	// it, upgrade to a YAML parser if real Notes lose their previews this way.
 	private static final Pattern YAML_KEY = Pattern.compile("[\\w-]+:(\\s.*)?");
 
 	// A stored Link is [[id|Title]]; keep only the title.
