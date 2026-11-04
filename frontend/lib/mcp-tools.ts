@@ -12,7 +12,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "search",
     kind: "read",
-    summary: "Find Notes and Assets by words in a title, a Note's text, an Asset's description or a Tag name. Narrow by type, Folder and Tag.",
+    summary: "Find Notes and Assets by words in a title, a Note's text, an Asset's description or a Tag name, and Notes also by meaning (English). Narrow by type, Folder and Tag.",
     useWhen: "You know what you are looking for.",
   },
   {

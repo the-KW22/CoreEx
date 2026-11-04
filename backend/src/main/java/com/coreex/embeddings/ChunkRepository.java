@@ -95,21 +95,12 @@ class ChunkRepository {
 					values (:owner, :note, :position, :content, :hash, :model, cast(:embedding as halfvec))""")
 					.param("owner", note.ownerId()).param("note", note.noteId()).param("position", chunk.position())
 					.param("content", chunk.chunk().text()).param("hash", chunk.chunk().hash())
-					.param("model", Embedder.MODEL).param("embedding", literal(chunk.vector())).update();
+					.param("model", Embedder.MODEL).param("embedding", Embedder.literal(chunk.vector())).update();
 		}
 		if (complete) {
 			jdbc.sql("update note_contents set embedded_updated_at = :at where item_id = :note")
 					.param("at", note.updatedAt()).param("note", note.noteId()).update();
 		}
-	}
-
-	/** pgvector's text form: {@code [0.1,0.2,...]}. */
-	private static String literal(float[] vector) {
-		var text = new StringBuilder("[");
-		for (var i = 0; i < vector.length; i++) {
-			text.append(i == 0 ? "" : ",").append(vector[i]);
-		}
-		return text.append(']').toString();
 	}
 
 }

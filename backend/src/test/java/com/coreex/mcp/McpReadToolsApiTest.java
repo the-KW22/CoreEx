@@ -48,6 +48,28 @@ class McpReadToolsApiTest extends McpApiTest {
 	}
 
 	@Test
+	void searchAlsoFindsNotesByMeaningAndSaysWhenOnlyExactWordsWereUsed(@org.springframework.beans.factory.annotation.Autowired com.coreex.TestEmbedder embedder) throws Exception {
+		embedder.clear();
+		var id = note(jwt, "Garage", "Oil changes", null);
+		var vector = embedder.embed(java.util.List.of("car repair")).orElseThrow().get(0);
+		jdbc.sql("""
+				insert into note_chunks (owner_id, note_id, position, content, content_hash, model, embedding)
+				select owner_id, id, 0, 'car repair', 'h', 'gte-small', cast(:vector as halfvec) from items where id = :id""")
+				.param("vector", com.coreex.embeddings.Embedder.literal(vector)).param("id", java.util.UUID.fromString(id))
+				.update();
+
+		var found = call("search", "{\"query\":\"car repair\"}");
+		embedder.setDown(true);
+		var exactOnly = call("search", "{\"query\":\"oil\"}");
+		embedder.clear();
+
+		assertThat(found.path("hits").get(0).path("id").asString()).isEqualTo(id);
+		assertThat(found.path("exactOnly").asBoolean()).isFalse();
+		assertThat(exactOnly.path("hits").get(0).path("id").asString()).isEqualTo(id);
+		assertThat(exactOnly.path("exactOnly").asBoolean()).isTrue();
+	}
+
+	@Test
 	void listItemsPagesFiftyAtATimeWithACursor() throws Exception {
 		for (int i = 0; i < 51; i++) {
 			note(jwt, "Note " + i, "x", null);

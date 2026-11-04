@@ -193,7 +193,7 @@ The same tokens are used by CSS, Motion and View Transitions. They are defined o
 
 - **Trash:** table of Items and Folders with "N days left" badges (30-day rule), Restore, and **Delete forever** behind an Alert Dialog.
 - **Tags:** list with Item counts; each row has a **colour picker** (Popover with 8 swatches), rename, and delete (Alert Dialog).
-- **Search results:** list of hits with highlighted snippets and Folder paths, paginated.
+- **Search results:** list of hits with highlighted snippets and Folder paths, paginated. Notes are found by words and by meaning, merged into one list; a hit found only by meaning shows the start of its closest piece of the Note, not highlighted. When the search by meaning could not run, a muted line under the count says "Showing exact-word matches only" (ADR 0008).
 - **Admin:** tabs **Overview** (stats, storage Chart against the hosting limit), **Users** (table, Storage Quota with an "MB" Input Group, disable/enable/remove), **Invites**. Admin never shows another User's content (ADR 0004).
 
 ### 6.8 Sign-in and system pages

@@ -22,4 +22,13 @@ public interface Embedder {
 	 */
 	Optional<List<float[]>> embed(List<String> texts);
 
+	/** pgvector's text form of a vector, {@code [0.1,0.2,...]}, which Postgres casts to {@code halfvec}. */
+	static String literal(float[] vector) {
+		var text = new StringBuilder("[");
+		for (var i = 0; i < vector.length; i++) {
+			text.append(i == 0 ? "" : ",").append(vector[i]);
+		}
+		return text.append(']').toString();
+	}
+
 }

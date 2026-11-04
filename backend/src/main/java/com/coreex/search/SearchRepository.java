@@ -10,6 +10,7 @@ import java.util.UUID;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.coreex.items.Item;
 
@@ -41,6 +42,11 @@ class SearchRepository {
 			       or exists (select 1 from item_tags it join tags t on t.id = it.tag_id
 			                  where it.item_id = i.id and to_tsvector('simple', search_text(t.name)) @@ query.tsq))""";
 
+	// A title match counts most, then the Note body, then an Asset description.
+	private static final String RANK = """
+			coalesce(ts_rank(i.title_tsv, query.tsq), 0) * 4 + coalesce(ts_rank(c.body_tsv, query.tsq), 0)
+			      + coalesce(ts_rank(a.description_tsv, query.tsq), 0) * 2""";
+
 	private static final RowMapper<Quick> QUICK = (rs, n) -> new Quick(rs.getObject("id", UUID.class),
 			Item.Type.valueOf(rs.getString("type")), rs.getString("title"), rs.getObject("folder_id", UUID.class));
 
@@ -57,9 +63,18 @@ class SearchRepository {
 	 */
 	List<Hit> search(UUID ownerId, String text, Item.Type type, UUID tagId, List<UUID> folderIds, int limit,
 			long offset) {
+		return search(ownerId, text, type, tagId, folderIds, limit, offset, null);
+	}
+
+	/** The same, but only among the Items with these ids (the page of a merged list), when {@code onlyIds} is given. */
+	List<Hit> search(UUID ownerId, String text, Item.Type type, UUID tagId, List<UUID> folderIds, int limit,
+			long offset, List<UUID> onlyIds) {
 		var params = params(ownerId, text, type, tagId, folderIds);
 		params.put("limit", limit);
 		params.put("offset", offset);
+		if (onlyIds != null) {
+			params.put("ids", onlyIds.toArray(new UUID[0]));
+		}
 		return jdbc.sql(QUERY + """
 				select m.id, m.type, m.title, m.folder_id, m.updated_at,
 				  ts_headline('simple', translate(m.source, chr(2) || chr(3), ''), query.tsq,
@@ -67,14 +82,14 @@ class SearchRepository {
 				    || ', MaxWords=30, MinWords=12, MaxFragments=1, ShortWord=1') as headline
 				from (
 				  select i.id, i.type, i.title, i.folder_id, i.updated_at,
-				    coalesce(ts_rank(i.title_tsv, query.tsq), 0) * 4 + coalesce(ts_rank(c.body_tsv, query.tsq), 0)
-				      + coalesce(ts_rank(a.description_tsv, query.tsq), 0) * 2 as rank,
+				    %s as rank,
 				    case when c.body_tsv @@ query.tsq then left(c.body, 200000)
 				         when a.description_tsv @@ query.tsq then a.description
 				         when i.title_tsv @@ query.tsq then i.title
 				         else (select string_agg(t.name, ', ') from item_tags it join tags t on t.id = it.tag_id
 				               where it.item_id = i.id) end as source
-				  """ + FROM_WHERE + filters(type, tagId, folderIds) + """
+				  """.formatted(RANK) + FROM_WHERE + filters(type, tagId, folderIds)
+				+ (onlyIds == null ? "" : " and i.id = any(:ids)") + """
 
 				  order by rank desc, i.updated_at desc, i.id
 				  limit :limit offset :offset) m
@@ -83,6 +98,57 @@ class SearchRepository {
 				.query((rs, n) -> new Hit(rs.getObject("id", UUID.class), Item.Type.valueOf(rs.getString("type")),
 						rs.getString("title"), rs.getObject("folder_id", UUID.class),
 						rs.getObject("updated_at", OffsetDateTime.class).toInstant(), rs.getString("headline")))
+				.list();
+	}
+
+	/** The ids of the best exact-word matches, best first: the same order as {@link #search}, without the snippets. */
+	List<UUID> rankedIds(UUID ownerId, String text, Item.Type type, UUID tagId, List<UUID> folderIds, int limit) {
+		var params = params(ownerId, text, type, tagId, folderIds);
+		params.put("limit", limit);
+		return jdbc.sql(QUERY + "select i.id " + FROM_WHERE + filters(type, tagId, folderIds) + " order by " + RANK
+				+ " desc, i.updated_at desc, i.id limit :limit").params(params).query(UUID.class).list();
+	}
+
+	/** A Note found by meaning: the Note, and the text of its closest Chunk. */
+	record Near(UUID id, Item.Type type, String title, UUID folderId, Instant updatedAt, String content) {
+	}
+
+	/**
+	 * The User's live Notes whose Chunks are closest to the vector, closest first, one entry per Note with its closest
+	 * Chunk, and none farther than {@code maxDistance} (cosine distance). Looks at the {@code chunks} closest Chunks.
+	 * pgvector's iterative scan keeps the index going until the owner and live-Note conditions are met, so Chunks of
+	 * other Users and of Notes in the Trash cannot use up the answer. Must run in a transaction: the setting is local.
+	 */
+	@Transactional(readOnly = true)
+	List<Near> nearest(UUID ownerId, String vector, Item.Type type, UUID tagId, List<UUID> folderIds,
+			double maxDistance, int chunks, int limit) {
+		jdbc.sql("select set_config('hnsw.iterative_scan', 'relaxed_order', true)").query(String.class).single();
+		var params = params(ownerId, "", type, tagId, folderIds);
+		params.put("vector", vector);
+		params.put("maxDistance", maxDistance);
+		params.put("chunks", chunks);
+		params.put("limit", limit);
+		return jdbc.sql("""
+				select hit.id, hit.type, hit.title, hit.folder_id, hit.updated_at, best.content
+				from (
+				  select distinct on (near.note_id) near.note_id, near.content, near.distance
+				  from (
+				    select k.note_id, k.content, k.embedding <=> cast(:vector as halfvec) as distance
+				    from note_chunks k
+				    where k.owner_id = :owner
+				      and exists (select 1 from items i where i.id = k.note_id and i.deleted_at is null"""
+				+ filters(type, tagId, folderIds) + """
+				)
+				    order by k.embedding <=> cast(:vector as halfvec)
+				    limit :chunks) near
+				  where near.distance <= :maxDistance
+				  order by near.note_id, near.distance) best
+				join items hit on hit.id = best.note_id
+				order by best.distance, hit.updated_at desc, hit.id
+				limit :limit""").params(params)
+				.query((rs, n) -> new Near(rs.getObject("id", UUID.class), Item.Type.valueOf(rs.getString("type")),
+						rs.getString("title"), rs.getObject("folder_id", UUID.class),
+						rs.getObject("updated_at", OffsetDateTime.class).toInstant(), rs.getString("content")))
 				.list();
 	}
 
