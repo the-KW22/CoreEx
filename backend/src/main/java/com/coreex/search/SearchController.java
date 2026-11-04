@@ -45,7 +45,8 @@ class SearchController {
 	}
 
 	record SearchPage(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<SearchHitResponse> items,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) long total) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) long total,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "True when the search by meaning could not run, so only exact words were matched") boolean exactOnly) {
 	}
 
 	record QuickHitResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
@@ -64,9 +65,9 @@ class SearchController {
 	}
 
 	/**
-	 * Finds live Items by Note title and body, Asset title and description, and Tag name (exact words, any language).
-	 * The text may use "quoted phrases", {@code or} and {@code -excluded}. Filters combine; a Folder includes its
-	 * subfolders.
+	 * Finds live Items by Note title and body, Asset title and description, and Tag name (exact words, any language),
+	 * and Notes also by meaning (English), the two lists merged. The text may use "quoted phrases", {@code or} and
+	 * {@code -excluded} for the exact words. Filters combine; a Folder includes its subfolders.
 	 */
 	@GetMapping
 	@ApiResponse(responseCode = "200", description = "A page of matches, best first", content = @Content(
@@ -84,7 +85,7 @@ class SearchController {
 				.map(h -> new SearchHitResponse(h.id(), h.type(), h.title(), h.folderPath(), h.updatedAt(),
 						h.snippet().stream().map(s -> new SegmentResponse(s.text(), s.match())).toList()))
 				.toList();
-		return new SearchPage(hits, result.total());
+		return new SearchPage(hits, result.total(), result.exactOnly());
 	}
 
 	/** The quick switcher: titles that start with the text or are close to it; recently opened Items when empty. */

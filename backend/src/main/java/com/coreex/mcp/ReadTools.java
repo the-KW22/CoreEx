@@ -48,7 +48,7 @@ class ReadTools {
 			String snippet) {
 	}
 
-	record SearchResult(List<SearchHit> hits, long total, String nextCursor) {
+	record SearchResult(List<SearchHit> hits, long total, String nextCursor, boolean exactOnly) {
 	}
 
 	record BacklinkRef(UUID id, String title) {
@@ -115,7 +115,7 @@ class ReadTools {
 		this.trash = trash;
 	}
 
-	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "search", description = "Find Notes and Assets by words in a Note's title or text, an Asset's title or description, or a Tag name. Use this when you know what you are looking for; use list_items to browse. Words are matched exactly (ignoring case); put a phrase in \"quotes\", use or for either word, and -word to leave one out. Returns titles, ids and snippets, not full Notes: call get_item to read one.")
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "search", description = "Find Notes and Assets by words in a Note's title or text, an Asset's title or description, or a Tag name, and Notes also by meaning, so a question in your own words can find a Note that uses other words (English). Use this when you know what you are looking for; use list_items to browse. Words are matched exactly (ignoring case); put a phrase in \"quotes\", use or for either word, and -word to leave one out. Returns titles, ids and snippets, not full Notes: call get_item to read one. exactOnly true means the search by meaning could not run, so only exact words were matched.")
 	SearchResult search(McpTransportContext context,
 			@McpToolParam(description = "What to search for") String query,
 			@McpToolParam(required = false, description = "Only Notes (NOTE) or only Assets (ASSET)") Item.Type type,
@@ -126,7 +126,7 @@ class ReadTools {
 		var found = search.search(user(context).id(), query, type, tagId, folderId, page, PAGE_SIZE);
 		var hits = found.hits().stream().map(h -> new SearchHit(h.id(), h.type(), h.title(), h.folderPath(), h.updatedAt(),
 				snippet(h.snippet()))).toList();
-		return new SearchResult(hits, found.total(), next(page, found.total()));
+		return new SearchResult(hits, found.total(), next(page, found.total()), found.exactOnly());
 	}
 
 	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "list_items", description = "List Notes and Assets, most recently updated first, 50 per page. Use this to browse a Folder, a Tag or one type of Item; use search to find something by words. Returns summaries with Tags and a short preview: call get_item to read one.")
