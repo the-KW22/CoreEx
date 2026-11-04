@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { MCP_TOOLS } from "../lib/mcp-tools";
 
@@ -15,6 +15,7 @@ import {
   password,
   signIn,
   trashFolder,
+  trashRows,
   trashedNote,
 } from "./helpers";
 
@@ -93,11 +94,13 @@ for (const [colorScheme, background] of [
       const word = `zq${Date.now()}`;
       await newNote(page, `Trash axe ${word}`);
       await page.locator(".cm-content").click();
+      // The title is the body's first line, and a click in the middle of the editor lands on it.
+      await page.keyboard.press("Control+End");
       await page.keyboard.type(`about ${word}`);
       await expectSaved(page);
 
       await page.goto(`/search?q=${word}`);
-      await expect(page.locator("main mark")).toBeVisible();
+      await expect(page.locator("main mark").first()).toBeVisible();
       await expectNoViolations(page);
 
       await page.getByRole("link", { name: new RegExp(word) }).click();
@@ -256,7 +259,7 @@ test("the command palette finds a Note by title and searches all text", async ({
 test("on a phone the search icon opens a full-screen palette", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await signIn(page);
-  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("banner").getByRole("button", { name: "Search", exact: true }).click();
   const palette = page.getByRole("dialog", { name: "Command palette" });
   await expect(palette.getByRole("combobox")).toBeFocused();
   // Polled: it zooms in when it opens.
@@ -503,6 +506,8 @@ test("Search highlights the match, filters by type and says when nothing matches
   const title = `Search probe ${word}`;
   await newNote(page, title);
   await page.locator(".cm-content").click();
+  // The title is the body's first line, and a click in the middle of the editor lands on it.
+  await page.keyboard.press("Control+End");
   await page.keyboard.type(`a line about ${word} here`);
   await expectSaved(page);
 
@@ -513,7 +518,8 @@ test("Search highlights the match, filters by type and says when nothing matches
   await expect(page).toHaveURL(new RegExp(`q=${word}`));
   await expect(page.getByText(`1 result for "${word}"`)).toBeVisible();
   const hit = page.getByRole("listitem").filter({ hasText: title });
-  await expect(hit.locator("mark")).toHaveText(word);
+  // The word is in the heading line and in the line below it.
+  await expect(hit.locator("mark")).toHaveText([word, word]);
   await expect(hit).toContainText("Edited");
 
   // An Asset-only filter finds nothing, and says so.
@@ -525,6 +531,66 @@ test("Search highlights the match, filters by type and says when nothing matches
   await hit.getByRole("link").click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
+});
+
+test("a Note card previews whole lines of its text, and an empty Note shows its icon", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const empty = `Card empty ${stamp}`;
+  const full = `Card full ${stamp}`;
+  await newNote(page, empty);
+  await newNote(page, full);
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("words to fill the card ".repeat(7).trim());
+  await expectSaved(page);
+
+  await page.goto("/items");
+  await page.getByRole("radio", { name: "Grid" }).click();
+  const card = (title: string) => page.getByRole("listitem").filter({ hasText: title });
+  const preview = card(full).locator("p").first();
+  await expect(preview).toContainText("words to fill the card");
+  await expect(preview).not.toContainText(full);
+  // The text box is a whole number of lines tall, so no line is cut in half at the bottom.
+  const lines = await preview.evaluate((el) => {
+    const style = getComputedStyle(el);
+    const inner = el.clientHeight - Number.parseFloat(style.paddingTop) - Number.parseFloat(style.paddingBottom);
+    return inner / Number.parseFloat(style.lineHeight);
+  });
+  expect(Number.isInteger(lines)).toBe(true);
+  // The empty Note has only its title, which the card already shows, so it gets the icon.
+  await expect(card(empty).locator("svg.size-8")).toBeVisible();
+  await expectNoViolations(page);
+
+  // Tidy up.
+  for (const title of [empty, full]) {
+    await card(title).getByRole("link", { name: new RegExp(title) }).click();
+    await page.getByRole("button", { name: "Move to Trash" }).click();
+    await expect(page).toHaveURL(/\/items$/);
+  }
+});
+
+test("a long Tag name keeps the Search filters inside the window", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const tagName = `long-filter-tag-${stamp}-keeps-going`;
+  await noteWithTag(page, `Filter probe ${stamp}`, tagName);
+  const note = page.url();
+
+  for (const width of [1280, 640]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/search");
+    const box = (await page.getByRole("combobox", { name: "Tag" }).boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+  }
+
+  // Tidy up.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(note);
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+  await page.goto("/tags");
+  await deleteTag(page, tagName);
 });
 
 test("an Invite is created, its link copied, and revoked after a confirm", async ({ page, context }) => {
@@ -800,6 +866,46 @@ test("Home shows a new Note under Recently edited and Jump back in", async ({ pa
   await expect(page).toHaveURL(/\/items$/);
 });
 
+test("Home truncates a long title inside its Recently edited card, and other lists keep it on screen", async ({ page }) => {
+  await signIn(page);
+  const word = `overflow${Date.now()}`;
+  const title = `Home ${word} ${"a-very-long-unbroken-title-".repeat(6)}end`;
+  await newNote(page, title);
+  const sizes = [{ width: 1280, height: 800 }, { width: 375, height: 812 }];
+  // The truncated title (it carries the full one as a tooltip) ends inside the window.
+  const onScreen = async (url: string) => {
+    await page.goto(url);
+    const name = page.locator("main").getByTitle(title);
+    const b = (await name.boundingBox())!;
+    expect(b.x + b.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  };
+
+  for (const size of sizes) {
+    await page.setViewportSize(size);
+    await onScreen(`/search?q=${word}`);
+    await onScreen("/items");
+    await page.goto("/");
+    const card = page.getByRole("region", { name: "Recently edited" }).getByRole("link", { name: new RegExp(title) });
+    const name = card.locator("span.truncate").first();
+    await expect(name).toHaveAttribute("title", title);
+    // The title is cut with an ellipsis, and nothing in the card reaches past its right edge.
+    const box = (await card.boundingBox())!;
+    for (const part of [name, card.locator("span").last()]) {
+      const b = (await part.boundingBox())!;
+      expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width);
+    }
+    expect(await name.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+  }
+
+  await page.getByRole("region", { name: "Recently edited" }).getByRole("link", { name: new RegExp(title) }).click();
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+  for (const size of sizes) {
+    await page.setViewportSize(size);
+    await onScreen("/trash");
+  }
+});
+
 test("the Note screen tags, moves, and remembers hidden Details", async ({ page }) => {
   // Many steps, and the first visit to each page compiles it on the dev server.
   test.slow();
@@ -990,17 +1096,99 @@ test("the rail shows its labels, collapses to icons and remembers the choice", a
   }
   await expectNoViolations(page);
 
-  await rail.getByRole("button", { name: "Collapse the menu" }).click();
+  await rail.getByRole("button", { name: "Collapse sidebar" }).click();
   await expect(rail.getByText("Knowledge Base", { exact: true })).toBeHidden();
   await expect(rail.getByRole("link", { name: "Knowledge Base" })).toBeVisible();
   await expectNoViolations(page);
 
   // The cookie is read on the server, so the choice is there from the first paint.
   await page.reload();
-  await expect(rail.getByRole("button", { name: "Expand the menu" })).toBeVisible();
+  await expect(rail.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
   await expect(rail.getByText("Knowledge Base", { exact: true })).toBeHidden();
-  await rail.getByRole("button", { name: "Expand the menu" }).click();
+  await rail.getByRole("button", { name: "Expand sidebar" }).click();
   await expect(rail.getByText("Knowledge Base", { exact: true })).toBeVisible();
+});
+
+test("the rail resizes by dragging and by keyboard, within its limits, and remembers its width", async ({ page }) => {
+  await signIn(page);
+  const rail = page.getByRole("navigation", { name: "Main" });
+  const handle = rail.getByRole("separator", { name: "Resize sidebar" });
+  const width = async () => (await rail.boundingBox())!.width;
+  const dragTo = async (x: number) => {
+    const box = (await handle.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, 300);
+    await page.mouse.down();
+    await page.mouse.move(x, 300, { steps: 5 });
+    await page.mouse.up();
+  };
+  await expect(rail).toHaveCSS("width", "224px");
+
+  await dragTo(300);
+  expect(await width()).toBe(300);
+  await expectNoViolations(page);
+
+  // The server's own HTML has the width, so the first paint is right, with no jump once the page's code runs.
+  expect(await (await page.request.get("/")).text()).toContain('style="width:300px"');
+  await page.reload();
+  await expect(rail).toHaveCSS("width", "300px");
+
+  // It cannot go outside its limits.
+  await dragTo(900);
+  expect(await width()).toBe(320);
+  await dragTo(150);
+  expect(await width()).toBe(192);
+
+  // Dragged well below the minimum it collapses, and opens again at the width from before that drag.
+  await dragTo(260);
+  await dragTo(80);
+  expect(await width()).toBe(64);
+  await expect(rail.getByText("Knowledge Base", { exact: true })).toBeHidden();
+  await page.reload();
+  expect(await width()).toBe(64);
+  await rail.getByRole("button", { name: "Expand sidebar" }).click();
+  expect(await width()).toBe(260);
+  await dragTo(80);
+  await dragTo(150);
+  expect(await width()).toBe(260);
+
+  // The keyboard does the same.
+  await handle.focus();
+  await page.keyboard.press("ArrowRight");
+  expect(await width()).toBe(276);
+  await page.keyboard.press("Home");
+  expect(await width()).toBe(192);
+  await page.keyboard.press("ArrowLeft");
+  expect(await width()).toBe(64);
+  await page.keyboard.press("ArrowRight");
+  expect(await width()).toBe(192);
+  await page.keyboard.press("End");
+  expect(await width()).toBe(320);
+
+  // The shortcut toggles it from anywhere, and the theme and account stay on screen at every width.
+  await page.keyboard.press("Control+\\");
+  expect(await width()).toBe(64);
+  await expect(rail.getByRole("button", { name: /^Account/ })).toBeInViewport();
+  await page.keyboard.press("Control+\\");
+  expect(await width()).toBe(320);
+  await expect(rail.getByRole("button", { name: /^Theme/ })).toBeInViewport();
+});
+
+test("Ctrl+B is still bold in the Note editor, not the rail", async ({ page }) => {
+  await signIn(page);
+  const title = `Bold probe ${Date.now()}`;
+  await newNote(page, title);
+  const rail = page.getByRole("navigation", { name: "Main" });
+  const before = (await rail.boundingBox())!.width;
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.press("Control+B");
+  await page.keyboard.type("x");
+  await expect(page.locator(".cm-content")).toContainText("**x**");
+  expect((await rail.boundingBox())!.width).toBe(before);
+
+  await expectSaved(page);
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
 });
 
 test("the Assets page lists Assets only, with no Knowledge Base panel", async ({ page }) => {
@@ -1269,13 +1457,7 @@ test("a Folder opens as a Graph, its Items reached by keyboard and listed as a t
   await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(target);
 
   // Tidy up both Notes.
-  await page.goto("/items");
-  for (const title of [source, target]) {
-    const item = page.getByRole("row").filter({ hasText: title });
-    await item.getByRole("button", { name: `Actions for ${title}` }).click();
-    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
-    await expect(item).toHaveCount(0);
-  }
+  await trashRows(page, [source, target]);
 });
 
 test("a dragged Graph node stays where it was dropped, until Reset layout", async ({ page }) => {
@@ -1358,11 +1540,181 @@ test("Graph labels fade in with zoom, and the graph settles live unless motion i
   expect(parseFloat(await transition())).toBeLessThan(0.001);
 
   // Tidy up.
+  await trashRows(page, titles);
+});
+
+test("a Note's Connections show its Links as a small graph and a list, kept current as you type", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const target = `Connect target ${stamp}`;
+  const source = `Connect source ${stamp}`;
+  await newNote(page, target);
+  const connections = page.getByRole("region", { name: "Connections" });
+  await expect(connections.getByText("No Links yet. Type [[ in the Note to link it.")).toBeVisible();
+
+  // A Link typed in the Note shows up in its Connections without a reload.
+  await newNote(page, source);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(`See [[${target}`);
+  await page.getByRole("option", { name: new RegExp(target) }).click();
+  await page.keyboard.press("Enter");
+  await expectSaved(page);
+  await expect(connections.getByRole("list", { name: "Links to" }).getByRole("link", { name: target })).toBeVisible();
+  const targetNode = connections.getByRole("link", { name: new RegExp(`^${target}, Note`) });
+  await expect(targetNode).toBeVisible();
+  await expect(connections.getByRole("link", { name: "Open in Graph" })).toHaveAttribute("href", "/graph");
+  await expectNoViolations(page);
+  await connections.getByRole("link", { name: "2 Links away" }).click();
+  await expect(page).toHaveURL(/depth=2/);
+  await expect(connections.getByRole("link", { name: "2 Links away" })).toHaveAttribute("aria-current", "true");
+
+  // A node opens its Item, whose Connections show the Note linking to it.
+  await targetNode.locator("circle").last().click();
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(target);
+  await expect(connections.getByRole("link", { name: new RegExp(`^${source}, Note, links to 1`) })).toBeVisible();
+
+  // Tidy up both Notes.
+  await trashRows(page, [source, target]);
+});
+
+// A Folder with a subfolder holding one Note. Leaves you on the Note.
+async function nestedNote(page: Page, stamp: number) {
+  const names = { parent: `Tree parent ${stamp}`, child: `Tree child ${stamp}`, note: `Tree note ${stamp}` };
   await page.goto("/items");
-  for (const title of titles) {
-    const item = page.getByRole("row").filter({ hasText: title });
-    await item.getByRole("button", { name: `Actions for ${title}` }).click();
-    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
-    await expect(item).toHaveCount(0);
+  await page.getByRole("button", { name: "New Folder" }).click();
+  await page.getByLabel("Folder name").fill(names.parent);
+  await page.getByRole("button", { name: "Create Folder" }).click();
+  await expect(page.getByLabel("Folder name")).toBeHidden();
+  await page.goto("/items");
+  await page.getByRole("main").getByRole("link", { name: names.parent }).click();
+  await expect(page.getByRole("heading", { name: names.parent, level: 1 })).toBeVisible();
+  const parentUrl = page.url();
+  await page.getByRole("button", { name: `New subfolder in ${names.parent}` }).click();
+  await page.getByRole("dialog", { name: "New subfolder" }).getByLabel("Name").fill(names.child);
+  await page.getByRole("dialog", { name: "New subfolder" }).getByRole("button", { name: "Create" }).click();
+  await page.getByRole("main").getByRole("link", { name: names.child }).click();
+  await expect(page.getByRole("heading", { name: names.child, level: 1 })).toBeVisible();
+  await newNote(page, names.note);
+  return { ...names, parentUrl, parentId: parentUrl.split("/").pop()! };
+}
+
+test("the Graph's Folder panel opens a Folder's graph, filters, and stays hidden once hidden", async ({ page }) => {
+  await signIn(page);
+  const { parent, child, parentUrl, parentId } = await nestedNote(page, Date.now());
+
+  await page.goto("/graph");
+  const panel = page.getByRole("complementary", { name: "Folders" });
+  await expect(panel.getByRole("link", { name: "All Items" })).toHaveAttribute("aria-current", "page");
+  await panel.getByRole("link", { name: new RegExp(parent) }).click();
+  await expect(page).toHaveURL(new RegExp(`/graph\\?folderId=${parentId}$`));
+  await expect(panel.getByRole("link", { name: new RegExp(parent) })).toHaveAttribute("aria-current", "page");
+  await expectNoViolations(page);
+  // Nothing in it is wider than the panel, so the counts stay on screen.
+  expect(await panel.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+
+  // The filter finds a subfolder without opening the tree.
+  await panel.getByRole("searchbox", { name: "Filter Folders" }).fill(child);
+  await panel.getByRole("list", { name: "Folders" }).getByRole("link", { name: new RegExp(child) }).click();
+  await expect(page).not.toHaveURL(new RegExp(parentId));
+  // The tree opens along the path to it.
+  await expect(panel.getByRole("link", { name: new RegExp(child) })).toHaveAttribute("aria-current", "page");
+  await expect(panel.getByRole("link", { name: new RegExp(parent) })).toBeVisible();
+
+  const toggle = page.getByRole("button", { name: "Folders", exact: true });
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await toggle.click();
+  await expect(panel).toBeHidden();
+  await page.reload();
+  await expect(panel).toBeHidden();
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await toggle.click();
+  await expect(panel).toBeVisible();
+
+  // On a phone it opens as a Sheet, and choosing a Folder closes it.
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/graph");
+  await expect(panel).toBeHidden();
+  await page.getByRole("button", { name: "Folders", exact: true }).click();
+  const sheet = page.getByRole("dialog", { name: "Folders" });
+  await sheet.getByRole("link", { name: new RegExp(parent) }).click();
+  await expect(page).toHaveURL(new RegExp(`folderId=${parentId}`));
+  await expect(sheet).toBeHidden();
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto(parentUrl);
+  await trashFolder(page, parent);
+});
+
+test("the Graph's Tree mode shows Folders and Items, opens and shuts Folders, and is kept in the URL", async ({ page }) => {
+  await signIn(page);
+  const { parent, child, note, parentUrl, parentId } = await nestedNote(page, Date.now());
+
+  await page.goto(`/graph?folderId=${parentId}`);
+  await page.getByRole("radiogroup", { name: "Draw the graph by" }).getByRole("radio", { name: "Tree" }).click();
+  await expect(page).toHaveURL(new RegExp(`folderId=${parentId}&mode=tree`));
+
+  const parentNode = page.getByRole("button", { name: `${parent}, Folder, 1 inside, expanded` });
+  const childNode = page.getByRole("button", { name: new RegExp(`^${child}, Folder, 1 inside`) });
+  const noteNode = page.getByRole("link", { name: new RegExp(`^${note}, Note, In `) });
+  await expect(parentNode).toBeVisible();
+  await expect(childNode).toHaveAttribute("aria-expanded", "true");
+  await expect(noteNode).toBeVisible();
+  await expectNoViolations(page);
+
+  // The panel and the reload both keep the mode.
+  await expect(page.getByRole("complementary", { name: "Folders" }).getByRole("link", { name: "All Items" })).toHaveAttribute("href", "/graph?mode=tree");
+  await page.reload();
+  await expect(page.getByRole("radio", { name: "Tree" })).toBeChecked();
+
+  // The keyboard: arrows follow the tree, and Enter shuts a Folder, which then shows its count.
+  await parentNode.focus();
+  for (const key of ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"]) {
+    if (await childNode.evaluate((el) => el === document.activeElement)) break;
+    await parentNode.focus();
+    await page.keyboard.press(key);
   }
+  await expect(childNode).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(noteNode).toHaveCount(0);
+  await expect(childNode).toHaveAttribute("aria-expanded", "false");
+  await expect(childNode.locator("text").first()).toHaveText("1");
+  await expect(childNode).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(childNode).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Space");
+  await expect(childNode).toHaveAttribute("aria-expanded", "false");
+
+  // A click opens it again, the hover card names it, and a Note opens its page.
+  await childNode.hover();
+  await expect(page.getByText("Folder · 1 inside")).toBeVisible();
+  await childNode.click();
+  await expect(noteNode).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reset layout" })).toHaveCount(0);
+  await expectNoViolations(page);
+  await noteNode.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/notes\//);
+
+  await page.goto(parentUrl);
+  await trashFolder(page, parent);
+});
+
+test("the Graph goes full screen, refits, and the button returns", async ({ page }) => {
+  await signIn(page);
+  await newNote(page, `Full screen ${Date.now()}`);
+  await page.goto("/graph");
+  const canvas = page.getByRole("group", { name: /graph/i }).first();
+  await expect(canvas).toBeVisible();
+  const before = (await canvas.boundingBox())!;
+
+  await page.getByRole("button", { name: "Full screen" }).click();
+  await expect(page.getByRole("button", { name: "Exit full screen" })).toBeVisible();
+  expect(await page.evaluate(() => !!document.fullscreenElement)).toBe(true);
+  await expect.poll(async () => (await canvas.boundingBox())!.height).toBeGreaterThan(before.height);
+  await expectNoViolations(page);
+
+  await page.getByRole("button", { name: "Exit full screen" }).click();
+  await expect(page.getByRole("button", { name: "Full screen" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
 });

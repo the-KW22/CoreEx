@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { labelOpacity, linkMaps, nodeLabel, step, type GraphNode } from "./graph";
+import { fit, graphIsNotFound, labelOpacity, linkMaps, nodeLabel, step, type GraphNode } from "./graph";
 
 const node = (over: Partial<GraphNode>): GraphNode => ({
   id: "a",
   type: "NOTE",
   title: "Energy",
+  folderId: null,
   folderPath: null,
   linkCount: 0,
   stub: false,
@@ -63,5 +64,37 @@ describe("labelOpacity", () => {
     expect(labelOpacity(1.25)).toBeCloseTo(0.5);
     expect(labelOpacity(1.5)).toBe(1);
     expect(labelOpacity(4)).toBe(1);
+  });
+});
+
+describe("graphIsNotFound", () => {
+  const notFound = { code: "NOT_FOUND" };
+  it("is true for a bad or missing Folder", () => {
+    expect(graphIsNotFound(404, "f1", notFound)).toBe(true);
+    expect(graphIsNotFound(400, "f1", { code: "INVALID_REQUEST" })).toBe(true);
+  });
+  it("is false for All Items, whatever the status", () => {
+    expect(graphIsNotFound(404, null, notFound)).toBe(false);
+    expect(graphIsNotFound(404, null, undefined)).toBe(false);
+  });
+  it("is false for a 404 that is not the API's own error, such as a missing route", () => {
+    expect(graphIsNotFound(404, "f1", { status: 404, error: "Not Found" })).toBe(false);
+    expect(graphIsNotFound(404, "f1", undefined)).toBe(false);
+  });
+});
+
+describe("fit", () => {
+  it("puts every node inside the box with padding, even a far-off one", () => {
+    const pos = new Map([["a", { x: 0, y: 0 }], ["b", { x: 4000, y: 100 }], ["c", { x: -50, y: 900 }]]);
+    const { k, x, y } = fit(pos, 800, 500);
+    for (const p of pos.values()) {
+      expect(p.x * k + x).toBeGreaterThanOrEqual(48 - 0.001);
+      expect(p.x * k + x).toBeLessThanOrEqual(752.001);
+      expect(p.y * k + y).toBeGreaterThanOrEqual(48 - 0.001);
+      expect(p.y * k + y).toBeLessThanOrEqual(452.001);
+    }
+  });
+  it("centres a single node without growing past 1.5x", () => {
+    expect(fit(new Map([["a", { x: 10, y: 10 }]]), 400, 300)).toEqual({ k: 1.5, x: 185, y: 135 });
   });
 });

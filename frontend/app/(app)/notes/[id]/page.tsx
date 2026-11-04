@@ -5,13 +5,14 @@ import { getApi } from "@/lib/api/server";
 import { pathTo } from "@/lib/folders";
 
 import { FolderPicker } from "../../items/folder-picker";
-import { ItemBacklinks } from "../../items/item-sections";
+import { ItemBacklinks, ItemConnections, parseDepth } from "../../items/item-sections";
 import { TagEditor } from "../../items/tag-editor";
 import { RecordOpen } from "../../search/record-open";
 import { NoteEditor } from "./note-editor";
 
-export default async function NotePage({ params }: PageProps<"/notes/[id]">) {
+export default async function NotePage({ params, searchParams }: PageProps<"/notes/[id]">) {
   const { id } = await params;
+  const depth = parseDepth((await searchParams).depth);
   const api = await getApi();
   const [result, list, itemTags, allTags, jar] = await Promise.all([
     api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null),
@@ -58,6 +59,7 @@ export default async function NotePage({ params }: PageProps<"/notes/[id]">) {
           <div className="grid gap-6">
             <FolderPicker itemId={note.id} folderId={note.folderId} folders={folders} />
             <ItemBacklinks itemId={note.id} />
+            <ItemConnections itemId={note.id} type="NOTE" folderId={note.folderId} depth={depth} />
           </div>
         }
         detailsCookie={remembered === "open" || remembered === "closed" ? remembered : null}

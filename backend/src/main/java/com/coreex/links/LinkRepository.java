@@ -1,5 +1,6 @@
 package com.coreex.links;
 
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
@@ -93,6 +94,18 @@ class LinkRepository {
 	List<GraphEdge> graphEdges(UUID ownerId, List<UUID> folderIds) {
 		var sql = jdbc.sql(scope(folderIds) + "select source_id, target_id from edge").param("owner", ownerId);
 		return (folderIds == null ? sql : sql.param("folders", folderIds))
+				.query((rs, n) -> new GraphEdge(rs.getObject("source_id", UUID.class),
+						rs.getObject("target_id", UUID.class)))
+				.list();
+	}
+
+	/** The Links into or out of these Items whose both ends are live Items of the User. */
+	List<GraphEdge> edgesTouching(UUID ownerId, Collection<UUID> ids) {
+		return jdbc.sql("""
+				select l.source_id, l.target_id from links l
+				join items s on s.id = l.source_id and s.owner_id = :owner and s.deleted_at is null
+				join items t on t.id = l.target_id and t.owner_id = :owner and t.deleted_at is null
+				where l.source_id in (:ids) or l.target_id in (:ids)""").param("owner", ownerId).param("ids", ids)
 				.query((rs, n) -> new GraphEdge(rs.getObject("source_id", UUID.class),
 						rs.getObject("target_id", UUID.class)))
 				.list();

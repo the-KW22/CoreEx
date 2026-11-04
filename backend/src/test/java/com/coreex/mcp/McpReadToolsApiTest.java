@@ -170,6 +170,7 @@ class McpReadToolsApiTest extends McpApiTest {
 		assertThat(callFails("list_items", "{\"folderId\":\"" + theirFolder + "\"}")).containsIgnoringCase("no such");
 		assertThat(call("get_graph", "{}").path("nodes").size()).isZero();
 		assertThat(callFails("get_graph", "{\"folderId\":\"" + theirFolder + "\"}")).containsIgnoringCase("no such");
+		assertThat(callFails("get_graph", "{\"itemId\":\"" + theirs + "\"}")).containsIgnoringCase("no such");
 	}
 
 	/** The node with this id in a get_graph result. */
@@ -201,6 +202,23 @@ class McpReadToolsApiTest extends McpApiTest {
 			assertThat(edge.path("target").asString()).isEqualTo(hub);
 		}
 		assertThat(node(graph, a).path("type").asString()).isEqualTo("NOTE");
+	}
+
+	@Test
+	void getGraphWithAnItemMapsWhatIsAroundItUpToTheDepth() throws Exception {
+		var far = note(jwt, "Far", "", null);
+		note(jwt, "Near", "[[Far]]", null);
+		var item = note(jwt, "Item", "[[Near]]", null);
+		var unrelated = note(jwt, "Unrelated", "", null);
+
+		var one = call("get_graph", "{\"itemId\":\"" + item + "\"}");
+		var two = call("get_graph", "{\"itemId\":\"" + item + "\",\"depth\":2}");
+
+		assertThat(one.path("nodes").size()).isEqualTo(2);
+		assertThat(one.path("nodes").get(0).path("id").asString()).isEqualTo(item);
+		assertThat(two.path("nodes").size()).isEqualTo(3);
+		assertThat(two.toString()).contains(far).doesNotContain(unrelated);
+		assertThat(callFails("get_graph", "{\"itemId\":\"" + item + "\",\"depth\":3}")).contains("1 or 2");
 	}
 
 	@Test

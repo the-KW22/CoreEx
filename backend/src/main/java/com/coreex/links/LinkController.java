@@ -68,6 +68,8 @@ class LinkController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Item.Type type,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+					description = "The Folder the Item is in, null at the top level") UUID folderId,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
 					description = "The Folder path such as \"Work / CoreEx\", null at the top level") String folderPath,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
 					description = "Links to and from this Item within the graph") int linkCount,
@@ -87,6 +89,15 @@ class LinkController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
 					description = "Nodes before the cap of 500 most-linked") int total,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean truncated) {
+
+		static GraphResponse of(LinkService.Graph graph) {
+			return new GraphResponse(graph.nodes().stream()
+					.map(n -> new GraphNodeResponse(n.id(), n.type(), n.title(), n.folderId(), n.folderPath(), n.linkCount(), n.stub(),
+							n.x(), n.y()))
+					.toList(), graph.edges().stream().map(e -> new GraphEdgeResponse(e.source(), e.target())).toList(),
+					graph.total(), graph.truncated());
+		}
+
 	}
 
 	record PositionRequest(@NotNull @DecimalMin("-1000000") @DecimalMax("1000000") Double x,
@@ -126,12 +137,20 @@ class LinkController {
 			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
 	GraphResponse graph(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@RequestParam(required = false) UUID folderId) {
-		var graph = links.graph(user.id(), folderId);
-		return new GraphResponse(graph.nodes().stream()
-				.map(n -> new GraphNodeResponse(n.id(), n.type(), n.title(), n.folderPath(), n.linkCount(), n.stub(), n.x(),
-						n.y()))
-				.toList(), graph.edges().stream().map(e -> new GraphEdgeResponse(e.source(), e.target())).toList(),
-				graph.total(), graph.truncated());
+		return GraphResponse.of(links.graph(user.id(), folderId));
+	}
+
+	/** The local graph of an Item: it, the Items up to depth (1 or 2) Links away, and the Links among them. */
+	@GetMapping("/api/items/{id}/graph")
+	@ApiResponse(responseCode = "200", description = "Items as nodes and Links as edges, the Item first",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = GraphResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST (a depth other than 1 or 2)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's or a trashed Item)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	GraphResponse localGraph(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id, @RequestParam(defaultValue = "1") int depth) {
+		return GraphResponse.of(links.localGraph(user.id(), id, depth));
 	}
 
 	/** Saves where the User left an Item in the graph of a Folder, or of All Items without folderId. */

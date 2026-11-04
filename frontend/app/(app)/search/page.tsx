@@ -16,9 +16,10 @@ const PAGE_SIZE = 20;
 // A query-string value can be a string or a list; take the first string.
 const one = (value: string | string[] | undefined) => (typeof value === "string" ? value : (value?.[0] ?? ""));
 
-// The filters are native selects, styled like the Folder picker on the Note screen.
+// The filters are native selects, styled like the Folder picker on the Note screen. A native select is as wide as its
+// longest option unless it is told otherwise, so a long Tag name would push it out of its column.
 const field =
-  "grid gap-1.5 text-sm font-medium [&_select]:h-9 [&_select]:rounded-lg [&_select]:border [&_select]:border-border [&_select]:bg-surface [&_select]:px-2 [&_select]:font-normal";
+  "grid grid-cols-[minmax(0,1fr)] gap-1.5 text-sm font-medium [&_select]:h-9 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-border [&_select]:bg-surface [&_select]:px-2 [&_select]:font-normal";
 
 // The Search screen (docs/DESIGN.md section 6.10). The command palette's "Search all text" row lands here.
 export default async function SearchPage({ searchParams }: PageProps<"/search">) {
@@ -140,11 +141,16 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
             {result.data.items.map((hit) => {
               const Icon = hit.type === "NOTE" ? FileTextIcon : ImageIcon;
               return (
-                <li key={hit.id} className="grid gap-1 rounded-[10px] border border-border px-4 py-3 hover:bg-surface">
+                <li
+                  key={hit.id}
+                  className="grid grid-cols-[minmax(0,1fr)] gap-1 rounded-[10px] border border-border px-4 py-3 hover:bg-surface"
+                >
                   <Link href={itemHref(hit)} className="flex items-center gap-2 font-medium hover:underline">
                     <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
                     <span className="sr-only">{hit.type === "NOTE" ? "Note:" : "Asset:"}</span>
-                    <span className="truncate">{hit.title || "Untitled"}</span>
+                    <span className="truncate" title={hit.title || undefined}>
+                      {hit.title || "Untitled"}
+                    </span>
                   </Link>
                   <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                     {hit.folderPath && (

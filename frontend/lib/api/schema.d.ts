@@ -516,6 +516,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/items/{id}/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["localGraph"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/items/{id}/backlinks": {
         parameters: {
             query?: never;
@@ -1106,6 +1122,11 @@ export interface components {
             /** @enum {string} */
             type: "NOTE" | "ASSET";
             title: string;
+            /**
+             * Format: uuid
+             * @description The Folder the Item is in, null at the top level
+             */
+            folderId: string | null;
             /** @description The Folder path such as "Work / CoreEx", null at the top level */
             folderPath: string | null;
             /**
@@ -2862,6 +2883,48 @@ export interface operations {
                 };
             };
             /** @description Code NOT_FOUND: no such Folder or Tag */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    localGraph: {
+        parameters: {
+            query?: {
+                depth?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Items as nodes and Links as edges, the Item first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GraphResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST (a depth other than 1 or 2) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's or a trashed Item) */
             404: {
                 headers: {
                     [name: string]: unknown;

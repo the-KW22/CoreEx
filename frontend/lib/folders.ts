@@ -48,3 +48,11 @@ export function pathTo(folders: Folder[], id: string): Folder[] {
 
 // The Folder whose page is open, from the URL: the panel highlights it and new Notes and uploads go into it.
 export const viewingFolderId = (pathname: string) => /^\/folders\/([^/]+)/.exec(pathname)?.[1];
+
+// The Graph's Folder menu: top-level Folders only, since a Folder's graph already holds its subfolders. A subfolder opened
+// through ?folderId= is added as one more flat choice, so the menu names what is on screen.
+export function graphFolderChoices(folders: Folder[], selected: string | null): Folder[] {
+  const top = folders.filter((folder) => !folder.parentId);
+  const open = folders.find((folder) => folder.id === selected && folder.parentId);
+  return open ? [...top, { ...open, parentId: null }] : top;
+}

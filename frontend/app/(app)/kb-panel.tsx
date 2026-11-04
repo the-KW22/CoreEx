@@ -27,11 +27,11 @@ type Tag = { id: string; name: string; colour?: TagColour | null };
 type PanelItem = { id: string; type: "NOTE" | "ASSET"; title: string };
 type View = "notes" | "folders" | "tags";
 
-const input =
+export const panelInput =
   "h-9 w-full rounded-lg border border-border bg-surface px-3 text-sm text-foreground placeholder:text-muted-foreground pointer-coarse:h-11";
 const plusButton =
   "grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-surface hover:text-foreground pointer-coarse:size-11";
-const itemLink =
+export const itemLink =
   "flex min-h-8 items-center gap-2 rounded-lg px-2 text-sm text-muted-foreground hover:bg-surface hover:text-foreground pointer-coarse:min-h-11";
 
 // The Items in the Folder being viewed. `undefined` while loading, `null` when the lookup failed.
@@ -169,7 +169,7 @@ function NewName({
         >
           <label className="grid gap-1 text-sm font-medium">
             {field}
-            <input name="name" required maxLength={max} autoFocus className={input} />
+            <input name="name" required maxLength={max} autoFocus className={panelInput} />
           </label>
           <button type="submit" className="h-9 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground">
             {submit}
@@ -232,7 +232,7 @@ export function KbPanel({ folders, tags }: { folders: Folder[] | null; tags: Tag
           value={text}
           onChange={(event) => setText(event.target.value)}
           placeholder={`Filter ${view}`}
-          className={`${input} pl-9`}
+          className={`${panelInput} pl-9`}
         />
       </label>
 
