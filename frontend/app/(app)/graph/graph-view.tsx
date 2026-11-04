@@ -1,5 +1,6 @@
 "use client";
 
+import { FolderTreeIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -7,29 +8,47 @@ import { toast } from "sonner";
 
 import { Alert } from "@/components/alert";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { components } from "@/lib/api/schema";
 import { graphFolderChoices, type Folder } from "@/lib/folders";
 import { linkMaps, where, type GraphNode } from "@/lib/graph";
+import { graphHref, startCollapsed, treeGraph, type GraphMode } from "@/lib/graph-tree";
 import { itemHref } from "@/lib/items";
 
 import { FolderSelect } from "../folders/folder-select";
 import { ViewToggle } from "../items/view-toggle";
 import { resetLayout, savePosition } from "./actions";
 import { GraphCanvas } from "./graph-canvas";
+import { GraphFolders } from "./graph-folders";
 
 export function GraphView({
   graph,
   folders,
   folderId,
+  mode,
+  panelOpen,
 }: {
   graph: components["schemas"]["GraphResponse"];
   folders: Folder[];
   folderId: string | null;
+  mode: GraphMode;
+  panelOpen: boolean;
 }) {
   const router = useRouter();
   const { edges } = graph;
   const nodes = useMemo(() => graph.nodes.map((n) => ({ ...n, title: n.title || "Untitled" })), [graph.nodes]);
   const [table, setTable] = useState(false);
+  const [panel, setPanel] = useState(panelOpen);
+  const [sheet, setSheet] = useState(false);
+  const href = (id: string | null) => graphHref(id, mode);
+  function togglePanel() {
+    setPanel(!panel);
+    document.cookie = `graph-panel=${panel ? "closed" : "open"}; path=/; max-age=31536000; samesite=lax`;
+  }
+  // Tree mode also draws Folders with nothing in them yet.
+  const hasFolders = folders.some((f) => f.parentId === folderId);
+  const empty = nodes.length === 0 && !(mode === "tree" && hasFolders);
 
   const listHref = folderId ? `/folders/${folderId}` : "/items";
   const scope = folderId ? (folders.find((f) => f.id === folderId)?.name ?? "this Folder") : "All Items";
@@ -45,11 +64,29 @@ export function GraphView({
             folders={graphFolderChoices(folders, folderId)}
             selected={folderId}
             emptyLabel="All Items"
-            onChange={(id) => router.push(id ? `/graph?folderId=${id}` : "/graph")}
+            onChange={(id) => router.push(href(id))}
             className="w-56"
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" className="hidden md:inline-flex" aria-pressed={panel} onClick={togglePanel}>
+            <FolderTreeIcon aria-hidden />
+            Folders
+          </Button>
+          <Button variant="outline" className="md:hidden" onClick={() => setSheet(true)}>
+            <FolderTreeIcon aria-hidden />
+            Folders
+          </Button>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            value={mode}
+            onValueChange={(value) => value && router.push(graphHref(folderId, value as GraphMode))}
+            aria-label="Draw the graph by"
+          >
+            <ToggleGroupItem value="links">Links</ToggleGroupItem>
+            <ToggleGroupItem value="tree">Tree</ToggleGroupItem>
+          </ToggleGroup>
           {nodes.length > 0 && (
             <Button variant="outline" aria-pressed={table} onClick={() => setTable(!table)}>
               {table ? "Show as graph" : "Show as table"}
@@ -65,35 +102,92 @@ export function GraphView({
         </Alert>
       )}
 
-      {nodes.length === 0 ? (
-        <div className="grid justify-items-center gap-2 rounded-[14px] border border-dashed border-border px-6 py-16 text-center">
-          <h2 className="text-lg font-semibold">Map how your Items connect</h2>
-          <p className="max-w-md text-sm text-muted-foreground">
-            Every Note and Asset in {scope} appears here as a dot, and every Link as a line. Type [[ in a Note to link it.
-          </p>
-          <Button asChild variant="outline" className="mt-2">
-            <Link href={listHref}>Open {scope}</Link>
-          </Button>
-        </div>
-      ) : table ? (
-        <GraphTable nodes={nodes} edges={edges} />
-      ) : (
-        <GraphCanvas
-          nodes={nodes}
-          edges={edges}
-          label={`Graph of ${scope}: ${nodes.length} Items. Tab to an Item, arrow keys move along its Links.`}
-          className="h-[70vh] min-h-96"
-          onDrop={async (id, x, y) => {
-            if (!(await savePosition(id, folderId, x, y))) toast.error("Could not save where you put it. Try again.");
-          }}
-          onReset={async () => {
-            const ok = await resetLayout(folderId);
-            if (!ok) toast.error("Could not reset the layout. Try again.");
-            return ok;
-          }}
-        />
-      )}
+      <div className={panel ? "grid gap-4 md:grid-cols-[16rem_minmax(0,1fr)]" : "grid"}>
+        {panel && (
+          <aside aria-label="Folders" className="hidden h-[70vh] min-h-96 overflow-y-auto rounded-[14px] border border-border p-2 md:block">
+            <GraphFolders folders={folders} current={folderId} href={href} />
+          </aside>
+        )}
+        {empty ? (
+          <div className="grid justify-items-center gap-2 rounded-[14px] border border-dashed border-border px-6 py-16 text-center">
+            <h2 className="text-lg font-semibold">Map how your Items connect</h2>
+            <p className="max-w-md text-sm text-muted-foreground">
+              Every Note and Asset in {scope} appears here as a dot, and every Link as a line. Type [[ in a Note to link it.
+            </p>
+            <Button asChild variant="outline" className="mt-2">
+              <Link href={listHref}>Open {scope}</Link>
+            </Button>
+          </div>
+        ) : table ? (
+          <GraphTable nodes={nodes} edges={edges} />
+        ) : mode === "tree" ? (
+          <FolderTreeGraph items={nodes} folders={folders} folderId={folderId} scope={scope} big={graph.truncated} />
+        ) : (
+          <GraphCanvas
+            nodes={nodes}
+            edges={edges}
+            label={`Graph of ${scope}: ${nodes.length} Items. Tab to an Item, arrow keys move along its Links.`}
+            className="h-[70vh] min-h-96"
+            onDrop={async (id, x, y) => {
+              if (!(await savePosition(id, folderId, x, y))) toast.error("Could not save where you put it. Try again.");
+            }}
+            onReset={async () => {
+              const ok = await resetLayout(folderId);
+              if (!ok) toast.error("Could not reset the layout. Try again.");
+              return ok;
+            }}
+          />
+        )}
+      </div>
+
+      {/* Phones: the panel as a Sheet. Choosing a Folder opens another page, which closes it. */}
+      <Sheet open={sheet} onOpenChange={setSheet}>
+        <SheetContent side="left" className="w-72 overflow-y-auto border-border bg-panel p-3">
+          <SheetTitle>Folders</SheetTitle>
+          <GraphFolders folders={folders} current={folderId} href={href} />
+        </SheetContent>
+      </Sheet>
     </div>
+  );
+}
+
+// The Tree mode: Folders open and shut, and everything else on the canvas works as it does for Links. A graph too big to
+// show whole opens with its Folders shut.
+function FolderTreeGraph({
+  items,
+  folders,
+  folderId,
+  scope,
+  big,
+}: {
+  items: GraphNode[];
+  folders: Folder[];
+  folderId: string | null;
+  scope: string;
+  big: boolean;
+}) {
+  const [collapsed, setCollapsed] = useState(() => (big ? startCollapsed(folders, folderId) : new Set<string>()));
+  const { nodes, edges, pos } = useMemo(() => treeGraph(folders, items, folderId, collapsed), [folders, items, folderId, collapsed]);
+  const tree = useMemo(
+    () => ({
+      pos,
+      onToggle: (id: string) =>
+        setCollapsed((shut) => {
+          const next = new Set(shut);
+          if (!next.delete(id)) next.add(id);
+          return next;
+        }),
+    }),
+    [pos],
+  );
+  return (
+    <GraphCanvas
+      nodes={nodes}
+      edges={edges}
+      tree={tree}
+      label={`Tree of ${scope}: ${nodes.length} Folders and Items. Tab to one, arrow keys move along the tree, Enter opens an Item or opens and shuts a Folder.`}
+      className="h-[70vh] min-h-96"
+    />
   );
 }
 

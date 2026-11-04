@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { MCP_TOOLS } from "../lib/mcp-tools";
 
@@ -1593,6 +1593,128 @@ test("a Note's Connections show its Links as a small graph and a list, kept curr
     await page.getByRole("menuitem", { name: "Move to Trash" }).click();
     await expect(item).toHaveCount(0);
   }
+});
+
+// A Folder with a subfolder holding one Note. Leaves you on the Note.
+async function nestedNote(page: Page, stamp: number) {
+  const names = { parent: `Tree parent ${stamp}`, child: `Tree child ${stamp}`, note: `Tree note ${stamp}` };
+  await page.goto("/items");
+  await page.getByRole("button", { name: "New Folder" }).click();
+  await page.getByLabel("Folder name").fill(names.parent);
+  await page.getByRole("button", { name: "Create Folder" }).click();
+  await expect(page.getByLabel("Folder name")).toBeHidden();
+  await page.goto("/items");
+  await page.getByRole("main").getByRole("link", { name: names.parent }).click();
+  await expect(page.getByRole("heading", { name: names.parent, level: 1 })).toBeVisible();
+  const parentUrl = page.url();
+  await page.getByRole("button", { name: `New subfolder in ${names.parent}` }).click();
+  await page.getByRole("dialog", { name: "New subfolder" }).getByLabel("Name").fill(names.child);
+  await page.getByRole("dialog", { name: "New subfolder" }).getByRole("button", { name: "Create" }).click();
+  await page.getByRole("main").getByRole("link", { name: names.child }).click();
+  await expect(page.getByRole("heading", { name: names.child, level: 1 })).toBeVisible();
+  await newNote(page, names.note);
+  return { ...names, parentUrl, parentId: parentUrl.split("/").pop()! };
+}
+
+test("the Graph's Folder panel opens a Folder's graph, filters, and stays hidden once hidden", async ({ page }) => {
+  await signIn(page);
+  const { parent, child, parentUrl, parentId } = await nestedNote(page, Date.now());
+
+  await page.goto("/graph");
+  const panel = page.getByRole("complementary", { name: "Folders" });
+  await expect(panel.getByRole("link", { name: "All Items" })).toHaveAttribute("aria-current", "page");
+  await panel.getByRole("link", { name: new RegExp(parent) }).click();
+  await expect(page).toHaveURL(new RegExp(`/graph\\?folderId=${parentId}$`));
+  await expect(panel.getByRole("link", { name: new RegExp(parent) })).toHaveAttribute("aria-current", "page");
+  await expectNoViolations(page);
+  // Nothing in it is wider than the panel, so the counts stay on screen.
+  expect(await panel.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+
+  // The filter finds a subfolder without opening the tree.
+  await panel.getByRole("searchbox", { name: "Filter Folders" }).fill(child);
+  await panel.getByRole("list", { name: "Folders" }).getByRole("link", { name: new RegExp(child) }).click();
+  await expect(page).not.toHaveURL(new RegExp(parentId));
+  // The tree opens along the path to it.
+  await expect(panel.getByRole("link", { name: new RegExp(child) })).toHaveAttribute("aria-current", "page");
+  await expect(panel.getByRole("link", { name: new RegExp(parent) })).toBeVisible();
+
+  const toggle = page.getByRole("button", { name: "Folders", exact: true });
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await toggle.click();
+  await expect(panel).toBeHidden();
+  await page.reload();
+  await expect(panel).toBeHidden();
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await toggle.click();
+  await expect(panel).toBeVisible();
+
+  // On a phone it opens as a Sheet, and choosing a Folder closes it.
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/graph");
+  await expect(panel).toBeHidden();
+  await page.getByRole("button", { name: "Folders", exact: true }).click();
+  const sheet = page.getByRole("dialog", { name: "Folders" });
+  await sheet.getByRole("link", { name: new RegExp(parent) }).click();
+  await expect(page).toHaveURL(new RegExp(`folderId=${parentId}`));
+  await expect(sheet).toBeHidden();
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto(parentUrl);
+  await trashFolder(page, parent);
+});
+
+test("the Graph's Tree mode shows Folders and Items, opens and shuts Folders, and is kept in the URL", async ({ page }) => {
+  await signIn(page);
+  const { parent, child, note, parentUrl, parentId } = await nestedNote(page, Date.now());
+
+  await page.goto(`/graph?folderId=${parentId}`);
+  await page.getByRole("radiogroup", { name: "Draw the graph by" }).getByRole("radio", { name: "Tree" }).click();
+  await expect(page).toHaveURL(new RegExp(`folderId=${parentId}&mode=tree`));
+
+  const parentNode = page.getByRole("button", { name: `${parent}, Folder, 1 inside, expanded` });
+  const childNode = page.getByRole("button", { name: new RegExp(`^${child}, Folder, 1 inside`) });
+  const noteNode = page.getByRole("link", { name: new RegExp(`^${note}, Note, In `) });
+  await expect(parentNode).toBeVisible();
+  await expect(childNode).toHaveAttribute("aria-expanded", "true");
+  await expect(noteNode).toBeVisible();
+  await expectNoViolations(page);
+
+  // The panel and the reload both keep the mode.
+  await expect(page.getByRole("complementary", { name: "Folders" }).getByRole("link", { name: "All Items" })).toHaveAttribute("href", "/graph?mode=tree");
+  await page.reload();
+  await expect(page.getByRole("radio", { name: "Tree" })).toBeChecked();
+
+  // The keyboard: arrows follow the tree, and Enter shuts a Folder, which then shows its count.
+  await parentNode.focus();
+  for (const key of ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"]) {
+    if (await childNode.evaluate((el) => el === document.activeElement)) break;
+    await parentNode.focus();
+    await page.keyboard.press(key);
+  }
+  await expect(childNode).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(noteNode).toHaveCount(0);
+  await expect(childNode).toHaveAttribute("aria-expanded", "false");
+  await expect(childNode.locator("text").first()).toHaveText("1");
+  await expect(childNode).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(childNode).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Space");
+  await expect(childNode).toHaveAttribute("aria-expanded", "false");
+
+  // A click opens it again, the hover card names it, and a Note opens its page.
+  await childNode.hover();
+  await expect(page.getByText("Folder · 1 inside")).toBeVisible();
+  await childNode.click();
+  await expect(noteNode).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reset layout" })).toHaveCount(0);
+  await expectNoViolations(page);
+  await noteNode.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/notes\//);
+
+  await page.goto(parentUrl);
+  await trashFolder(page, parent);
 });
 
 test("the Graph goes full screen, refits, and the button returns", async ({ page }) => {

@@ -13,15 +13,25 @@ import { ItemCount } from "./item-count";
 
 const row = "flex min-h-8 items-center gap-2 rounded-lg px-2 text-sm pointer-coarse:min-h-11";
 
-// The panel's tree. A Folder with subfolders collapses; it opens along the path to the Folder being viewed.
-export function FolderTree({ folders }: { folders: Folder[] }) {
+// The panel's tree. A Folder with subfolders collapses; it opens along the path to the Folder being viewed. The Graph
+// page passes `href` and `current`, since its Folder is in the query string and its links stay on the Graph.
+export function FolderTree({
+  folders,
+  href = (id) => `/folders/${id}`,
+  current,
+}: {
+  folders: Folder[];
+  href?: (folderId: string) => string;
+  current?: string | null;
+}) {
   const children = childrenByParent(folders);
-  const viewing = viewingFolderId(usePathname());
+  const fromPath = viewingFolderId(usePathname());
+  const viewing = current === undefined ? fromPath : current;
   const opened = new Set(viewing ? [viewing, ...ancestorIds(folders, viewing)] : []);
 
   const link = (folder: Folder) => (
     <Link
-      href={`/folders/${folder.id}`}
+      href={href(folder.id)}
       aria-current={folder.id === viewing ? "page" : undefined}
       className={cn(
         row,
@@ -36,7 +46,8 @@ export function FolderTree({ folders }: { folders: Folder[] }) {
   );
 
   const list = (parentId: string | null) => (
-    <ul className={cn("grid gap-0.5", parentId && "ml-3 border-l border-border-subtle pl-2")}>
+    // minmax(0,1fr): an auto column would grow to a long name, pushing its count out of the panel.
+    <ul className={cn("grid grid-cols-[minmax(0,1fr)] gap-0.5", parentId && "ml-3 border-l border-border-subtle pl-2")}>
       {(children.get(parentId) ?? []).map((folder) => (
         <li key={folder.id}>
           {children.has(folder.id) ? (

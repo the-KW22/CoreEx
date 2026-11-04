@@ -7,7 +7,8 @@ import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } fro
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { fit, isArrow, labelOpacity, linkMaps, nodeLabel, nodeRadius, step, where, type GraphEdge, type GraphNode, type Point, type View } from "@/lib/graph";
+import { fit, isArrow, labelOpacity, linkMaps, nodeLabel, nodeRadius, step, where, type GraphEdge, type Point, type View } from "@/lib/graph";
+import { treeLabel, type CanvasNode } from "@/lib/graph-tree";
 import { itemHref } from "@/lib/items";
 
 import { useLayout } from "./use-layout";
@@ -32,8 +33,17 @@ const SHAPE = {
 // Labels have no transition: their opacity already follows the zoom, and they are only drawn while visible.
 const LABEL = "pointer-events-none fill-foreground";
 
+const FOLDER_RADIUS = 11;
+// The shape only Folders have.
+const hexagon = (r: number) =>
+  [0, 1, 2, 3, 4, 5].map((i) => `${r * Math.cos((i * Math.PI) / 3)},${r * Math.sin((i * Math.PI) / 3)}`).join(" ");
+// The simulation gets these in Tree mode, where the positions come from the tree.
+const NO_NODES: CanvasNode[] = [];
+const NO_EDGES: GraphEdge[] = [];
+
 // The picture of a graph that the Graph page and an Item's Connections share: pan, zoom, hover cards, keyboard, and
 // dragging nodes. `onDrop` saves where a node was left and `onReset` adds Reset layout; the local graph has neither.
+// `tree` is the Tree mode: its nodes stay where the tree puts them, and a Folder opens or shuts instead of being a link.
 export function GraphCanvas({
   nodes,
   edges,
@@ -42,8 +52,9 @@ export function GraphCanvas({
   centre,
   onDrop,
   onReset,
+  tree,
 }: {
-  nodes: GraphNode[];
+  nodes: CanvasNode[];
   edges: GraphEdge[];
   /** The canvas's accessible name. */
   label: string;
@@ -53,6 +64,7 @@ export function GraphCanvas({
   centre?: string;
   onDrop?: (id: string, x: number, y: number) => void;
   onReset?: () => Promise<boolean>;
+  tree?: { pos: Map<string, Point>; onToggle: (id: string) => void };
 }) {
   const router = useRouter();
   const arrowId = useId();
@@ -60,19 +72,20 @@ export function GraphCanvas({
   const titles = useMemo(() => new Map(nodes.map((n) => [n.id, n.title])), [nodes]);
   const { out, into } = useMemo(() => linkMaps(edges), [edges]);
   const names = useMemo(
-    () => new Map(nodes.map((n) => [n.id, nodeLabel(n, titles, out.get(n.id) ?? [], into.get(n.id) ?? [])])),
-    [nodes, titles, out, into],
+    () => new Map(nodes.map((n) => [n.id, tree || n.type === "FOLDER" ? treeLabel(n) : nodeLabel(n, titles, out.get(n.id) ?? [], into.get(n.id) ?? [])])),
+    [nodes, titles, out, into, tree],
   );
   const reduceMotion = !!useReducedMotion();
-  const layout = useLayout(nodes, edges, reduceMotion);
-  const pos = layout.pos;
+  const layout = useLayout(tree ? NO_NODES : nodes, tree ? NO_EDGES : edges, reduceMotion);
+  const pos = tree?.pos ?? layout.pos;
+  const layoutKey = tree?.pos ?? layout.key;
   const [size, setSize] = useState<{ w: number; h: number }>();
   const [view, setView] = useState<View>();
   const [refit, setRefit] = useState(false);
   // A server action refreshes the page with new data (lib/refresh.ts), which lays the graph out again.
-  const [laidOut, setLaidOut] = useState(layout.key);
-  if (laidOut !== layout.key) {
-    setLaidOut(layout.key);
+  const [laidOut, setLaidOut] = useState<unknown>(layoutKey);
+  if (laidOut !== layoutKey) {
+    setLaidOut(layoutKey);
     // After Reset layout, show the fresh layout whole. A local graph has no saved layout, so it always does.
     if ((refit || !onReset) && size) {
       setRefit(false);
@@ -175,7 +188,7 @@ export function GraphCanvas({
       setView({ ...g.view, x: g.view.x + at.x - g.from.x, y: g.view.y + at.y - g.from.y });
     } else {
       g.moved = true;
-      layout.place(g.id, { x: (at.x - view.x) / view.k, y: (at.y - view.y) / view.k });
+      if (!tree) layout.place(g.id, { x: (at.x - view.x) / view.k, y: (at.y - view.y) / view.k });
     }
   }
 
@@ -184,9 +197,10 @@ export function GraphCanvas({
     gesture.current = null;
     if (g?.kind !== "node") return;
     if (!g.moved) {
-      router.push(itemHref(byId.get(g.id)!));
+      open(byId.get(g.id)!);
       return;
     }
+    if (tree) return;
     // From the pointer itself: the last move may not have rendered yet.
     const at = pointer(e);
     const x = (at.x - view!.x) / view!.k;
@@ -200,9 +214,16 @@ export function GraphCanvas({
     if (!(await onReset!())) setRefit(false);
   }
 
-  function onKeyDown(e: React.KeyboardEvent, node: GraphNode) {
-    if (e.key === "Enter") {
-      router.push(itemHref(node));
+  function open(node: CanvasNode) {
+    if (node.type === "FOLDER") tree?.onToggle(node.id);
+    else router.push(itemHref(node));
+  }
+
+  function onKeyDown(e: React.KeyboardEvent, node: CanvasNode) {
+    // A Folder is a button, and a button answers to Space as well.
+    if (e.key === "Enter" || (e.key === " " && node.type === "FOLDER")) {
+      e.preventDefault();
+      open(node);
     } else if (isArrow(e.key)) {
       e.preventDefault();
       const from = pos.get(node.id)!;
@@ -211,7 +232,7 @@ export function GraphCanvas({
     }
   }
 
-  const radius = (n: GraphNode) => nodeRadius(n.linkCount) * (n.id === centre ? 1.5 : 1);
+  const radius = (n: CanvasNode) => (n.type === "FOLDER" ? FOLDER_RADIUS : nodeRadius(n.linkCount) * (n.id === centre ? 1.5 : 1));
   // A local graph is small enough to name every node, so its labels never fade.
   const labels = centre ? 1 : view ? labelOpacity(view.k) : 0;
   const card = active && view ? byId.get(active) : undefined;
@@ -271,7 +292,8 @@ export function GraphCanvas({
                     if (el) nodeRefs.current.set(n.id, el);
                     else nodeRefs.current.delete(n.id);
                   }}
-                  role="link"
+                  role={n.type === "FOLDER" ? "button" : "link"}
+                  aria-expanded={n.type === "FOLDER" && n.children > 0 ? !n.collapsed : undefined}
                   tabIndex={0}
                   aria-label={names.get(n.id)}
                   transform={`translate(${p.x} ${p.y})`}
@@ -284,10 +306,17 @@ export function GraphCanvas({
                   onKeyDown={(e) => onKeyDown(e, n)}
                 >
                   {focused === n.id && <circle r={r + 5 / view.k} className="fill-none stroke-ring" strokeWidth={2 / view.k} />}
-                  {n.type === "NOTE" ? (
+                  {n.type === "FOLDER" ? (
+                    <polygon points={hexagon(r)} {...shapeProps} />
+                  ) : n.type === "NOTE" ? (
                     <circle r={r} {...shapeProps} />
                   ) : (
                     <rect x={-r} y={-r} width={2 * r} height={2 * r} rx={r / 3} {...shapeProps} />
+                  )}
+                  {n.type === "FOLDER" && n.collapsed && (
+                    <text textAnchor="middle" dominantBaseline="central" aria-hidden className="pointer-events-none fill-background font-medium" fontSize={r * 0.85}>
+                      {n.children}
+                    </text>
                   )}
                   {/* The node's name already says it all, so the label is only for the eye. */}
                   {(labels > 0 || lit?.has(n.id)) && (
@@ -316,11 +345,21 @@ export function GraphCanvas({
           style={{ left: cardAt.x * view.k + view.x + 16, top: cardAt.y * view.k + view.y + 16 }}
         >
           <p className="font-medium">{card.title}</p>
-          <p className="text-muted-foreground">
-            {card.type === "NOTE" ? "Note" : "Asset"} · {out.get(card.id)?.length ?? 0} Links ·{" "}
-            {into.get(card.id)?.length ?? 0} Backlinks
-          </p>
-          {card.stub && <p className="text-muted-foreground">{where(card)}</p>}
+          {card.type === "FOLDER" ? (
+            <p className="text-muted-foreground">Folder · {card.children} inside</p>
+          ) : tree ? (
+            <p className="text-muted-foreground">
+              {card.type === "NOTE" ? "Note" : "Asset"} · {where(card)}
+            </p>
+          ) : (
+            <>
+              <p className="text-muted-foreground">
+                {card.type === "NOTE" ? "Note" : "Asset"} · {out.get(card.id)?.length ?? 0} Links ·{" "}
+                {into.get(card.id)?.length ?? 0} Backlinks
+              </p>
+              {card.stub && <p className="text-muted-foreground">{where(card)}</p>}
+            </>
+          )}
         </div>
       )}
 
