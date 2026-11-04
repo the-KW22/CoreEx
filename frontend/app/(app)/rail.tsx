@@ -89,7 +89,7 @@ function RailHandle({ rail, onChange }: { rail: RailState; onChange: (next: Rail
       aria-valuemin={RAIL_COLLAPSED}
       aria-valuemax={RAIL_MAX}
       aria-valuenow={rail.collapsed ? RAIL_COLLAPSED : rail.width}
-      className="group absolute inset-y-0 -right-1 z-30 w-2 cursor-col-resize touch-none outline-none"
+      className="group absolute inset-y-0 -right-1 z-30 w-2 cursor-col-resize touch-none outline-none pointer-coarse:-right-3 pointer-coarse:w-6"
       // Stops the drag from selecting the page's text.
       onMouseDown={(e) => e.preventDefault()}
       onPointerDown={(e) => {
