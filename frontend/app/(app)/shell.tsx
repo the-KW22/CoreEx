@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
+import { parseRail } from "@/lib/prefs";
 
 import { AppFrame } from "./app-frame";
 
@@ -43,7 +44,7 @@ export async function Shell({ children }: { children: React.ReactNode }) {
     <AppFrame
       email={me.email}
       isAdmin={me.role === "ADMIN"}
-      railCollapsed={jar.get("rail")?.value === "collapsed"}
+      rail={parseRail(jar.get("rail")?.value)}
       folders={folders?.data?.items ?? null}
       tags={tags?.data?.items ?? null}
     >

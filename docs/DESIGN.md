@@ -25,13 +25,16 @@ The agreed design for the frontend redesign. It records **what** the UI looks li
 
 | Position | Entry | Who |
 |---|---|---|
-| Top | CoreEx logo | All |
+| Top | CoreEx logo, collapse button | All |
 | Modules | **Home**, **Knowledge Base**, **Assets**, **Graph** | All |
 | Divider, then | **Trash**, **Admin** | Admin only for Admin |
-| Bottom | Collapse toggle, Theme toggle, **Account** menu (email, Access tokens, Connect an Agent, Log out) | All |
+| Bottom | Theme toggle, **Account** menu (email, Access tokens, Connect an Agent, Log out) | All |
 
 - Planned modules (Jobs, Integrations) are **not shown** until they exist.
-- **Expanded by default:** every entry shows its icon and label side by side (14rem wide). The toggle at the bottom collapses it to icons only (4rem), and the choice is kept in the `rail` cookie, which the server reads so there is no flash. The phone menu Sheet always shows labels.
+- **Expanded by default:** every entry shows its icon and label side by side (14rem wide).
+- **Resizing:** dragging the rail's right edge changes its width between 12rem and 20rem; the edge shows a `col-resize` cursor and a thin Link-coloured line on hover. The edge is a focusable separator: the arrow keys change the width by 1rem, Home and End go to the limits, and Enter collapses or expands.
+- **Collapsing:** to icons only (4rem), with the icon button beside the logo (Tooltip "Collapse sidebar" or "Expand sidebar") or Ctrl+\ from anywhere. Not Ctrl+B, which is bold in the Note editor. Dragged below the minimum, the rail waits at 12rem until the pointer passes the halfway point to 4rem, then snaps shut. It opens again at the width it had before that drag, by the button, the keyboard or dragging out.
+- The width and state are kept in the `rail` cookie (`240` or `collapsed:240`), which the server reads so there is no flash. The phone menu Sheet always shows labels, and has no resize edge or collapse button.
 - Each icon has an accessible name; when collapsed it also has a Tooltip.
 - **Assets** are sources for Notes (and later for text extraction and image analysis), so they are a module of their own, not part of the Knowledge Base. Their pages have no panel beside the rail.
 

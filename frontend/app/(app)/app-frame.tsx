@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { Folder } from "@/lib/folders";
 import { activeModule } from "@/lib/modules";
+import type { RailState } from "@/lib/prefs";
 import type { TagColour } from "@/lib/tag-colour";
 
 import { KbPanel } from "./kb-panel";
@@ -19,8 +20,8 @@ import { CommandPalette, openPalette } from "./search/command-palette";
 type Props = {
   email: string;
   isAdmin: boolean;
-  /** The rail's saved collapsed choice. */
-  railCollapsed: boolean;
+  /** The rail's saved width and collapsed state. */
+  rail: RailState;
   folders: Folder[] | null;
   tags: { id: string; name: string; colour?: TagColour | null }[] | null;
   children: React.ReactNode;
@@ -28,7 +29,7 @@ type Props = {
 
 // The layout around every signed-in page (docs/DESIGN.md section 8):
 // ≥ 1280px rail + panel; 768–1279px rail, panel in a Sheet; < 768px top bar, rail + panel in a Sheet.
-export function AppFrame({ email, isAdmin, railCollapsed, folders, tags, children }: Props) {
+export function AppFrame({ email, isAdmin, rail, folders, tags, children }: Props) {
   const pathname = usePathname();
   // The panel belongs to the Knowledge Base; every other module's pages get the whole width.
   const showPanel = activeModule(pathname) === "kb";
@@ -60,7 +61,7 @@ export function AppFrame({ email, isAdmin, railCollapsed, folders, tags, childre
         </header>
 
         <div className="sticky top-0 hidden h-dvh shrink-0 md:block">
-          <Rail email={email} isAdmin={isAdmin} collapsed={railCollapsed} onShowPanel={(button) => show("panel", button)} />
+          <Rail email={email} isAdmin={isAdmin} saved={rail} onShowPanel={(button) => show("panel", button)} />
         </div>
         {showPanel && (
           <aside aria-label="Knowledge Base" className="sticky top-0 hidden h-dvh shrink-0 xl:block">
