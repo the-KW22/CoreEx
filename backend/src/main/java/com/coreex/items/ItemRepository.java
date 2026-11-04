@@ -17,9 +17,9 @@ class ItemRepository {
 
 	private static final String COLUMNS = "id, type, title, folder_id, updated_at, null as body_head, null::bigint as size_bytes";
 
-	// Only the list shows previews; the first 600 characters are plenty for a 160-character snippet.
+	// Only the list shows previews; 2,000 characters leave room for front matter before a 160-character snippet.
 	private static final String LIST_COLUMNS = "id, type, title, folder_id, updated_at, "
-			+ "(select left(body, 600) from note_contents c where c.item_id = items.id) as body_head, "
+			+ "(select left(body, 2000) from note_contents c where c.item_id = items.id) as body_head, "
 			+ "coalesce((select size_bytes from asset_files f where f.item_id = items.id), "
 			+ "(select octet_length(body) from note_contents c where c.item_id = items.id)) as size_bytes";
 

@@ -37,7 +37,10 @@ export function ItemsGrid({
                   <ContextMenuTrigger asChild>
                     <div className="group relative grid overflow-hidden rounded-[14px] border border-border bg-surface transition-colors focus-within:border-link focus-within:ring-2 focus-within:ring-ring/50 hover:border-link">
                       {item.snippet ? (
-                        <p className="line-clamp-4 h-24 overflow-hidden bg-panel p-3 text-xs text-muted-foreground">{item.snippet}</p>
+                        // The padding is on a wrapper: on the clamped text itself, a fifth line shows through it.
+                        <div className="h-24 bg-panel p-3">
+                          <p className="line-clamp-4 text-xs text-muted-foreground">{item.snippet}</p>
+                        </div>
                       ) : (
                         <div className="grid h-24 place-items-center bg-panel text-muted-foreground">
                           <Icon aria-hidden className="size-8" />
