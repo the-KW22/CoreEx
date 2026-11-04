@@ -258,7 +258,7 @@ test("the command palette finds a Note by title and searches all text", async ({
 test("on a phone the search icon opens a full-screen palette", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await signIn(page);
-  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("banner").getByRole("button", { name: "Search", exact: true }).click();
   const palette = page.getByRole("dialog", { name: "Command palette" });
   await expect(palette.getByRole("combobox")).toBeFocused();
   // Polled: it zooms in when it opens.
@@ -1095,17 +1095,99 @@ test("the rail shows its labels, collapses to icons and remembers the choice", a
   }
   await expectNoViolations(page);
 
-  await rail.getByRole("button", { name: "Collapse the menu" }).click();
+  await rail.getByRole("button", { name: "Collapse sidebar" }).click();
   await expect(rail.getByText("Knowledge Base", { exact: true })).toBeHidden();
   await expect(rail.getByRole("link", { name: "Knowledge Base" })).toBeVisible();
   await expectNoViolations(page);
 
   // The cookie is read on the server, so the choice is there from the first paint.
   await page.reload();
-  await expect(rail.getByRole("button", { name: "Expand the menu" })).toBeVisible();
+  await expect(rail.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
   await expect(rail.getByText("Knowledge Base", { exact: true })).toBeHidden();
-  await rail.getByRole("button", { name: "Expand the menu" }).click();
+  await rail.getByRole("button", { name: "Expand sidebar" }).click();
   await expect(rail.getByText("Knowledge Base", { exact: true })).toBeVisible();
+});
+
+test("the rail resizes by dragging and by keyboard, within its limits, and remembers its width", async ({ page }) => {
+  await signIn(page);
+  const rail = page.getByRole("navigation", { name: "Main" });
+  const handle = rail.getByRole("separator", { name: "Resize sidebar" });
+  const width = async () => (await rail.boundingBox())!.width;
+  const dragTo = async (x: number) => {
+    const box = (await handle.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, 300);
+    await page.mouse.down();
+    await page.mouse.move(x, 300, { steps: 5 });
+    await page.mouse.up();
+  };
+  await expect(rail).toHaveCSS("width", "224px");
+
+  await dragTo(300);
+  expect(await width()).toBe(300);
+  await expectNoViolations(page);
+
+  // The server's own HTML has the width, so the first paint is right, with no jump once the page's code runs.
+  expect(await (await page.request.get("/")).text()).toContain('style="width:300px"');
+  await page.reload();
+  await expect(rail).toHaveCSS("width", "300px");
+
+  // It cannot go outside its limits.
+  await dragTo(900);
+  expect(await width()).toBe(320);
+  await dragTo(150);
+  expect(await width()).toBe(192);
+
+  // Dragged well below the minimum it collapses, and opens again at the width from before that drag.
+  await dragTo(260);
+  await dragTo(80);
+  expect(await width()).toBe(64);
+  await expect(rail.getByText("Knowledge Base", { exact: true })).toBeHidden();
+  await page.reload();
+  expect(await width()).toBe(64);
+  await rail.getByRole("button", { name: "Expand sidebar" }).click();
+  expect(await width()).toBe(260);
+  await dragTo(80);
+  await dragTo(150);
+  expect(await width()).toBe(260);
+
+  // The keyboard does the same.
+  await handle.focus();
+  await page.keyboard.press("ArrowRight");
+  expect(await width()).toBe(276);
+  await page.keyboard.press("Home");
+  expect(await width()).toBe(192);
+  await page.keyboard.press("ArrowLeft");
+  expect(await width()).toBe(64);
+  await page.keyboard.press("ArrowRight");
+  expect(await width()).toBe(192);
+  await page.keyboard.press("End");
+  expect(await width()).toBe(320);
+
+  // The shortcut toggles it from anywhere, and the theme and account stay on screen at every width.
+  await page.keyboard.press("Control+\\");
+  expect(await width()).toBe(64);
+  await expect(rail.getByRole("button", { name: /^Account/ })).toBeInViewport();
+  await page.keyboard.press("Control+\\");
+  expect(await width()).toBe(320);
+  await expect(rail.getByRole("button", { name: /^Theme/ })).toBeInViewport();
+});
+
+test("Ctrl+B is still bold in the Note editor, not the rail", async ({ page }) => {
+  await signIn(page);
+  const title = `Bold probe ${Date.now()}`;
+  await newNote(page, title);
+  const rail = page.getByRole("navigation", { name: "Main" });
+  const before = (await rail.boundingBox())!.width;
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.press("Control+B");
+  await page.keyboard.type("x");
+  await expect(page.locator(".cm-content")).toContainText("**x**");
+  expect((await rail.boundingBox())!.width).toBe(before);
+
+  await expectSaved(page);
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
 });
 
 test("the Assets page lists Assets only, with no Knowledge Base panel", async ({ page }) => {
@@ -1373,9 +1455,9 @@ test("a Folder opens as a Graph, its Items reached by keyboard and listed as a t
   await expect(page).toHaveURL(/\/notes\//);
   await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(target);
 
-  // Tidy up both Notes.
-  await page.goto("/items");
+  // Tidy up both Notes. A fresh page each time: the first one's toast can sit over the second one's menu.
   for (const title of [source, target]) {
+    await page.goto("/items");
     const item = page.getByRole("row").filter({ hasText: title });
     await item.getByRole("button", { name: `Actions for ${title}` }).click();
     await page.getByRole("menuitem", { name: "Move to Trash" }).click();
