@@ -532,6 +532,43 @@ test("Search highlights the match, filters by type and says when nothing matches
   await expect(page).toHaveURL(/\/items$/);
 });
 
+test("a Note card previews whole lines of its text, and an empty Note shows its icon", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const empty = `Card empty ${stamp}`;
+  const full = `Card full ${stamp}`;
+  await newNote(page, empty);
+  await newNote(page, full);
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("words to fill the card ".repeat(7).trim());
+  await expectSaved(page);
+
+  await page.goto("/items");
+  await page.getByRole("radio", { name: "Grid" }).click();
+  const card = (title: string) => page.getByRole("listitem").filter({ hasText: title });
+  const preview = card(full).locator("p").first();
+  await expect(preview).toContainText("words to fill the card");
+  await expect(preview).not.toContainText(full);
+  // The text box is a whole number of lines tall, so no line is cut in half at the bottom.
+  const lines = await preview.evaluate((el) => {
+    const style = getComputedStyle(el);
+    const inner = el.clientHeight - Number.parseFloat(style.paddingTop) - Number.parseFloat(style.paddingBottom);
+    return inner / Number.parseFloat(style.lineHeight);
+  });
+  expect(Number.isInteger(lines)).toBe(true);
+  // The empty Note has only its title, which the card already shows, so it gets the icon.
+  await expect(card(empty).locator("svg.size-8")).toBeVisible();
+  await expectNoViolations(page);
+
+  // Tidy up.
+  for (const title of [empty, full]) {
+    await card(title).getByRole("link", { name: new RegExp(title) }).click();
+    await page.getByRole("button", { name: "Move to Trash" }).click();
+    await expect(page).toHaveURL(/\/items$/);
+  }
+});
+
 test("a long Tag name keeps the Search filters inside the window", async ({ page }) => {
   await signIn(page);
   const stamp = Date.now();
