@@ -85,7 +85,13 @@ Semantic search (ADR 0008) turns text into vectors with Supabase's built-in `gte
 
    With the header `X-Embed-Secret: <the secret>` it answers `200` and one vector of 384 numbers per text. The first call after a quiet spell loads the model and can take several seconds.
 
+**Before the release that adds Semantic search**, enable the `vector` extension: Supabase dashboard > Database > Extensions > `vector`. The migration `V15` creates it itself if it is missing, but a refused `create extension` would stop the deploy, as the `pg_trgm` one did in v0.3.0 (see "Search uses the `pg_trgm` extension").
+
+Once the function and the two variables are set, the API embeds every Note by itself: a sweep runs every minute, picks Notes that have not changed for 2 minutes, and sends at most 50 Chunks per run, so a first run over many Notes takes a while and uses a few thousand of the 500,000 monthly calls. Nothing is embedded while the variables are empty or the free host is asleep; the next run after it wakes catches up. Locally the same sweep runs while the backend is up.
+
 A function change reaches production only when you run step 3 again, so list it in the release checklist whenever `supabase/functions/` changed. (`shortcut: manual Edge Function deploy, move to CI when the function changes more than rarely`: a CI deploy needs a Supabase access token with power over the whole account.)
+
+**If the API log says `HttpTimeoutException`** while the function answers when you call it by hand, the hosted function is slower than the 3 s the API waits (`coreex.embeddings.timeout`): set `COREEX_EMBEDDINGS_TIMEOUT=PT6S` on Render. The first call after a quiet spell loads the model and is slow whatever you set; search then falls back to exact words and the sweep tries again a minute later.
 
 **Limits.** A call carries at most 3 texts (`MAX_BATCH` in the function, `coreex.embeddings.batch-size` in the API: keep them equal) because an Edge Function gets 2 s of CPU per request and a 220-word Chunk takes about 0.3 s. The free plan allows 500,000 calls a month. The API waits at most 3 s for one call (`coreex.embeddings.timeout`).
 

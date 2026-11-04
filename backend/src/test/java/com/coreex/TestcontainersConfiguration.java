@@ -9,11 +9,12 @@ import org.testcontainers.utility.DockerImageName;
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
 
-	// Same major version as local Supabase (supabase/config.toml).
+	// Same major version as local Supabase (supabase/config.toml), with the pgvector extension that Supabase also has.
 	@Bean
 	@ServiceConnection
 	PostgreSQLContainer postgresContainer() {
-		return new PostgreSQLContainer(DockerImageName.parse("postgres:17"));
+		return new PostgreSQLContainer(
+				DockerImageName.parse("pgvector/pgvector:pg17").asCompatibleSubstituteFor("postgres"));
 	}
 
 }

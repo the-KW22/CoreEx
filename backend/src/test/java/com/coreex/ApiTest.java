@@ -15,6 +15,8 @@ import org.springframework.context.annotation.Import;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
 		"coreex.identity.owner-email=Owner@Example.com", "coreex.identity.user-cache-ttl=0s",
 		"coreex.cors.allowed-origins=https://app.example.com",
+		// The embedding sweep never fires by itself during a test run; tests call it.
+		"coreex.embeddings.sweep.interval=P365D",
 		"spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://unused.invalid/jwks",
 		"spring.security.oauth2.resourceserver.jwt.issuer-uri=http://unused.invalid" })
 public abstract class ApiTest {
