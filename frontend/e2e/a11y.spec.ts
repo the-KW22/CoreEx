@@ -15,6 +15,7 @@ import {
   password,
   signIn,
   trashFolder,
+  trashRows,
   trashedNote,
 } from "./helpers";
 
@@ -1455,14 +1456,8 @@ test("a Folder opens as a Graph, its Items reached by keyboard and listed as a t
   await expect(page).toHaveURL(/\/notes\//);
   await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(target);
 
-  // Tidy up both Notes. A fresh page each time: the first one's toast can sit over the second one's menu.
-  for (const title of [source, target]) {
-    await page.goto("/items");
-    const item = page.getByRole("row").filter({ hasText: title });
-    await item.getByRole("button", { name: `Actions for ${title}` }).click();
-    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
-    await expect(item).toHaveCount(0);
-  }
+  // Tidy up both Notes.
+  await trashRows(page, [source, target]);
 });
 
 test("a dragged Graph node stays where it was dropped, until Reset layout", async ({ page }) => {
@@ -1545,13 +1540,7 @@ test("Graph labels fade in with zoom, and the graph settles live unless motion i
   expect(parseFloat(await transition())).toBeLessThan(0.001);
 
   // Tidy up.
-  await page.goto("/items");
-  for (const title of titles) {
-    const item = page.getByRole("row").filter({ hasText: title });
-    await item.getByRole("button", { name: `Actions for ${title}` }).click();
-    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
-    await expect(item).toHaveCount(0);
-  }
+  await trashRows(page, titles);
 });
 
 test("a Note's Connections show its Links as a small graph and a list, kept current as you type", async ({ page }) => {
@@ -1586,13 +1575,7 @@ test("a Note's Connections show its Links as a small graph and a list, kept curr
   await expect(connections.getByRole("link", { name: new RegExp(`^${source}, Note, links to 1`) })).toBeVisible();
 
   // Tidy up both Notes.
-  await page.goto("/items");
-  for (const title of [source, target]) {
-    const item = page.getByRole("row").filter({ hasText: title });
-    await item.getByRole("button", { name: `Actions for ${title}` }).click();
-    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
-    await expect(item).toHaveCount(0);
-  }
+  await trashRows(page, [source, target]);
 });
 
 // A Folder with a subfolder holding one Note. Leaves you on the Note.
