@@ -64,6 +64,12 @@ describe("treeGraph", () => {
     expect(tree.nodes.find((n) => n.id === "empty")).toMatchObject({ children: 0, collapsed: false });
   });
 
+  it("counts a Folder's Items even when the graph, cut at its cap, does not hold them", () => {
+    const tree = treeGraph([{ ...folder("big"), itemCount: 300 }], [], null, new Set(["big"]));
+
+    expect(tree.nodes.find((n) => n.id === "big")).toMatchObject({ children: 300, collapsed: true });
+  });
+
   it("gives every node a place, the root in the middle and each depth further out", () => {
     const { pos } = treeGraph(folders, items, null, none);
     const distance = (id: string) => Math.hypot(pos.get(id)!.x, pos.get(id)!.y);

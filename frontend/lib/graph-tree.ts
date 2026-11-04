@@ -27,23 +27,24 @@ export function treeGraph(folders: Folder[], items: GraphNode[], folderId: strin
   }
 
   // `key` is the Folder's id, and null for All Items, which is what top-level things have as their parent.
-  function branch(id: string, title: string, key: string | null): Branch {
+  // `itemCount` is the true count: a graph cut at its cap may not hold all of a Folder's Items.
+  function branch(id: string, title: string, key: string | null, itemCount = 0): Branch {
     const inFolders = subfolders.get(key) ?? [];
     const inItems = itemsIn.get(key) ?? [];
-    const children = inFolders.length + inItems.length;
+    const children = inFolders.length + Math.max(inItems.length, itemCount);
     const shut = collapsed.has(id) && children > 0;
     const kids = shut
       ? []
       : [
-          ...inFolders.map((f) => branch(f.id, f.name, f.id)),
+          ...inFolders.map((f) => branch(f.id, f.name, f.id, f.itemCount)),
           ...inItems.map((node) => ({ node, kids: [], leaves: 1 })),
         ];
     const node: FolderNode = { id, type: "FOLDER", title, folderPath: null, linkCount: 0, stub: false, x: null, y: null, children, collapsed: shut };
     return { node, kids, leaves: Math.max(1, kids.reduce((sum, kid) => sum + kid.leaves, 0)) };
   }
 
-  const name = folderId ? (folders.find((f) => f.id === folderId)?.name ?? "This Folder") : "All Items";
-  const root = branch(folderId ?? ALL_ITEMS, name, folderId);
+  const scope = folders.find((f) => f.id === folderId);
+  const root = branch(folderId ?? ALL_ITEMS, folderId ? (scope?.name ?? "This Folder") : "All Items", folderId, scope?.itemCount);
 
   const nodes: CanvasNode[] = [];
   const edges: GraphEdge[] = [];

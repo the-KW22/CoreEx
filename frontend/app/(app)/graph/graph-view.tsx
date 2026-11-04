@@ -140,9 +140,13 @@ export function GraphView({
         )}
       </div>
 
-      {/* Phones: the panel as a Sheet. Choosing a Folder opens another page, which closes it. */}
+      {/* Phones: the panel as a Sheet, which any link in it closes. */}
       <Sheet open={sheet} onOpenChange={setSheet}>
-        <SheetContent side="left" className="w-72 overflow-y-auto border-border bg-panel p-3">
+        <SheetContent
+          side="left"
+          className="w-72 overflow-y-auto border-border bg-panel p-3"
+          onClick={(e) => (e.target as HTMLElement).closest("a") && setSheet(false)}
+        >
           <SheetTitle>Folders</SheetTitle>
           <GraphFolders folders={folders} current={folderId} href={href} />
         </SheetContent>
