@@ -24,12 +24,14 @@ import {
   matchesFilter,
   nodeColours,
   readFilter,
+  suggestionsForOrphans,
   where,
   writeFilter,
   type GraphEdge,
   type GraphFilter,
   type GraphNode,
   type GraphTag,
+  type SuggestedLink,
 } from "@/lib/graph";
 import { graphHref, startCollapsed, treeGraph, type GraphMode } from "@/lib/graph-tree";
 import { itemHref } from "@/lib/items";
@@ -37,7 +39,7 @@ import type { TagColour } from "@/lib/tag-colour";
 
 import { FolderSelect } from "../folders/folder-select";
 import { ViewToggle } from "../items/view-toggle";
-import { loadNeighbours, resetLayout, savePosition } from "./actions";
+import { linkSuggestion, loadNeighbours, loadSuggestions, resetLayout, savePosition } from "./actions";
 import { GraphCanvas } from "./graph-canvas";
 import { GraphFolders } from "./graph-folders";
 import { GraphInsights, type Highlight } from "./graph-insights";
@@ -149,6 +151,29 @@ export function GraphView({
     const matching = allNodes.filter((n) => matchesFilter(n, filter));
     return graphInsights(matching, allEdges);
   }, [allNodes, allEdges, filter]);
+  // What Similar shows: asked for only when it is on, and again when the graph changes (a Link it refreshes the page).
+  const [pairs, setPairs] = useState<{ graph: unknown; items: SuggestedLink[] | null } | null>(null);
+  const [linking, startLinking] = useTransition();
+  const wantsSimilar = filter.similar && mode === "links";
+  useEffect(() => {
+    if (!wantsSimilar) return;
+    let current = true;
+    loadSuggestions(folderId).then((items) => {
+      if (current) setPairs({ graph, items });
+    });
+    return () => {
+      current = false;
+    };
+  }, [wantsSimilar, folderId, graph]);
+  const similar = wantsSimilar ? pairs?.items : undefined;
+  const suggestions = similar ? suggestionsForOrphans(insights.orphans, similar) : null;
+  function linkIt(targetId: string, noteId: string) {
+    startLinking(async () => {
+      if (await linkSuggestion(targetId, noteId)) toast("Link added at the end of the Note, or around its mention.");
+      else toast.error("Could not make the Link. Try again.");
+    });
+  }
+  const insightProps = { insights, highlight, orphansHidden: hideUnlinked, onHighlight: setHighlight, suggestions, onLink: linkIt, linking };
   const href = (id: string | null) => graphHref(id, mode, filter);
   // In the address only: nothing needs fetching again, so the page does not go back to the server.
   function setFilter(next: GraphFilter) {
@@ -259,6 +284,8 @@ export function GraphView({
           matching={nodes.length - dimmed.size}
           total={allNodes.length}
           onChange={setFilter}
+          similarCount={similar?.length ?? null}
+          similarFailed={wantsSimilar && pairs?.items === null}
         />
       )}
 
@@ -313,6 +340,7 @@ export function GraphView({
             highlight={highlight?.ids}
             focusOn={focusOn}
             expand={{ can: canExpand, run: expand, busy: expanding }}
+            similar={similar ?? undefined}
             onBackgroundClick={() => setHighlight(null)}
             label={`Graph of ${scope}: ${nodes.length} Items. Tab to an Item, arrow keys move along its Links, E loads its neighbours where there may be more.`}
             className="h-[70vh] min-h-96"
@@ -328,7 +356,7 @@ export function GraphView({
         )}
         {showInsights && (
           <aside aria-label="Insights" className="hidden h-[70vh] min-h-96 overflow-y-auto rounded-[14px] border border-border p-3 lg:block">
-            <GraphInsights insights={insights} highlight={highlight} orphansHidden={hideUnlinked} onHighlight={setHighlight} />
+            <GraphInsights {...insightProps} />
           </aside>
         )}
       </div>
@@ -341,7 +369,7 @@ export function GraphView({
           onClick={(e) => (e.target as HTMLElement).closest("button[aria-pressed]") && setInsightsSheet(false)}
         >
           <SheetTitle>Insights</SheetTitle>
-          <GraphInsights insights={insights} highlight={highlight} orphansHidden={hideUnlinked} onHighlight={setHighlight} />
+          <GraphInsights {...insightProps} />
         </SheetContent>
       </Sheet>
 
@@ -468,6 +496,8 @@ function GraphFilters({
   matching,
   total,
   onChange,
+  similarCount,
+  similarFailed,
 }: {
   filter: GraphFilter;
   tags: GraphTag[];
@@ -475,6 +505,8 @@ function GraphFilters({
   matching: number;
   total: number;
   onChange: (filter: GraphFilter) => void;
+  similarCount: number | null;
+  similarFailed: boolean;
 }) {
   const filtering = filter.tags.length > 0 || filter.type || (filter.linkedOnly && mode === "links");
   return (
@@ -495,6 +527,22 @@ function GraphFilters({
           <Toggle variant="outline" pressed={filter.linkedOnly} onPressedChange={(linkedOnly) => onChange({ ...filter, linkedOnly })}>
             Only linked Items
           </Toggle>
+        )}
+        {mode === "links" && (
+          <Toggle variant="outline" pressed={filter.similar} onPressedChange={(similar) => onChange({ ...filter, similar })}>
+            Similar
+          </Toggle>
+        )}
+        {mode === "links" && filter.similar && (
+          <p role="status" className="text-sm text-muted-foreground">
+            {similarFailed
+              ? "Could not load similar Notes."
+              : similarCount === null
+                ? "Looking for similar Notes…"
+                : similarCount === 0
+                  ? "No similar Notes yet. New Notes take a few minutes to be read."
+                  : `${similarCount} similar ${similarCount === 1 ? "pair" : "pairs"}, shown as dotted lines. They are suggestions, not Links.`}
+          </p>
         )}
         <div className="flex items-center gap-2">
           <span id="graph-colour-by" className="text-sm text-muted-foreground">

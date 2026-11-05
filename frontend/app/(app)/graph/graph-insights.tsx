@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import type { graphInsights } from "@/lib/graph";
+import type { graphInsights, suggestionsForOrphans } from "@/lib/graph";
 
 /** What is lit in the canvas: which answer, and the Items in it. */
 export type Highlight = { key: string; ids: string[] };
@@ -13,11 +13,18 @@ export function GraphInsights({
   highlight,
   orphansHidden,
   onHighlight,
+  suggestions,
+  onLink,
+  linking,
 }: {
   insights: ReturnType<typeof graphInsights>;
   highlight: Highlight | null;
   orphansHidden: boolean;
   onHighlight: (highlight: Highlight | null) => void;
+  /** Suggested Links for orphans, while Similar is on. */
+  suggestions: ReturnType<typeof suggestionsForOrphans> | null;
+  onLink: (targetId: string, noteId: string) => void;
+  linking: boolean;
 }) {
   const { orphans, hubs, groups } = insights;
   const answer = (key: string, ids: string[], text: React.ReactNode, disabled = false) => {
@@ -87,6 +94,36 @@ export function GraphInsights({
           </ul>
         )}
       </section>
+      {suggestions && (
+        <section className="grid gap-2">
+          <h2 className="font-medium">Suggested Links</h2>
+          {suggestions.length === 0 ? (
+            <p className="text-muted-foreground">Nothing to suggest for Items with no Links.</p>
+          ) : (
+            <ul className="grid gap-3">
+              {suggestions.map((row) => (
+                <li key={row.id} className="grid gap-1">
+                  <p className="break-words">{row.title} is close to:</p>
+                  {row.closeTo.map((other) => (
+                    <div key={other.id} className="flex items-center justify-between gap-2">
+                      <span className="min-w-0 break-words text-muted-foreground">{other.title}</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={linking}
+                        aria-label={`Link ${row.title} to ${other.title}`}
+                        onClick={() => onLink(other.id, row.id)}
+                      >
+                        Link it
+                      </Button>
+                    </div>
+                  ))}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
     </div>
   );
 }

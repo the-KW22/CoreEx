@@ -5,6 +5,7 @@ import { tagColour, type TagColour } from "./tag-colour";
 export type GraphNode = components["schemas"]["GraphNodeResponse"];
 export type GraphEdge = components["schemas"]["GraphEdgeResponse"];
 export type GraphTag = components["schemas"]["GraphTagResponse"];
+export type SuggestedLink = components["schemas"]["SuggestedLinkResponse"];
 export type Point = { x: number; y: number };
 
 // Dots grow with their Links, but slowly, so a hub never swallows its neighbours.
@@ -145,6 +146,7 @@ export type GraphFilter = {
   type: "NOTE" | "ASSET" | null;
   linkedOnly: boolean;
   colour: "tag" | "folder" | null;
+  similar: boolean;
 };
 
 export function readFilter(params: { getAll(name: string): string[]; get(name: string): string | null }): GraphFilter {
@@ -155,15 +157,17 @@ export function readFilter(params: { getAll(name: string): string[]; get(name: s
     type: type === "NOTE" || type === "ASSET" ? type : null,
     linkedOnly: params.get("linked") === "1",
     colour: colour === "tag" || colour === "folder" ? colour : null,
+    similar: params.get("similar") === "1",
   };
 }
 
 export function writeFilter(query: URLSearchParams, filter: GraphFilter) {
-  for (const name of ["tag", "type", "linked", "colour"]) query.delete(name);
+  for (const name of ["tag", "type", "linked", "colour", "similar"]) query.delete(name);
   for (const tag of filter.tags) query.append("tag", tag);
   if (filter.type) query.set("type", filter.type);
   if (filter.linkedOnly) query.set("linked", "1");
   if (filter.colour) query.set("colour", filter.colour);
+  if (filter.similar) query.set("similar", "1");
 }
 
 /** Does this node pass the Tag and type filters? A Folder in Tree mode always does. */
@@ -330,4 +334,24 @@ export function visibleLabels(
     shown.add(n.id);
   }
   return shown;
+}
+
+/** For Items with no Links, the Items they are close to: the Suggested Links worth asking about. An orphan gets the Link. */
+export function suggestionsForOrphans(orphans: string[], pairs: SuggestedLink[], limit = 2) {
+  const lonely = new Set(orphans);
+  const found = new Map<string, { id: string; title: string; closeTo: { id: string; title: string }[] }>();
+  // Closest first, as the API sends them.
+  for (const pair of pairs) {
+    const ends = [
+      { id: pair.source, title: pair.sourceTitle, other: { id: pair.target, title: pair.targetTitle } },
+      { id: pair.target, title: pair.targetTitle, other: { id: pair.source, title: pair.sourceTitle } },
+    ];
+    for (const { id, title, other } of ends) {
+      if (!lonely.has(id)) continue;
+      const row = found.get(id) ?? { id, title, closeTo: [] };
+      if (row.closeTo.length < limit) row.closeTo.push(other);
+      found.set(id, row);
+    }
+  }
+  return [...found.values()];
 }

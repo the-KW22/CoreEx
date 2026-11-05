@@ -34,6 +34,12 @@ export const MCP_TOOLS: McpTool[] = [
     useWhen: "You want orphans, hubs or groups that never connect, or what one Note connects to, without reading every Note.",
   },
   {
+    name: "suggest_links",
+    kind: "read",
+    summary: "Pairs of Notes that are close in meaning but not linked, closest first, for a Folder or everything. Suggestions only, and empty until Notes are embedded.",
+    useWhen: "You want the Links worth making, as well as the ones already there.",
+  },
+  {
     name: "list_folders",
     kind: "read",
     summary: "Every Folder with its full path and how many Items it holds.",

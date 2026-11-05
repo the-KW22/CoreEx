@@ -228,6 +228,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/items/{id}/suggested-links/{noteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/items/{id}/open": {
         parameters: {
             query?: never;
@@ -269,7 +285,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["link"];
+        post: operations["link_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -508,6 +524,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["graph"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/links/graph/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["suggestions_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1205,6 +1237,22 @@ export interface components {
              * @enum {string|null}
              */
             colour: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
+        };
+        SuggestedLinkList: {
+            items: components["schemas"]["SuggestedLinkResponse"][];
+        };
+        SuggestedLinkResponse: {
+            /** Format: uuid */
+            source: string;
+            sourceTitle: string;
+            /** Format: uuid */
+            target: string;
+            targetTitle: string;
+            /**
+             * Format: double
+             * @description How close in meaning, 0 to 1
+             */
+            similarity: number;
         };
         ItemPage: {
             items: components["schemas"]["ItemResponse"][];
@@ -2188,6 +2236,45 @@ export interface operations {
             };
         };
     };
+    link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Linked, or it already was */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND (also another User's) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     open: {
         parameters: {
             query?: never;
@@ -2252,7 +2339,7 @@ export interface operations {
             };
         };
     };
-    link: {
+    link_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -2961,6 +3048,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GraphResponse"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Folder) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    suggestions_1: {
+        parameters: {
+            query?: {
+                folderId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Closest first, each pair once; empty until Notes are embedded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestedLinkList"];
                 };
             };
             /** @description Code NOT_FOUND (also for another User's Folder) */

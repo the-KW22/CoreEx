@@ -19,6 +19,7 @@ import com.coreex.common.ApiException;
 import com.coreex.folders.FolderService;
 import com.coreex.items.Item;
 import com.coreex.items.ItemService;
+import com.coreex.search.SearchService;
 import com.coreex.tags.Tag;
 import com.coreex.tags.TagService;
 
@@ -48,6 +49,13 @@ public class LinkService {
 	public record Graph(List<GraphNode> nodes, List<GraphEdge> edges, int total, boolean truncated, List<Tag> tags) {
 	}
 
+	/** Two Notes close in meaning with no Link between them. A suggestion: never stored, and never a Backlink. */
+	public record SuggestedLink(UUID source, String sourceTitle, UUID target, String targetTitle, double similarity) {
+	}
+
+	/** Keeps the graph readable, since the pairs can far outnumber the Links. */
+	private static final int SIMILAR_PER_NOTE = 3;
+
 	/** Items joined by Links, and the most linked of them, which names the group. */
 	public record Group(int size, UUID biggestId, String biggestTitle) {
 	}
@@ -76,11 +84,14 @@ public class LinkService {
 
 	private final TagService tags;
 
-	LinkService(LinkRepository links, ItemService items, FolderService folders, TagService tags) {
+	private final SearchService search;
+
+	LinkService(LinkRepository links, ItemService items, FolderService folders, TagService tags, SearchService search) {
 		this.links = links;
 		this.items = items;
 		this.folders = folders;
 		this.tags = tags;
+		this.search = search;
 	}
 
 	/**
@@ -213,6 +224,31 @@ public class LinkService {
 		return new Graph(kept, edges.stream().filter(e -> byId.containsKey(e.source()) && byId.containsKey(e.target()))
 				.map(e -> new GraphEdge(e.source(), e.target())).toList(), distance.size(), distance.size() > kept.size(),
 				distinctTags(itemTags));
+	}
+
+	/**
+	 * Notes in a graph (a Folder and its subfolders, or everything) close in meaning and not linked either way, closest
+	 * first, each pair once. Only Notes have embeddings. Empty until they are embedded.
+	 */
+	public List<SuggestedLink> suggestedLinks(UUID ownerId, UUID folderId) {
+		var map = graph(ownerId, folderId);
+		var notes = map.nodes().stream().filter(n -> !n.stub() && n.type() == Item.Type.NOTE)
+				.collect(Collectors.toMap(GraphNode::id, GraphNode::title));
+		var linked = new HashSet<Set<UUID>>();
+		map.edges().forEach(e -> linked.add(Set.of(e.source(), e.target())));
+		var pairs = new HashMap<Set<UUID>, SuggestedLink>();
+		for (var s : search.similarNotes(ownerId, List.copyOf(notes.keySet()), SIMILAR_PER_NOTE)) {
+			if (s.source().equals(s.target())) {
+				continue;
+			}
+			var pair = Set.of(s.source(), s.target());
+			if (!linked.contains(pair)) {
+				pairs.merge(pair, new SuggestedLink(s.source(), notes.get(s.source()), s.target(), notes.get(s.target()), s.similarity()),
+						(a, b) -> a.similarity() >= b.similarity() ? a : b);
+			}
+		}
+		return pairs.values().stream().sorted(Comparator.comparingDouble(SuggestedLink::similarity).reversed()
+				.thenComparing(SuggestedLink::sourceTitle).thenComparing(SuggestedLink::targetTitle)).toList();
 	}
 
 	/**

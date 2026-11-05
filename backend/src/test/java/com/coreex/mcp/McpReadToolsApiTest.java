@@ -16,7 +16,7 @@ class McpReadToolsApiTest extends McpApiTest {
 		var names = new java.util.ArrayList<String>();
 		tools.forEach(t -> names.add(t.path("name").asString()));
 		assertThat(names).contains("search", "list_items", "get_item", "list_folders", "list_tags", "list_trash",
-				"get_graph");
+				"get_graph", "suggest_links");
 		tools.forEach(t -> assertThat(t.path("description").asString()).isNotBlank());
 		tools.forEach(t -> {
 			if (t.path("name").asString().equals("get_graph")) {
@@ -242,6 +242,13 @@ class McpReadToolsApiTest extends McpApiTest {
 		assertThat(groups.get(0).path("biggestId").asString()).isEqualTo(hub);
 		assertThat(groups.get(1).path("size").asInt()).isEqualTo(2);
 		assertThat(groups.get(1).path("biggestTitle").asString()).isEqualTo("C");
+	}
+
+	@Test
+	void suggestLinksIsEmptyUntilNotesAreEmbedded() throws Exception {
+		note(jwt, "Plain", "", null);
+
+		assertThat(call("suggest_links", "{}").path("pairs").size()).isZero();
 	}
 
 	@Test
