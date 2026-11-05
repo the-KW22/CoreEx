@@ -246,6 +246,8 @@ test("the command palette finds a Note by title and searches all text", async ({
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/search\?q=Palette/);
+  // While it animates shut it still looks open, and openPalette would take it for an open one.
+  await expect(palette).toBeHidden();
 
   // Tidy up: the probe Note goes to the Trash.
   await openPalette(page);
