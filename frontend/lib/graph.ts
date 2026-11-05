@@ -250,3 +250,33 @@ export function graphInsights(nodes: GraphNode[], edges: GraphEdge[]) {
       .sort((a, b) => b.ids.length - a.ids.length || a.name.localeCompare(b.name)),
   };
 }
+
+// How far in a found node is shown: close enough that its label and its neighbours' are readable.
+const FOUND_ZOOM = 1.5;
+
+/** The View with this point in the middle of a w × h box, at least as close as a found node needs. */
+export const centreOn = (at: Point, w: number, h: number, current: number): View => {
+  const k = Math.max(current, FOUND_ZOOM);
+  return { k, x: w / 2 - at.x * k, y: h / 2 - at.y * k };
+};
+
+/** This Item and the Items linked to or from it. */
+export function aroundNode(id: string, edges: GraphEdge[]) {
+  const ids = new Set([id]);
+  for (const { source, target } of edges) {
+    if (source === id) ids.add(target);
+    if (target === id) ids.add(source);
+  }
+  return [...ids];
+}
+
+/** The first few nodes whose title contains the text, ignoring case, the ones that start with it first. */
+export function findNodes<T extends { title: string }>(nodes: T[], text: string, limit = 8) {
+  const q = text.trim().toLowerCase();
+  if (!q) return [];
+  const starts = (n: T) => (n.title.toLowerCase().startsWith(q) ? 0 : 1);
+  return nodes
+    .filter((n) => n.title.toLowerCase().includes(q))
+    .sort((a, b) => starts(a) - starts(b) || a.title.localeCompare(b.title))
+    .slice(0, limit);
+}

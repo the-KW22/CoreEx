@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  aroundNode,
+  centreOn,
+  findNodes,
   fit,
   graphInsights,
   graphIsNotFound,
@@ -240,5 +243,24 @@ describe("graphInsights", () => {
 
   it("has nothing to say about an empty graph", () => {
     expect(graphInsights([], [])).toEqual({ orphans: [], hubs: [], groups: [] });
+  });
+});
+
+describe("finding a node", () => {
+  it("puts the node in the middle, zooming in only if it has to", () => {
+    expect(centreOn({ x: 10, y: 20 }, 100, 200, 0.5)).toEqual({ k: 1.5, x: 35, y: 70 });
+    expect(centreOn({ x: 10, y: 20 }, 100, 200, 3).k).toBe(3);
+  });
+
+  it("lights a node and what links either way, once each", () => {
+    const edges = [{ source: "a", target: "b" }, { source: "c", target: "a" }, { source: "b", target: "a" }, { source: "c", target: "d" }];
+    expect(aroundNode("a", edges)).toEqual(["a", "b", "c"]);
+  });
+
+  it("matches part of a title, ignoring case, the ones that start with it first", () => {
+    const nodes = [{ title: "Nuclear energy" }, { title: "energy" }, { title: "Sound" }];
+    expect(findNodes(nodes, " ENERGY ").map((n) => n.title)).toEqual(["energy", "Nuclear energy"]);
+    expect(findNodes(nodes, "  ")).toEqual([]);
+    expect(findNodes(nodes, "o", 1)).toHaveLength(1);
   });
 });

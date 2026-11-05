@@ -4,6 +4,7 @@ import {
   FilePlusIcon,
   FileTextIcon,
   FileUpIcon,
+  GitForkIcon,
   ImageIcon,
   Loader2Icon,
   SearchIcon,
@@ -96,6 +97,7 @@ export function CommandPalette() {
 
   const hits = result?.text === text ? result.hits : undefined;
   const folderId = viewingFolderId(pathname) ?? null;
+  const topNote = hits?.find((hit) => hit.type === "NOTE");
 
   const run = (action: () => void) => {
     setOpen(false);
@@ -131,6 +133,12 @@ export function CommandPalette() {
                       {hits.map((hit) => (
                         <HitRow key={hit.id} hit={hit} onSelect={() => run(() => router.push(itemHref(hit)))} />
                       ))}
+                      {topNote && (
+                        <CommandItem value="show-in-graph" onSelect={() => run(() => router.push(`/graph?focus=${topNote.id}`))}>
+                          <GitForkIcon aria-hidden />
+                          <span className="truncate">Show &ldquo;{topNote.title || "Untitled"}&rdquo; in Graph</span>
+                        </CommandItem>
+                      )}
                     </CommandGroup>
                   )}
                   {hits === undefined && (

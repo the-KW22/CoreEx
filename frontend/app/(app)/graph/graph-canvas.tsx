@@ -7,7 +7,7 @@ import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } fro
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { fit, isArrow, labelOpacity, linkMaps, nodeLabel, nodeRadius, step, where, type GraphEdge, type Point, type View } from "@/lib/graph";
+import { centreOn, fit, isArrow, labelOpacity, linkMaps, nodeLabel, nodeRadius, step, where, type GraphEdge, type Point, type View } from "@/lib/graph";
 import { treeLabel, type CanvasNode } from "@/lib/graph-tree";
 import { itemHref } from "@/lib/items";
 import type { TagColour } from "@/lib/tag-colour";
@@ -17,6 +17,8 @@ import { useLayout } from "./use-layout";
 type Gesture = { kind: "pan"; from: Point; view: View } | { kind: "node"; id: string; moved: boolean };
 
 const clampZoom = (k: number) => Math.min(Math.max(k, 0.02), 4);
+
+const PAN_MS = 300;
 
 // What animates when a node is hovered or focused: the dimming, and the Links turning Mint. The global reduced-motion
 // rule in globals.css makes these instant.
@@ -61,6 +63,8 @@ export function GraphCanvas({
   tagNames,
   legend,
   highlight,
+  focusOn,
+  onBackgroundClick,
 }: {
   nodes: CanvasNode[];
   edges: GraphEdge[];
@@ -83,6 +87,10 @@ export function GraphCanvas({
   legend?: React.ReactNode;
   /** Items to light up as a hovered node lights its neighbours, until hover or focus takes over. */
   highlight?: string[];
+  /** A node to bring to the middle. A new object moves there again; `move` also puts keyboard focus on it. */
+  focusOn?: { id: string; move: boolean } | null;
+  /** The background was clicked rather than dragged. */
+  onBackgroundClick?: () => void;
 }) {
   const router = useRouter();
   const arrowId = useId();
@@ -188,6 +196,34 @@ export function GraphCanvas({
     };
   }, []);
 
+  // Pans to a found node once the canvas has a size. The layout may still be settling, so it reads the latest place.
+  const latest = useRef({ pos, view });
+  useEffect(() => {
+    latest.current = { pos, view };
+  });
+  const sized = size !== undefined;
+  useEffect(() => {
+    if (!focusOn || !size) return;
+    const at = latest.current.pos.get(focusOn.id);
+    const from = latest.current.view;
+    if (!at || !from) return;
+    if (focusOn.move) nodeRefs.current.get(focusOn.id)?.focus({ preventScroll: true });
+    const to = centreOn(at, size.w, size.h, from.k);
+    if (reduceMotion) {
+      setView(to);
+      return;
+    }
+    const start = performance.now();
+    let frame = requestAnimationFrame(function tick(now) {
+      const t = Math.min((now - start) / PAN_MS, 1);
+      const ease = 1 - (1 - t) ** 3;
+      setView({ k: from.k + (to.k - from.k) * ease, x: from.x + (to.x - from.x) * ease, y: from.y + (to.y - from.y) * ease });
+      if (t < 1) frame = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new focusOn, or the first size, moves the view
+  }, [focusOn, sized]);
+
   function zoomAt(at: Point, factor: number) {
     setView((v) => {
       if (!v) return v;
@@ -222,6 +258,10 @@ export function GraphCanvas({
   function onPointerUp(e: React.PointerEvent) {
     const g = gesture.current;
     gesture.current = null;
+    if (g?.kind === "pan") {
+      const at = pointer(e);
+      if (Math.hypot(at.x - g.from.x, at.y - g.from.y) < 4) onBackgroundClick?.();
+    }
     if (g?.kind !== "node") return;
     if (!g.moved) {
       open(byId.get(g.id)!);

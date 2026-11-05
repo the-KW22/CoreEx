@@ -1562,6 +1562,51 @@ test("Graph Insights answer in the canvas, and the table sorts and shows only or
   await trashRows(page, [source, target, lone]);
 });
 
+test("the Graph finds a node by title, with / and from the palette, and keeps it lit until you click away", async ({ page }) => {
+  test.setTimeout(60_000);
+  await signIn(page);
+  const stamp = Date.now();
+  const title = `Findable ${stamp}`;
+  await newNote(page, title);
+
+  await page.goto("/graph");
+  const box = page.getByRole("combobox", { name: "Find an Item in the graph" });
+  await expect(box).toBeVisible();
+  await expect(async () => {
+    await page.locator("body").press("/");
+    await expect(box).toBeFocused({ timeout: 500 });
+  }).toPass();
+  await page.keyboard.type(String(stamp));
+  await expect(page.getByRole("option", { name: title })).toBeVisible();
+  await expectNoViolations(page);
+  await page.getByRole("option", { name: title }).click();
+
+  // Focus lands on the node, zoomed so its label reads, and the rest dims.
+  const node = page.getByRole("link", { name: new RegExp(`^${title}, Note`) });
+  await expect(node).toBeFocused();
+  await expect(node).toHaveClass(/opacity-100/);
+  const dimmed = page.locator('svg g[role="link"].opacity-25');
+  await expect(dimmed.first()).toBeAttached();
+
+  // Clicking the background clears it, and so does Escape after finding again.
+  await page.getByRole("group", { name: /^Graph of/ }).click({ position: { x: 3, y: 3 } });
+  await expect(dimmed).toHaveCount(0);
+
+  // From anywhere, through the palette.
+  await page.goto("/items");
+  const palette = await openPalette(page);
+  await palette.getByRole("combobox").fill(title);
+  await palette.getByRole("option", { name: `Show \u201c${title}\u201d in Graph` }).click();
+  await expect(page).toHaveURL(/\/graph\?focus=/);
+  await expect(node).toHaveClass(/opacity-100/);
+  await expect(dimmed.first()).toBeAttached();
+  await page.keyboard.press("Escape");
+  await expect(dimmed).toHaveCount(0);
+
+  await page.goto("/items");
+  await trashRows(page, [title]);
+});
+
 test("a dragged Graph node stays where it was dropped, until Reset layout", async ({ page }) => {
   await signIn(page);
   const title = `Layout node ${Date.now()}`;
