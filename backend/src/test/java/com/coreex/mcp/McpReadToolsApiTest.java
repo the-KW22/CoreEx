@@ -227,6 +227,24 @@ class McpReadToolsApiTest extends McpApiTest {
 	}
 
 	@Test
+	void getGraphListsTheGroupsThatNeverConnectBiggestFirstWithoutOrphans() throws Exception {
+		var hub = note(jwt, "Hub", "", null);
+		note(jwt, "A", "[[Hub]]", null);
+		note(jwt, "B", "[[Hub]]", null);
+		note(jwt, "Other", "", null);
+		note(jwt, "C", "[[Other]]", null);
+		note(jwt, "Orphan", "", null);
+
+		var groups = call("get_graph", "{}").path("groups");
+
+		assertThat(groups.size()).isEqualTo(2);
+		assertThat(groups.get(0).path("size").asInt()).isEqualTo(3);
+		assertThat(groups.get(0).path("biggestId").asString()).isEqualTo(hub);
+		assertThat(groups.get(1).path("size").asInt()).isEqualTo(2);
+		assertThat(groups.get(1).path("biggestTitle").asString()).isEqualTo("C");
+	}
+
+	@Test
 	void getGraphWithAnItemMapsWhatIsAroundItUpToTheDepth() throws Exception {
 		var far = note(jwt, "Far", "", null);
 		note(jwt, "Near", "[[Far]]", null);

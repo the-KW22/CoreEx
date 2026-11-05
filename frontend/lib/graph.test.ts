@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   fit,
+  graphInsights,
   graphIsNotFound,
   labelOpacity,
   linkedOnly,
@@ -185,5 +186,59 @@ describe("nodeColours", () => {
     const { legend, more } = nodeColours(many, [], "folder");
     expect(legend).toHaveLength(8);
     expect(more).toBe(2);
+  });
+});
+
+describe("graphInsights", () => {
+  const nodes = [
+    node({ id: "hub", title: "Hub" }),
+    node({ id: "a", title: "A" }),
+    node({ id: "b", title: "B" }),
+    node({ id: "x", title: "X" }),
+    node({ id: "y", title: "Y" }),
+    node({ id: "only-stub", title: "Only stub" }),
+    node({ id: "lone", title: "Lone" }),
+    node({ id: "stub", title: "Stub", stub: true }),
+  ];
+  const edges = [
+    { source: "a", target: "hub" },
+    { source: "b", target: "hub" },
+    { source: "x", target: "y" },
+    { source: "only-stub", target: "stub" },
+  ];
+
+  it("counts an Item linked only to a stub as an orphan, and never a stub itself", () => {
+    expect(graphInsights(nodes, edges).orphans).toEqual(["only-stub", "lone"]);
+  });
+
+  it("finds the most linked, with what lights up around each", () => {
+    const { hubs } = graphInsights(nodes, edges);
+    expect(hubs[0]).toEqual({ id: "hub", title: "Hub", links: 2, ids: ["hub", "a", "b"] });
+    expect(hubs.map((h) => h.title)).toEqual(["Hub", "A", "B", "X", "Y"]);
+  });
+
+  it("leaves index and log pages out of the most linked", () => {
+    const { hubs } = graphInsights(
+      [node({ id: "i", title: "Index" }), node({ id: "l", title: "log" }), node({ id: "n", title: "Note" })],
+      [{ source: "i", target: "n" }, { source: "l", target: "n" }, { source: "i", target: "l" }],
+    );
+    expect(hubs.map((h) => h.title)).toEqual(["Note"]);
+  });
+
+  it("names each separate group after its most linked Item, biggest first", () => {
+    const { groups } = graphInsights(nodes, edges);
+    expect(groups.map((g) => [g.name, g.ids.length])).toEqual([["Hub", 3], ["X", 2]]);
+  });
+
+  it("does not join groups that only meet through a stub", () => {
+    const { groups } = graphInsights(
+      [node({ id: "a" }), node({ id: "b" }), node({ id: "c" }), node({ id: "d" }), node({ id: "s", stub: true })],
+      [{ source: "a", target: "b" }, { source: "c", target: "d" }, { source: "a", target: "s" }, { source: "c", target: "s" }],
+    );
+    expect(groups).toHaveLength(2);
+  });
+
+  it("has nothing to say about an empty graph", () => {
+    expect(graphInsights([], [])).toEqual({ orphans: [], hubs: [], groups: [] });
   });
 });

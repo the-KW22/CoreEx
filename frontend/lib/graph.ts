@@ -203,3 +203,50 @@ export function nodeColours(nodes: GraphNode[], tags: GraphTag[], mode: "tag" | 
   const sorted = [...groups.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   return { colours, legend: sorted.slice(0, LEGEND_SIZE), more: Math.max(0, sorted.length - LEGEND_SIZE) };
 }
+
+const HUBS = 5;
+// shortcut: index and log pages are told by title alone, let a User leave out any Item if real vaults need more.
+const NOT_A_HUB = /^(index|log)$/i;
+
+/**
+ * What people open a graph to find, among these nodes. Orphans have no Link to another Item in the graph, stubs not
+ * counted. Hubs are the most linked. A group is two or more Items that Links join, named by its most linked.
+ */
+export function graphInsights(nodes: GraphNode[], edges: GraphEdge[]) {
+  const inside = nodes.filter((n) => !n.stub);
+  const parent = new Map(inside.map((n) => [n.id, n.id]));
+  const root = (id: string): string => {
+    let at = id;
+    while (parent.get(at) !== at) at = parent.get(at)!;
+    parent.set(id, at);
+    return at;
+  };
+  const links = new Map<string, number>();
+  const neighbours = new Map<string, string[]>();
+  for (const { source, target } of edges) {
+    if (!parent.has(source) || !parent.has(target)) continue;
+    parent.set(root(source), root(target));
+    for (const [from, to] of [[source, target], [target, source]]) {
+      links.set(from, (links.get(from) ?? 0) + 1);
+      neighbours.set(from, [...(neighbours.get(from) ?? []), to]);
+    }
+  }
+  const count = (n: GraphNode) => links.get(n.id) ?? 0;
+  const byLinks = (a: GraphNode, b: GraphNode) => count(b) - count(a) || a.title.localeCompare(b.title);
+
+  const members = new Map<string, GraphNode[]>();
+  for (const n of inside) members.set(root(n.id), [...(members.get(root(n.id)) ?? []), n]);
+
+  return {
+    orphans: inside.filter((n) => count(n) === 0).map((n) => n.id),
+    hubs: inside
+      .filter((n) => count(n) > 0 && !NOT_A_HUB.test(n.title))
+      .sort(byLinks)
+      .slice(0, HUBS)
+      .map((n) => ({ id: n.id, title: n.title, links: count(n), ids: [n.id, ...(neighbours.get(n.id) ?? [])] })),
+    groups: [...members.values()]
+      .filter((group) => group.length > 1)
+      .map((group) => ({ name: [...group].sort(byLinks)[0].title, ids: group.map((n) => n.id) }))
+      .sort((a, b) => b.ids.length - a.ids.length || a.name.localeCompare(b.name)),
+  };
+}

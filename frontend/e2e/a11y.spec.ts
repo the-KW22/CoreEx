@@ -1511,6 +1511,57 @@ test("the Graph filters by Tag and type and colours by Tag, all kept in the addr
   await deleteTag(page, tagName);
 });
 
+test("Graph Insights answer in the canvas, and the table sorts and shows only orphans", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const target = `Insight hub ${stamp}`;
+  const source = `Insight source ${stamp}`;
+  const lone = `Insight lone ${stamp}`;
+  await newNote(page, lone);
+  await newNote(page, target);
+  await newNote(page, source);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(`See [[${target}`);
+  await page.getByRole("option", { name: new RegExp(target) }).click();
+  await page.keyboard.press("Enter");
+  await expectSaved(page);
+
+  await page.goto("/graph");
+  await page.getByRole("button", { name: "Insights" }).click();
+  const panel = page.getByRole("complementary", { name: "Insights" });
+  await expectNoViolations(page);
+
+  // An answer lights its nodes and dims the rest; pressing it again clears it.
+  const groupHeading = panel.getByRole("heading", { name: /separate group/ });
+  await expect(groupHeading).toBeVisible();
+  const answer = panel.getByRole("button", { name: /Items? with no Links/ });
+  const hub = page.getByRole("link", { name: new RegExp(`^${target}, Note`) });
+  await answer.click();
+  await expect(answer).toHaveAttribute("aria-pressed", "true");
+  await expect(hub).toHaveClass(/opacity-25/);
+  await expect(page.getByRole("link", { name: new RegExp(`^${lone}, Note`) })).toHaveClass(/opacity-100/);
+  await answer.click();
+  await expect(hub).toHaveClass(/opacity-100/);
+
+  // Kept open across a reload.
+  await page.reload();
+  await expect(panel).toBeVisible();
+
+  await page.getByRole("button", { name: "Show as table" }).click();
+  await page.getByRole("button", { name: "Linked from" }).click();
+  await expect(page.getByRole("columnheader", { name: "Linked from" })).toHaveAttribute("aria-sort", "descending");
+  await page.getByRole("button", { name: "Only orphans" }).click();
+  await expect(page.getByRole("rowheader", { name: lone })).toBeVisible();
+  await expect(page.getByRole("rowheader", { name: target })).toHaveCount(0);
+
+  // Leave the panel closed for the tests that follow.
+  await page.getByRole("button", { name: "Show as graph" }).click();
+  await page.getByRole("button", { name: "Insights" }).click();
+  await page.goto("/items");
+  await trashRows(page, [source, target, lone]);
+});
+
 test("a dragged Graph node stays where it was dropped, until Reset layout", async ({ page }) => {
   await signIn(page);
   const title = `Layout node ${Date.now()}`;

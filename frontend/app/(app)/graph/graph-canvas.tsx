@@ -60,6 +60,7 @@ export function GraphCanvas({
   colours,
   tagNames,
   legend,
+  highlight,
 }: {
   nodes: CanvasNode[];
   edges: GraphEdge[];
@@ -80,6 +81,8 @@ export function GraphCanvas({
   tagNames?: Map<string, string[]>;
   /** Drawn in the top-left corner, so it stays with the canvas at full screen. */
   legend?: React.ReactNode;
+  /** Items to light up as a hovered node lights its neighbours, until hover or focus takes over. */
+  highlight?: string[];
 }) {
   const router = useRouter();
   const arrowId = useId();
@@ -141,7 +144,7 @@ export function GraphCanvas({
 
   const neighboursOf = (id: string) => [...(out.get(id) ?? []), ...(into.get(id) ?? [])];
   const active = hovered ?? focused;
-  const lit = active ? new Set([active, ...neighboursOf(active)]) : null;
+  const lit = active ? new Set([active, ...neighboursOf(active)]) : highlight ? new Set(highlight) : null;
 
   // The SVG's user units are its pixels, so text and strokes keep their size whatever the window.
   useEffect(() => {
