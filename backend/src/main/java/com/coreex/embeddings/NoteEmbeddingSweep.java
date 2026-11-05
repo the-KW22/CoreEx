@@ -53,6 +53,7 @@ class NoteEmbeddingSweep {
 	int run(Duration settle) {
 		var budget = properties.maxChunks();
 		var embedded = 0;
+		var notes = 0;
 		for (var id : chunks.due(settle, Embedder.MODEL, properties.maxChunks())) {
 			if (budget == 0) {
 				break;
@@ -71,6 +72,10 @@ class NoteEmbeddingSweep {
 			}
 			budget -= count;
 			embedded += count;
+			notes += count > 0 ? 1 : 0;
+		}
+		if (embedded > 0) {
+			log.info("Embedded {} Chunks for {} Notes", embedded, notes); // counts only, never a title or text
 		}
 		return embedded;
 	}
