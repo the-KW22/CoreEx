@@ -13,6 +13,11 @@ import { FolderSelect } from "../folders/folder-select";
 
 const PAGE_SIZE = 20;
 
+// Shown when the search by meaning could not run (docs/adr/0008): the results are the exact-word ones.
+function ExactOnlyNote() {
+  return <p className="text-sm text-muted-foreground">Showing exact-word matches only</p>;
+}
+
 // A query-string value can be a string or a list; take the first string.
 const one = (value: string | string[] | undefined) => (typeof value === "string" ? value : (value?.[0] ?? ""));
 
@@ -107,7 +112,8 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
         </div>
         <p className="text-xs text-muted-foreground">
           Words are matched as written, in any language. Use &quot;quotes&quot; for a phrase, <code>or</code> for either
-          word, and <code>-word</code> to leave one out. A Folder includes its subfolders.
+          word, and <code>-word</code> to leave one out. Notes are also found by meaning (English). A Folder includes
+          its subfolders.
         </p>
       </form>
 
@@ -129,6 +135,7 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
         <div className="grid gap-1 rounded-[14px] border border-dashed border-border p-8 text-center">
           <p className="font-medium">Nothing matches &quot;{q}&quot;</p>
           <p className="text-sm text-muted-foreground">Try fewer words, or take a filter off.</p>
+          {result.data.exactOnly && <ExactOnlyNote />}
         </div>
       ) : result.data.items.length === 0 ? (
         <PageGone first={href(0)} />
@@ -137,6 +144,7 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
           <p className="text-sm text-muted-foreground" aria-live="polite">
             {result.data.total} {result.data.total === 1 ? "result" : "results"} for &quot;{q}&quot;
           </p>
+          {result.data.exactOnly && <ExactOnlyNote />}
           <ol className="grid gap-2">
             {result.data.items.map((hit) => {
               const Icon = hit.type === "NOTE" ? FileTextIcon : ImageIcon;

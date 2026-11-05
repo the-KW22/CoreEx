@@ -1086,6 +1086,8 @@ export interface components {
             items: components["schemas"]["SearchHitResponse"][];
             /** Format: int64 */
             total: number;
+            /** @description True when the search by meaning could not run, so only exact words were matched */
+            exactOnly: boolean;
         };
         SegmentResponse: {
             text: string;

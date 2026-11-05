@@ -8,7 +8,7 @@ CoreEx has an MCP server (Model Context Protocol) at `/mcp`. It lets an **Agent*
 
 | Read | |
 |---|---|
-| `search` | Find Notes and Assets by words; filter by type, Folder (with subfolders) and Tag |
+| `search` | Find Notes and Assets by words, and Notes also by meaning (English); filter by type, Folder (with subfolders) and Tag. `exactOnly: true` in the result means the search by meaning could not run, so only exact words were matched |
 | `list_items` | Browse Items, newest first, 50 per page, by Folder, Tag or type |
 | `get_item` | A Note's Markdown, `version`, Tags, Folder and Backlinks; an Asset's title, description and size (never the file) |
 | `get_graph` | How Items link to each other: every Item with its number of Links, and every Link between them, for a Folder (with subfolders) or everything, or what is around one Item (`itemId`, `depth` 1 or 2). Find orphans, hubs and groups that never connect without reading every Note. At most 500 Items, the most-linked |
