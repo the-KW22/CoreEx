@@ -7,7 +7,7 @@ import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } fro
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { centreOn, fit, isArrow, labelOpacity, linkMaps, nodeLabel, nodeRadius, step, where, type GraphEdge, type Point, type View } from "@/lib/graph";
+import { centreOn, fit, isArrow, labelOpacity, linkMaps, nodeLabel, nodeRadius, step, visibleLabels, where, type GraphEdge, type Point, type View } from "@/lib/graph";
 import { treeLabel, type CanvasNode } from "@/lib/graph-tree";
 import { itemHref } from "@/lib/items";
 import type { TagColour } from "@/lib/tag-colour";
@@ -65,6 +65,7 @@ export function GraphCanvas({
   highlight,
   focusOn,
   onBackgroundClick,
+  expand,
 }: {
   nodes: CanvasNode[];
   edges: GraphEdge[];
@@ -91,6 +92,8 @@ export function GraphCanvas({
   focusOn?: { id: string; move: boolean } | null;
   /** The background was clicked rather than dragged. */
   onBackgroundClick?: () => void;
+  /** Load its neighbours: offered for the node last hovered or focused, when `can` says there may be more. */
+  expand?: { can: (id: string) => boolean; run: (id: string) => void; busy: boolean };
 }) {
   const router = useRouter();
   const arrowId = useId();
@@ -129,6 +132,8 @@ export function GraphCanvas({
   }
   const [hovered, setHovered] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
+  // Stays after the pointer leaves, so the pointer can reach the button that acts on it.
+  const [picked, setPicked] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const refitOnResize = useRef(false);
@@ -260,7 +265,10 @@ export function GraphCanvas({
     gesture.current = null;
     if (g?.kind === "pan") {
       const at = pointer(e);
-      if (Math.hypot(at.x - g.from.x, at.y - g.from.y) < 4) onBackgroundClick?.();
+      if (Math.hypot(at.x - g.from.x, at.y - g.from.y) < 4) {
+        setPicked(null);
+        onBackgroundClick?.();
+      }
     }
     if (g?.kind !== "node") return;
     if (!g.moved) {
@@ -291,6 +299,8 @@ export function GraphCanvas({
     if (e.key === "Enter" || (e.key === " " && node.type === "FOLDER")) {
       e.preventDefault();
       open(node);
+    } else if (e.key.toLowerCase() === "e" && expand?.can(node.id)) {
+      expand.run(node.id);
     } else if (isArrow(e.key)) {
       e.preventDefault();
       const from = pos.get(node.id)!;
@@ -302,6 +312,9 @@ export function GraphCanvas({
   const radius = (n: CanvasNode) => (n.type === "FOLDER" ? FOLDER_RADIUS : nodeRadius(n.linkCount) * (n.id === centre ? 1.5 : 1));
   // A local graph is small enough to name every node, so its labels never fade.
   const labels = centre ? 1 : view ? labelOpacity(view.k) : 0;
+  // A local graph is small enough for every label, and its labels stay put.
+  const labelled = !centre && labels > 0 && view && size ? visibleLabels(nodes, pos, view, size.w, size.h) : null;
+  const offer = picked && expand?.can(picked) ? byId.get(picked) : undefined;
   const card = active && view ? byId.get(active) : undefined;
   const cardAt = card && view ? pos.get(card.id)! : undefined;
 
@@ -369,9 +382,15 @@ export function GraphCanvas({
                   transform={`translate(${p.x} ${p.y})`}
                   className={`${NODE} ${dim ? "opacity-25" : "opacity-100"}`}
                   onPointerDown={(e) => onPointerDown(e, n.id)}
-                  onPointerEnter={() => setHovered(n.id)}
+                  onPointerEnter={() => {
+                    setHovered(n.id);
+                    setPicked(n.id);
+                  }}
                   onPointerLeave={() => setHovered(null)}
-                  onFocus={() => setFocused(n.id)}
+                  onFocus={() => {
+                    setFocused(n.id);
+                    setPicked(n.id);
+                  }}
                   onBlur={() => setFocused(null)}
                   onKeyDown={(e) => onKeyDown(e, n)}
                 >
@@ -389,7 +408,7 @@ export function GraphCanvas({
                     </text>
                   )}
                   {/* The node's name already says it all, so the label is only for the eye. */}
-                  {(labels > 0 || lit?.has(n.id)) && (
+                  {(centre || labelled?.has(n.id) || lit?.has(n.id)) && (
                     <text
                       y={r + 14 / view.k}
                       textAnchor="middle"
@@ -435,6 +454,18 @@ export function GraphCanvas({
       )}
 
       {legend}
+
+      {offer && expand && (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={expand.busy}
+          className="absolute top-3 right-3 max-w-[60%]"
+          onClick={() => expand.run(offer.id)}
+        >
+          <span className="truncate">Load neighbours of {offer.title}</span>
+        </Button>
+      )}
 
       <div className="absolute right-3 bottom-3 flex gap-1">
         <Tip text="Zoom in">

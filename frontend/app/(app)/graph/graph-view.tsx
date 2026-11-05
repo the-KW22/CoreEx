@@ -3,7 +3,7 @@
 import { ArrowDownIcon, ArrowUpIcon, FolderTreeIcon, SparklesIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Alert } from "@/components/alert";
@@ -37,7 +37,7 @@ import type { TagColour } from "@/lib/tag-colour";
 
 import { FolderSelect } from "../folders/folder-select";
 import { ViewToggle } from "../items/view-toggle";
-import { resetLayout, savePosition } from "./actions";
+import { loadNeighbours, resetLayout, savePosition } from "./actions";
 import { GraphCanvas } from "./graph-canvas";
 import { GraphFolders } from "./graph-folders";
 import { GraphInsights, type Highlight } from "./graph-insights";
@@ -59,7 +59,18 @@ export function GraphView({
 }) {
   const router = useRouter();
   const params = useSearchParams();
-  const allNodes = useMemo(() => graph.nodes.map((n) => ({ ...n, title: n.title || "Untitled" })), [graph.nodes]);
+  // What Load neighbours has added to the graph from the server. Each Item's neighbours are asked for once.
+  const [added, setAdded] = useState<{ nodes: GraphNode[]; edges: GraphEdge[]; asked: Set<string> }>({ nodes: [], edges: [], asked: new Set() });
+  const [expanding, startExpanding] = useTransition();
+  // A refresh can bring in what was added by hand, as the page's own data: that copy wins.
+  const allNodes = useMemo(() => {
+    const own = new Set(graph.nodes.map((n) => n.id));
+    return [...graph.nodes, ...added.nodes.filter((n) => !own.has(n.id))].map((n) => ({ ...n, title: n.title || "Untitled" }));
+  }, [graph.nodes, added.nodes]);
+  const allEdges = useMemo(() => {
+    const own = new Set(graph.edges.map((e) => `${e.source} ${e.target}`));
+    return [...graph.edges, ...added.edges.filter((e) => !own.has(`${e.source} ${e.target}`))];
+  }, [graph.edges, added.edges]);
   const asked = useMemo(() => readFilter(params), [params]);
   // A Tag from another Folder's graph (the filter follows the User between Folders) cannot match here, so it is ignored.
   const filter = useMemo(
@@ -69,8 +80,8 @@ export function GraphView({
   // Tree mode draws Folders rather than Links, so Only linked Items waits in the address for the way back.
   const hideUnlinked = filter.linkedOnly && mode === "links";
   const { nodes, edges } = useMemo(
-    () => (hideUnlinked ? linkedOnly(allNodes, graph.edges) : { nodes: allNodes, edges: graph.edges }),
-    [allNodes, graph.edges, hideUnlinked],
+    () => (hideUnlinked ? linkedOnly(allNodes, allEdges) : { nodes: allNodes, edges: allEdges }),
+    [allNodes, allEdges, hideUnlinked],
   );
   const dimmed = useMemo(() => new Set(nodes.filter((n) => !matchesFilter(n, filter)).map((n) => n.id)), [nodes, filter]);
   const painted = useMemo(() => (filter.colour ? nodeColours(nodes, graph.tags, filter.colour) : null), [nodes, graph.tags, filter.colour]);
@@ -94,6 +105,30 @@ export function GraphView({
     setHighlight({ key: `find:${id}`, ids: aroundNode(id, edges) });
     setFocusOn({ id, move: true });
   }
+  // An added Item shows as a stub (dashed): it is outside what this view would hold by itself.
+  // shortcut: only the Links of the Item asked about come back, so a Link between two added Items shows once one of them
+  // is asked about too; load depth 2 or the edges among all shown if that confuses anyone.
+  function expand(id: string) {
+    startExpanding(async () => {
+      const result = await loadNeighbours(id);
+      if (!result) {
+        toast.error("Could not load the neighbours. Try again.");
+        return;
+      }
+      const known = new Set(allNodes.map((n) => n.id));
+      const links = new Set(allEdges.map((e) => `${e.source} ${e.target}`));
+      const nodes = result.nodes.filter((n) => !known.has(n.id)).map((n) => ({ ...n, stub: true }));
+      setAdded((was) => ({
+        nodes: [...was.nodes, ...nodes],
+        edges: [...was.edges, ...result.edges.filter((e) => !links.has(`${e.source} ${e.target}`))],
+        asked: new Set(was.asked).add(id),
+      }));
+      setHighlight({ key: `find:${id}`, ids: result.nodes.map((n) => n.id) });
+      toast(nodes.length ? `Added ${nodes.length} ${nodes.length === 1 ? "Item" : "Items"}.` : "Nothing more is linked to it.");
+    });
+  }
+  const canExpand = (id: string) =>
+    !added.asked.has(id) && (graph.truncated || !!allNodes.find((n) => n.id === id)?.stub);
   const findBox = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -112,8 +147,8 @@ export function GraphView({
   // From all Items, not only those shown: Only linked Items hides the orphans, and the panel says so.
   const insights = useMemo(() => {
     const matching = allNodes.filter((n) => matchesFilter(n, filter));
-    return graphInsights(matching, graph.edges);
-  }, [allNodes, graph.edges, filter]);
+    return graphInsights(matching, allEdges);
+  }, [allNodes, allEdges, filter]);
   const href = (id: string | null) => graphHref(id, mode, filter);
   // In the address only: nothing needs fetching again, so the page does not go back to the server.
   function setFilter(next: GraphFilter) {
@@ -206,7 +241,7 @@ export function GraphView({
 
       {graph.truncated && (
         <Alert role="status" tone="neutral">
-          Showing {allNodes.length} of {graph.total} Items. Open a smaller Folder to see them all.
+          Showing {graph.nodes.length} of {graph.total} Items. Open a smaller Folder to see them all, or load a node&rsquo;s neighbours.
         </Alert>
       )}
 
@@ -277,8 +312,9 @@ export function GraphView({
             legend={painted && <Legend {...painted} />}
             highlight={highlight?.ids}
             focusOn={focusOn}
+            expand={{ can: canExpand, run: expand, busy: expanding }}
             onBackgroundClick={() => setHighlight(null)}
-            label={`Graph of ${scope}: ${nodes.length} Items. Tab to an Item, arrow keys move along its Links.`}
+            label={`Graph of ${scope}: ${nodes.length} Items. Tab to an Item, arrow keys move along its Links, E loads its neighbours where there may be more.`}
             className="h-[70vh] min-h-96"
             onDrop={async (id, x, y) => {
               if (!(await savePosition(id, folderId, x, y))) toast.error("Could not save where you put it. Try again.");
