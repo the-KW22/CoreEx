@@ -21,6 +21,7 @@ import com.coreex.common.ErrorBody;
 import com.coreex.identity.CurrentUserInterceptor;
 import com.coreex.identity.User;
 import com.coreex.items.Item;
+import com.coreex.tags.TagColour;
 
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -77,7 +78,14 @@ class LinkController {
 					description = "True for an Item outside the Folder, linked to or from inside it") boolean stub,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
 					description = "Where the User left the node in this graph, null when never placed") Double x,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) Double y) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) Double y,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Item's Tags, listed in the graph's tags") List<UUID> tagIds) {
+	}
+
+	record GraphTagResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+					description = "Null when the User has not picked one") TagColour colour) {
 	}
 
 	record GraphEdgeResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID source,
@@ -88,14 +96,16 @@ class LinkController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<GraphEdgeResponse> edges,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
 					description = "Nodes before the cap of 500 most-linked") int total,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean truncated) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean truncated,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Each Tag on a node, once") List<GraphTagResponse> tags) {
 
 		static GraphResponse of(LinkService.Graph graph) {
 			return new GraphResponse(graph.nodes().stream()
 					.map(n -> new GraphNodeResponse(n.id(), n.type(), n.title(), n.folderId(), n.folderPath(), n.linkCount(), n.stub(),
-							n.x(), n.y()))
+							n.x(), n.y(), n.tagIds()))
 					.toList(), graph.edges().stream().map(e -> new GraphEdgeResponse(e.source(), e.target())).toList(),
-					graph.total(), graph.truncated());
+					graph.total(), graph.truncated(),
+					graph.tags().stream().map(t -> new GraphTagResponse(t.id(), t.name(), t.colour())).toList());
 		}
 
 	}

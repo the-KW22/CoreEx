@@ -1145,6 +1145,8 @@ export interface components {
             x: number | null;
             /** Format: double */
             y: number | null;
+            /** @description The Item's Tags, listed in the graph's tags */
+            tagIds: string[];
         };
         GraphResponse: {
             nodes: components["schemas"]["GraphNodeResponse"][];
@@ -1155,6 +1157,18 @@ export interface components {
              */
             total: number;
             truncated: boolean;
+            /** @description Each Tag on a node, once */
+            tags: components["schemas"]["GraphTagResponse"][];
+        };
+        GraphTagResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /**
+             * @description Null when the User has not picked one
+             * @enum {string|null}
+             */
+            colour: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
         };
         ItemPage: {
             items: components["schemas"]["ItemResponse"][];

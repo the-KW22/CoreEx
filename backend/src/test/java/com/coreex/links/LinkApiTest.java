@@ -298,6 +298,38 @@ class LinkApiTest extends ApiTest {
 		assertThat(body).contains("\"source\":\"" + source + "\",\"target\":\"" + target + "\"");
 	}
 
+	private String tag(String token, String itemId, String name) throws Exception {
+		var added = post("/api/items/" + itemId + "/tags", token, "{\"name\":\"" + name + "\"}");
+		assertThat(added.statusCode()).as(added.body()).isBetween(200, 201);
+		return field(added.body(), "id");
+	}
+
+	@Test
+	void graphNodesCarryTheirTagsAndTheGraphListsEachTagOnce() throws Exception {
+		var one = note(userA, "One", "");
+		var two = note(userA, "Two", "[[" + one + "|O]]");
+		var physics = tag(userA, one, "physics");
+		tag(userA, two, "physics");
+		var maths = tag(userA, two, "maths");
+
+		var body = graph(userA);
+
+		assertThat(body).contains("\"tagIds\":[\"" + physics + "\"]");
+		assertThat(body).containsPattern("\"tagIds\":\\[[^\\]]*" + maths);
+		assertThat(body.split("\"name\":\"physics\"", -1)).hasSize(2);
+		assertThat(localGraph(userA, one, 1)).contains("\"tags\":[", "\"name\":\"maths\"");
+	}
+
+	@Test
+	void aGraphNeverListsAnotherUsersTags() throws Exception {
+		tag(userB, note(userB, "B Item", ""), "secret");
+		var aItem = note(userA, "A Item", "");
+
+		var body = graph(userA);
+
+		assertThat(body).contains(aItem, "\"tagIds\":[]", "\"tags\":[]").doesNotContain("secret");
+	}
+
 	@Test
 	void theGraphLeavesOutTrashedItemsAndTheirLinks() throws Exception {
 		var target = note(userA, "Target", "");

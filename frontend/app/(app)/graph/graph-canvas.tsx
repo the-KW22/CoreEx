@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { fit, isArrow, labelOpacity, linkMaps, nodeLabel, nodeRadius, step, where, type GraphEdge, type Point, type View } from "@/lib/graph";
 import { treeLabel, type CanvasNode } from "@/lib/graph-tree";
 import { itemHref } from "@/lib/items";
+import type { TagColour } from "@/lib/tag-colour";
 
 import { useLayout } from "./use-layout";
 
@@ -27,8 +28,10 @@ const LINK_OFF = `stroke-muted-foreground ${fade}`;
 const NODE = `cursor-pointer outline-none ${fade}`;
 const SHAPE = {
   stub: `fill-background stroke-muted-foreground ${fade}`,
+  stubColoured: `fill-background stroke-(--tag) ${fade}`,
   active: `fill-foreground ${fade}`,
   idle: `fill-muted-foreground ${fade}`,
+  coloured: `fill-(--tag) ${fade}`,
 };
 // Labels have no transition: their opacity already follows the zoom, and they are only drawn while visible.
 const LABEL = "pointer-events-none fill-foreground";
@@ -53,6 +56,10 @@ export function GraphCanvas({
   onDrop,
   onReset,
   tree,
+  dimmed,
+  colours,
+  tagNames,
+  legend,
 }: {
   nodes: CanvasNode[];
   edges: GraphEdge[];
@@ -65,6 +72,14 @@ export function GraphCanvas({
   onDrop?: (id: string, x: number, y: number) => void;
   onReset?: () => Promise<boolean>;
   tree?: { pos: Map<string, Point>; onToggle: (id: string) => void };
+  /** Nodes a filter leaves out: faded, and still reachable by keyboard. */
+  dimmed?: Set<string>;
+  /** Node colours, from the Colour by control. Without one a node is grey. */
+  colours?: Map<string, TagColour>;
+  /** Each node's Tags, for its name and hover card, so a colour is never the only sign of one. */
+  tagNames?: Map<string, string[]>;
+  /** Drawn in the top-left corner, so it stays with the canvas at full screen. */
+  legend?: React.ReactNode;
 }) {
   const router = useRouter();
   const arrowId = useId();
@@ -72,8 +87,17 @@ export function GraphCanvas({
   const titles = useMemo(() => new Map(nodes.map((n) => [n.id, n.title])), [nodes]);
   const { out, into } = useMemo(() => linkMaps(edges), [edges]);
   const names = useMemo(
-    () => new Map(nodes.map((n) => [n.id, tree || n.type === "FOLDER" ? treeLabel(n) : nodeLabel(n, titles, out.get(n.id) ?? [], into.get(n.id) ?? [])])),
-    [nodes, titles, out, into, tree],
+    () =>
+      new Map(
+        nodes.map((n) => [
+          n.id,
+          tree || n.type === "FOLDER"
+            ? treeLabel(n)
+            : // A colour is never the only sign of the Folder it stands for.
+              `${nodeLabel(n, titles, out.get(n.id) ?? [], into.get(n.id) ?? [], tagNames?.get(n.id))}${colours && !n.stub ? `, ${where(n)}` : ""}`,
+        ]),
+      ),
+    [nodes, titles, out, into, tree, tagNames, colours],
   );
   const reduceMotion = !!useReducedMotion();
   const layout = useLayout(tree ? NO_NODES : nodes, tree ? NO_EDGES : edges, reduceMotion);
@@ -274,7 +298,7 @@ export function GraphCanvas({
                   className={on ? LINK_ON : LINK_OFF}
                   strokeWidth={(on ? 1.6 : 0.8) / view.k}
                   strokeDasharray={stub ? `${4 / view.k} ${4 / view.k}` : undefined}
-                  style={{ strokeOpacity: on ? 1 : lit ? 0.12 : 0.35 }}
+                  style={{ strokeOpacity: on ? 1 : lit || dimmed?.has(e.source) || dimmed?.has(e.target) ? 0.12 : 0.35 }}
                   markerEnd={on ? `url(#${arrowId})` : undefined}
                 />
               );
@@ -282,8 +306,10 @@ export function GraphCanvas({
             {nodes.map((n) => {
               const p = pos.get(n.id)!;
               const r = radius(n);
-              const dim = lit !== null && !lit.has(n.id);
-              const shape = n.stub ? SHAPE.stub : n.id === active ? SHAPE.active : SHAPE.idle;
+              const filtered = dimmed?.has(n.id) ?? false;
+              const dim = lit ? !lit.has(n.id) : filtered;
+              const colour = colours?.get(n.id);
+              const shape = n.stub ? (colour ? SHAPE.stubColoured : SHAPE.stub) : n.id === active ? SHAPE.active : colour ? SHAPE.coloured : SHAPE.idle;
               const shapeProps = { className: shape, strokeWidth: 1.2 / view.k, strokeDasharray: n.stub ? `${3 / view.k} ${3 / view.k}` : undefined };
               return (
                 <g
@@ -295,7 +321,8 @@ export function GraphCanvas({
                   role={n.type === "FOLDER" ? "button" : "link"}
                   aria-expanded={n.type === "FOLDER" && n.children > 0 ? !n.collapsed : undefined}
                   tabIndex={0}
-                  aria-label={names.get(n.id)}
+                  aria-label={filtered ? `${names.get(n.id)}, not in the filter` : names.get(n.id)}
+                  data-colour={colour}
                   transform={`translate(${p.x} ${p.y})`}
                   className={`${NODE} ${dim ? "opacity-25" : "opacity-100"}`}
                   onPointerDown={(e) => onPointerDown(e, n.id)}
@@ -357,11 +384,14 @@ export function GraphCanvas({
                 {card.type === "NOTE" ? "Note" : "Asset"} · {out.get(card.id)?.length ?? 0} Links ·{" "}
                 {into.get(card.id)?.length ?? 0} Backlinks
               </p>
-              {card.stub && <p className="text-muted-foreground">{where(card)}</p>}
+              {(card.stub || colours) && <p className="text-muted-foreground">{where(card)}</p>}
             </>
           )}
+          {tagNames?.get(card.id)?.length ? <p className="text-muted-foreground">Tags: {tagNames.get(card.id)!.join(", ")}</p> : null}
         </div>
       )}
+
+      {legend}
 
       <div className="absolute right-3 bottom-3 flex gap-1">
         <Tip text="Zoom in">
