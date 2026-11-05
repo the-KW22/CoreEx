@@ -9,14 +9,18 @@ import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import com.coreex.ApiTest;
 import com.coreex.TestEmbedder;
 import com.coreex.TestJwts;
 
 /** Notes are kept embedded: saved through the real API, embedded by the sweep, with the fake in place of the function. */
+@ExtendWith(OutputCaptureExtension.class)
 class NoteEmbeddingSweepTest extends ApiTest {
 
 	private static final Duration SETTLED = Duration.ZERO;
@@ -104,6 +108,18 @@ class NoteEmbeddingSweepTest extends ApiTest {
 		assertThat(jdbc.sql("""
 				select c.embedded_updated_at = i.updated_at from items i join note_contents c on c.item_id = i.id
 				where i.id = :id""").param("id", note).query(Boolean.class).single()).isTrue();
+	}
+
+	@Test
+	void aRunThatEmbedsSomethingSaysHowMuchAndAnIdleRunSaysNothing(CapturedOutput output) throws Exception {
+		createNote(userA, "Plan", sections("A", "B"));
+		createNote(userB, "Other", sections("C"));
+
+		sweep.run(SETTLED);
+		sweep.run(SETTLED);
+
+		assertThat(output.getOut()).contains("Embedded 3 Chunks for 2 Notes");
+		assertThat(output.getOut()).doesNotContain("Embedded 0 ").doesNotContain("Plan").doesNotContain("text of A");
 	}
 
 	@Test
