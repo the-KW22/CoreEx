@@ -1607,6 +1607,33 @@ test("the Graph finds a node by title, with / and from the palette, and keeps it
   await trashRows(page, [title]);
 });
 
+test("a Note lists plain mentions of it, and Link it makes them a Backlink", async ({ page }) => {
+  test.setTimeout(60_000);
+  await signIn(page);
+  const stamp = Date.now();
+  const target = `Mentioned ${stamp}`;
+  const other = `Mentioner ${stamp}`;
+  await newNote(page, other);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(`I wrote about ${target} today`);
+  await expectSaved(page);
+  await newNote(page, target);
+
+  const section = page.getByRole("region", { name: /Mentioned without a Link/ });
+  await page.reload();
+  await expect(section.getByRole("link", { name: other })).toBeVisible();
+  await expect(section.locator("mark")).toHaveText(target);
+  await expectNoViolations(page);
+
+  await section.getByRole("button", { name: `Link it in ${other}` }).click();
+  await expect(section.getByText("No other Note mentions this title.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Backlinks" }).getByRole("link", { name: other })).toBeVisible();
+
+  await page.goto("/items");
+  await trashRows(page, [other, target]);
+});
+
 test("a dragged Graph node stays where it was dropped, until Reset layout", async ({ page }) => {
   await signIn(page);
   const title = `Layout node ${Date.now()}`;

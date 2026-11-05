@@ -128,3 +128,7 @@ curl -s -X POST https://coreex-api-prod.onrender.com/mcp \
   -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
+
+## Linking plain mentions
+
+No separate tool is needed to turn a plain mention into a Link: an Agent uses `get_graph` for the orphans, `search` with the title in quotes for the Notes that name one, and `edit_note` to wrap the words in `[[ ]]`. Ask it to "link my orphans".

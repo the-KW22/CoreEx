@@ -260,6 +260,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/items/{id}/mentions/{noteId}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/folders": {
         parameters: {
             query?: never;
@@ -516,6 +532,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/items/{id}/mentions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_7"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/items/{id}/graph": {
         parameters: {
             query?: never;
@@ -619,7 +651,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_7"];
+        get: operations["list_8"];
         put?: never;
         post?: never;
         delete?: never;
@@ -952,6 +984,10 @@ export interface components {
             /** @enum {string|null} */
             colour?: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
         };
+        LinkMentionRequest: {
+            /** Format: int32 */
+            version: number;
+        };
         CreateFolderRequest: {
             name: string;
             /**
@@ -1179,6 +1215,27 @@ export interface components {
             items: components["schemas"]["ItemTagResponse"][];
             /** Format: int64 */
             total: number;
+        };
+        MentionList: {
+            items: components["schemas"]["MentionResponse"][];
+            /** Format: int64 */
+            total: number;
+        };
+        MentionResponse: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /**
+             * Format: int32
+             * @description Send this back to Link it
+             */
+            version: number;
+            /** @description Plain text before the mention, never markup */
+            before: string;
+            /** @description The mention as written */
+            match: string;
+            /** @description Plain text after the mention */
+            after: string;
         };
         BacklinkList: {
             items: components["schemas"]["BacklinkResponse"][];
@@ -2195,6 +2252,49 @@ export interface operations {
             };
         };
     };
+    link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkMentionRequest"];
+            };
+        };
+        responses: {
+            /** @description Linked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND (also another User's, or no mention any more) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     list_2: {
         parameters: {
             query?: never;
@@ -2909,6 +3009,39 @@ export interface operations {
             };
         };
     };
+    list_7: {
+        parameters: {
+            query?: {
+                size?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The mentions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentionList"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's or a trashed Item) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     localGraph: {
         parameters: {
             query?: {
@@ -3095,7 +3228,7 @@ export interface operations {
             };
         };
     };
-    list_7: {
+    list_8: {
         parameters: {
             query?: {
                 page?: number;

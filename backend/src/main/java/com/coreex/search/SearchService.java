@@ -37,6 +37,9 @@ public class SearchService {
 	public record Page(List<Hit> hits, long total, boolean exactOnly) {
 	}
 
+	public record NoteText(UUID id, String title, int version, String body) {
+	}
+
 	record QuickHit(UUID id, Item.Type type, String title, String folderPath) {
 	}
 
@@ -78,6 +81,12 @@ public class SearchService {
 		this.tags = tags;
 		this.embedder = embedder;
 		this.properties = properties;
+	}
+
+	/** Live Notes of the User with this phrase as words, for unlinked mentions: not this Item, none that link to it. */
+	public List<NoteText> notesWithPhrase(UUID ownerId, UUID itemId, String phrase, int limit) {
+		return search.notesWithPhrase(ownerId, itemId, phrase, limit).stream()
+				.map(n -> new NoteText(n.id(), n.title(), n.version(), n.body())).toList();
 	}
 
 	/**
