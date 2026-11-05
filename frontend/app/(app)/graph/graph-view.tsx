@@ -1,6 +1,6 @@
 "use client";
 
-import { FolderTreeIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, FolderTreeIcon, SparklesIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -15,6 +15,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { components } from "@/lib/api/schema";
 import { graphFolderChoices, type Folder } from "@/lib/folders";
 import {
+  graphInsights,
   linkedOnly,
   linkMaps,
   matchesFilter,
@@ -36,6 +37,7 @@ import { ViewToggle } from "../items/view-toggle";
 import { resetLayout, savePosition } from "./actions";
 import { GraphCanvas } from "./graph-canvas";
 import { GraphFolders } from "./graph-folders";
+import { GraphInsights, type Highlight } from "./graph-insights";
 
 export function GraphView({
   graph,
@@ -43,12 +45,14 @@ export function GraphView({
   folderId,
   mode,
   panelOpen,
+  insightsOpen,
 }: {
   graph: components["schemas"]["GraphResponse"];
   folders: Folder[];
   folderId: string | null;
   mode: GraphMode;
   panelOpen: boolean;
+  insightsOpen: boolean;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -74,6 +78,14 @@ export function GraphView({
   const [table, setTable] = useState(false);
   const [panel, setPanel] = useState(panelOpen);
   const [sheet, setSheet] = useState(false);
+  const [insightsPanel, setInsightsPanel] = useState(insightsOpen);
+  const [insightsSheet, setInsightsSheet] = useState(false);
+  const [highlight, setHighlight] = useState<Highlight | null>(null);
+  // From all Items, not only those shown: Only linked Items hides the orphans, and the panel says so.
+  const insights = useMemo(() => {
+    const matching = allNodes.filter((n) => matchesFilter(n, filter));
+    return graphInsights(matching, graph.edges);
+  }, [allNodes, graph.edges, filter]);
   const href = (id: string | null) => graphHref(id, mode, filter);
   // In the address only: nothing needs fetching again, so the page does not go back to the server.
   function setFilter(next: GraphFilter) {
@@ -81,16 +93,29 @@ export function GraphView({
     writeFilter(query, next);
     const text = query.toString();
     window.history.replaceState(null, "", text ? `/graph?${text}` : "/graph");
+    setHighlight(null);
   }
   function togglePanel() {
     setPanel(!panel);
     document.cookie = `graph-panel=${panel ? "closed" : "open"}; path=/; max-age=31536000; samesite=lax`;
+  }
+  function toggleInsights() {
+    setInsightsPanel(!insightsPanel);
+    document.cookie = `graph-insights=${insightsPanel ? "closed" : "open"}; path=/; max-age=31536000; samesite=lax`;
   }
   // Tree mode also draws Folders with nothing in them yet.
   const hasFolders = folders.some((f) => f.parentId === folderId);
   const empty = allNodes.length === 0 && !(mode === "tree" && hasFolders);
 
   const listHref = folderId ? `/folders/${folderId}` : "/items";
+  // Insights answer in the picture, so they need the picture: Links mode, not the table.
+  const canInsight = mode === "links" && !table && allNodes.length > 0;
+  const showInsights = canInsight && insightsPanel;
+  const columns = [
+    panel && showInsights ? "md:grid-cols-[16rem_minmax(0,1fr)] lg:grid-cols-[16rem_minmax(0,1fr)_16rem]" : "",
+    panel && !showInsights ? "md:grid-cols-[16rem_minmax(0,1fr)]" : "",
+    !panel && showInsights ? "lg:grid-cols-[minmax(0,1fr)_16rem]" : "",
+  ].join(" ");
   const scope = folderId ? (folders.find((f) => f.id === folderId)?.name ?? "this Folder") : "All Items";
 
   return (
@@ -117,6 +142,18 @@ export function GraphView({
             <FolderTreeIcon aria-hidden />
             Folders
           </Button>
+          {canInsight && (
+            <>
+              <Button variant="outline" className="hidden lg:inline-flex" aria-pressed={insightsPanel} onClick={toggleInsights}>
+                <SparklesIcon aria-hidden />
+                Insights
+              </Button>
+              <Button variant="outline" className="lg:hidden" onClick={() => setInsightsSheet(true)}>
+                <SparklesIcon aria-hidden />
+                Insights
+              </Button>
+            </>
+          )}
           <ToggleGroup
             type="single"
             variant="outline"
@@ -153,7 +190,7 @@ export function GraphView({
         />
       )}
 
-      <div className={panel ? "grid gap-4 md:grid-cols-[16rem_minmax(0,1fr)]" : "grid"}>
+      <div className={`grid gap-4 ${columns}`}>
         {panel && (
           <aside aria-label="Folders" className="hidden h-[70vh] min-h-96 overflow-y-auto rounded-[14px] border border-border p-2 md:block">
             <GraphFolders folders={folders} current={folderId} href={href} />
@@ -201,6 +238,7 @@ export function GraphView({
             colours={painted?.colours}
             tagNames={tagNames}
             legend={painted && <Legend {...painted} />}
+            highlight={highlight?.ids}
             label={`Graph of ${scope}: ${nodes.length} Items. Tab to an Item, arrow keys move along its Links.`}
             className="h-[70vh] min-h-96"
             onDrop={async (id, x, y) => {
@@ -213,7 +251,24 @@ export function GraphView({
             }}
           />
         )}
+        {showInsights && (
+          <aside aria-label="Insights" className="hidden h-[70vh] min-h-96 overflow-y-auto rounded-[14px] border border-border p-3 lg:block">
+            <GraphInsights insights={insights} highlight={highlight} orphansHidden={hideUnlinked} onHighlight={setHighlight} />
+          </aside>
+        )}
       </div>
+
+      {/* Narrow screens: Insights as a Sheet, which closes on an answer so the canvas can be seen. */}
+      <Sheet open={insightsSheet} onOpenChange={setInsightsSheet}>
+        <SheetContent
+          side="right"
+          className="w-72 overflow-y-auto border-border bg-panel p-3"
+          onClick={(e) => (e.target as HTMLElement).closest("button[aria-pressed]") && setInsightsSheet(false)}
+        >
+          <SheetTitle>Insights</SheetTitle>
+          <GraphInsights insights={insights} highlight={highlight} orphansHidden={hideUnlinked} onHighlight={setHighlight} />
+        </SheetContent>
+      </Sheet>
 
       {/* Phones: the panel as a Sheet, which any link in it closes. */}
       <Sheet open={sheet} onOpenChange={setSheet}>
@@ -380,39 +435,70 @@ function Legend({ legend, more }: { legend: { name: string; colour: TagColour; c
 
 // The same graph as rows, for anyone who can't or would rather not use the picture.
 function GraphTable({ nodes, edges, tagNames }: { nodes: GraphNode[]; edges: GraphEdge[]; tagNames: Map<string, string[]> }) {
+  const [sort, setSort] = useState<{ by: "out" | "into"; down: boolean } | null>(null);
+  const [onlyOrphans, setOnlyOrphans] = useState(false);
   const titles = new Map(nodes.map((n) => [n.id, n.title]));
   const { out, into } = linkMaps(edges);
-  const names = (ids: string[] | undefined) => ids?.map((id) => titles.get(id)).join(", ") || "None";
+  const names = (ids: string[] | undefined) => ids?.map((id) => titles.get(id)).filter(Boolean).join(", ") || "None";
+  const orphans = new Set(graphInsights(nodes, edges).orphans);
+  const rows = (onlyOrphans ? nodes.filter((n) => orphans.has(n.id)) : nodes).slice();
+  if (sort) {
+    const links = sort.by === "out" ? out : into;
+    const size = (n: GraphNode) => links.get(n.id)?.length ?? 0;
+    rows.sort((a, b) => (sort.down ? size(b) - size(a) : size(a) - size(b)) || a.title.localeCompare(b.title));
+  }
+  const sortable = (by: "out" | "into", label: string) => {
+    const on = sort?.by === by;
+    return (
+      <th scope="col" aria-sort={on ? (sort.down ? "descending" : "ascending") : "none"} className="px-2 py-1 font-medium">
+        <Button variant="ghost" size="sm" onClick={() => setSort({ by, down: on ? !sort.down : true })}>
+          {label}
+          {on && (sort.down ? <ArrowDownIcon aria-hidden /> : <ArrowUpIcon aria-hidden />)}
+        </Button>
+      </th>
+    );
+  };
   return (
-    <div className="overflow-x-auto rounded-[14px] border border-border">
-      <table className="w-full text-left text-sm">
-        <caption className="sr-only">Items and their Links</caption>
-        <thead className="text-muted-foreground">
-          <tr className="border-b border-border">
-            <th scope="col" className="px-4 py-2 font-medium">Item</th>
-            <th scope="col" className="px-4 py-2 font-medium">Kind</th>
-            <th scope="col" className="px-4 py-2 font-medium">Links to</th>
-            <th scope="col" className="px-4 py-2 font-medium">Linked from</th>
-            <th scope="col" className="px-4 py-2 font-medium">Tags</th>
-          </tr>
-        </thead>
-        <tbody>
-          {nodes.map((n) => (
-            <tr key={n.id} className="border-b border-border-subtle last:border-0">
-              <th scope="row" className="px-4 py-2 font-medium">
-                <Link href={itemHref(n)} className="hover:underline">
-                  {n.title}
-                </Link>
-                {n.stub && <span className="block text-xs font-normal text-muted-foreground">{where(n)}</span>}
-              </th>
-              <td className="px-4 py-2">{n.type === "NOTE" ? "Note" : "Asset"}</td>
-              <td className="px-4 py-2">{names(out.get(n.id))}</td>
-              <td className="px-4 py-2">{names(into.get(n.id))}</td>
-              <td className="px-4 py-2">{tagNames.get(n.id)?.join(", ") || "None"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="grid content-start gap-3">
+      <Toggle variant="outline" className="justify-self-start" pressed={onlyOrphans} onPressedChange={setOnlyOrphans}>
+        Only orphans
+      </Toggle>
+      {rows.length === 0 ? (
+        <p className="rounded-[14px] border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">
+          {nodes.length === 0 ? "No Items match the filters." : "Every Item here has a Link."}
+        </p>
+      ) : (
+        <div className="overflow-x-auto rounded-[14px] border border-border">
+          <table className="w-full text-left text-sm">
+            <caption className="sr-only">Items and their Links</caption>
+            <thead className="text-muted-foreground">
+              <tr className="border-b border-border">
+                <th scope="col" className="px-4 py-2 font-medium">Item</th>
+                <th scope="col" className="px-4 py-2 font-medium">Kind</th>
+                {sortable("out", "Links to")}
+                {sortable("into", "Linked from")}
+                <th scope="col" className="px-4 py-2 font-medium">Tags</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((n) => (
+                <tr key={n.id} className="border-b border-border-subtle last:border-0">
+                  <th scope="row" className="px-4 py-2 font-medium">
+                    <Link href={itemHref(n)} className="hover:underline">
+                      {n.title}
+                    </Link>
+                    {n.stub && <span className="block text-xs font-normal text-muted-foreground">{where(n)}</span>}
+                  </th>
+                  <td className="px-4 py-2">{n.type === "NOTE" ? "Note" : "Asset"}</td>
+                  <td className="px-4 py-2">{names(out.get(n.id))}</td>
+                  <td className="px-4 py-2">{names(into.get(n.id))}</td>
+                  <td className="px-4 py-2">{tagNames.get(n.id)?.join(", ") || "None"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

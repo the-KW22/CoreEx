@@ -48,6 +48,10 @@ public class LinkService {
 	public record Graph(List<GraphNode> nodes, List<GraphEdge> edges, int total, boolean truncated, List<Tag> tags) {
 	}
 
+	/** Items joined by Links, and the most linked of them, which names the group. */
+	public record Group(int size, UUID biggestId, String biggestTitle) {
+	}
+
 	// shortcut: a graph keeps only its 500 most-linked nodes so the browser stays fast; page or cluster it if Users
 	// need to see bigger Folders whole.
 	static final int MAX_GRAPH_NODES = 500;
@@ -209,6 +213,36 @@ public class LinkService {
 		return new Graph(kept, edges.stream().filter(e -> byId.containsKey(e.source()) && byId.containsKey(e.target()))
 				.map(e -> new GraphEdge(e.source(), e.target())).toList(), distance.size(), distance.size() > kept.size(),
 				distinctTags(itemTags));
+	}
+
+	/**
+	 * The groups of two or more Items that Links join, biggest first. Stubs are left out, because they are outside the
+	 * scope, so two groups that only meet through an outside Item stay two.
+	 */
+	public List<Group> groups(Graph graph) {
+		var inside = graph.nodes().stream().filter(n -> !n.stub()).collect(Collectors.toMap(GraphNode::id, n -> n));
+		var parent = new HashMap<UUID, UUID>();
+		inside.keySet().forEach(id -> parent.put(id, id));
+		for (var edge : graph.edges()) {
+			if (inside.containsKey(edge.source()) && inside.containsKey(edge.target())) {
+				parent.put(root(parent, edge.source()), root(parent, edge.target()));
+			}
+		}
+		var members = inside.keySet().stream().collect(Collectors.groupingBy(id -> root(parent, id)));
+		var biggest = Comparator.comparingInt(GraphNode::linkCount).reversed().thenComparing(GraphNode::title);
+		return members.values().stream().filter(ids -> ids.size() > 1).map(ids -> {
+			var top = ids.stream().map(inside::get).min(biggest).orElseThrow();
+			return new Group(ids.size(), top.id(), top.title());
+		}).sorted(Comparator.comparingInt(Group::size).reversed().thenComparing(Group::biggestTitle)).toList();
+	}
+
+	private static UUID root(Map<UUID, UUID> parent, UUID id) {
+		var at = id;
+		while (!parent.get(at).equals(at)) {
+			at = parent.get(at);
+		}
+		parent.put(id, at);
+		return at;
 	}
 
 	/** Saves where the User left an Item in a Folder's graph (null for All Items); a 404 for a foreign one. */

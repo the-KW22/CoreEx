@@ -37,6 +37,7 @@ export default async function GraphPage({ searchParams }: PageProps<"/graph">) {
       folderId={folderId}
       mode={mode === "tree" ? "tree" : "links"}
       panelOpen={jar.get("graph-panel")?.value !== "closed"}
+      insightsOpen={jar.get("graph-insights")?.value === "open"}
     />
   );
 }
