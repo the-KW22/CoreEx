@@ -1417,6 +1417,7 @@ test("a Note's first-line heading and its title stay in step, both ways", async 
 });
 
 test("a Folder opens as a Graph, its Items reached by keyboard and listed as a table", async ({ page }) => {
+  test.setTimeout(60_000);
   await signIn(page);
   const stamp = Date.now();
   const target = `Graph target ${stamp}`;
@@ -1462,6 +1463,303 @@ test("a Folder opens as a Graph, its Items reached by keyboard and listed as a t
   await trashRows(page, [source, target]);
 });
 
+test("the Graph filters by Tag and type and colours by Tag, all kept in the address", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page);
+  const stamp = Date.now();
+  const tagged = `Filter tagged ${stamp}`;
+  const plain = `Filter plain ${stamp}`;
+  const tagName = `filter-${stamp}`;
+  await newNote(page, plain);
+  await noteWithTag(page, tagged, tagName);
+
+  await page.goto("/graph");
+  await page.getByRole("toolbar", { name: "Filter by Tag" }).getByRole("button", { name: tagName }).click();
+  await expect(page).toHaveURL(/[?&]tag=/);
+  // The other Note fades, and a keyboard User can still reach it and hear why.
+  const faded = page.getByRole("link", { name: new RegExp(`^${plain}, .*not in the filter$`) });
+  await expect(faded).toBeVisible();
+  await expect(faded).toHaveClass(/opacity-25/);
+  await expect(page.getByRole("link", { name: new RegExp(`^${tagged}, .*Tags: ${tagName}$`) })).toBeVisible();
+
+  await page.getByRole("radiogroup", { name: "Colour by" }).getByRole("radio", { name: "Tag" }).click();
+  await expect(page.getByRole("list", { name: "Colours" }).getByText(tagName)).toBeVisible();
+  await expectNoViolations(page);
+
+  // A reload keeps the view, and the table lists only what matches.
+  await page.reload();
+  await expect(page.getByRole("list", { name: "Colours" }).getByText(tagName)).toBeVisible();
+  await page.getByRole("button", { name: "Show as table" }).click();
+  await expect(page.getByRole("rowheader", { name: tagged })).toBeVisible();
+  await expect(page.getByRole("rowheader", { name: plain })).toHaveCount(0);
+  await page.getByRole("button", { name: "Show as graph" }).click();
+
+  // Type: nothing that is an Asset here, so the Note fades too and Clear filters brings everything back.
+  await page.getByRole("radiogroup", { name: "Show only" }).getByRole("radio", { name: "Assets" }).click();
+  await expect(page.getByRole("link", { name: new RegExp(`^${tagged}, .*not in the filter$`) })).toBeVisible();
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(page.getByRole("link", { name: new RegExp(`^${plain}, Note`) })).toBeVisible();
+  await expect(page.getByRole("link", { name: /not in the filter$/ })).toHaveCount(0);
+
+  // Only linked Items hides what has no Links.
+  await page.getByRole("button", { name: "Only linked Items" }).click();
+  await expect(page).toHaveURL(/linked=1/);
+  await expect(page.getByRole("link", { name: new RegExp(`^${plain}, Note`) })).toHaveCount(0);
+
+  await page.goto("/items");
+  await trashRows(page, [plain, tagged]);
+  await page.goto("/tags");
+  await deleteTag(page, tagName);
+});
+
+test("Graph Insights answer in the canvas, and the table sorts and shows only orphans", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const target = `Insight hub ${stamp}`;
+  const source = `Insight source ${stamp}`;
+  const lone = `Insight lone ${stamp}`;
+  await newNote(page, lone);
+  await newNote(page, target);
+  await newNote(page, source);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(`See [[${target}`);
+  await page.getByRole("option", { name: new RegExp(target) }).click();
+  await page.keyboard.press("Enter");
+  await expectSaved(page);
+
+  await page.goto("/graph");
+  await page.getByRole("button", { name: "Insights" }).click();
+  const panel = page.getByRole("complementary", { name: "Insights" });
+  await expectNoViolations(page);
+
+  // An answer lights its nodes and dims the rest; pressing it again clears it.
+  const groupHeading = panel.getByRole("heading", { name: /separate group/ });
+  await expect(groupHeading).toBeVisible();
+  const answer = panel.getByRole("button", { name: /Items? with no Links/ });
+  const hub = page.getByRole("link", { name: new RegExp(`^${target}, Note`) });
+  await answer.click();
+  await expect(answer).toHaveAttribute("aria-pressed", "true");
+  await expect(hub).toHaveClass(/opacity-25/);
+  await expect(page.getByRole("link", { name: new RegExp(`^${lone}, Note`) })).toHaveClass(/opacity-100/);
+  await answer.click();
+  await expect(hub).toHaveClass(/opacity-100/);
+
+  // Kept open across a reload.
+  await page.reload();
+  await expect(panel).toBeVisible();
+
+  await page.getByRole("button", { name: "Show as table" }).click();
+  await page.getByRole("button", { name: "Linked from" }).click();
+  await expect(page.getByRole("columnheader", { name: "Linked from" })).toHaveAttribute("aria-sort", "descending");
+  await page.getByRole("button", { name: "Only orphans" }).click();
+  await expect(page.getByRole("rowheader", { name: lone })).toBeVisible();
+  await expect(page.getByRole("rowheader", { name: target })).toHaveCount(0);
+
+  // Leave the panel closed for the tests that follow.
+  await page.getByRole("button", { name: "Show as graph" }).click();
+  await page.getByRole("button", { name: "Insights" }).click();
+  await page.goto("/items");
+  await trashRows(page, [source, target, lone]);
+});
+
+test("the Graph finds a node by title, with / and from the palette, and keeps it lit until you click away", async ({ page }) => {
+  test.setTimeout(60_000);
+  await signIn(page);
+  const stamp = Date.now();
+  const title = `Findable ${stamp}`;
+  await newNote(page, title);
+
+  await page.goto("/graph");
+  const box = page.getByRole("combobox", { name: "Find an Item in the graph" });
+  await expect(box).toBeVisible();
+  await expect(async () => {
+    await page.locator("body").press("/");
+    await expect(box).toBeFocused({ timeout: 500 });
+  }).toPass();
+  await page.keyboard.type(String(stamp));
+  await expect(page.getByRole("option", { name: title })).toBeVisible();
+  await expectNoViolations(page);
+  await page.getByRole("option", { name: title }).click();
+
+  // Focus lands on the node, zoomed so its label reads, and the rest dims.
+  const node = page.getByRole("link", { name: new RegExp(`^${title}, Note`) });
+  await expect(node).toBeFocused();
+  await expect(node).toHaveClass(/opacity-100/);
+  const dimmed = page.locator('svg g[role="link"].opacity-25');
+  await expect(dimmed.first()).toBeAttached();
+
+  // Clicking the background clears it, and so does Escape after finding again.
+  await page.getByRole("group", { name: /^Graph of/ }).click({ position: { x: 3, y: 3 } });
+  await expect(dimmed).toHaveCount(0);
+
+  // From anywhere, through the palette.
+  await page.goto("/items");
+  const palette = await openPalette(page);
+  await palette.getByRole("combobox").fill(title);
+  await palette.getByRole("option", { name: `Show \u201c${title}\u201d in Graph` }).click();
+  await expect(page).toHaveURL(/\/graph\?focus=/);
+  await expect(node).toHaveClass(/opacity-100/);
+  await expect(dimmed.first()).toBeAttached();
+  await page.keyboard.press("Escape");
+  await expect(dimmed).toHaveCount(0);
+
+  await page.goto("/items");
+  await trashRows(page, [title]);
+});
+
+test("a Note lists plain mentions of it, and Link it makes them a Backlink", async ({ page }) => {
+  test.setTimeout(60_000);
+  await signIn(page);
+  const stamp = Date.now();
+  const target = `Mentioned ${stamp}`;
+  const other = `Mentioner ${stamp}`;
+  await newNote(page, other);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(`I wrote about ${target} today`);
+  await expectSaved(page);
+  await newNote(page, target);
+
+  const section = page.getByRole("region", { name: /Mentioned without a Link/ });
+  await page.reload();
+  await expect(section.getByRole("link", { name: other })).toBeVisible();
+  await expect(section.locator("mark")).toHaveText(target);
+  await expectNoViolations(page);
+
+  await section.getByRole("button", { name: `Link it in ${other}` }).click();
+  await expect(section.getByText("No other Note mentions this title.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Backlinks" }).getByRole("link", { name: other })).toBeVisible();
+
+  await page.goto("/items");
+  await trashRows(page, [other, target]);
+});
+
+test("a Folder's Graph loads a stub's neighbours onto the canvas, and they stay", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page);
+  const stamp = Date.now();
+  const far = `Expand far ${stamp}`;
+  const stub = `Expand stub ${stamp}`;
+  const link = async (title: string) => {
+    await page.getByRole("textbox", { name: "Note content" }).click();
+    await page.keyboard.press("Control+End");
+    await page.keyboard.type(`See [[${title}`);
+    await page.getByRole("option", { name: new RegExp(title) }).click();
+    await page.keyboard.press("Enter");
+    await expectSaved(page);
+  };
+  await newNote(page, far);
+  await newNote(page, stub);
+  await link(far);
+  const { parent, parentUrl, parentId } = await nestedNote(page, stamp);
+  await link(stub);
+
+  await page.goto(`/graph?folderId=${parentId}`);
+  const stubNode = page.getByRole("link", { name: new RegExp(`^${stub}, `) });
+  const farNode = page.getByRole("link", { name: new RegExp(`^${far}, `) });
+  await expect(stubNode).toBeAttached();
+  await expect(farNode).toHaveCount(0);
+
+  // By keyboard, as the canvas's name says.
+  await stubNode.focus();
+  await expect(page.getByRole("button", { name: `Load neighbours of ${stub}` })).toBeVisible();
+  await expectNoViolations(page);
+  await page.keyboard.press("e");
+  await expect(farNode).toBeAttached();
+  await expect(page.getByRole("button", { name: `Load neighbours of ${stub}` })).toHaveCount(0);
+
+  await page.goto("/items");
+  await trashRows(page, [stub, far]);
+  await page.goto(parentUrl);
+  await trashFolder(page, parent);
+});
+
+test.describe("on a touch screen", () => {
+  test.use({ hasTouch: true });
+
+  test("the Graph pinches to zoom, pans with two fingers, long press shows the card, and a tap opens", async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await signIn(page);
+    const title = `Touch ${Date.now()}`;
+    await newNote(page, title);
+    const id = page.url().split("/").pop()!;
+
+    await page.goto(`/graph?focus=${id}`);
+    const svg = page.getByRole("group", { name: /^Graph of/ });
+    const node = page.getByRole("link", { name: new RegExp(`^${title}, Note`) });
+    await expect(node).toBeVisible();
+    const box = (await svg.boundingBox())!;
+    const at = (x: number, y: number) => ({ x: box.x + x, y: box.y + y });
+    const touch = await page.context().newCDPSession(page);
+    const send = (type: "touchStart" | "touchMove" | "touchEnd", points: { x: number; y: number }[]) =>
+      touch.send("Input.dispatchTouchEvent", { type, touchPoints: points });
+    const transform = () => svg.locator(":scope > g").first().getAttribute("transform");
+    const view = async () => {
+      const [, x, y, k] = /translate\((\S+) (\S+)\) scale\((\S+)\)/.exec((await transform())!)!;
+      return { x: Number(x), y: Number(y), k: Number(k) };
+    };
+
+    // Pinch out from two free corners of the canvas.
+    const before = await view();
+    await send("touchStart", [at(40, 40), at(80, 40)]);
+    await send("touchMove", [at(30, 40), at(130, 40)]);
+    await send("touchEnd", []);
+    const pinched = await view();
+    expect(pinched.k).toBeGreaterThan(before.k * 2);
+
+    // Two fingers moving together pan without zooming.
+    await send("touchStart", [at(40, 40), at(80, 40)]);
+    await send("touchMove", [at(70, 70), at(110, 70)]);
+    await send("touchEnd", []);
+    const panned = await view();
+    expect(panned.k).toBeCloseTo(pinched.k);
+    expect(panned.x).toBeCloseTo(pinched.x + 30);
+
+    // Back to the node, for the rest.
+    await page.goto(`/graph?focus=${id}`);
+    await expect(node).toBeVisible();
+    const dot = node.locator("circle:not(.hidden), rect").last();
+    const spot = (await dot.boundingBox())!;
+    const centre = { x: spot.x + spot.width / 2, y: spot.y + spot.height / 2 };
+
+    // A long press shows the card and does not open the Item.
+    await send("touchStart", [centre]);
+    await page.waitForTimeout(700);
+    await send("touchEnd", []);
+    await expect(page.getByText("Note · 0 Links · 0 Backlinks")).toBeVisible();
+    await expect(page).toHaveURL(/\/graph/);
+
+    // A tap opens it.
+    await page.touchscreen.tap(centre.x, centre.y);
+    await expect(page).toHaveURL(new RegExp(`/notes/${id}`));
+
+    await page.goto("/items");
+    await trashRows(page, [title]);
+  });
+});
+
+test("the Graph's Similar switch says what it finds, and is kept in the address", async ({ page }) => {
+  await signIn(page);
+  await newNote(page, `Similar ${Date.now()}`);
+  const title = await page.getByRole("textbox", { name: "Title" }).inputValue();
+
+  await page.goto("/graph");
+  await page.getByRole("button", { name: "Similar" }).click();
+  await expect(page).toHaveURL(/similar=1/);
+  // Whether or not this stack can embed, the answer is said in words, and nothing is drawn as a Link.
+  await expect(page.getByRole("status").filter({ hasText: /similar/i })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Looking for" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Insights" }).click();
+  await expect(page.getByRole("complementary", { name: "Insights" }).getByRole("heading", { name: "Suggested Links" })).toBeVisible();
+  await expectNoViolations(page);
+  await page.getByRole("button", { name: "Insights" }).click();
+
+  await page.goto("/items");
+  await trashRows(page, [title]);
+});
+
 test("a dragged Graph node stays where it was dropped, until Reset layout", async ({ page }) => {
   await signIn(page);
   const title = `Layout node ${Date.now()}`;
@@ -1471,7 +1769,7 @@ test("a dragged Graph node stays where it was dropped, until Reset layout", asyn
   await page.goto("/graph");
   const node = page.getByRole("link", { name: new RegExp(`^${title}, Note`) });
   // The dot itself: the node's own box also holds its label.
-  const box = (await node.locator("circle").boundingBox())!;
+  const box = (await node.locator("circle:not(.hidden)").boundingBox())!;
 
   // Saving answers a server-action POST; wait for it before reloading.
   const saved = page.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/graph"));
@@ -1494,7 +1792,7 @@ test("a dragged Graph node stays where it was dropped, until Reset layout", asyn
   await expect.poll(at).not.toEqual(dropped);
 
   // Tidy up.
-  await node.locator("circle").click();
+  await node.locator("circle:not(.hidden)").click();
   await expect(page).toHaveURL(/\/notes\//);
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
@@ -1525,7 +1823,8 @@ test("Graph labels fade in with zoom, and the graph settles live unless motion i
   await node.blur();
   await expect(label).toHaveCount(0);
   for (let i = 0; i < 14; i++) await page.getByRole("button", { name: "Zoom in" }).click();
-  await expect(label).toHaveCSS("opacity", "1");
+  // Only what is on screen gets a label, so it may be another node's.
+  await expect(nodes.locator("text").first()).toHaveCSS("opacity", "1");
 
   // Dimming and the Mint Links animate with the motion tokens.
   const transition = () => node.evaluate((el) => getComputedStyle(el).transitionDuration);

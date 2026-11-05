@@ -16,7 +16,7 @@ class McpReadToolsApiTest extends McpApiTest {
 		var names = new java.util.ArrayList<String>();
 		tools.forEach(t -> names.add(t.path("name").asString()));
 		assertThat(names).contains("search", "list_items", "get_item", "list_folders", "list_tags", "list_trash",
-				"get_graph");
+				"get_graph", "suggest_links");
 		tools.forEach(t -> assertThat(t.path("description").asString()).isNotBlank());
 		tools.forEach(t -> {
 			if (t.path("name").asString().equals("get_graph")) {
@@ -224,6 +224,31 @@ class McpReadToolsApiTest extends McpApiTest {
 			assertThat(edge.path("target").asString()).isEqualTo(hub);
 		}
 		assertThat(node(graph, a).path("type").asString()).isEqualTo("NOTE");
+	}
+
+	@Test
+	void getGraphListsTheGroupsThatNeverConnectBiggestFirstWithoutOrphans() throws Exception {
+		var hub = note(jwt, "Hub", "", null);
+		note(jwt, "A", "[[Hub]]", null);
+		note(jwt, "B", "[[Hub]]", null);
+		note(jwt, "Other", "", null);
+		note(jwt, "C", "[[Other]]", null);
+		note(jwt, "Orphan", "", null);
+
+		var groups = call("get_graph", "{}").path("groups");
+
+		assertThat(groups.size()).isEqualTo(2);
+		assertThat(groups.get(0).path("size").asInt()).isEqualTo(3);
+		assertThat(groups.get(0).path("biggestId").asString()).isEqualTo(hub);
+		assertThat(groups.get(1).path("size").asInt()).isEqualTo(2);
+		assertThat(groups.get(1).path("biggestTitle").asString()).isEqualTo("C");
+	}
+
+	@Test
+	void suggestLinksIsEmptyUntilNotesAreEmbedded() throws Exception {
+		note(jwt, "Plain", "", null);
+
+		assertThat(call("suggest_links", "{}").path("pairs").size()).isZero();
 	}
 
 	@Test

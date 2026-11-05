@@ -7,15 +7,23 @@ import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } fro
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { fit, isArrow, labelOpacity, linkMaps, nodeLabel, nodeRadius, step, where, type GraphEdge, type Point, type View } from "@/lib/graph";
+import { centreOn, clampZoom, fit, isArrow, labelOpacity, linkMaps, nodeLabel, nodeRadius, pinchView, step, visibleLabels, where, type GraphEdge, type Point, type View } from "@/lib/graph";
 import { treeLabel, type CanvasNode } from "@/lib/graph-tree";
 import { itemHref } from "@/lib/items";
+import type { TagColour } from "@/lib/tag-colour";
 
 import { useLayout } from "./use-layout";
 
-type Gesture = { kind: "pan"; from: Point; view: View } | { kind: "node"; id: string; moved: boolean };
+type Gesture =
+  | { kind: "pan"; from: Point; view: View }
+  | { kind: "node"; id: string; from: Point; moved: boolean; held: boolean }
+  | { kind: "pinch"; was: [Point, Point]; view: View };
 
-const clampZoom = (k: number) => Math.min(Math.max(k, 0.02), 4);
+const LONG_PRESS_MS = 500;
+// A finger never holds quite still, so a tap may wander this far and still be a tap.
+const TAP_SLOP = 6;
+
+const PAN_MS = 300;
 
 // What animates when a node is hovered or focused: the dimming, and the Links turning Mint. The global reduced-motion
 // rule in globals.css makes these instant.
@@ -27,8 +35,10 @@ const LINK_OFF = `stroke-muted-foreground ${fade}`;
 const NODE = `cursor-pointer outline-none ${fade}`;
 const SHAPE = {
   stub: `fill-background stroke-muted-foreground ${fade}`,
+  stubColoured: `fill-background stroke-(--tag) ${fade}`,
   active: `fill-foreground ${fade}`,
   idle: `fill-muted-foreground ${fade}`,
+  coloured: `fill-(--tag) ${fade}`,
 };
 // Labels have no transition: their opacity already follows the zoom, and they are only drawn while visible.
 const LABEL = "pointer-events-none fill-foreground";
@@ -53,6 +63,15 @@ export function GraphCanvas({
   onDrop,
   onReset,
   tree,
+  dimmed,
+  colours,
+  tagNames,
+  legend,
+  highlight,
+  focusOn,
+  onBackgroundClick,
+  expand,
+  similar,
 }: {
   nodes: CanvasNode[];
   edges: GraphEdge[];
@@ -65,6 +84,24 @@ export function GraphCanvas({
   onDrop?: (id: string, x: number, y: number) => void;
   onReset?: () => Promise<boolean>;
   tree?: { pos: Map<string, Point>; onToggle: (id: string) => void };
+  /** Nodes a filter leaves out: faded, and still reachable by keyboard. */
+  dimmed?: Set<string>;
+  /** Node colours, from the Colour by control. Without one a node is grey. */
+  colours?: Map<string, TagColour>;
+  /** Each node's Tags, for its name and hover card, so a colour is never the only sign of one. */
+  tagNames?: Map<string, string[]>;
+  /** Drawn in the top-left corner, so it stays with the canvas at full screen. */
+  legend?: React.ReactNode;
+  /** Items to light up as a hovered node lights its neighbours, until hover or focus takes over. */
+  highlight?: string[];
+  /** A node to bring to the middle. A new object moves there again; `move` also puts keyboard focus on it. */
+  focusOn?: { id: string; move: boolean } | null;
+  /** The background was clicked rather than dragged. */
+  onBackgroundClick?: () => void;
+  /** Load its neighbours: offered for the node last hovered or focused, when `can` says there may be more. */
+  expand?: { can: (id: string) => boolean; run: (id: string) => void; busy: boolean };
+  /** Notes close in meaning, drawn as faint dashes. They are not Links: not in the layout, the keyboard or the names. */
+  similar?: GraphEdge[];
 }) {
   const router = useRouter();
   const arrowId = useId();
@@ -72,8 +109,17 @@ export function GraphCanvas({
   const titles = useMemo(() => new Map(nodes.map((n) => [n.id, n.title])), [nodes]);
   const { out, into } = useMemo(() => linkMaps(edges), [edges]);
   const names = useMemo(
-    () => new Map(nodes.map((n) => [n.id, tree || n.type === "FOLDER" ? treeLabel(n) : nodeLabel(n, titles, out.get(n.id) ?? [], into.get(n.id) ?? [])])),
-    [nodes, titles, out, into, tree],
+    () =>
+      new Map(
+        nodes.map((n) => [
+          n.id,
+          tree || n.type === "FOLDER"
+            ? treeLabel(n)
+            : // A colour is never the only sign of the Folder it stands for.
+              `${nodeLabel(n, titles, out.get(n.id) ?? [], into.get(n.id) ?? [], tagNames?.get(n.id))}${colours && !n.stub ? `, ${where(n)}` : ""}`,
+        ]),
+      ),
+    [nodes, titles, out, into, tree, tagNames, colours],
   );
   const reduceMotion = !!useReducedMotion();
   const layout = useLayout(tree ? NO_NODES : nodes, tree ? NO_EDGES : edges, reduceMotion);
@@ -94,6 +140,8 @@ export function GraphCanvas({
   }
   const [hovered, setHovered] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
+  // Stays after the pointer leaves, so the pointer can reach the button that acts on it.
+  const [picked, setPicked] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const refitOnResize = useRef(false);
@@ -114,10 +162,14 @@ export function GraphCanvas({
   }, []);
   const nodeRefs = useRef(new Map<string, SVGGElement>());
   const gesture = useRef<Gesture | null>(null);
+  const fingers = useRef(new Map<number, Point>());
+  const pressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // The hover card has no hover on a touch screen: a long press shows it, until the background is tapped.
+  const [pressed, setPressed] = useState<string | null>(null);
 
   const neighboursOf = (id: string) => [...(out.get(id) ?? []), ...(into.get(id) ?? [])];
-  const active = hovered ?? focused;
-  const lit = active ? new Set([active, ...neighboursOf(active)]) : null;
+  const active = hovered ?? focused ?? pressed;
+  const lit = active ? new Set([active, ...neighboursOf(active)]) : highlight ? new Set(highlight) : null;
 
   // The SVG's user units are its pixels, so text and strokes keep their size whatever the window.
   useEffect(() => {
@@ -161,6 +213,34 @@ export function GraphCanvas({
     };
   }, []);
 
+  // Pans to a found node once the canvas has a size. The layout may still be settling, so it reads the latest place.
+  const latest = useRef({ pos, view });
+  useEffect(() => {
+    latest.current = { pos, view };
+  });
+  const sized = size !== undefined;
+  useEffect(() => {
+    if (!focusOn || !size) return;
+    const at = latest.current.pos.get(focusOn.id);
+    const from = latest.current.view;
+    if (!at || !from) return;
+    if (focusOn.move) nodeRefs.current.get(focusOn.id)?.focus({ preventScroll: true });
+    const to = centreOn(at, size.w, size.h, from.k);
+    if (reduceMotion) {
+      setView(to);
+      return;
+    }
+    const start = performance.now();
+    let frame = requestAnimationFrame(function tick(now) {
+      const t = Math.min((now - start) / PAN_MS, 1);
+      const ease = 1 - (1 - t) ** 3;
+      setView({ k: from.k + (to.k - from.k) * ease, x: from.x + (to.x - from.x) * ease, y: from.y + (to.y - from.y) * ease });
+      if (t < 1) frame = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new focusOn, or the first size, moves the view
+  }, [focusOn, sized]);
+
   function zoomAt(at: Point, factor: number) {
     setView((v) => {
       if (!v) return v;
@@ -177,25 +257,65 @@ export function GraphCanvas({
   function onPointerDown(e: React.PointerEvent, id?: string) {
     e.stopPropagation();
     svgRef.current?.setPointerCapture(e.pointerId);
-    gesture.current = id ? { kind: "node", id, moved: false } : view ? { kind: "pan", from: pointer(e), view } : null;
+    const at = pointer(e);
+    fingers.current.set(e.pointerId, at);
+    clearTimeout(pressTimer.current);
+    if (fingers.current.size === 2 && view) {
+      gesture.current = { kind: "pinch", was: [...fingers.current.values()] as [Point, Point], view };
+      return;
+    }
+    if (fingers.current.size > 2) return;
+    if (id) {
+      const g: Gesture = { kind: "node", id, from: at, moved: false, held: false };
+      gesture.current = g;
+      if (e.pointerType === "touch") {
+        pressTimer.current = setTimeout(() => {
+          g.held = true;
+          setPressed(id);
+          setPicked(id);
+        }, LONG_PRESS_MS);
+      }
+    } else {
+      gesture.current = view ? { kind: "pan", from: at, view } : null;
+    }
   }
 
   function onPointerMove(e: React.PointerEvent) {
     const g = gesture.current;
     if (!g || !view) return;
     const at = pointer(e);
-    if (g.kind === "pan") {
+    if (fingers.current.has(e.pointerId)) fingers.current.set(e.pointerId, at);
+    if (g.kind === "pinch") {
+      setView(pinchView(g.view, g.was, [...fingers.current.values()] as [Point, Point]));
+    } else if (g.kind === "pan") {
       setView({ ...g.view, x: g.view.x + at.x - g.from.x, y: g.view.y + at.y - g.from.y });
-    } else {
+    } else if (g.moved || Math.hypot(at.x - g.from.x, at.y - g.from.y) >= TAP_SLOP) {
       g.moved = true;
+      clearTimeout(pressTimer.current);
       if (!tree) layout.place(g.id, { x: (at.x - view.x) / view.k, y: (at.y - view.y) / view.k });
     }
   }
 
   function onPointerUp(e: React.PointerEvent) {
     const g = gesture.current;
+    fingers.current.delete(e.pointerId);
+    clearTimeout(pressTimer.current);
+    if (g?.kind === "pinch") {
+      // The finger left behind carries on as a pan from the View the pinch reached.
+      const [left] = [...fingers.current.values()];
+      gesture.current = left && view ? { kind: "pan", from: left, view } : null;
+      return;
+    }
     gesture.current = null;
-    if (g?.kind !== "node") return;
+    if (g?.kind === "pan") {
+      const at = pointer(e);
+      if (Math.hypot(at.x - g.from.x, at.y - g.from.y) < 4) {
+        setPicked(null);
+        setPressed(null);
+        onBackgroundClick?.();
+      }
+    }
+    if (g?.kind !== "node" || g.held || e.type === "pointercancel") return;
     if (!g.moved) {
       open(byId.get(g.id)!);
       return;
@@ -224,6 +344,8 @@ export function GraphCanvas({
     if (e.key === "Enter" || (e.key === " " && node.type === "FOLDER")) {
       e.preventDefault();
       open(node);
+    } else if (e.key.toLowerCase() === "e" && expand?.can(node.id)) {
+      expand.run(node.id);
     } else if (isArrow(e.key)) {
       e.preventDefault();
       const from = pos.get(node.id)!;
@@ -235,6 +357,9 @@ export function GraphCanvas({
   const radius = (n: CanvasNode) => (n.type === "FOLDER" ? FOLDER_RADIUS : nodeRadius(n.linkCount) * (n.id === centre ? 1.5 : 1));
   // A local graph is small enough to name every node, so its labels never fade.
   const labels = centre ? 1 : view ? labelOpacity(view.k) : 0;
+  // A local graph is small enough for every label, and its labels stay put.
+  const labelled = !centre && labels > 0 && view && size ? visibleLabels(nodes, pos, view, size.w, size.h) : null;
+  const offer = picked && expand?.can(picked) ? byId.get(picked) : undefined;
   const card = active && view ? byId.get(active) : undefined;
   const cardAt = card && view ? pos.get(card.id)! : undefined;
 
@@ -244,7 +369,9 @@ export function GraphCanvas({
         ref={svgRef}
         role="group"
         aria-label={label}
-        className="size-full touch-none select-none"
+        className="size-full touch-none select-none [-webkit-touch-callout:none]"
+        // A long press is ours: the phone's own menu would cover the card.
+        onContextMenu={(e) => (e.nativeEvent as PointerEvent).pointerType === "touch" && e.preventDefault()}
         onPointerDown={(e) => onPointerDown(e)}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -257,6 +384,26 @@ export function GraphCanvas({
         </defs>
         {view && (
           <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
+            {similar?.map((e) => {
+              const a = pos.get(e.source);
+              const b = pos.get(e.target);
+              if (!a || !b) return null;
+              const on = active === e.source || active === e.target;
+              return (
+                <line
+                  key={`similar-${e.source}-${e.target}`}
+                  aria-hidden
+                  x1={a.x}
+                  y1={a.y}
+                  x2={b.x}
+                  y2={b.y}
+                  className={`pointer-events-none ${LINK_OFF}`}
+                  strokeWidth={0.8 / view.k}
+                  strokeDasharray={`${2 / view.k} ${5 / view.k}`}
+                  style={{ strokeOpacity: on ? 0.8 : lit ? 0.08 : 0.3 }}
+                />
+              );
+            })}
             {edges.map((e) => {
               const a = pos.get(e.source)!;
               const b = pos.get(e.target)!;
@@ -274,7 +421,7 @@ export function GraphCanvas({
                   className={on ? LINK_ON : LINK_OFF}
                   strokeWidth={(on ? 1.6 : 0.8) / view.k}
                   strokeDasharray={stub ? `${4 / view.k} ${4 / view.k}` : undefined}
-                  style={{ strokeOpacity: on ? 1 : lit ? 0.12 : 0.35 }}
+                  style={{ strokeOpacity: on ? 1 : lit || dimmed?.has(e.source) || dimmed?.has(e.target) ? 0.12 : 0.35 }}
                   markerEnd={on ? `url(#${arrowId})` : undefined}
                 />
               );
@@ -282,8 +429,10 @@ export function GraphCanvas({
             {nodes.map((n) => {
               const p = pos.get(n.id)!;
               const r = radius(n);
-              const dim = lit !== null && !lit.has(n.id);
-              const shape = n.stub ? SHAPE.stub : n.id === active ? SHAPE.active : SHAPE.idle;
+              const filtered = dimmed?.has(n.id) ?? false;
+              const dim = lit ? !lit.has(n.id) : filtered;
+              const colour = colours?.get(n.id);
+              const shape = n.stub ? (colour ? SHAPE.stubColoured : SHAPE.stub) : n.id === active ? SHAPE.active : colour ? SHAPE.coloured : SHAPE.idle;
               const shapeProps = { className: shape, strokeWidth: 1.2 / view.k, strokeDasharray: n.stub ? `${3 / view.k} ${3 / view.k}` : undefined };
               return (
                 <g
@@ -295,16 +444,25 @@ export function GraphCanvas({
                   role={n.type === "FOLDER" ? "button" : "link"}
                   aria-expanded={n.type === "FOLDER" && n.children > 0 ? !n.collapsed : undefined}
                   tabIndex={0}
-                  aria-label={names.get(n.id)}
+                  aria-label={filtered ? `${names.get(n.id)}, not in the filter` : names.get(n.id)}
+                  data-colour={colour}
                   transform={`translate(${p.x} ${p.y})`}
                   className={`${NODE} ${dim ? "opacity-25" : "opacity-100"}`}
                   onPointerDown={(e) => onPointerDown(e, n.id)}
-                  onPointerEnter={() => setHovered(n.id)}
+                  onPointerEnter={() => {
+                    setHovered(n.id);
+                    setPicked(n.id);
+                  }}
                   onPointerLeave={() => setHovered(null)}
-                  onFocus={() => setFocused(n.id)}
+                  onFocus={() => {
+                    setFocused(n.id);
+                    setPicked(n.id);
+                  }}
                   onBlur={() => setFocused(null)}
                   onKeyDown={(e) => onKeyDown(e, n)}
                 >
+                  {/* A bigger target than a small dot, for a finger. */}
+                  <circle r={12 / view.k} className="hidden fill-transparent pointer-coarse:block" />
                   {focused === n.id && <circle r={r + 5 / view.k} className="fill-none stroke-ring" strokeWidth={2 / view.k} />}
                   {n.type === "FOLDER" ? (
                     <polygon points={hexagon(r)} {...shapeProps} />
@@ -319,7 +477,7 @@ export function GraphCanvas({
                     </text>
                   )}
                   {/* The node's name already says it all, so the label is only for the eye. */}
-                  {(labels > 0 || lit?.has(n.id)) && (
+                  {(centre || labelled?.has(n.id) || lit?.has(n.id)) && (
                     <text
                       y={r + 14 / view.k}
                       textAnchor="middle"
@@ -357,10 +515,25 @@ export function GraphCanvas({
                 {card.type === "NOTE" ? "Note" : "Asset"} · {out.get(card.id)?.length ?? 0} Links ·{" "}
                 {into.get(card.id)?.length ?? 0} Backlinks
               </p>
-              {card.stub && <p className="text-muted-foreground">{where(card)}</p>}
+              {(card.stub || colours) && <p className="text-muted-foreground">{where(card)}</p>}
             </>
           )}
+          {tagNames?.get(card.id)?.length ? <p className="text-muted-foreground">Tags: {tagNames.get(card.id)!.join(", ")}</p> : null}
         </div>
+      )}
+
+      {legend}
+
+      {offer && expand && (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={expand.busy}
+          className="absolute top-3 right-3 max-w-[60%]"
+          onClick={() => expand.run(offer.id)}
+        >
+          <span className="truncate">Load neighbours of {offer.title}</span>
+        </Button>
       )}
 
       <div className="absolute right-3 bottom-3 flex gap-1">

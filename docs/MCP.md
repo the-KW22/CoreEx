@@ -11,7 +11,8 @@ CoreEx has an MCP server (Model Context Protocol) at `/mcp`. It lets an **Agent*
 | `search` | Find Notes and Assets by words, and Notes also by meaning (English); filter by type, Folder (with subfolders) and Tag. `exactOnly: true` in the result means the search by meaning could not run, so only exact words were matched |
 | `list_items` | Browse Items, newest first, 50 per page, by Folder, Tag or type |
 | `get_item` | A Note's Markdown, `version`, Tags, Folder and Backlinks; an Asset's title, description and size (never the file) |
-| `get_graph` | How Items link to each other: every Item with its number of Links, and every Link between them, for a Folder (with subfolders) or everything, or what is around one Item (`itemId`, `depth` 1 or 2). Find orphans, hubs and groups that never connect without reading every Note. At most 500 Items, the most-linked |
+| `get_graph` | How Items link to each other: every Item with its number of Links, and every Link between them, for a Folder (with subfolders) or everything, or what is around one Item (`itemId`, `depth` 1 or 2). Find orphans, hubs and groups that never connect without reading every Note: `groups` lists each set of two or more joined Items with its size and most-linked Item. At most 500 Items, the most-linked, and 1000 Links, those between the most-linked (`edgeTotal`, `edgesTruncated`) |
+| `suggest_links` | Pairs of Notes close in meaning but not linked, closest first, for a Folder or everything: Links worth making. Suggestions only, and empty until Notes are embedded |
 | `list_folders`, `list_tags`, `list_trash` | Folders with paths and counts, Tags with counts, what is in the Trash |
 
 | Change | |
@@ -128,3 +129,7 @@ curl -s -X POST https://coreex-api-prod.onrender.com/mcp \
   -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
+
+## Linking plain mentions
+
+No separate tool is needed to turn a plain mention into a Link: an Agent uses `get_graph` for the orphans, `search` with the title in quotes for the Notes that name one, and `edit_note` to wrap the words in `[[ ]]`. Ask it to "link my orphans".

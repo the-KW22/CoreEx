@@ -32,6 +32,9 @@ class ReadTools {
 
 	private static final int PAGE_SIZE = 50;
 
+	/** About 90 KB of result. Past it an Agent is told to narrow by Folder or Item. */
+	static final int MAX_GRAPH_EDGES = 1000;
+
 	record TagRef(UUID id, String name) {
 	}
 
@@ -71,7 +74,17 @@ class ReadTools {
 	record GraphEdgeInfo(UUID source, UUID target) {
 	}
 
-	record GraphResult(List<GraphNodeInfo> nodes, List<GraphEdgeInfo> edges, int total, boolean truncated) {
+	record GraphGroup(int size, UUID biggestId, String biggestTitle) {
+	}
+
+	record GraphResult(List<GraphNodeInfo> nodes, List<GraphEdgeInfo> edges, int total, boolean truncated,
+			List<GraphGroup> groups, int edgeTotal, boolean edgesTruncated) {
+	}
+
+	record SuggestedLinkInfo(UUID source, String sourceTitle, UUID target, String targetTitle, double similarity) {
+	}
+
+	record SuggestedLinks(List<SuggestedLinkInfo> pairs) {
 	}
 
 	record TagInfo(UUID id, String name, String colour, long itemCount) {
@@ -170,9 +183,7 @@ class ReadTools {
 				.map(f -> new FolderInfo(f.id(), f.parentId(), f.name(), paths.get(f.id()), f.itemCount())).toList());
 	}
 
-	// shortcut: only the nodes are capped (500), not the Links between them, so 500 Items with thousands of Links make a
-	// result of hundreds of KB. The description tells an Agent to narrow by folderId; cap or page the edges if one still hits it.
-	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_graph", description = "Map how Items link to each other: every Note and Asset as a node with its linkCount (Links to and from it), and every Link as an edge from the linking Note to its target. Use it to find orphans (linkCount 0), hubs (the highest linkCount) and groups of Items that never connect. Covers a Folder and its subfolders, or everything without folderId. An Item outside the Folder that is linked to or from it is included with stub true. At most 500 nodes, the most-linked first: total is how many there were and truncated says some were left out. In a big knowledge base pass folderId, because every Link is listed and the result can get large. With itemId it maps what is around one Note or Asset instead: that Item (first) and the Items linked to or from it, up to depth Links away, nearest first. Returns titles and ids, not text: call get_item to read one.")
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_graph", description = "Map how Items link to each other: every Note and Asset as a node with its linkCount (Links to and from it), and every Link as an edge from the linking Note to its target. Use it to find orphans (linkCount 0), hubs (the highest linkCount) and groups of Items that never connect: groups lists every set of two or more Items that Links join, biggest first, with its size and its most-linked Item, leaving out stubs. Covers a Folder and its subfolders, or everything without folderId. An Item outside the Folder that is linked to or from it is included with stub true. At most 500 nodes, the most-linked first: total is how many there were and truncated says some were left out. At most 1000 edges, those between the most-linked Items first: edgeTotal is how many there were and edgesTruncated says some were left out, so pass folderId or itemId to see them all. linkCount and groups always count every Link. With itemId it maps what is around one Note or Asset instead: that Item (first) and the Items linked to or from it, up to depth Links away, nearest first. Returns titles and ids, not text: call get_item to read one.")
 	GraphResult getGraph(McpTransportContext context,
 			@McpToolParam(required = false, description = "Only this Folder and its subfolders (an id from list_folders)") UUID folderId,
 			@McpToolParam(required = false, description = "Only what is around this Item (folderId is then ignored)") UUID itemId,
@@ -183,8 +194,16 @@ class ReadTools {
 		return new GraphResult(
 				graph.nodes().stream().map(n -> new GraphNodeInfo(n.id(), n.type(), n.title(), n.folderPath(),
 						n.linkCount(), n.stub())).toList(),
-				graph.edges().stream().map(e -> new GraphEdgeInfo(e.source(), e.target())).toList(), graph.total(),
-				graph.truncated());
+				strongestEdges(graph, MAX_GRAPH_EDGES), graph.total(), graph.truncated(),
+				links.groups(graph).stream().map(g -> new GraphGroup(g.size(), g.biggestId(), g.biggestTitle())).toList(),
+				graph.edges().size(), graph.edges().size() > MAX_GRAPH_EDGES);
+	}
+
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "suggest_links", description = "Find pairs of Notes that are close in meaning but not linked, closest first, up to the 3 closest for each Note. Use it to find Links worth making: read both Notes with get_item before linking, then add a [[Link]] with edit_note. These are suggestions, not Links, and empty pairs may just mean the Notes have not been embedded yet. Only Notes, not Assets. Covers a Folder and its subfolders, or everything without folderId.")
+	SuggestedLinks suggestLinks(McpTransportContext context,
+			@McpToolParam(required = false, description = "Only this Folder and its subfolders (an id from list_folders)") UUID folderId) {
+		return new SuggestedLinks(links.suggestedLinks(user(context).id(), folderId).stream().map(s -> new SuggestedLinkInfo(
+				s.source(), s.sourceTitle(), s.target(), s.targetTitle(), s.similarity())).toList());
 	}
 
 	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "list_tags", description = "List every Tag with its id, colour and how many Items have it. Use it to get a Tag id for search or list_items.")
@@ -203,6 +222,16 @@ class ReadTools {
 				r.entry().id(), r.entry().title(), r.entry().deletedAt(), r.daysRemaining(), r.entry().folderCount(),
 				r.entry().itemCount())).toList();
 		return new TrashList(entries, total, next(page, total));
+	}
+
+	/** The Links between the most-linked Items, so the hubs stay readable when not all fit. */
+	static List<GraphEdgeInfo> strongestEdges(LinkService.Graph graph, int limit) {
+		var counts = graph.nodes().stream()
+				.collect(java.util.stream.Collectors.toMap(LinkService.GraphNode::id, LinkService.GraphNode::linkCount));
+		return graph.edges().stream()
+				.sorted(java.util.Comparator.comparingInt(
+						(LinkService.GraphEdge e) -> -(counts.getOrDefault(e.source(), 0) + counts.getOrDefault(e.target(), 0))))
+				.limit(limit).map(e -> new GraphEdgeInfo(e.source(), e.target())).toList();
 	}
 
 	private static User user(McpTransportContext context) {

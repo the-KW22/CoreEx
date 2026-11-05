@@ -40,6 +40,10 @@ _Avoid_: Reference, connection, relation, wikilink
 A Link seen from the target's side — the list of Notes that link to a given Item.
 _Avoid_: Inbound link, mention, reference
 
+**Suggested Link**:
+Two Notes that are close in meaning and have no Link between them, offered as a Link worth making. It is not a Link until the User or an Agent makes one: it is never stored and never shows in Backlinks.
+_Avoid_: Similar edge, recommended link, auto-link
+
 **Graph layout**:
 Where a User left the nodes of one graph in the Graph module: each Folder's graph, and the All Items graph, keeps its own. A node keeps its place until the User drags it again or chooses Reset layout.
 _Avoid_: Graph positions, node layout, saved view

@@ -21,6 +21,7 @@ import com.coreex.common.ErrorBody;
 import com.coreex.identity.CurrentUserInterceptor;
 import com.coreex.identity.User;
 import com.coreex.items.Item;
+import com.coreex.tags.TagColour;
 
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -77,7 +78,14 @@ class LinkController {
 					description = "True for an Item outside the Folder, linked to or from inside it") boolean stub,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
 					description = "Where the User left the node in this graph, null when never placed") Double x,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) Double y) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) Double y,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Item's Tags, listed in the graph's tags") List<UUID> tagIds) {
+	}
+
+	record GraphTagResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+					description = "Null when the User has not picked one") TagColour colour) {
 	}
 
 	record GraphEdgeResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID source,
@@ -88,16 +96,28 @@ class LinkController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<GraphEdgeResponse> edges,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
 					description = "Nodes before the cap of 500 most-linked") int total,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean truncated) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean truncated,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Each Tag on a node, once") List<GraphTagResponse> tags) {
 
 		static GraphResponse of(LinkService.Graph graph) {
 			return new GraphResponse(graph.nodes().stream()
 					.map(n -> new GraphNodeResponse(n.id(), n.type(), n.title(), n.folderId(), n.folderPath(), n.linkCount(), n.stub(),
-							n.x(), n.y()))
+							n.x(), n.y(), n.tagIds()))
 					.toList(), graph.edges().stream().map(e -> new GraphEdgeResponse(e.source(), e.target())).toList(),
-					graph.total(), graph.truncated());
+					graph.total(), graph.truncated(),
+					graph.tags().stream().map(t -> new GraphTagResponse(t.id(), t.name(), t.colour())).toList());
 		}
 
+	}
+
+	record SuggestedLinkResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID source,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String sourceTitle,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID target,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String targetTitle,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "How close in meaning, 0 to 1") double similarity) {
+	}
+
+	record SuggestedLinkList(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<SuggestedLinkResponse> items) {
 	}
 
 	record PositionRequest(@NotNull @DecimalMin("-1000000") @DecimalMax("1000000") Double x,
@@ -138,6 +158,18 @@ class LinkController {
 	GraphResponse graph(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@RequestParam(required = false) UUID folderId) {
 		return GraphResponse.of(links.graph(user.id(), folderId));
+	}
+
+	/** Notes in the graph close in meaning and not linked: suggestions, never stored as Links. */
+	@GetMapping("/api/links/graph/suggestions")
+	@ApiResponse(responseCode = "200", description = "Closest first, each pair once; empty until Notes are embedded",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = SuggestedLinkList.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's Folder)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	SuggestedLinkList suggestions(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@RequestParam(required = false) UUID folderId) {
+		return new SuggestedLinkList(links.suggestedLinks(user.id(), folderId).stream().map(s -> new SuggestedLinkResponse(
+				s.source(), s.sourceTitle(), s.target(), s.targetTitle(), s.similarity())).toList());
 	}
 
 	/** The local graph of an Item: it, the Items up to depth (1 or 2) Links away, and the Links among them. */

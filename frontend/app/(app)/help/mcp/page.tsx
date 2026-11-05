@@ -15,6 +15,7 @@ const SECTIONS = [
 ];
 
 const PROMPTS = [
+  "Find the Notes that mention my orphans by name, and link them.",
   "Search CoreEx for everything about the Lisbon trip and summarise it.",
   "Create a Note in my Research Folder with the open questions from this conversation, tagged follow-up.",
   "In my Note “Weekly plan”, move Friday’s meeting to 3 pm.",

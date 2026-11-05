@@ -52,7 +52,7 @@ public final class LinkParser {
 	}
 
 	/** A copy of the text, same length, with fenced code blocks and inline code replaced by spaces. */
-	private static String withoutCode(String markdown) {
+	public static String withoutCode(String markdown) {
 		var out = markdown.toCharArray();
 		var fenceChar = 0;
 		var fenceLength = 0;

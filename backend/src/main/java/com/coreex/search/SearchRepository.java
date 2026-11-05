@@ -28,6 +28,12 @@ class SearchRepository {
 	record Quick(UUID id, Item.Type type, String title, UUID folderId) {
 	}
 
+	record NoteText(UUID id, String title, int version, String body) {
+	}
+
+	record SimilarNotes(UUID source, UUID target, double distance) {
+	}
+
 	/** The query text as a tsquery, written once so every part of the statement shares it. */
 	private static final String QUERY = "with query as (select websearch_to_tsquery('simple', search_text(:q)) as tsq) ";
 
@@ -98,6 +104,48 @@ class SearchRepository {
 				.query((rs, n) -> new Hit(rs.getObject("id", UUID.class), Item.Type.valueOf(rs.getString("type")),
 						rs.getString("title"), rs.getObject("folder_id", UUID.class),
 						rs.getObject("updated_at", OffsetDateTime.class).toInstant(), rs.getString("headline")))
+				.list();
+	}
+
+	/**
+	 * For each of these Notes, the closest others among them. A Note is compared by the middle of its Chunks against each
+	 * other Note's closest Chunk. Notes without Chunks have no answer.
+	 */
+	@Transactional(readOnly = true)
+	List<SimilarNotes> similarNotes(UUID ownerId, List<UUID> noteIds, int perNote, int chunks, double maxDistance) {
+		jdbc.sql("select set_config('hnsw.iterative_scan', 'relaxed_order', true)").query(String.class).single();
+		return jdbc.sql("""
+				select v.note_id as source, near.note_id as target, near.distance
+				from (select note_id, avg(embedding) as centre from note_chunks
+				      where owner_id = :owner and note_id = any(:ids) group by note_id) v
+				cross join lateral (
+				  select n.note_id, min(n.distance) as distance
+				  from (select k.note_id, k.embedding <=> v.centre as distance
+				        from note_chunks k join items i on i.id = k.note_id and i.deleted_at is null
+				        where k.owner_id = :owner and k.note_id = any(:ids) and k.note_id <> v.note_id
+				        order by k.embedding <=> v.centre limit :chunks) n
+				  group by n.note_id order by distance limit :perNote) near
+				where near.distance <= :maxDistance""").param("owner", ownerId).param("ids", noteIds.toArray(new UUID[0]))
+				.param("perNote", perNote).param("chunks", chunks).param("maxDistance", maxDistance)
+				.query((rs, n) -> new SimilarNotes(rs.getObject("source", UUID.class), rs.getObject("target", UUID.class),
+						rs.getDouble("distance")))
+				.list();
+	}
+
+	/**
+	 * The User's live Notes, most recently updated first, whose text has this phrase as words and that are not this Item
+	 * and do not link to it already. A first filter only: the words may be punctuated differently.
+	 */
+	List<NoteText> notesWithPhrase(UUID ownerId, UUID itemId, String phrase, int limit) {
+		return jdbc.sql("""
+				select i.id, i.title, c.version, c.body from items i join note_contents c on c.item_id = i.id
+				where i.owner_id = :owner and i.deleted_at is null and i.id <> :item
+				  and c.body_tsv @@ phraseto_tsquery('simple', search_text(:phrase))
+				  and not exists (select 1 from links l where l.source_id = i.id and l.target_id = :item)
+				order by i.updated_at desc, i.id limit :limit""").param("owner", ownerId).param("item", itemId)
+				.param("phrase", phrase).param("limit", limit)
+				.query((rs, n) -> new NoteText(rs.getObject("id", UUID.class), rs.getString("title"), rs.getInt("version"),
+						rs.getString("body")))
 				.list();
 	}
 

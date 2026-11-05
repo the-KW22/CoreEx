@@ -173,6 +173,19 @@ for (const colorScheme of ["dark", "light"] as const) {
         await screen(page, failures, "graph tree", "/graph?mode=tree", async () => {
           await expect(page.getByRole("link", { name: new RegExp(`^${noteB}, Note`) })).toBeVisible();
         });
+        await screen(page, failures, "graph coloured", "/graph?colour=tag", async () => {
+          await expect(page.getByRole("list", { name: "Colours" })).toBeVisible();
+        });
+        await screen(page, failures, "graph insights", "/graph", async () => {
+          const opener = page.getByRole("button", { name: "Insights" }).locator("visible=true");
+          await opener.click();
+          await expect(page.getByRole("heading", { name: "Most linked" }).locator("visible=true")).toBeVisible();
+        });
+        await page.keyboard.press("Escape");
+        await screen(page, failures, "graph find", "/graph", async () => {
+          await page.getByRole("combobox", { name: "Find an Item in the graph" }).fill(word);
+          await expect(page.getByRole("option", { name: noteB })).toBeVisible();
+        });
         await screen(page, failures, "trash", "/trash", heading("Trash"));
         await screen(page, failures, "search", `/search?q=${word}`, async () => {
           await expect(page.locator("main mark").first()).toBeVisible();

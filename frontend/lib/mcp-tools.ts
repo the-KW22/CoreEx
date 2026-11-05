@@ -30,8 +30,14 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "get_graph",
     kind: "read",
-    summary: "How Items link to each other: every Note and Asset with its number of Links, and every Link between them, for a Folder or everything, or around one Item up to 2 Links away. At most 500 Items, the most-linked.",
+    summary: "How Items link to each other: every Note and Asset with its number of Links, and every Link between them, for a Folder or everything, or around one Item up to 2 Links away. Also lists the groups of Items that never connect. At most 500 Items and 1000 Links, the most-linked.",
     useWhen: "You want orphans, hubs or groups that never connect, or what one Note connects to, without reading every Note.",
+  },
+  {
+    name: "suggest_links",
+    kind: "read",
+    summary: "Pairs of Notes that are close in meaning but not linked, closest first, for a Folder or everything. Suggestions only, and empty until Notes are embedded.",
+    useWhen: "You want the Links worth making, as well as the ones already there.",
   },
   {
     name: "list_folders",

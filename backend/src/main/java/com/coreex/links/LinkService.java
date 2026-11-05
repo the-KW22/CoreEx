@@ -19,6 +19,9 @@ import com.coreex.common.ApiException;
 import com.coreex.folders.FolderService;
 import com.coreex.items.Item;
 import com.coreex.items.ItemService;
+import com.coreex.search.SearchService;
+import com.coreex.tags.Tag;
+import com.coreex.tags.TagService;
 
 /**
  * Turns a Note's Markdown into the Link index and resolves Links. Every lookup is scoped to the User and to live
@@ -36,14 +39,25 @@ public class LinkService {
 
 	/** x and y are where the User left the node in this graph (its Graph layout), null when never placed. */
 	public record GraphNode(UUID id, Item.Type type, String title, UUID folderId, String folderPath, int linkCount, boolean stub,
-			Double x, Double y) {
+			Double x, Double y, List<UUID> tagIds) {
 	}
 
 	public record GraphEdge(UUID source, UUID target) {
 	}
 
-	/** {@code total} counts every node before the cap; {@code truncated} says the cap cut some. */
-	public record Graph(List<GraphNode> nodes, List<GraphEdge> edges, int total, boolean truncated) {
+	/** {@code total} counts every node before the cap; {@code truncated} says the cap cut some; {@code tags} has each Tag on a node once. */
+	public record Graph(List<GraphNode> nodes, List<GraphEdge> edges, int total, boolean truncated, List<Tag> tags) {
+	}
+
+	/** Two Notes close in meaning with no Link between them. A suggestion: never stored, and never a Backlink. */
+	public record SuggestedLink(UUID source, String sourceTitle, UUID target, String targetTitle, double similarity) {
+	}
+
+	/** Keeps the graph readable, since the pairs can far outnumber the Links. */
+	private static final int SIMILAR_PER_NOTE = 3;
+
+	/** Items joined by Links, and the most linked of them, which names the group. */
+	public record Group(int size, UUID biggestId, String biggestTitle) {
 	}
 
 	// shortcut: a graph keeps only its 500 most-linked nodes so the browser stays fast; page or cluster it if Users
@@ -68,10 +82,16 @@ public class LinkService {
 
 	private final FolderService folders;
 
-	LinkService(LinkRepository links, ItemService items, FolderService folders) {
+	private final TagService tags;
+
+	private final SearchService search;
+
+	LinkService(LinkRepository links, ItemService items, FolderService folders, TagService tags, SearchService search) {
 		this.links = links;
 		this.items = items;
 		this.folders = folders;
+		this.tags = tags;
+		this.search = search;
 	}
 
 	/**
@@ -143,17 +163,19 @@ public class LinkService {
 		}
 		var all = links.graphItems(ownerId, folderId, folderIds);
 		var paths = folders.paths(ownerId);
-		var kept = all.stream()
+		var top = all.stream()
 				.sorted(Comparator.<LinkRepository.GraphItem>comparingInt(i -> -linkCount.getOrDefault(i.id(), 0))
 						.thenComparing(LinkRepository.GraphItem::title).thenComparing(LinkRepository.GraphItem::id))
-				.limit(MAX_GRAPH_NODES)
+				.limit(MAX_GRAPH_NODES).toList();
+		var itemTags = tags.forItems(ownerId, top.stream().map(LinkRepository.GraphItem::id).toList());
+		var kept = top.stream()
 				.map(i -> new GraphNode(i.id(), i.type(), i.title(), i.folderId(), paths.get(i.folderId()),
-						linkCount.getOrDefault(i.id(), 0), i.stub(), i.x(), i.y()))
+						linkCount.getOrDefault(i.id(), 0), i.stub(), i.x(), i.y(), tagIds(itemTags, i.id())))
 				.toList();
 		var keptIds = kept.stream().map(GraphNode::id).collect(Collectors.toSet());
 		var keptEdges = edges.stream().filter(e -> keptIds.contains(e.source()) && keptIds.contains(e.target()))
 				.map(e -> new GraphEdge(e.source(), e.target())).toList();
-		return new Graph(kept, keptEdges, all.size(), all.size() > kept.size());
+		return new Graph(kept, keptEdges, all.size(), all.size() > kept.size(), distinctTags(itemTags));
 	}
 
 	// shortcut: the walk collects every neighbour before the 500 cap (two bind values each), fine for a personal vault;
@@ -193,13 +215,70 @@ public class LinkService {
 						.thenComparing(id -> id))
 				.limit(MAX_GRAPH_NODES).toList();
 		var byId = items.findLive(ownerId, keptIds).stream().collect(Collectors.toMap(Item::id, i -> i));
+		var itemTags = tags.forItems(ownerId, List.copyOf(byId.keySet()));
 		var paths = folders.paths(ownerId);
 		var kept = keptIds.stream().map(byId::get).filter(Objects::nonNull)
 				.map(i -> new GraphNode(i.id(), i.type(), i.title(), i.folderId(), paths.get(i.folderId()),
-						linkCount.getOrDefault(i.id(), 0), false, null, null))
+						linkCount.getOrDefault(i.id(), 0), false, null, null, tagIds(itemTags, i.id())))
 				.toList();
 		return new Graph(kept, edges.stream().filter(e -> byId.containsKey(e.source()) && byId.containsKey(e.target()))
-				.map(e -> new GraphEdge(e.source(), e.target())).toList(), distance.size(), distance.size() > kept.size());
+				.map(e -> new GraphEdge(e.source(), e.target())).toList(), distance.size(), distance.size() > kept.size(),
+				distinctTags(itemTags));
+	}
+
+	/**
+	 * Notes in a graph (a Folder and its subfolders, or everything) close in meaning and not linked either way, closest
+	 * first, each pair once. Only Notes have embeddings. Empty until they are embedded.
+	 */
+	public List<SuggestedLink> suggestedLinks(UUID ownerId, UUID folderId) {
+		var map = graph(ownerId, folderId);
+		var notes = map.nodes().stream().filter(n -> !n.stub() && n.type() == Item.Type.NOTE)
+				.collect(Collectors.toMap(GraphNode::id, GraphNode::title));
+		var linked = new HashSet<Set<UUID>>();
+		map.edges().forEach(e -> linked.add(Set.of(e.source(), e.target())));
+		var pairs = new HashMap<Set<UUID>, SuggestedLink>();
+		for (var s : search.similarNotes(ownerId, List.copyOf(notes.keySet()), SIMILAR_PER_NOTE)) {
+			if (s.source().equals(s.target())) {
+				continue;
+			}
+			var pair = Set.of(s.source(), s.target());
+			if (!linked.contains(pair)) {
+				pairs.merge(pair, new SuggestedLink(s.source(), notes.get(s.source()), s.target(), notes.get(s.target()), s.similarity()),
+						(a, b) -> a.similarity() >= b.similarity() ? a : b);
+			}
+		}
+		return pairs.values().stream().sorted(Comparator.comparingDouble(SuggestedLink::similarity).reversed()
+				.thenComparing(SuggestedLink::sourceTitle).thenComparing(SuggestedLink::targetTitle)).toList();
+	}
+
+	/**
+	 * The groups of two or more Items that Links join, biggest first. Stubs are left out, because they are outside the
+	 * scope, so two groups that only meet through an outside Item stay two.
+	 */
+	public List<Group> groups(Graph graph) {
+		var inside = graph.nodes().stream().filter(n -> !n.stub()).collect(Collectors.toMap(GraphNode::id, n -> n));
+		var parent = new HashMap<UUID, UUID>();
+		inside.keySet().forEach(id -> parent.put(id, id));
+		for (var edge : graph.edges()) {
+			if (inside.containsKey(edge.source()) && inside.containsKey(edge.target())) {
+				parent.put(root(parent, edge.source()), root(parent, edge.target()));
+			}
+		}
+		var members = inside.keySet().stream().collect(Collectors.groupingBy(id -> root(parent, id)));
+		var biggest = Comparator.comparingInt(GraphNode::linkCount).reversed().thenComparing(GraphNode::title);
+		return members.values().stream().filter(ids -> ids.size() > 1).map(ids -> {
+			var top = ids.stream().map(inside::get).min(biggest).orElseThrow();
+			return new Group(ids.size(), top.id(), top.title());
+		}).sorted(Comparator.comparingInt(Group::size).reversed().thenComparing(Group::biggestTitle)).toList();
+	}
+
+	private static UUID root(Map<UUID, UUID> parent, UUID id) {
+		var at = id;
+		while (!parent.get(at).equals(at)) {
+			at = parent.get(at);
+		}
+		parent.put(id, at);
+		return at;
 	}
 
 	/** Saves where the User left an Item in a Folder's graph (null for All Items); a 404 for a foreign one. */
@@ -213,6 +292,14 @@ public class LinkService {
 	public void resetLayout(UUID ownerId, UUID folderId) {
 		requireScope(ownerId, folderId);
 		links.clearPositions(ownerId, folderId);
+	}
+
+	private static List<UUID> tagIds(Map<UUID, List<Tag>> itemTags, UUID itemId) {
+		return itemTags.getOrDefault(itemId, List.of()).stream().map(Tag::id).toList();
+	}
+
+	private static List<Tag> distinctTags(Map<UUID, List<Tag>> itemTags) {
+		return itemTags.values().stream().flatMap(List::stream).distinct().sorted(Comparator.comparing(Tag::name)).toList();
 	}
 
 	private void requireScope(UUID ownerId, UUID folderId) {

@@ -15,6 +15,7 @@ const item = (id: string, folderId: string | null, over: Partial<GraphNode> = {}
   stub: false,
   x: null,
   y: null,
+  tagIds: [],
   ...over,
 });
 
@@ -98,7 +99,7 @@ describe("startCollapsed", () => {
 });
 
 describe("treeLabel", () => {
-  const base = { id: "w", type: "FOLDER", title: "Work", folderPath: null, linkCount: 0, stub: false, x: null, y: null } as const;
+  const base = { id: "w", type: "FOLDER", title: "Work", folderPath: null, linkCount: 0, stub: false, x: null, y: null, tagIds: [] as string[] } as const;
 
   it("names a Folder, what it holds and whether it is open", () => {
     expect(treeLabel({ ...base, children: 2, collapsed: true } satisfies FolderNode)).toBe("Work, Folder, 2 inside, collapsed");

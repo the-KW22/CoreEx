@@ -37,6 +37,13 @@ public class SearchService {
 	public record Page(List<Hit> hits, long total, boolean exactOnly) {
 	}
 
+	public record NoteText(UUID id, String title, int version, String body) {
+	}
+
+	/** Two Notes close in meaning, 0 to 1. Asked from one side, so the same pair can come back from the other. */
+	public record SimilarNotes(UUID source, UUID target, double similarity) {
+	}
+
 	record QuickHit(UUID id, Item.Type type, String title, String folderPath) {
 	}
 
@@ -55,6 +62,9 @@ public class SearchService {
 
 	/** How many of the closest Chunks are looked at; several can belong to one Note. */
 	private static final int NEAREST_CHUNKS = 200;
+
+	/** The same for a Suggested Link, per Note: several Chunks of one close Note must still leave room for others. */
+	private static final int SIMILAR_CHUNKS = 20;
 
 	/** Reciprocal Rank Fusion's usual constant: a larger one flattens the difference between ranks. */
 	private static final int RRF_K = 60;
@@ -78,6 +88,21 @@ public class SearchService {
 		this.tags = tags;
 		this.embedder = embedder;
 		this.properties = properties;
+	}
+
+	/** The closest few of these Notes to each of them, above the line. Empty until Notes have been embedded. */
+	public List<SimilarNotes> similarNotes(UUID ownerId, List<UUID> noteIds, int perNote) {
+		if (noteIds.isEmpty()) {
+			return List.of();
+		}
+		return search.similarNotes(ownerId, noteIds, perNote, SIMILAR_CHUNKS, 1 - properties.minSimilarNotes()).stream()
+				.map(s -> new SimilarNotes(s.source(), s.target(), 1 - s.distance())).toList();
+	}
+
+	/** Live Notes of the User with this phrase as words, for unlinked mentions: not this Item, none that link to it. */
+	public List<NoteText> notesWithPhrase(UUID ownerId, UUID itemId, String phrase, int limit) {
+		return search.notesWithPhrase(ownerId, itemId, phrase, limit).stream()
+				.map(n -> new NoteText(n.id(), n.title(), n.version(), n.body())).toList();
 	}
 
 	/**
