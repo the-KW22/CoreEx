@@ -3,11 +3,12 @@
 import { ArrowDownIcon, ArrowUpIcon, FolderTreeIcon, SparklesIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Alert } from "@/components/alert";
 import { Button } from "@/components/ui/button";
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { TagBadge } from "@/components/tag-badge";
 import { Toggle } from "@/components/ui/toggle";
@@ -15,6 +16,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { components } from "@/lib/api/schema";
 import { graphFolderChoices, type Folder } from "@/lib/folders";
 import {
+  aroundNode,
+  findNodes,
   graphInsights,
   linkedOnly,
   linkMaps,
@@ -80,7 +83,32 @@ export function GraphView({
   const [sheet, setSheet] = useState(false);
   const [insightsPanel, setInsightsPanel] = useState(insightsOpen);
   const [insightsSheet, setInsightsSheet] = useState(false);
-  const [highlight, setHighlight] = useState<Highlight | null>(null);
+  // ?focus= comes from Show in Graph in the palette.
+  const focusParam = params.get("focus");
+  const [focusOn, setFocusOn] = useState(() => (focusParam ? { id: focusParam, move: false } : null));
+  const [highlight, setHighlight] = useState<Highlight | null>(() =>
+    focusParam ? { key: `find:${focusParam}`, ids: aroundNode(focusParam, graph.edges) } : null,
+  );
+  // Stays until the User clicks away, presses Escape or chooses another.
+  function find(id: string) {
+    setHighlight({ key: `find:${id}`, ids: aroundNode(id, edges) });
+    setFocusOn({ id, move: true });
+  }
+  const findBox = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const typing = target.matches("input, textarea, select") || target.isContentEditable;
+      if (e.key === "/" && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        findBox.current?.focus();
+      } else if (e.key === "Escape") {
+        setHighlight(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   // From all Items, not only those shown: Only linked Items hides the orphans, and the panel says so.
   const insights = useMemo(() => {
     const matching = allNodes.filter((n) => matchesFilter(n, filter));
@@ -94,6 +122,7 @@ export function GraphView({
     const text = query.toString();
     window.history.replaceState(null, "", text ? `/graph?${text}` : "/graph");
     setHighlight(null);
+    setFocusOn(null);
   }
   function togglePanel() {
     setPanel(!panel);
@@ -111,6 +140,7 @@ export function GraphView({
   // Insights answer in the picture, so they need the picture: Links mode, not the table.
   const canInsight = mode === "links" && !table && allNodes.length > 0;
   const showInsights = canInsight && insightsPanel;
+  const missing = focusParam && !nodes.some((n) => n.id === focusParam);
   const columns = [
     panel && showInsights ? "md:grid-cols-[16rem_minmax(0,1fr)] lg:grid-cols-[16rem_minmax(0,1fr)_16rem]" : "",
     panel && !showInsights ? "md:grid-cols-[16rem_minmax(0,1fr)]" : "",
@@ -134,6 +164,7 @@ export function GraphView({
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {canInsight && <GraphFind nodes={nodes} inputRef={findBox} big={graph.truncated} onFind={find} />}
           <Button variant="outline" className="hidden md:inline-flex" aria-pressed={panel} onClick={togglePanel}>
             <FolderTreeIcon aria-hidden />
             Folders
@@ -176,6 +207,12 @@ export function GraphView({
       {graph.truncated && (
         <Alert role="status" tone="neutral">
           Showing {allNodes.length} of {graph.total} Items. Open a smaller Folder to see them all.
+        </Alert>
+      )}
+
+      {missing && allNodes.length > 0 && (
+        <Alert role="status" tone="neutral">
+          That Item is not in this view. It may be filtered out, in another Folder, or past the first 500.
         </Alert>
       )}
 
@@ -239,6 +276,8 @@ export function GraphView({
             tagNames={tagNames}
             legend={painted && <Legend {...painted} />}
             highlight={highlight?.ids}
+            focusOn={focusOn}
+            onBackgroundClick={() => setHighlight(null)}
             label={`Graph of ${scope}: ${nodes.length} Items. Tab to an Item, arrow keys move along its Links.`}
             className="h-[70vh] min-h-96"
             onDrop={async (id, x, y) => {
@@ -334,6 +373,55 @@ function FolderTreeGraph({
       label={`Tree of ${scope}: ${nodes.length} Folders and Items. Tab to one, arrow keys move along the tree, Enter opens an Item or opens and shuts a Folder.`}
       className="h-[70vh] min-h-96"
     />
+  );
+}
+
+// Finds a node among those loaded, as the palette finds an Item. The list is also a text way to reach any node.
+function GraphFind({
+  nodes,
+  inputRef,
+  big,
+  onFind,
+}: {
+  nodes: GraphNode[];
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  big: boolean;
+  onFind: (id: string) => void;
+}) {
+  const [text, setText] = useState("");
+  const hits = findNodes(nodes, text);
+  return (
+    <Command shouldFilter={false} className="relative h-9 w-full overflow-visible rounded-md border border-border bg-transparent sm:w-56">
+      <CommandInput
+        ref={inputRef}
+        value={text}
+        onValueChange={setText}
+        onKeyDown={(e) => e.key === "Escape" && setText("")}
+        placeholder="Find an Item  /"
+        aria-label="Find an Item in the graph"
+        maxLength={200}
+        className="h-9"
+      />
+      {/* Always there, hidden when empty: the input's aria-controls must point at something. */}
+      <CommandList hidden={!text.trim()} className="absolute top-full right-0 left-0 z-20 mt-1 rounded-[10px] border border-border bg-popover p-1 shadow-lg">
+        <CommandEmpty className="px-2 py-3 text-sm text-muted-foreground">
+          Nothing here has that title.{big ? " Only the first 500 Items are loaded." : ""}
+        </CommandEmpty>
+        {hits.map((n) => (
+          <CommandItem
+            key={n.id}
+            value={n.id}
+            onSelect={() => {
+              setText("");
+              onFind(n.id);
+            }}
+          >
+            <span className="truncate">{n.title}</span>
+            {n.folderPath && <span className="ml-auto truncate pl-3 text-xs text-muted-foreground">{n.folderPath}</span>}
+          </CommandItem>
+        ))}
+      </CommandList>
+    </Command>
   );
 }
 

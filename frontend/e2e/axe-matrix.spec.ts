@@ -182,6 +182,10 @@ for (const colorScheme of ["dark", "light"] as const) {
           await expect(page.getByRole("heading", { name: "Most linked" }).locator("visible=true")).toBeVisible();
         });
         await page.keyboard.press("Escape");
+        await screen(page, failures, "graph find", "/graph", async () => {
+          await page.getByRole("combobox", { name: "Find an Item in the graph" }).fill(word);
+          await expect(page.getByRole("option", { name: noteB })).toBeVisible();
+        });
         await screen(page, failures, "trash", "/trash", heading("Trash"));
         await screen(page, failures, "search", `/search?q=${word}`, async () => {
           await expect(page.locator("main mark").first()).toBeVisible();
