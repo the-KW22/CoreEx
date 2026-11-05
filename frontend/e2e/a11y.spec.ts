@@ -1674,6 +1674,71 @@ test("a Folder's Graph loads a stub's neighbours onto the canvas, and they stay"
   await trashFolder(page, parent);
 });
 
+test.describe("on a touch screen", () => {
+  test.use({ hasTouch: true });
+
+  test("the Graph pinches to zoom, pans with two fingers, long press shows the card, and a tap opens", async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await signIn(page);
+    const title = `Touch ${Date.now()}`;
+    await newNote(page, title);
+    const id = page.url().split("/").pop()!;
+
+    await page.goto(`/graph?focus=${id}`);
+    const svg = page.getByRole("group", { name: /^Graph of/ });
+    const node = page.getByRole("link", { name: new RegExp(`^${title}, Note`) });
+    await expect(node).toBeVisible();
+    const box = (await svg.boundingBox())!;
+    const at = (x: number, y: number) => ({ x: box.x + x, y: box.y + y });
+    const touch = await page.context().newCDPSession(page);
+    const send = (type: "touchStart" | "touchMove" | "touchEnd", points: { x: number; y: number }[]) =>
+      touch.send("Input.dispatchTouchEvent", { type, touchPoints: points });
+    const transform = () => svg.locator(":scope > g").first().getAttribute("transform");
+    const view = async () => {
+      const [, x, y, k] = /translate\((\S+) (\S+)\) scale\((\S+)\)/.exec((await transform())!)!;
+      return { x: Number(x), y: Number(y), k: Number(k) };
+    };
+
+    // Pinch out from two free corners of the canvas.
+    const before = await view();
+    await send("touchStart", [at(40, 40), at(80, 40)]);
+    await send("touchMove", [at(30, 40), at(130, 40)]);
+    await send("touchEnd", []);
+    const pinched = await view();
+    expect(pinched.k).toBeGreaterThan(before.k * 2);
+
+    // Two fingers moving together pan without zooming.
+    await send("touchStart", [at(40, 40), at(80, 40)]);
+    await send("touchMove", [at(70, 70), at(110, 70)]);
+    await send("touchEnd", []);
+    const panned = await view();
+    expect(panned.k).toBeCloseTo(pinched.k);
+    expect(panned.x).toBeCloseTo(pinched.x + 30);
+
+    // Back to the node, for the rest.
+    await page.goto(`/graph?focus=${id}`);
+    await expect(node).toBeVisible();
+    const dot = node.locator("circle:not(.hidden), rect").last();
+    const spot = (await dot.boundingBox())!;
+    const centre = { x: spot.x + spot.width / 2, y: spot.y + spot.height / 2 };
+
+    // A long press shows the card and does not open the Item.
+    await send("touchStart", [centre]);
+    await page.waitForTimeout(700);
+    await send("touchEnd", []);
+    await expect(page.getByText("Note · 0 Links · 0 Backlinks")).toBeVisible();
+    await expect(page).toHaveURL(/\/graph/);
+
+    // A tap opens it.
+    await page.touchscreen.tap(centre.x, centre.y);
+    await expect(page).toHaveURL(new RegExp(`/notes/${id}`));
+
+    await page.goto("/items");
+    await trashRows(page, [title]);
+  });
+});
+
 test("a dragged Graph node stays where it was dropped, until Reset layout", async ({ page }) => {
   await signIn(page);
   const title = `Layout node ${Date.now()}`;
@@ -1683,7 +1748,7 @@ test("a dragged Graph node stays where it was dropped, until Reset layout", asyn
   await page.goto("/graph");
   const node = page.getByRole("link", { name: new RegExp(`^${title}, Note`) });
   // The dot itself: the node's own box also holds its label.
-  const box = (await node.locator("circle").boundingBox())!;
+  const box = (await node.locator("circle:not(.hidden)").boundingBox())!;
 
   // Saving answers a server-action POST; wait for it before reloading.
   const saved = page.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/graph"));
@@ -1706,7 +1771,7 @@ test("a dragged Graph node stays where it was dropped, until Reset layout", asyn
   await expect.poll(at).not.toEqual(dropped);
 
   // Tidy up.
-  await node.locator("circle").click();
+  await node.locator("circle:not(.hidden)").click();
   await expect(page).toHaveURL(/\/notes\//);
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);

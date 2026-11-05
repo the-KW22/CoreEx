@@ -13,6 +13,7 @@ import {
   matchesFilter,
   nodeColours,
   nodeLabel,
+  pinchView,
   readFilter,
   step,
   visibleLabels,
@@ -289,5 +290,30 @@ describe("visibleLabels", () => {
 
   it("copes with a node that has no place yet", () => {
     expect(visibleLabels([labelled("a")], new Map(), view, 400, 400).size).toBe(0);
+  });
+});
+
+describe("pinchView", () => {
+  const view = { x: 10, y: 20, k: 1 };
+
+  it("zooms by the change in distance, keeping what is under the midpoint there", () => {
+    const next = pinchView(view, [{ x: 100, y: 100 }, { x: 200, y: 100 }], [{ x: 50, y: 100 }, { x: 250, y: 100 }]);
+    expect(next.k).toBe(2);
+    // World point under the midpoint (150, 100) before: (140, 80). It is still under the midpoint after.
+    expect(140 * next.k + next.x).toBeCloseTo(150);
+    expect(80 * next.k + next.y).toBeCloseTo(100);
+  });
+
+  it("pans by the change of the midpoint when the distance stays", () => {
+    const next = pinchView(view, [{ x: 0, y: 0 }, { x: 100, y: 0 }], [{ x: 30, y: 40 }, { x: 130, y: 40 }]);
+    expect(next).toEqual({ k: 1, x: 40, y: 60 });
+  });
+
+  it("stops at the zoom limits", () => {
+    expect(pinchView(view, [{ x: 0, y: 0 }, { x: 1, y: 0 }], [{ x: 0, y: 0 }, { x: 1000, y: 0 }]).k).toBe(4);
+  });
+
+  it("survives two fingers starting on the same spot", () => {
+    expect(Number.isFinite(pinchView(view, [{ x: 5, y: 5 }, { x: 5, y: 5 }], [{ x: 0, y: 5 }, { x: 10, y: 5 }]).x)).toBe(true);
   });
 });

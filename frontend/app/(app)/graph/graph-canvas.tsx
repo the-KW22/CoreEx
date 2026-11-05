@@ -7,16 +7,21 @@ import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } fro
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { centreOn, fit, isArrow, labelOpacity, linkMaps, nodeLabel, nodeRadius, step, visibleLabels, where, type GraphEdge, type Point, type View } from "@/lib/graph";
+import { centreOn, clampZoom, fit, isArrow, labelOpacity, linkMaps, nodeLabel, nodeRadius, pinchView, step, visibleLabels, where, type GraphEdge, type Point, type View } from "@/lib/graph";
 import { treeLabel, type CanvasNode } from "@/lib/graph-tree";
 import { itemHref } from "@/lib/items";
 import type { TagColour } from "@/lib/tag-colour";
 
 import { useLayout } from "./use-layout";
 
-type Gesture = { kind: "pan"; from: Point; view: View } | { kind: "node"; id: string; moved: boolean };
+type Gesture =
+  | { kind: "pan"; from: Point; view: View }
+  | { kind: "node"; id: string; from: Point; moved: boolean; held: boolean }
+  | { kind: "pinch"; was: [Point, Point]; view: View };
 
-const clampZoom = (k: number) => Math.min(Math.max(k, 0.02), 4);
+const LONG_PRESS_MS = 500;
+// A finger never holds quite still, so a tap may wander this far and still be a tap.
+const TAP_SLOP = 6;
 
 const PAN_MS = 300;
 
@@ -154,9 +159,13 @@ export function GraphCanvas({
   }, []);
   const nodeRefs = useRef(new Map<string, SVGGElement>());
   const gesture = useRef<Gesture | null>(null);
+  const fingers = useRef(new Map<number, Point>());
+  const pressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // The hover card has no hover on a touch screen: a long press shows it, until the background is tapped.
+  const [pressed, setPressed] = useState<string | null>(null);
 
   const neighboursOf = (id: string) => [...(out.get(id) ?? []), ...(into.get(id) ?? [])];
-  const active = hovered ?? focused;
+  const active = hovered ?? focused ?? pressed;
   const lit = active ? new Set([active, ...neighboursOf(active)]) : highlight ? new Set(highlight) : null;
 
   // The SVG's user units are its pixels, so text and strokes keep their size whatever the window.
@@ -245,32 +254,65 @@ export function GraphCanvas({
   function onPointerDown(e: React.PointerEvent, id?: string) {
     e.stopPropagation();
     svgRef.current?.setPointerCapture(e.pointerId);
-    gesture.current = id ? { kind: "node", id, moved: false } : view ? { kind: "pan", from: pointer(e), view } : null;
+    const at = pointer(e);
+    fingers.current.set(e.pointerId, at);
+    clearTimeout(pressTimer.current);
+    if (fingers.current.size === 2 && view) {
+      gesture.current = { kind: "pinch", was: [...fingers.current.values()] as [Point, Point], view };
+      return;
+    }
+    if (fingers.current.size > 2) return;
+    if (id) {
+      const g: Gesture = { kind: "node", id, from: at, moved: false, held: false };
+      gesture.current = g;
+      if (e.pointerType === "touch") {
+        pressTimer.current = setTimeout(() => {
+          g.held = true;
+          setPressed(id);
+          setPicked(id);
+        }, LONG_PRESS_MS);
+      }
+    } else {
+      gesture.current = view ? { kind: "pan", from: at, view } : null;
+    }
   }
 
   function onPointerMove(e: React.PointerEvent) {
     const g = gesture.current;
     if (!g || !view) return;
     const at = pointer(e);
-    if (g.kind === "pan") {
+    if (fingers.current.has(e.pointerId)) fingers.current.set(e.pointerId, at);
+    if (g.kind === "pinch") {
+      setView(pinchView(g.view, g.was, [...fingers.current.values()] as [Point, Point]));
+    } else if (g.kind === "pan") {
       setView({ ...g.view, x: g.view.x + at.x - g.from.x, y: g.view.y + at.y - g.from.y });
-    } else {
+    } else if (g.moved || Math.hypot(at.x - g.from.x, at.y - g.from.y) >= TAP_SLOP) {
       g.moved = true;
+      clearTimeout(pressTimer.current);
       if (!tree) layout.place(g.id, { x: (at.x - view.x) / view.k, y: (at.y - view.y) / view.k });
     }
   }
 
   function onPointerUp(e: React.PointerEvent) {
     const g = gesture.current;
+    fingers.current.delete(e.pointerId);
+    clearTimeout(pressTimer.current);
+    if (g?.kind === "pinch") {
+      // The finger left behind carries on as a pan from the View the pinch reached.
+      const [left] = [...fingers.current.values()];
+      gesture.current = left && view ? { kind: "pan", from: left, view } : null;
+      return;
+    }
     gesture.current = null;
     if (g?.kind === "pan") {
       const at = pointer(e);
       if (Math.hypot(at.x - g.from.x, at.y - g.from.y) < 4) {
         setPicked(null);
+        setPressed(null);
         onBackgroundClick?.();
       }
     }
-    if (g?.kind !== "node") return;
+    if (g?.kind !== "node" || g.held || e.type === "pointercancel") return;
     if (!g.moved) {
       open(byId.get(g.id)!);
       return;
@@ -324,7 +366,9 @@ export function GraphCanvas({
         ref={svgRef}
         role="group"
         aria-label={label}
-        className="size-full touch-none select-none"
+        className="size-full touch-none select-none [-webkit-touch-callout:none]"
+        // A long press is ours: the phone's own menu would cover the card.
+        onContextMenu={(e) => (e.nativeEvent as PointerEvent).pointerType === "touch" && e.preventDefault()}
         onPointerDown={(e) => onPointerDown(e)}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -394,6 +438,8 @@ export function GraphCanvas({
                   onBlur={() => setFocused(null)}
                   onKeyDown={(e) => onKeyDown(e, n)}
                 >
+                  {/* A bigger target than a small dot, for a finger. */}
+                  <circle r={12 / view.k} className="hidden fill-transparent pointer-coarse:block" />
                   {focused === n.id && <circle r={r + 5 / view.k} className="fill-none stroke-ring" strokeWidth={2 / view.k} />}
                   {n.type === "FOLDER" ? (
                     <polygon points={hexagon(r)} {...shapeProps} />
