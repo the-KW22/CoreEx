@@ -1634,6 +1634,46 @@ test("a Note lists plain mentions of it, and Link it makes them a Backlink", asy
   await trashRows(page, [other, target]);
 });
 
+test("a Folder's Graph loads a stub's neighbours onto the canvas, and they stay", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page);
+  const stamp = Date.now();
+  const far = `Expand far ${stamp}`;
+  const stub = `Expand stub ${stamp}`;
+  const link = async (title: string) => {
+    await page.getByRole("textbox", { name: "Note content" }).click();
+    await page.keyboard.press("Control+End");
+    await page.keyboard.type(`See [[${title}`);
+    await page.getByRole("option", { name: new RegExp(title) }).click();
+    await page.keyboard.press("Enter");
+    await expectSaved(page);
+  };
+  await newNote(page, far);
+  await newNote(page, stub);
+  await link(far);
+  const { parent, parentUrl, parentId } = await nestedNote(page, stamp);
+  await link(stub);
+
+  await page.goto(`/graph?folderId=${parentId}`);
+  const stubNode = page.getByRole("link", { name: new RegExp(`^${stub}, `) });
+  const farNode = page.getByRole("link", { name: new RegExp(`^${far}, `) });
+  await expect(stubNode).toBeAttached();
+  await expect(farNode).toHaveCount(0);
+
+  // By keyboard, as the canvas's name says.
+  await stubNode.focus();
+  await expect(page.getByRole("button", { name: `Load neighbours of ${stub}` })).toBeVisible();
+  await expectNoViolations(page);
+  await page.keyboard.press("e");
+  await expect(farNode).toBeAttached();
+  await expect(page.getByRole("button", { name: `Load neighbours of ${stub}` })).toHaveCount(0);
+
+  await page.goto("/items");
+  await trashRows(page, [stub, far]);
+  await page.goto(parentUrl);
+  await trashFolder(page, parent);
+});
+
 test("a dragged Graph node stays where it was dropped, until Reset layout", async ({ page }) => {
   await signIn(page);
   const title = `Layout node ${Date.now()}`;
@@ -1697,7 +1737,8 @@ test("Graph labels fade in with zoom, and the graph settles live unless motion i
   await node.blur();
   await expect(label).toHaveCount(0);
   for (let i = 0; i < 14; i++) await page.getByRole("button", { name: "Zoom in" }).click();
-  await expect(label).toHaveCSS("opacity", "1");
+  // Only what is on screen gets a label, so it may be another node's.
+  await expect(nodes.locator("text").first()).toHaveCSS("opacity", "1");
 
   // Dimming and the Mint Links animate with the motion tokens.
   const transition = () => node.evaluate((el) => getComputedStyle(el).transitionDuration);

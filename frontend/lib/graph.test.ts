@@ -15,6 +15,7 @@ import {
   nodeLabel,
   readFilter,
   step,
+  visibleLabels,
   writeFilter,
   type GraphFilter,
   type GraphNode,
@@ -262,5 +263,31 @@ describe("finding a node", () => {
     expect(findNodes(nodes, " ENERGY ").map((n) => n.title)).toEqual(["energy", "Nuclear energy"]);
     expect(findNodes(nodes, "  ")).toEqual([]);
     expect(findNodes(nodes, "o", 1)).toHaveLength(1);
+  });
+});
+
+describe("visibleLabels", () => {
+  const view = { x: 0, y: 0, k: 1 };
+  const labelled = (id: string, linkCount = 0) => ({ id, title: "Label", linkCount });
+
+  it("leaves out what is off screen", () => {
+    const pos = new Map([["in", { x: 100, y: 100 }], ["left", { x: -500, y: 100 }], ["below", { x: 100, y: 900 }]]);
+    expect([...visibleLabels([labelled("in"), labelled("left"), labelled("below")], pos, view, 400, 400)]).toEqual(["in"]);
+  });
+
+  it("keeps the bigger node's label when two would overlap", () => {
+    const pos = new Map([["small", { x: 100, y: 100 }], ["big", { x: 105, y: 102 }], ["apart", { x: 300, y: 100 }]]);
+    const shown = visibleLabels([labelled("small", 1), labelled("big", 9), labelled("apart", 0)], pos, view, 400, 400);
+    expect([...shown].sort()).toEqual(["apart", "big"]);
+  });
+
+  it("uses screen positions, so zooming in makes room", () => {
+    const pos = new Map([["a", { x: 10, y: 10 }], ["b", { x: 12, y: 10 }]]);
+    expect(visibleLabels([labelled("a"), labelled("b")], pos, view, 400, 400).size).toBe(1);
+    expect(visibleLabels([labelled("a"), labelled("b")], pos, { x: 0, y: 0, k: 20 }, 400, 400).size).toBe(2);
+  });
+
+  it("copes with a node that has no place yet", () => {
+    expect(visibleLabels([labelled("a")], new Map(), view, 400, 400).size).toBe(0);
   });
 });

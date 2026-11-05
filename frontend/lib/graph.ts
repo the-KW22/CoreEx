@@ -280,3 +280,37 @@ export function findNodes<T extends { title: string }>(nodes: T[], text: string,
     .sort((a, b) => starts(a) - starts(b) || a.title.localeCompare(b.title))
     .slice(0, limit);
 }
+
+// Roughly how much room a 12 px label takes, on screen.
+const LABEL_CHAR = 6.6;
+const LABEL_MAX_CHARS = 40;
+const LABEL_HEIGHT = 16;
+
+/**
+ * Which nodes get a label: those on screen, biggest first, skipping any label that would land on one already placed.
+ * The number drawn is then limited by the screen and not by the graph, so zooming in stays fast, and labels never collide.
+ */
+export function visibleLabels(
+  nodes: { id: string; title: string; linkCount: number }[],
+  pos: Map<string, Point>,
+  view: View,
+  w: number,
+  h: number,
+) {
+  const shown = new Set<string>();
+  const rows = new Map<number, { from: number; to: number }[]>();
+  for (const n of [...nodes].sort((a, b) => b.linkCount - a.linkCount)) {
+    const p = pos.get(n.id);
+    if (!p) continue;
+    const x = p.x * view.k + view.x;
+    const y = p.y * view.k + view.y;
+    const half = (Math.min(n.title.length, LABEL_MAX_CHARS) * LABEL_CHAR) / 2;
+    if (x + half < 0 || x - half > w || y < 0 || y > h) continue;
+    const row = Math.floor(y / LABEL_HEIGHT);
+    const taken = [row - 1, row, row + 1].some((r) => rows.get(r)?.some((box) => x - half < box.to && x + half > box.from));
+    if (taken) continue;
+    rows.set(row, [...(rows.get(row) ?? []), { from: x - half, to: x + half }]);
+    shown.add(n.id);
+  }
+  return shown;
+}
