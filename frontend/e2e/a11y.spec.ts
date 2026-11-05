@@ -1739,6 +1739,26 @@ test.describe("on a touch screen", () => {
   });
 });
 
+test("the Graph's Similar switch says what it finds, and is kept in the address", async ({ page }) => {
+  await signIn(page);
+  await newNote(page, `Similar ${Date.now()}`);
+  const title = await page.getByRole("textbox", { name: "Title" }).inputValue();
+
+  await page.goto("/graph");
+  await page.getByRole("button", { name: "Similar" }).click();
+  await expect(page).toHaveURL(/similar=1/);
+  // Whether or not this stack can embed, the answer is said in words, and nothing is drawn as a Link.
+  await expect(page.getByRole("status").filter({ hasText: /similar/i })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Looking for" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Insights" }).click();
+  await expect(page.getByRole("complementary", { name: "Insights" }).getByRole("heading", { name: "Suggested Links" })).toBeVisible();
+  await expectNoViolations(page);
+  await page.getByRole("button", { name: "Insights" }).click();
+
+  await page.goto("/items");
+  await trashRows(page, [title]);
+});
+
 test("a dragged Graph node stays where it was dropped, until Reset layout", async ({ page }) => {
   await signIn(page);
   const title = `Layout node ${Date.now()}`;

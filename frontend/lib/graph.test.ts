@@ -16,6 +16,7 @@ import {
   pinchView,
   readFilter,
   step,
+  suggestionsForOrphans,
   visibleLabels,
   writeFilter,
   type GraphFilter,
@@ -121,11 +122,11 @@ describe("fit", () => {
 });
 
 describe("the Graph filter", () => {
-  const none: GraphFilter = { tags: [], type: null, linkedOnly: false, colour: null };
+  const none: GraphFilter = { tags: [], type: null, linkedOnly: false, colour: null, similar: false };
 
   it("survives the address, and ignores what it does not know", () => {
     const query = new URLSearchParams("folderId=f");
-    const filter: GraphFilter = { tags: ["a", "b"], type: "ASSET", linkedOnly: true, colour: "folder" };
+    const filter: GraphFilter = { tags: ["a", "b"], type: "ASSET", linkedOnly: true, colour: "folder", similar: true };
     writeFilter(query, filter);
     expect(query.get("folderId")).toBe("f");
     expect(readFilter(query)).toEqual(filter);
@@ -133,7 +134,7 @@ describe("the Graph filter", () => {
   });
 
   it("clears a filter from the address", () => {
-    const query = new URLSearchParams("tag=a&type=NOTE&linked=1&colour=tag&mode=tree");
+    const query = new URLSearchParams("tag=a&type=NOTE&linked=1&colour=tag&similar=1&mode=tree");
     writeFilter(query, none);
     expect(query.toString()).toBe("mode=tree");
   });
@@ -315,5 +316,23 @@ describe("pinchView", () => {
 
   it("survives two fingers starting on the same spot", () => {
     expect(Number.isFinite(pinchView(view, [{ x: 5, y: 5 }, { x: 5, y: 5 }], [{ x: 0, y: 5 }, { x: 10, y: 5 }]).x)).toBe(true);
+  });
+});
+
+describe("suggestionsForOrphans", () => {
+  const pair = (source: string, target: string) => ({ source, sourceTitle: source.toUpperCase(), target, targetTitle: target.toUpperCase(), similarity: 0.9 });
+
+  it("lists an orphan from either side of a pair, and skips pairs with no orphan", () => {
+    const rows = suggestionsForOrphans(["o"], [pair("o", "a"), pair("b", "o"), pair("a", "b")]);
+    expect(rows).toEqual([{ id: "o", title: "O", closeTo: [{ id: "a", title: "A" }, { id: "b", title: "B" }] }]);
+  });
+
+  it("keeps to the closest few", () => {
+    const rows = suggestionsForOrphans(["o"], [pair("o", "a"), pair("o", "b"), pair("o", "c")]);
+    expect(rows[0].closeTo.map((c) => c.id)).toEqual(["a", "b"]);
+  });
+
+  it("lists both when two orphans are close", () => {
+    expect(suggestionsForOrphans(["x", "y"], [pair("x", "y")]).map((r) => r.id)).toEqual(["x", "y"]);
   });
 });

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import com.coreex.common.ApiException;
 import com.coreex.items.Item;
 import com.coreex.items.ItemService;
+import com.coreex.links.LinkParser;
 import com.coreex.search.SearchService;
 
 /** Notes that mention an Item's title without linking to it, and turning one mention into a Link. */
@@ -67,6 +68,28 @@ class MentionService {
 				: body.substring(0, at) + "[[" + itemId + "|" + body.substring(at, at + title.length()) + "]]"
 						+ body.substring(at + title.length());
 		notes.save(ownerId, noteId, note.title(), linked, seenVersion);
+	}
+
+	/**
+	 * Link it for a Suggested Link: wraps a mention when the Note has one, or else adds the Link at the end of the Note.
+	 * Harmless when it already links there. A 409 only if the Note changes during this request.
+	 */
+	void addLink(UUID ownerId, UUID itemId, UUID noteId) {
+		var title = target(ownerId, itemId).title();
+		var note = notes.get(ownerId, noteId);
+		var body = note.body();
+		if (itemId.equals(noteId)) {
+			throw new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "A Note cannot link to itself.");
+		}
+		if (LinkParser.parse(body).stream().anyMatch(l -> itemId.equals(l.id()))) {
+			return;
+		}
+		var at = Mentions.first(body, title);
+		var link = at >= 0 ? null : "[[" + itemId + "|" + title.replaceAll("[\\[\\]\\n]", " ") + "]]";
+		var linked = at >= 0
+				? body.substring(0, at) + "[[" + itemId + "|" + body.substring(at, at + title.length()) + "]]" + body.substring(at + title.length())
+				: body.isBlank() ? link : body.stripTrailing() + "\n\n" + link;
+		notes.save(ownerId, noteId, note.title(), linked, note.version());
 	}
 
 	private Item target(UUID ownerId, UUID itemId) {

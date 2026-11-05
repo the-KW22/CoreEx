@@ -71,6 +71,7 @@ export function GraphCanvas({
   focusOn,
   onBackgroundClick,
   expand,
+  similar,
 }: {
   nodes: CanvasNode[];
   edges: GraphEdge[];
@@ -99,6 +100,8 @@ export function GraphCanvas({
   onBackgroundClick?: () => void;
   /** Load its neighbours: offered for the node last hovered or focused, when `can` says there may be more. */
   expand?: { can: (id: string) => boolean; run: (id: string) => void; busy: boolean };
+  /** Notes close in meaning, drawn as faint dashes. They are not Links: not in the layout, the keyboard or the names. */
+  similar?: GraphEdge[];
 }) {
   const router = useRouter();
   const arrowId = useId();
@@ -381,6 +384,26 @@ export function GraphCanvas({
         </defs>
         {view && (
           <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
+            {similar?.map((e) => {
+              const a = pos.get(e.source);
+              const b = pos.get(e.target);
+              if (!a || !b) return null;
+              const on = active === e.source || active === e.target;
+              return (
+                <line
+                  key={`similar-${e.source}-${e.target}`}
+                  aria-hidden
+                  x1={a.x}
+                  y1={a.y}
+                  x2={b.x}
+                  y2={b.y}
+                  className={`pointer-events-none ${LINK_OFF}`}
+                  strokeWidth={0.8 / view.k}
+                  strokeDasharray={`${2 / view.k} ${5 / view.k}`}
+                  style={{ strokeOpacity: on ? 0.8 : lit ? 0.08 : 0.3 }}
+                />
+              );
+            })}
             {edges.map((e) => {
               const a = pos.get(e.source)!;
               const b = pos.get(e.target)!;

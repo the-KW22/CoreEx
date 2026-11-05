@@ -110,6 +110,16 @@ class LinkController {
 
 	}
 
+	record SuggestedLinkResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID source,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String sourceTitle,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID target,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String targetTitle,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "How close in meaning, 0 to 1") double similarity) {
+	}
+
+	record SuggestedLinkList(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<SuggestedLinkResponse> items) {
+	}
+
 	record PositionRequest(@NotNull @DecimalMin("-1000000") @DecimalMax("1000000") Double x,
 			@NotNull @DecimalMin("-1000000") @DecimalMax("1000000") Double y) {
 	}
@@ -148,6 +158,18 @@ class LinkController {
 	GraphResponse graph(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@RequestParam(required = false) UUID folderId) {
 		return GraphResponse.of(links.graph(user.id(), folderId));
+	}
+
+	/** Notes in the graph close in meaning and not linked: suggestions, never stored as Links. */
+	@GetMapping("/api/links/graph/suggestions")
+	@ApiResponse(responseCode = "200", description = "Closest first, each pair once; empty until Notes are embedded",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = SuggestedLinkList.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's Folder)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	SuggestedLinkList suggestions(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@RequestParam(required = false) UUID folderId) {
+		return new SuggestedLinkList(links.suggestedLinks(user.id(), folderId).stream().map(s -> new SuggestedLinkResponse(
+				s.source(), s.sourceTitle(), s.target(), s.targetTitle(), s.similarity())).toList());
 	}
 
 	/** The local graph of an Item: it, the Items up to depth (1 or 2) Links away, and the Links among them. */

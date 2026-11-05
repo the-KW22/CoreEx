@@ -81,6 +81,12 @@ class ReadTools {
 			List<GraphGroup> groups, int edgeTotal, boolean edgesTruncated) {
 	}
 
+	record SuggestedLinkInfo(UUID source, String sourceTitle, UUID target, String targetTitle, double similarity) {
+	}
+
+	record SuggestedLinks(List<SuggestedLinkInfo> pairs) {
+	}
+
 	record TagInfo(UUID id, String name, String colour, long itemCount) {
 	}
 
@@ -191,6 +197,13 @@ class ReadTools {
 				strongestEdges(graph, MAX_GRAPH_EDGES), graph.total(), graph.truncated(),
 				links.groups(graph).stream().map(g -> new GraphGroup(g.size(), g.biggestId(), g.biggestTitle())).toList(),
 				graph.edges().size(), graph.edges().size() > MAX_GRAPH_EDGES);
+	}
+
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "suggest_links", description = "Find pairs of Notes that are close in meaning but not linked, closest first, up to the 3 closest for each Note. Use it to find Links worth making: read both Notes with get_item before linking, then add a [[Link]] with edit_note. These are suggestions, not Links, and empty pairs may just mean the Notes have not been embedded yet. Only Notes, not Assets. Covers a Folder and its subfolders, or everything without folderId.")
+	SuggestedLinks suggestLinks(McpTransportContext context,
+			@McpToolParam(required = false, description = "Only this Folder and its subfolders (an id from list_folders)") UUID folderId) {
+		return new SuggestedLinks(links.suggestedLinks(user(context).id(), folderId).stream().map(s -> new SuggestedLinkInfo(
+				s.source(), s.sourceTitle(), s.target(), s.targetTitle(), s.similarity())).toList());
 	}
 
 	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "list_tags", description = "List every Tag with its id, colour and how many Items have it. Use it to get a Tag id for search or list_items.")
