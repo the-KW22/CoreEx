@@ -6,13 +6,15 @@ import { pathTo } from "@/lib/folders";
 
 import { FolderPicker } from "../../items/folder-picker";
 import { ItemBacklinks, ItemConnections, parseDepth } from "../../items/item-sections";
+import { ItemMentions, parseMentions } from "../../items/mentions";
 import { TagEditor } from "../../items/tag-editor";
 import { RecordOpen } from "../../search/record-open";
 import { NoteEditor } from "./note-editor";
 
 export default async function NotePage({ params, searchParams }: PageProps<"/notes/[id]">) {
   const { id } = await params;
-  const depth = parseDepth((await searchParams).depth);
+  const { depth: rawDepth, mentions } = await searchParams;
+  const depth = parseDepth(rawDepth);
   const api = await getApi();
   const [result, list, itemTags, allTags, jar] = await Promise.all([
     api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null),
@@ -59,6 +61,7 @@ export default async function NotePage({ params, searchParams }: PageProps<"/not
           <div className="grid gap-6">
             <FolderPicker itemId={note.id} folderId={note.folderId} folders={folders} />
             <ItemBacklinks itemId={note.id} />
+            <ItemMentions itemId={note.id} size={parseMentions(mentions)} depth={depth} />
             <ItemConnections itemId={note.id} type="NOTE" folderId={note.folderId} depth={depth} />
           </div>
         }

@@ -47,3 +47,14 @@ export async function restoreItem(id: string): Promise<boolean> {
   const result = await api.POST("/api/trash/items/{id}/restore", { params: { path: { id } } }).catch(() => null);
   return done(!!result && !result.error);
 }
+
+// Link it: turns a plain mention into a Link in the other Note. Any answer refreshes, so a conflict offers the new version.
+export async function linkMention(itemId: string, noteId: string, version: number): Promise<"linked" | "conflict" | "error"> {
+  const api = await getApi();
+  const result = await api
+    .POST("/api/items/{id}/mentions/{noteId}/link", { params: { path: { id: itemId, noteId } }, body: { version } })
+    .catch(() => null);
+  done(true);
+  if (result?.response.status === 409) return "conflict";
+  return result && !result.error ? "linked" : "error";
+}

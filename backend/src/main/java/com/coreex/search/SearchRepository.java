@@ -28,6 +28,9 @@ class SearchRepository {
 	record Quick(UUID id, Item.Type type, String title, UUID folderId) {
 	}
 
+	record NoteText(UUID id, String title, int version, String body) {
+	}
+
 	/** The query text as a tsquery, written once so every part of the statement shares it. */
 	private static final String QUERY = "with query as (select websearch_to_tsquery('simple', search_text(:q)) as tsq) ";
 
@@ -98,6 +101,23 @@ class SearchRepository {
 				.query((rs, n) -> new Hit(rs.getObject("id", UUID.class), Item.Type.valueOf(rs.getString("type")),
 						rs.getString("title"), rs.getObject("folder_id", UUID.class),
 						rs.getObject("updated_at", OffsetDateTime.class).toInstant(), rs.getString("headline")))
+				.list();
+	}
+
+	/**
+	 * The User's live Notes, most recently updated first, whose text has this phrase as words and that are not this Item
+	 * and do not link to it already. A first filter only: the words may be punctuated differently.
+	 */
+	List<NoteText> notesWithPhrase(UUID ownerId, UUID itemId, String phrase, int limit) {
+		return jdbc.sql("""
+				select i.id, i.title, c.version, c.body from items i join note_contents c on c.item_id = i.id
+				where i.owner_id = :owner and i.deleted_at is null and i.id <> :item
+				  and c.body_tsv @@ phraseto_tsquery('simple', search_text(:phrase))
+				  and not exists (select 1 from links l where l.source_id = i.id and l.target_id = :item)
+				order by i.updated_at desc, i.id limit :limit""").param("owner", ownerId).param("item", itemId)
+				.param("phrase", phrase).param("limit", limit)
+				.query((rs, n) -> new NoteText(rs.getObject("id", UUID.class), rs.getString("title"), rs.getInt("version"),
+						rs.getString("body")))
 				.list();
 	}
 
