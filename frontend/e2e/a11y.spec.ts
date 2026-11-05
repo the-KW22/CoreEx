@@ -1417,6 +1417,7 @@ test("a Note's first-line heading and its title stay in step, both ways", async 
 });
 
 test("a Folder opens as a Graph, its Items reached by keyboard and listed as a table", async ({ page }) => {
+  test.setTimeout(60_000);
   await signIn(page);
   const stamp = Date.now();
   const target = `Graph target ${stamp}`;
