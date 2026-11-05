@@ -95,6 +95,23 @@ export function graphIsNotFound(
 
 export type View = { x: number; y: number; k: number };
 
+export const clampZoom = (k: number) => Math.min(Math.max(k, 0.02), 4);
+
+const midpoint = (a: Point, b: Point) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+
+/**
+ * The View after two fingers moved from `was` to `now`: zoomed by the change in their distance and panned by the change
+ * of their midpoint, so what was under the fingers stays under them.
+ */
+export function pinchView(view: View, was: [Point, Point], now: [Point, Point]): View {
+  const before = Math.hypot(was[0].x - was[1].x, was[0].y - was[1].y) || 1;
+  const after = Math.hypot(now[0].x - now[1].x, now[0].y - now[1].y);
+  const k = clampZoom((view.k * after) / before);
+  const from = midpoint(...was);
+  const to = midpoint(...now);
+  return { k, x: to.x - ((from.x - view.x) * k) / view.k, y: to.y - ((from.y - view.y) * k) / view.k };
+}
+
 // The View that puts every node, unlinked ones included, inside a w × h box with `pad` pixels to spare.
 export function fit(
   pos: Map<string, Point>,
