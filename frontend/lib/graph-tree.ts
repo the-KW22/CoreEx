@@ -1,5 +1,5 @@
 import { childrenByParent, type Folder } from "./folders";
-import { where, type GraphEdge, type GraphNode, type Point } from "./graph";
+import { where, writeFilter, type GraphEdge, type GraphFilter, type GraphNode, type Point } from "./graph";
 
 export type GraphMode = "links" | "tree";
 
@@ -39,7 +39,7 @@ export function treeGraph(folders: Folder[], items: GraphNode[], folderId: strin
           ...inFolders.map((f) => branch(f.id, f.name, f.id, f.itemCount)),
           ...inItems.map((node) => ({ node, kids: [], leaves: 1 })),
         ];
-    const node: FolderNode = { id, type: "FOLDER", title, folderPath: null, linkCount: 0, stub: false, x: null, y: null, children, collapsed: shut };
+    const node: FolderNode = { id, type: "FOLDER", title, folderPath: null, linkCount: 0, stub: false, x: null, y: null, tagIds: [], children, collapsed: shut };
     return { node, kids, leaves: Math.max(1, kids.reduce((sum, kid) => sum + kid.leaves, 0)) };
   }
 
@@ -83,10 +83,11 @@ export function treeLabel(node: CanvasNode) {
   return `${node.title}, Folder, ${node.children} inside, ${node.collapsed ? "collapsed" : "expanded"}`;
 }
 
-export function graphHref(folderId: string | null, mode: GraphMode) {
+export function graphHref(folderId: string | null, mode: GraphMode, filter?: GraphFilter) {
   const query = new URLSearchParams();
   if (folderId) query.set("folderId", folderId);
   if (mode === "tree") query.set("mode", "tree");
+  if (filter) writeFilter(query, filter);
   const text = query.toString();
   return text ? `/graph?${text}` : "/graph";
 }

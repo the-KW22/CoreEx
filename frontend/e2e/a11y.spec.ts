@@ -1462,6 +1462,55 @@ test("a Folder opens as a Graph, its Items reached by keyboard and listed as a t
   await trashRows(page, [source, target]);
 });
 
+test("the Graph filters by Tag and type and colours by Tag, all kept in the address", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page);
+  const stamp = Date.now();
+  const tagged = `Filter tagged ${stamp}`;
+  const plain = `Filter plain ${stamp}`;
+  const tagName = `filter-${stamp}`;
+  await newNote(page, plain);
+  await noteWithTag(page, tagged, tagName);
+
+  await page.goto("/graph");
+  await page.getByRole("toolbar", { name: "Filter by Tag" }).getByRole("button", { name: tagName }).click();
+  await expect(page).toHaveURL(/[?&]tag=/);
+  // The other Note fades, and a keyboard User can still reach it and hear why.
+  const faded = page.getByRole("link", { name: new RegExp(`^${plain}, .*not in the filter$`) });
+  await expect(faded).toBeVisible();
+  await expect(faded).toHaveClass(/opacity-25/);
+  await expect(page.getByRole("link", { name: new RegExp(`^${tagged}, .*Tags: ${tagName}$`) })).toBeVisible();
+
+  await page.getByRole("radiogroup", { name: "Colour by" }).getByRole("radio", { name: "Tag" }).click();
+  await expect(page.getByRole("list", { name: "Colours" }).getByText(tagName)).toBeVisible();
+  await expectNoViolations(page);
+
+  // A reload keeps the view, and the table lists only what matches.
+  await page.reload();
+  await expect(page.getByRole("list", { name: "Colours" }).getByText(tagName)).toBeVisible();
+  await page.getByRole("button", { name: "Show as table" }).click();
+  await expect(page.getByRole("rowheader", { name: tagged })).toBeVisible();
+  await expect(page.getByRole("rowheader", { name: plain })).toHaveCount(0);
+  await page.getByRole("button", { name: "Show as graph" }).click();
+
+  // Type: nothing that is an Asset here, so the Note fades too and Clear filters brings everything back.
+  await page.getByRole("radiogroup", { name: "Show only" }).getByRole("radio", { name: "Assets" }).click();
+  await expect(page.getByRole("link", { name: new RegExp(`^${tagged}, .*not in the filter$`) })).toBeVisible();
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(page.getByRole("link", { name: new RegExp(`^${plain}, Note`) })).toBeVisible();
+  await expect(page.getByRole("link", { name: /not in the filter$/ })).toHaveCount(0);
+
+  // Only linked Items hides what has no Links.
+  await page.getByRole("button", { name: "Only linked Items" }).click();
+  await expect(page).toHaveURL(/linked=1/);
+  await expect(page.getByRole("link", { name: new RegExp(`^${plain}, Note`) })).toHaveCount(0);
+
+  await page.goto("/items");
+  await trashRows(page, [plain, tagged]);
+  await page.goto("/tags");
+  await deleteTag(page, tagName);
+});
+
 test("a dragged Graph node stays where it was dropped, until Reset layout", async ({ page }) => {
   await signIn(page);
   const title = `Layout node ${Date.now()}`;

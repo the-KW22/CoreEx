@@ -19,6 +19,8 @@ import com.coreex.common.ApiException;
 import com.coreex.folders.FolderService;
 import com.coreex.items.Item;
 import com.coreex.items.ItemService;
+import com.coreex.tags.Tag;
+import com.coreex.tags.TagService;
 
 /**
  * Turns a Note's Markdown into the Link index and resolves Links. Every lookup is scoped to the User and to live
@@ -36,14 +38,14 @@ public class LinkService {
 
 	/** x and y are where the User left the node in this graph (its Graph layout), null when never placed. */
 	public record GraphNode(UUID id, Item.Type type, String title, UUID folderId, String folderPath, int linkCount, boolean stub,
-			Double x, Double y) {
+			Double x, Double y, List<UUID> tagIds) {
 	}
 
 	public record GraphEdge(UUID source, UUID target) {
 	}
 
-	/** {@code total} counts every node before the cap; {@code truncated} says the cap cut some. */
-	public record Graph(List<GraphNode> nodes, List<GraphEdge> edges, int total, boolean truncated) {
+	/** {@code total} counts every node before the cap; {@code truncated} says the cap cut some; {@code tags} has each Tag on a node once. */
+	public record Graph(List<GraphNode> nodes, List<GraphEdge> edges, int total, boolean truncated, List<Tag> tags) {
 	}
 
 	// shortcut: a graph keeps only its 500 most-linked nodes so the browser stays fast; page or cluster it if Users
@@ -68,10 +70,13 @@ public class LinkService {
 
 	private final FolderService folders;
 
-	LinkService(LinkRepository links, ItemService items, FolderService folders) {
+	private final TagService tags;
+
+	LinkService(LinkRepository links, ItemService items, FolderService folders, TagService tags) {
 		this.links = links;
 		this.items = items;
 		this.folders = folders;
+		this.tags = tags;
 	}
 
 	/**
@@ -143,17 +148,19 @@ public class LinkService {
 		}
 		var all = links.graphItems(ownerId, folderId, folderIds);
 		var paths = folders.paths(ownerId);
-		var kept = all.stream()
+		var top = all.stream()
 				.sorted(Comparator.<LinkRepository.GraphItem>comparingInt(i -> -linkCount.getOrDefault(i.id(), 0))
 						.thenComparing(LinkRepository.GraphItem::title).thenComparing(LinkRepository.GraphItem::id))
-				.limit(MAX_GRAPH_NODES)
+				.limit(MAX_GRAPH_NODES).toList();
+		var itemTags = tags.forItems(ownerId, top.stream().map(LinkRepository.GraphItem::id).toList());
+		var kept = top.stream()
 				.map(i -> new GraphNode(i.id(), i.type(), i.title(), i.folderId(), paths.get(i.folderId()),
-						linkCount.getOrDefault(i.id(), 0), i.stub(), i.x(), i.y()))
+						linkCount.getOrDefault(i.id(), 0), i.stub(), i.x(), i.y(), tagIds(itemTags, i.id())))
 				.toList();
 		var keptIds = kept.stream().map(GraphNode::id).collect(Collectors.toSet());
 		var keptEdges = edges.stream().filter(e -> keptIds.contains(e.source()) && keptIds.contains(e.target()))
 				.map(e -> new GraphEdge(e.source(), e.target())).toList();
-		return new Graph(kept, keptEdges, all.size(), all.size() > kept.size());
+		return new Graph(kept, keptEdges, all.size(), all.size() > kept.size(), distinctTags(itemTags));
 	}
 
 	// shortcut: the walk collects every neighbour before the 500 cap (two bind values each), fine for a personal vault;
@@ -193,13 +200,15 @@ public class LinkService {
 						.thenComparing(id -> id))
 				.limit(MAX_GRAPH_NODES).toList();
 		var byId = items.findLive(ownerId, keptIds).stream().collect(Collectors.toMap(Item::id, i -> i));
+		var itemTags = tags.forItems(ownerId, List.copyOf(byId.keySet()));
 		var paths = folders.paths(ownerId);
 		var kept = keptIds.stream().map(byId::get).filter(Objects::nonNull)
 				.map(i -> new GraphNode(i.id(), i.type(), i.title(), i.folderId(), paths.get(i.folderId()),
-						linkCount.getOrDefault(i.id(), 0), false, null, null))
+						linkCount.getOrDefault(i.id(), 0), false, null, null, tagIds(itemTags, i.id())))
 				.toList();
 		return new Graph(kept, edges.stream().filter(e -> byId.containsKey(e.source()) && byId.containsKey(e.target()))
-				.map(e -> new GraphEdge(e.source(), e.target())).toList(), distance.size(), distance.size() > kept.size());
+				.map(e -> new GraphEdge(e.source(), e.target())).toList(), distance.size(), distance.size() > kept.size(),
+				distinctTags(itemTags));
 	}
 
 	/** Saves where the User left an Item in a Folder's graph (null for All Items); a 404 for a foreign one. */
@@ -213,6 +222,14 @@ public class LinkService {
 	public void resetLayout(UUID ownerId, UUID folderId) {
 		requireScope(ownerId, folderId);
 		links.clearPositions(ownerId, folderId);
+	}
+
+	private static List<UUID> tagIds(Map<UUID, List<Tag>> itemTags, UUID itemId) {
+		return itemTags.getOrDefault(itemId, List.of()).stream().map(Tag::id).toList();
+	}
+
+	private static List<Tag> distinctTags(Map<UUID, List<Tag>> itemTags) {
+		return itemTags.values().stream().flatMap(List::stream).distinct().sorted(Comparator.comparing(Tag::name)).toList();
 	}
 
 	private void requireScope(UUID ownerId, UUID folderId) {
