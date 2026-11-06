@@ -1,6 +1,18 @@
 "use client";
 
-import { FilesIcon, HouseIcon, WaypointsIcon, LibraryIcon, PanelLeftCloseIcon, PanelLeftIcon, PanelLeftOpenIcon, ShieldIcon, Trash2Icon } from "lucide-react";
+import {
+  CommandIcon,
+  FilesIcon,
+  HouseIcon,
+  WaypointsIcon,
+  LibraryIcon,
+  PanelLeftCloseIcon,
+  PanelLeftIcon,
+  PanelLeftOpenIcon,
+  SearchIcon,
+  ShieldIcon,
+  Trash2Icon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -20,6 +32,7 @@ import { RAIL_COLLAPSED, RAIL_MAX, dragRail, formatRail, keyRail, type RailState
 import { cn } from "@/lib/utils";
 
 import { signOut } from "../actions";
+import { openPalette } from "./search/command-palette";
 
 // 40px targets, 44px on touch screens (docs/DESIGN.md section 8).
 export const railButton = cn(
@@ -130,7 +143,10 @@ export function Rail({
   saved?: RailState;
   onShowPanel?: (button: HTMLElement) => void;
 }) {
-  const active = activeModule(usePathname());
+  const pathname = usePathname();
+  const active = activeModule(pathname);
+  // Search is a page of the Knowledge Base module, but it has its own entry, so only that entry shows as current.
+  const onSearch = pathname === "/search";
   const [rail, setRail] = useState(saved);
   const collapsed = rail?.collapsed ?? false;
   const toggle = useCallback(() => setRail((r) => r && { ...r, collapsed: !r.collapsed }), []);
@@ -179,7 +195,7 @@ export function Rail({
         )}
       </div>
       {MODULES.map((m) => (
-        <RailLink key={m.id} {...m} current={active === m.id} collapsed={collapsed} />
+        <RailLink key={m.id} {...m} current={active === m.id && !onSearch} collapsed={collapsed} />
       ))}
       {/* Only the Knowledge Base has a panel to open. */}
       {onShowPanel && active === "kb" && (
@@ -196,6 +212,31 @@ export function Rail({
         </Hint>
       )}
       <hr className={cn("my-2 border-border-subtle", collapsed ? "w-8" : "w-full")} />
+      {/* Two different things: Quick find jumps to an Item by title (the palette); Search reads all text, also by meaning.
+          The phone menu has no Quick find: the header icon is the phone's. */}
+      {resizable && (
+        <Hint label="Quick find (Ctrl+K)" show={collapsed}>
+          <button
+            type="button"
+            onClick={openPalette}
+            // Expanded, the name is the visible text; the keys are only a hint for the eye (axe's label-in-name check).
+            aria-label={collapsed ? "Quick find" : undefined}
+            aria-keyshortcuts="Control+K Meta+K"
+            className={entry(collapsed)}
+          >
+            <CommandIcon aria-hidden />
+            {!collapsed && (
+              <>
+                Quick find
+                <kbd aria-hidden className="ml-auto rounded border border-border px-1.5 font-mono text-xs font-normal text-muted-foreground">
+                  Ctrl K
+                </kbd>
+              </>
+            )}
+          </button>
+        </Hint>
+      )}
+      <RailLink href="/search" label="Search" icon={SearchIcon} current={onSearch} collapsed={collapsed} />
       <RailLink href="/trash" label="Trash" icon={Trash2Icon} current={active === "trash"} collapsed={collapsed} />
       {/* Only a convenience: the API refuses non-admins on its own (ADR 0004). */}
       {isAdmin && <RailLink href="/admin" label="Admin" icon={ShieldIcon} current={active === "admin"} collapsed={collapsed} />}
