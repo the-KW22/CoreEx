@@ -1,6 +1,6 @@
 "use client";
 
-import { MenuIcon, SearchIcon } from "lucide-react";
+import { CommandIcon, MenuIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 
@@ -55,8 +55,8 @@ export function AppFrame({ email, isAdmin, rail, folders, tags, children }: Prop
             <MenuIcon aria-hidden />
           </button>
           <span className="flex-1 font-semibold">CoreEx</span>
-          <button type="button" onClick={openPalette} aria-label="Search" className={railButton}>
-            <SearchIcon aria-hidden />
+          <button type="button" onClick={openPalette} aria-label="Quick find" className={railButton}>
+            <CommandIcon aria-hidden />
           </button>
         </header>
 

@@ -258,10 +258,53 @@ test("the command palette finds a Note by title and searches all text", async ({
   await expect(page).not.toHaveURL(/\/notes\//);
 });
 
-test("on a phone the search icon opens a full-screen palette", async ({ page }) => {
+test("the rail tells Quick find (Ctrl+K) from Search, above Trash", async ({ page }) => {
+  await signIn(page);
+  const rail = page.getByRole("navigation", { name: "Main" });
+  const quick = rail.getByRole("button", { name: "Quick find" });
+  const search = rail.getByRole("link", { name: "Search", exact: true });
+  const trash = rail.getByRole("link", { name: "Trash" });
+  await expect(quick).toHaveAttribute("aria-keyshortcuts", "Control+K Meta+K");
+  const [q, s, t] = await Promise.all([quick, search, trash].map((entry) => entry.boundingBox()));
+  expect(q!.y).toBeLessThan(s!.y);
+  expect(s!.y).toBeLessThan(t!.y);
+
+  // Quick find is the palette, which matches titles and says so; its last row is the way to the Search page.
+  await quick.click();
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await expect(palette).toBeVisible();
+  await palette.getByRole("combobox").fill("zq9xnothing");
+  await expect(palette.getByText(/No titles match/)).toBeVisible();
+  await expect(palette.getByRole("option", { name: /Search all text for/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(palette).toBeHidden();
+
+  // Search is the page, and the only entry that shows as current there.
+  await search.click();
+  await expect(page).toHaveURL(/\/search$/);
+  await expect(search).toHaveAttribute("aria-current", "page");
+  await expect(rail.getByRole("link", { name: "Knowledge Base" })).not.toHaveAttribute("aria-current", "page");
+
+  // Collapsed, both stay (icons with names).
+  await page.keyboard.press("Control+\\");
+  await expect(rail.getByRole("button", { name: "Quick find" })).toBeVisible();
+  await expect(rail.getByRole("link", { name: "Search", exact: true })).toBeVisible();
+});
+
+test("the phone menu has Search, and Quick find is the icon in the header", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await signIn(page);
-  await page.getByRole("banner").getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("button", { name: "Open the menu" }).click();
+  const menu = page.getByRole("dialog");
+  await expect(menu.getByRole("button", { name: "Quick find" })).toHaveCount(0);
+  await menu.getByRole("link", { name: "Search", exact: true }).click();
+  await expect(page).toHaveURL(/\/search$/);
+});
+
+test("on a phone the Quick find icon opens a full-screen palette", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await signIn(page);
+  await page.getByRole("banner").getByRole("button", { name: "Quick find", exact: true }).click();
   const palette = page.getByRole("dialog", { name: "Command palette" });
   await expect(palette.getByRole("combobox")).toBeFocused();
   // Polled: it zooms in when it opens.

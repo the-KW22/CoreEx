@@ -27,7 +27,7 @@ import { createNote } from "../notes/actions";
 import type { QuickHit } from "./actions";
 
 const OPEN_EVENT = "coreex:open-palette";
-// The panel search field and the phone search icon open the palette with this.
+// The panel search field, the rail's Quick find and the phone header icon open the palette with this.
 export const openPalette = () => window.dispatchEvent(new Event(OPEN_EVENT));
 
 // Asks the quick-lookup route: an empty text gives the recently opened Items. A failure is "nothing found".
@@ -113,7 +113,7 @@ export function CommandPalette() {
         >
           <DialogTitle className="sr-only">Command palette</DialogTitle>
           <DialogDescription className="sr-only">
-            Jump to an Item by its title, run an action, or search all text.
+            Jump to an Item by its title or run an action. The last row searches all text, also by meaning.
           </DialogDescription>
           {/* We ask the API for matches, so cmdk must not filter them again. */}
           <Command shouldFilter={false} className="bg-transparent max-md:h-full">
@@ -121,8 +121,8 @@ export function CommandPalette() {
               className="max-md:pr-12"
               value={query}
               onValueChange={setQuery}
-              placeholder="Search or jump to…"
-              aria-label="Search or jump to an Item"
+              placeholder="Jump to an Item or run an action…"
+              aria-label="Quick find: jump to an Item by its title"
               maxLength={200}
             />
             <CommandList className="max-h-[min(60vh,28rem)] max-md:max-h-none max-md:flex-1">
@@ -148,7 +148,7 @@ export function CommandPalette() {
                     </p>
                   )}
                   {hits?.length === 0 && (
-                    <p className="px-4 pt-4 pb-1 text-sm text-muted-foreground">Nothing matches &ldquo;{text}&rdquo;.</p>
+                    <p className="px-4 pt-4 pb-1 text-sm text-muted-foreground">No titles match &ldquo;{text}&rdquo;.</p>
                   )}
                   <CommandGroup>
                     <CommandItem
