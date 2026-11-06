@@ -27,7 +27,7 @@ The agreed design for the frontend redesign. It records **what** the UI looks li
 |---|---|---|
 | Top | CoreEx logo, collapse button | All |
 | Modules | **Home**, **Knowledge Base**, **Assets**, **Graph** | All |
-| Divider, then | **Trash**, **Admin** | Admin only for Admin |
+| Divider, then | **Quick find** (Ctrl K, desktop rail only), **Search**, **Trash**, **Admin** | Admin only for Admin |
 | Bottom | Theme toggle, **Account** menu (email, Access tokens, Connect an Agent, Log out) | All |
 
 - Planned modules (Jobs, Integrations) are **not shown** until they exist.
@@ -184,7 +184,8 @@ The same tokens are used by CSS, Motion and View Transitions. They are defined o
 
 ### 6.6 Command palette (Ctrl+K)
 
-- The global search. Ctrl+K and the phone search icon open it; the panel's filter field is separate and only narrows its own list.
+- **Quick find**, not the Search page: it jumps to an Item by title or runs an action. Ctrl+K, the rail's Quick find entry and the phone header icon open it; the panel's filter field is separate and only narrows its own list. The Search entry in the rail opens the `/search` page, which reads all text and also matches by meaning. The rail shows only Search as current on that page, and the phone menu has Search but no Quick find (its header icon is Quick find).
+- The field says what it does ("Jump to an Item or run an action…"); with no title match the list says "No titles match" and still offers the last row.
 - Empty query: recently opened Items, then actions (New Note, Upload, Import, Go to Trash, Toggle theme).
 - Typing: instant title matches (`/api/search/quick`) with Folder paths.
 - Last row: **Search all text for "…"**, which opens the `/search` results page.
