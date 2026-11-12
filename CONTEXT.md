@@ -53,7 +53,7 @@ A container that holds Items and other Folders, forming a tree. Each Item lives 
 _Avoid_: Directory, collection, space, notebook
 
 **Trash**:
-Where deleted Items and Folders wait for 30 days before being permanently removed. Anything in the Trash can be restored until then.
+Where deleted Items and Folders wait for 30 days before being permanently removed. Anything in the Trash can be restored until then. Text a saved Chat already quoted from a Note stays in that Chat until the Chat is deleted.
 _Avoid_: Bin, archive, recycle bin
 
 ### Search
@@ -65,6 +65,20 @@ _Avoid_: Vector search, AI search, smart search
 **Chunk**:
 A piece of a Note, about 250 words, cut at headings and whole paragraphs, that Semantic search matches and shows as the snippet. A short Note is one Chunk.
 _Avoid_: Segment, passage, fragment, block
+
+### Chat
+
+**Chat**:
+A saved back-and-forth in which a User asks a model questions or for work, and the model can read that User's Items to answer, showing the Notes it read as sources. It is kept until the User deletes it, does not go through the Trash, and is not an Item. It is also the name of the module.
+_Avoid_: Conversation, thread, assistant, bot, AI search
+
+**Shared key**:
+The model provider key CoreEx pays for, which every User's Chats use. An Admin can turn it off at any time.
+_Avoid_: Platform key, default key
+
+**Daily Chat budget**:
+How much of the Shared key's cost one User may use in a day, counted in money rather than words. It starts again each day at midnight UTC.
+_Avoid_: Quota (that is the Storage Quota), credits, token limit
 
 ### People
 
