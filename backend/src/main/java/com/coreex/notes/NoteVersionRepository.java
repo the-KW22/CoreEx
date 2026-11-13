@@ -55,6 +55,8 @@ class NoteVersionRepository {
 				.param("gap", properties.gap().toSeconds()).update() > 0;
 	}
 
+	// shortcut: versions count against no quota (a Note keeps up to 50 whole texts of up to 1 MB), add a cap on
+	// total bytes per User when database size matters.
 	/** Removes the Note's versions past the retention, and all but the newest few. */
 	void prune(UUID ownerId, UUID id) {
 		jdbc.sql("""
