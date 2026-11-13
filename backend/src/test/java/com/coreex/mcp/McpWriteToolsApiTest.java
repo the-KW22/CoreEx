@@ -79,6 +79,22 @@ class McpWriteToolsApiTest extends McpApiTest {
 	}
 
 	@Test
+	void everyAgentEditKeepsTheTextItReplacedEvenRightAfterTheLast() throws Exception {
+		var id = note(jwt, "Doc", "user text", null);
+
+		call("update_note", "{\"id\":\"" + id + "\",\"version\":1,\"markdown\":\"agent one\"}");
+		call("edit_note", "{\"id\":\"" + id + "\",\"version\":2,\"edits\":[{\"oldText\":\"one\",\"newText\":\"two\"}]}");
+
+		// Newest first: the text the first Agent edit wrote (named after the token), then the User's own text.
+		var list = JSON.readTree(get("/api/notes/" + id + "/versions", jwt).body()).path("items");
+		assertThat(list).hasSize(2);
+		assertThat(list.get(0).path("editedBy").asString()).isEqualTo("agent");
+		assertThat(list.get(1).path("editedBy").isNull()).isTrue();
+		var newest = get("/api/notes/" + id + "/versions/" + list.get(0).path("id").asString(), jwt).body();
+		assertThat(JSON.readTree(newest).path("body").asString()).isEqualTo("agent one");
+	}
+
+	@Test
 	void editNoteChangesOnlyTheMatchedTextInOrder() throws Exception {
 		var id = note(jwt, "Doc", "alpha beta gamma", null);
 
