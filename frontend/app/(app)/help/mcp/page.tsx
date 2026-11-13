@@ -262,8 +262,9 @@ export default function McpHelpPage() {
           <h3 className="text-lg font-semibold">Change</h3>
           <ToolList tools={MCP_TOOLS.filter((t) => t.kind === "change")} />
           <p className="text-sm text-muted-foreground">
-            There is no tool to delete for good, empty the Trash, delete a Tag, upload or download Asset files, import files
-            or use Admin.
+            There is no tool to delete for good, empty the Trash, delete a Tag, import files or use Admin. Files move only
+            through short-lived links: the Agent sends or fetches them itself, and anyone who has a link can use it until
+            it expires.
           </p>
         </section>
 

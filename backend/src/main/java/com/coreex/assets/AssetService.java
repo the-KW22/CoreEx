@@ -24,10 +24,10 @@ import com.coreex.storage.Storage;
 @Service
 public class AssetService {
 
-	record Upload(UUID id, URI url) {
+	public record Upload(UUID id, URI url) {
 	}
 
-	record Url(URI url, long expiresInSeconds) {
+	public record Url(URI url, long expiresInSeconds) {
 	}
 
 	record Usage(long usedBytes, long quotaBytes) {
@@ -58,7 +58,7 @@ public class AssetService {
 		this.clock = clock;
 	}
 
-	Upload createUpload(User user, String filename, String mimeType, long sizeBytes, UUID folderId) {
+	public Upload createUpload(User user, String filename, String mimeType, long sizeBytes, UUID folderId) {
 		var mime = normalize(mimeType);
 		requireAllowed(mime);
 		requireWithinMax(sizeBytes);
@@ -78,7 +78,7 @@ public class AssetService {
 	}
 
 	/** Creates the Asset from a finished upload, trusting the stored object's size and type, not the browser's claim. */
-	Asset confirm(User user, UUID uploadId) {
+	public Asset confirm(User user, UUID uploadId) {
 		var pending = assets.findPending(user.id(), uploadId).orElseThrow(AssetService::noSuchUpload);
 		var stored = storage.head(pending.storageKey()).orElseThrow(() -> new ApiException(HttpStatus.CONFLICT,
 				"UPLOAD_MISSING", "The file has not been uploaded yet. Upload it, then confirm."));
@@ -109,7 +109,7 @@ public class AssetService {
 	}
 
 	/** A short-lived URL to view the file inline, or to download it under the Asset's title. Owner and live only. */
-	Url url(User user, UUID id, boolean download) {
+	public Url url(User user, UUID id, boolean download) {
 		var asset = get(user, id);
 		var ttl = properties.urlTtl();
 		return new Url(storage.presignDownload(asset.storageKey(), download ? downloadName(asset) : null, ttl),

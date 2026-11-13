@@ -38,6 +38,9 @@ class ReadTools {
 	record TagRef(UUID id, String name) {
 	}
 
+	record AssetLink(String url, long expiresInSeconds) {
+	}
+
 	record ItemSummary(UUID id, Item.Type type, String title, UUID folderId, Instant updatedAt,
 			String snippet, Long sizeBytes,
 			List<String> tags) {
@@ -157,7 +160,7 @@ class ReadTools {
 		return new ItemList(list, total, next(page, total));
 	}
 
-	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_item", description = "Read one Note or Asset by id. For a Note: its full Markdown, its version (you need it to edit the Note), Tags, Folder and the Notes that link to it (Backlinks). For an Asset: its title, description, type and size; the file itself is not available.")
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_item", description = "Read one Note or Asset by id. For a Note: its full Markdown, its version (you need it to edit the Note), Tags, Folder and the Notes that link to it (Backlinks). For an Asset: its title, description, type and size; the file itself is not sent, use get_asset_url to download it.")
 	ItemDetail getItem(McpTransportContext context, @McpToolParam(description = "The Item's id") UUID id) {
 		var user = user(context);
 		var item = items.findLive(user.id(), List.of(id)).stream().findFirst()
@@ -173,6 +176,12 @@ class ReadTools {
 		var asset = assets.get(user, id);
 		return new ItemDetail(id, item.type(), asset.title(), asset.folderId(), path, asset.updatedAt(), itemTags,
 				backlinks, null, null, asset.description(), asset.mimeType(), asset.sizeBytes());
+	}
+
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_asset_url", description = "Get a link to download an Asset's file (an image or PDF): fetch it with an HTTP GET, for example curl -o file \"<url>\", and read the saved file yourself. The link is a bearer link: anyone who has it can download the file until it expires (expiresInSeconds, a few minutes), so fetch it right away and do not share it or write it down. Ask again for a fresh one when it has expired. Only the User's own Assets that are not in the Trash have one.")
+	AssetLink getAssetUrl(McpTransportContext context, @McpToolParam(description = "The Asset's id") UUID id) {
+		var link = assets.url(user(context), id, true);
+		return new AssetLink(link.url().toString(), link.expiresInSeconds());
 	}
 
 	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "list_folders", description = "List every Folder with its id, parent id, full path and how many Items it holds directly. Use it to learn how the knowledge base is organised and to get a Folder id for the other tools.")

@@ -53,6 +53,12 @@ class WriteTools {
 	record AssetSaved(UUID id, String title, String description) {
 	}
 
+	record UploadStarted(UUID uploadId, String uploadUrl, String howToSend) {
+	}
+
+	// As AssetController's mimeType.
+	private static final int MIME_MAX = 100;
+
 	private static final String TRASH_HINT = " Use restore to bring it back.";
 
 	private final ItemService items;
@@ -251,6 +257,42 @@ class WriteTools {
 				: Input.optional("description", description, Input.DESCRIPTION_MAX);
 		var asset = assets.update(agent.user(), id, newTitle, newDescription);
 		items.recordAgentEdit(agent.user().id(), id, agent.tokenName());
+		return new AssetSaved(asset.id(), asset.title(), asset.description());
+	}
+
+	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "start_upload", description = "Step 1 of adding a file (an image or PDF) as a new Asset. Check the file's type and size and get a link to send it to: only PNG, JPEG, WebP, GIF and PDF are accepted, at most 5 MB, and it must fit the User's storage quota. Then step 2 is yours: PUT the file's bytes to uploadUrl with the header Content-Type set to the same mimeType, for example curl -X PUT -H \"Content-Type: image/png\" --data-binary @file.png \"<uploadUrl>\". Step 3: call confirm_upload with the uploadId. The Asset exists only after step 3. The link is a bearer link: anyone who has it can send a file to it until it expires, so use it right away and do not share it. Unconfirmed uploads are removed after 24 hours.")
+	UploadStarted startUpload(McpTransportContext context,
+			@McpToolParam(description = "The file's name, such as diagram.png; it becomes the Asset's title unless confirm_upload gives one") String filename,
+			@McpToolParam(description = "image/png, image/jpeg, image/webp, image/gif or application/pdf") String mimeType,
+			@McpToolParam(description = "The file's size in bytes") long sizeBytes,
+			@McpToolParam(required = false, description = "The Folder to put it in (an id from list_folders); by default the top level") UUID folderId) {
+		var user = McpConfig.agent(context).user();
+		if (sizeBytes <= 0) {
+			throw Input.invalid("sizeBytes must be more than 0.");
+		}
+		var type = Input.required("mimeType", mimeType, MIME_MAX);
+		var upload = assets.createUpload(user, Input.required("filename", filename, Input.TITLE_MAX), type, sizeBytes,
+				folderId);
+		return new UploadStarted(upload.id(), upload.url().toString(),
+				"PUT the file to uploadUrl with the header Content-Type: " + type + " (curl -X PUT -H \"Content-Type: "
+						+ type + "\" --data-binary @FILE \"<uploadUrl>\"), then call confirm_upload with this uploadId.");
+	}
+
+	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "confirm_upload", description = "Step 3 of adding a file: after you PUT the file to the uploadUrl from start_upload, call this with its uploadId. CoreEx checks the stored file's real size and type (not what you announced) and creates the Asset. If you get 'not been uploaded yet', send the file and call this again. If the file is refused, the upload is discarded and you must start again. Give a title or description to replace the defaults (the file's name, and empty).")
+	AssetSaved confirmUpload(McpTransportContext context,
+			@McpToolParam(description = "The uploadId from start_upload") UUID uploadId,
+			@McpToolParam(required = false, description = "The Asset's title; by default the file's name") String title,
+			@McpToolParam(required = false, description = "The Asset's description") String description) {
+		var agent = McpConfig.agent(context);
+		// Checked before the Asset exists, so bad text does not leave an Asset behind with an error.
+		var newTitle = title == null ? null : Input.required("title", title, Input.TITLE_MAX);
+		var newDescription = Input.optional("description", description, Input.DESCRIPTION_MAX);
+		var asset = assets.confirm(agent.user(), uploadId);
+		if (newTitle != null || newDescription != null) {
+			asset = assets.update(agent.user(), asset.id(), newTitle == null ? asset.title() : newTitle,
+					newDescription == null ? asset.description() : newDescription);
+		}
+		items.recordAgentEdit(agent.user().id(), asset.id(), agent.tokenName());
 		return new AssetSaved(asset.id(), asset.title(), asset.description());
 	}
 
