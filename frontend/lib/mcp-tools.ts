@@ -24,7 +24,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "get_item",
     kind: "read",
-    summary: "Read one Note (its Markdown, version, Tags, Folder and Backlinks) or an Asset's title, description and size. Asset files are never sent.",
+    summary: "Read one Note (its Markdown, version, Tags, Folder and Backlinks) or an Asset's title, description and size. An Asset's file is not sent: get_asset_url gives a link to it.",
     useWhen: "Before editing a Note: it gives the version the edit needs.",
   },
   {
@@ -50,6 +50,12 @@ export const MCP_TOOLS: McpTool[] = [
     kind: "read",
     summary: "Every Tag with its colour and how many Items have it.",
     useWhen: "To get a Tag id for search or list_items.",
+  },
+  {
+    name: "get_asset_url",
+    kind: "read",
+    summary: "A link to download an Asset's file (an image or PDF), valid for a few minutes. Anyone who has the link can download the file until it expires.",
+    useWhen: "The Agent can fetch a link (curl, a web request) and should read the file itself.",
   },
   {
     name: "list_trash",
@@ -146,5 +152,17 @@ export const MCP_TOOLS: McpTool[] = [
     kind: "change",
     summary: "Change an Asset's title or description. The file itself cannot be changed.",
     useWhen: "An Asset needs a better name or a note about it.",
+  },
+  {
+    name: "start_upload",
+    kind: "change",
+    summary: "Step 1 of adding a file: checks its type (PNG, JPEG, WebP, GIF or PDF), size (5 MB at most) and your storage quota, and gives a link to PUT the file to.",
+    useWhen: "The Agent has a file on its own machine that belongs in CoreEx. It must be able to run a command or make a web request.",
+  },
+  {
+    name: "confirm_upload",
+    kind: "change",
+    summary: "Step 3, after the file has been PUT to the link: checks what was really stored and creates the Asset, with an optional title and description.",
+    useWhen: "Right after sending the file. Until then no Asset exists.",
   },
 ];
