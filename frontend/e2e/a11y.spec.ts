@@ -780,6 +780,39 @@ test("an Agent's edit is named in the Details panel until you edit the Note your
   await expect(page.getByRole("row").filter({ hasText: name })).toHaveCount(0);
 });
 
+test("History keeps the text a save replaced, previews it, and restores it", async ({ page }) => {
+  await signIn(page);
+  const title = `History ${Date.now()}`;
+  await newNote(page, title);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("First draft");
+  await expectSaved(page);
+  await page.keyboard.type(" and a second thought");
+  await expectSaved(page);
+
+  const details = page.getByRole("complementary", { name: "Details" });
+  await details.getByRole("button", { name: "History" }).click();
+  // The first save replaced the heading alone; the saves close behind it keep nothing more.
+  const previews = details.getByRole("button", { name: /^Preview the text from/ });
+  await expect(previews).toHaveCount(1);
+  await previews.click();
+  await expect(details.locator("pre[aria-label^='Text from']")).toHaveText(`# ${title}`);
+  await expectNoViolations(page);
+
+  // Restoring brings the heading-only text back, and keeps the text it replaced as a newer version.
+  await details.getByRole("button", { name: /^Restore the text from/ }).click();
+  await expect(page.getByRole("textbox", { name: "Note content" })).not.toContainText("First draft");
+  await expect(previews).toHaveCount(2);
+  await previews.first().click();
+  await expect(details.locator("pre[aria-label^='Text from']").first()).toContainText("First draft and a second thought");
+
+  // Tidy up.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
 test("the Users table shows you without Disable or Remove, and Overview has its chart", async ({ page }) => {
   await signIn(page);
   await page.goto("/admin/users");

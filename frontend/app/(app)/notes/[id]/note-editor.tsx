@@ -12,9 +12,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 import { ItemFrame } from "../../items/item-frame";
-import { deleteNote, linkPreview, loadNote, resolveLinks, saveNote, suggestLinks } from "../actions";
+import {
+  deleteNote,
+  linkPreview,
+  type LoadedNote,
+  loadNote,
+  resolveLinks,
+  restoreVersion,
+  saveNote,
+  suggestLinks,
+} from "../actions";
 import { smallestEdit } from "./edit";
 import { activeFormats, toggleInline } from "./format";
+import { restoreBlocker } from "./history";
+import { NoteHistory } from "./note-history";
 import { type LinkTarget, linkCompletion, linkField, linkIds, setLinks } from "./links";
 import { livePreview } from "./live-preview";
 import { slashCompletion } from "./slash";
@@ -333,6 +344,11 @@ export function NoteEditor({
       setStatus("error");
       return;
     }
+    show(theirs);
+  }
+
+  // Puts a stored Note in the editor in place of what it holds, and treats it as saved.
+  function show(theirs: LoadedNote) {
     version.current = theirs.version;
     saved.current = { title: theirs.title, body: theirs.body };
     latest.current = { title: theirs.title, body: theirs.body };
@@ -348,6 +364,31 @@ export function NoteEditor({
     setStatus("saved");
   }
 
+  // Brings an earlier text back. What is typed goes to the server first, so the copy the restore keeps includes it.
+  // Returns why nothing was restored, or null.
+  async function restore(versionId: string) {
+    clearTimeout(timer.current);
+    await flush();
+    const blocker = restoreBlocker({
+      conflict: conflict.current,
+      saving: saving.current,
+      unsaved: !same(latest.current, saved.current),
+    });
+    if (blocker) return blocker;
+    const result = await restoreVersion(id, versionId, version.current);
+    if (result.status === "restored") {
+      show(result.note);
+      router.refresh();
+      return null;
+    }
+    if (result.status === "conflict") {
+      conflict.current = true;
+      setStatus("conflict");
+      return "This Note was changed somewhere else, so nothing was restored.";
+    }
+    return result.message;
+  }
+
   // A toolbar button: runs its command on the editor, keeps the editor focused, and opens the Link suggestions for [[ ]].
   const run = useCallback((command: StateCommand, id?: string) => {
     const editor = view.current;
@@ -360,6 +401,7 @@ export function NoteEditor({
   const detailsBody = (
     <>
       {details}
+      <NoteHistory noteId={id} onRestore={restore} />
       <section aria-labelledby="info-heading" className="grid gap-2">
         <h2 id="info-heading" className="text-xs font-semibold text-muted-foreground">
           Info
