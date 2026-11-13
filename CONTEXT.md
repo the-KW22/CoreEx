@@ -22,6 +22,10 @@ _Avoid_: File, attachment, upload, media
 Turning an uploaded Markdown or plain-text file into a new Note. The original file is not kept.
 _Avoid_: Upload (when the result is a Note)
 
+**Note version**:
+The text a Note had before a save replaced it, kept so the User can read it in the Note's History and bring it back with Restore. An Agent's edit and a Restore always keep the text they replace; the User's own saves close together keep one. A Note keeps its newest 50 versions, for up to 90 days, and they leave with the Note when the Trash removes it. Not the same as the Note's save counter, which only stops two saves from overwriting each other.
+_Avoid_: Revision, snapshot, backup
+
 ### Organization
 
 **Tag**:

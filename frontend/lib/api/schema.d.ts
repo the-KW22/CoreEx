@@ -180,6 +180,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notes/{id}/versions/{versionId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notes/import": {
         parameters: {
             query?: never;
@@ -484,6 +500,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notes/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_6"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes/{id}/versions/{versionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me": {
         parameters: {
             query?: never;
@@ -555,7 +603,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_6"];
+        get: operations["list_7"];
         put?: never;
         post?: never;
         delete?: never;
@@ -571,7 +619,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_7"];
+        get: operations["list_8"];
         put?: never;
         post?: never;
         delete?: never;
@@ -683,7 +731,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_8"];
+        get: operations["list_9"];
         put?: never;
         post?: never;
         delete?: never;
@@ -937,6 +985,10 @@ export interface components {
              */
             folderId?: string | null;
         };
+        RestoreRequest: {
+            /** Format: int32 */
+            version: number;
+        };
         ImportResponse: {
             /** @description One result per file, in the order sent */
             results: components["schemas"]["ImportResultResponse"][];
@@ -1172,6 +1224,34 @@ export interface components {
         };
         QuickList: {
             items: components["schemas"]["QuickHitResponse"][];
+        };
+        VersionList: {
+            items: components["schemas"]["VersionSummary"][];
+            /** Format: int32 */
+            total: number;
+        };
+        VersionSummary: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /**
+             * Format: date-time
+             * @description When this text was written
+             */
+            savedAt: string;
+            /** @description The name of the Access token that wrote this text; null when the User did */
+            editedBy: string | null;
+            /** Format: int32 */
+            sizeBytes: number;
+        };
+        VersionDetail: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            body: string;
+            /** Format: date-time */
+            savedAt: string;
+            editedBy: string | null;
         };
         Me: {
             /** Format: uuid */
@@ -2064,6 +2144,51 @@ export interface operations {
             };
             /** @description Code NOT_FOUND: no such Folder */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreRequest"];
+            };
+        };
+        responses: {
+            /** @description The Note, saved with the earlier text and a new version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteResponse"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Note) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2979,6 +3104,69 @@ export interface operations {
             };
         };
     };
+    list_6: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Note's versions, newest first, without their text */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionList"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Note) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    get_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One version, with its text */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionDetail"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Note) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     me: {
         parameters: {
             query?: never;
@@ -3092,7 +3280,7 @@ export interface operations {
             };
         };
     };
-    list_6: {
+    list_7: {
         parameters: {
             query?: {
                 folderId?: string;
@@ -3127,7 +3315,7 @@ export interface operations {
             };
         };
     };
-    list_7: {
+    list_8: {
         parameters: {
             query?: {
                 size?: number;
@@ -3346,7 +3534,7 @@ export interface operations {
             };
         };
     };
-    list_8: {
+    list_9: {
         parameters: {
             query?: {
                 page?: number;

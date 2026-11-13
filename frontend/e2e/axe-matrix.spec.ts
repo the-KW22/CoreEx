@@ -264,8 +264,13 @@ for (const colorScheme of ["dark", "light"] as const) {
             await expect(sheet).toBeVisible({ timeout: 1500 });
           }).toPass();
           await scan(page, failures, "details sheet");
-          await page.keyboard.press("Escape");
         }
+        // History, opened in the Details panel (the Sheet on a phone): the Note has the version its first edit kept.
+        await page.getByRole("button", { name: "History" }).click();
+        await page.getByRole("button", { name: /^Preview the text from/ }).first().click();
+        await expect(page.locator("pre[aria-label^='Text from']").first()).toBeVisible();
+        await scan(page, failures, "history open");
+        if (phone) await page.keyboard.press("Escape");
         await page.goto(`/search?q=${word}`);
         await page.getByRole("listitem").filter({ hasText: noteB }).getByRole("link", { name: noteB }).click();
         const link = page.locator(".cm-wikilink", { hasText: noteA });

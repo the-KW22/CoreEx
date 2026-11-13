@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import type { components } from "@/lib/api/schema";
 import { getApi } from "@/lib/api/server";
 
 import { trashItem } from "../items/actions";
@@ -71,6 +72,41 @@ export async function loadNote(id: string): Promise<LoadedNote | null> {
   const api = await getApi();
   const result = await api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null);
   return result?.data ?? null;
+}
+
+export type NoteVersion = components["schemas"]["VersionSummary"];
+
+// The Note's earlier texts, newest first, without the text. Null when they cannot be loaded.
+export async function loadVersions(id: string): Promise<NoteVersion[] | null> {
+  const api = await getApi();
+  const result = await api.GET("/api/notes/{id}/versions", { params: { path: { id } } }).catch(() => null);
+  return result?.data?.items ?? null;
+}
+
+// The text of one version, for the preview. Null when it cannot be loaded.
+export async function loadVersionText(id: string, versionId: string): Promise<string | null> {
+  const api = await getApi();
+  const result = await api
+    .GET("/api/notes/{id}/versions/{versionId}", { params: { path: { id, versionId } } })
+    .catch(() => null);
+  return result?.data?.body ?? null;
+}
+
+export type RestoreResult =
+  | { status: "restored"; note: LoadedNote }
+  | { status: "conflict" }
+  | { status: "error"; message: string };
+
+// Saves an earlier text as the Note's text. `version` is the Note's version the editor last saw.
+export async function restoreVersion(id: string, versionId: string, version: number): Promise<RestoreResult> {
+  const api = await getApi();
+  const result = await api
+    .POST("/api/notes/{id}/versions/{versionId}/restore", { params: { path: { id, versionId } }, body: { version } })
+    .catch(() => null);
+  if (!result) return { status: "error", message: "Cannot reach the CoreEx API." };
+  if (result.data) return { status: "restored", note: result.data };
+  if (result.response.status === 409) return { status: "conflict" };
+  return { status: "error", message: result.error?.message ?? "Could not restore that version." };
 }
 
 // Autocomplete for "[[": the User's live Items whose title contains the text. Empty when the API is unreachable.

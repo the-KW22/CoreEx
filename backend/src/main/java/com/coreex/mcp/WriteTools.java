@@ -297,7 +297,8 @@ class WriteTools {
 	}
 
 	private NoteSaved save(Agent agent, Note current, String title, String text, int version) {
-		var note = notes.save(agent.user().id(), current.id(), title, text, version);
+		// keepOld: every Agent edit leaves a restore point.
+		var note = notes.save(agent.user().id(), current.id(), title, text, version, true);
 		items.recordAgentEdit(agent.user().id(), note.id(), agent.tokenName());
 		return saved(note);
 	}
