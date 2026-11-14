@@ -199,7 +199,9 @@ The same tokens are used by CSS, Motion and View Transitions. They are defined o
 
 A Career screen (#227), opened from the Applications list below.
 
-- A single column: the title, then a **Stage stepper** (six buttons, the current one filled and `aria-current="step"`), the fields (title, company, role, location, posting link, posting) with one **Save**, and the **Timeline**, one line per move with its date.
+- A single column: the title, then a **Stage stepper** (six buttons, the current one filled and `aria-current="step"`), the fields (title, company, role, location, posting link, posting) with one **Save**, and the **Timeline** (#229).
+- Closing: the Closed button first asks "Why did it close?" (the five close reasons); the page then shows "Closed: <reason>". A **Moved on** date field (empty means today) back-dates a move.
+- Timeline: lines in date order, same-day lines in the order they were written. Each line has **Edit** (its date, and a note's text); notes, follow-ups and replies also have **Delete**, a Stage line does not. Below it, a note box with a date field and the buttons **Add note**, **I followed up** and **They replied**. A date cannot be in the future.
 - No Details panel, Folder, Tags or Trash yet: they come with #239.
 - A save from an old version, or a move made meanwhile elsewhere, shows the conflict message and asks for a reload.
 

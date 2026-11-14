@@ -11,6 +11,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
+import com.coreex.applications.Application.CloseReason;
 import com.coreex.applications.Application.Stage;
 import com.coreex.applications.Application.TimelineEntry;
 
@@ -26,14 +27,14 @@ class ApplicationRepository {
 
 	private static final String COLUMNS = """
 			select i.id, i.title, c.title_auto, c.company, c.role, c.location, c.posting_url, c.posting_text, c.stage,
-			c.applied_on, c.timeline::text as timeline, c.version, i.folder_id, i.created_at, i.updated_at """;
+			c.close_reason, c.applied_on, c.timeline::text as timeline, c.version, i.folder_id, i.created_at, i.updated_at """;
 
 	private final JsonMapper json = JsonMapper.builder().build();
 
 	private final RowMapper<Application> mapper = (rs, n) -> new Application(rs.getObject("id", UUID.class),
 			rs.getString("title"), rs.getBoolean("title_auto"), rs.getString("company"), rs.getString("role"),
 			rs.getString("location"), rs.getString("posting_url"), rs.getString("posting_text"),
-			Stage.valueOf(rs.getString("stage")), instant(rs.getObject("applied_on", OffsetDateTime.class)),
+			Stage.valueOf(rs.getString("stage")), closeReason(rs.getString("close_reason")), instant(rs.getObject("applied_on", OffsetDateTime.class)),
 			List.of(json.readValue(rs.getString("timeline"), TimelineEntry[].class)), rs.getInt("version"),
 			rs.getObject("folder_id", UUID.class), instant(rs.getObject("created_at", OffsetDateTime.class)),
 			instant(rs.getObject("updated_at", OffsetDateTime.class)));
@@ -42,6 +43,10 @@ class ApplicationRepository {
 
 	ApplicationRepository(JdbcClient jdbc) {
 		this.jdbc = jdbc;
+	}
+
+	private static CloseReason closeReason(String name) {
+		return name == null ? null : CloseReason.valueOf(name);
 	}
 
 	private static Instant instant(OffsetDateTime time) {
@@ -96,14 +101,15 @@ class ApplicationRepository {
 	}
 
 	/** False when the Application is missing or its stored version is not the one the caller saw. */
-	boolean saveStage(UUID ownerId, UUID id, int seenVersion, Stage stage, Instant appliedOn,
-			List<TimelineEntry> timeline) {
+	boolean saveTimeline(UUID ownerId, UUID id, int seenVersion, Stage stage, CloseReason closeReason,
+			Instant appliedOn, List<TimelineEntry> timeline) {
 		var saved = jdbc.sql("""
-				update application_contents c set stage = :stage, applied_on = :applied, timeline = :timeline::jsonb,
-				version = c.version + 1
+				update application_contents c set stage = :stage, close_reason = :reason, applied_on = :applied,
+				timeline = :timeline::jsonb, version = c.version + 1
 				from items i
 				where c.item_id = i.id and i.id = :id and i.owner_id = :owner and i.type = 'APPLICATION'
 				  and i.deleted_at is null and c.version = :version""").param("stage", stage.name())
+				.param("reason", closeReason == null ? null : closeReason.name())
 				.param("applied", appliedOn == null ? null : Timestamp.from(appliedOn))
 				.param("timeline", json.writeValueAsString(timeline)).param("id", id).param("owner", ownerId)
 				.param("version", seenVersion).update();

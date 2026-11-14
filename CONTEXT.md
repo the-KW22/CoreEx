@@ -95,7 +95,7 @@ An Item that tracks one job the User is interested in or has applied for: compan
 _Avoid_: Job, opportunity, lead, posting (the posting is the employer's text inside it)
 
 **Stage**:
-Where an Application stands, one of a fixed six: Saved, Applied, Screening, Interview, Offer, Closed. A Closed Application records why (accepted, not selected, withdrew, accepted another offer, no response). Every change of Stage is kept in the Application's timeline.
+Where an Application stands, one of a fixed six: Saved, Applied, Screening, Interview, Offer, Closed. A Closed Application records why (accepted, not selected, withdrew, accepted another offer, no response). Every change of Stage is kept in the Application's timeline, which also holds notes and "I followed up" and "They replied" lines. Entries can be back-dated, never into the future. The no-reply clock starts at the applied date and restarts at each follow-up or reply.
 _Avoid_: Status, lane, column, step
 
 **Next step**:

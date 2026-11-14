@@ -1,11 +1,13 @@
 package com.coreex.applications;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.coreex.applications.Application.CloseReason;
+import com.coreex.applications.Application.EntryType;
 import com.coreex.applications.Application.Stage;
 import com.coreex.common.ErrorBody;
 import com.coreex.identity.CurrentUserInterceptor;
@@ -50,6 +54,8 @@ class ApplicationController {
 
 	private static final int MAX_POSTING = 100_000;
 
+	private static final int MAX_NOTE = 5000;
+
 	// Postgres cannot store a NUL character in text.
 	private static final String NO_NUL = "[^\u0000]*";
 
@@ -74,13 +80,29 @@ class ApplicationController {
 			@NotNull Integer version) {
 	}
 
-	record MoveStageRequest(@NotNull Stage stage, @NotNull Integer version) {
+	record MoveStageRequest(@NotNull Stage stage,
+			@Schema(nullable = true, description = "Required for Closed, refused for every other Stage") CloseReason closeReason,
+			@Schema(nullable = true, description = "The day it happened, never a future one. Empty means today") LocalDate date,
+			@NotNull Integer version) {
 	}
 
-	record TimelineEntryResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "STAGE for now") String type,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Stage stage,
+	record AddEntryRequest(@NotNull EntryType type,
+			@Size(max = MAX_NOTE) @Pattern(regexp = NO_NUL) @Schema(nullable = true, description = "The note; required for NOTE, ignored otherwise") String text,
+			@Schema(nullable = true, description = "The day it happened, never a future one. Empty means today") LocalDate date,
+			@NotNull Integer version) {
+	}
+
+	record EditEntryRequest(
+			@Size(max = MAX_NOTE) @Pattern(regexp = NO_NUL) @Schema(nullable = true, description = "New note text; only for a NOTE. Empty keeps it") String text,
+			@Schema(nullable = true, description = "A new day, never a future one. Empty keeps it") LocalDate date,
+			@NotNull Integer version) {
+	}
+
+	record TimelineEntryResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "STAGE, NOTE, FOLLOWED_UP or REPLIED") String type,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "The Stage moved to; only for STAGE") Stage stage,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The display date, at 12:00 UTC") Instant at,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The order it was written in") int seq) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The order it was written in; names the entry in the edit and delete calls") int seq,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "The note; only for NOTE") String text) {
 	}
 
 	record ApplicationResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
@@ -91,8 +113,11 @@ class ApplicationController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String postingUrl,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String postingText,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Stage stage,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "Why it closed; only when Closed") CloseReason closeReason,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
 					description = "When the Application first moved into Applied, at 12:00 UTC") Instant appliedOn,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+					description = "Where the no-reply clock starts: the later of the applied date and the last follow-up or reply. Empty until applied") Instant noReplySince,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<TimelineEntryResponse> timeline,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int version,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID folderId,
@@ -101,8 +126,8 @@ class ApplicationController {
 
 		static ApplicationResponse of(Application a) {
 			return new ApplicationResponse(a.id(), a.title(), a.company(), a.role(), a.location(), a.postingUrl(),
-					a.postingText(), a.stage(), a.appliedOn(),
-					a.timeline().stream().map(e -> new TimelineEntryResponse(e.type(), e.stage(), e.at(), e.seq())).toList(),
+					a.postingText(), a.stage(), a.closeReason(), a.appliedOn(), a.noReplySince(),
+					a.timeline().stream().map(e -> new TimelineEntryResponse(e.type(), e.stage(), e.at(), e.seq(), e.text())).toList(),
 					a.version(), a.folderId(), a.createdAt(), a.updatedAt());
 		}
 
@@ -178,7 +203,53 @@ class ApplicationController {
 			schema = @Schema(implementation = ErrorBody.class)))
 	ApplicationResponse moveStage(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @Valid @RequestBody MoveStageRequest request) {
-		return ApplicationResponse.of(applications.moveStage(user.id(), id, request.stage(), request.version()));
+		return ApplicationResponse.of(applications.moveStage(user.id(), id, request.stage(), request.closeReason(),
+				request.date(), request.version()));
+	}
+
+	@PostMapping(value = "/{id}/timeline", consumes = JSON)
+	@ResponseStatus(HttpStatus.CREATED)
+	@ApiResponse(responseCode = "201", description = "The Application with the new timeline entry", content = @Content(
+			mediaType = JSON, schema = @Schema(implementation = ApplicationResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "409", description = "Code VERSION_CONFLICT", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	ApplicationResponse addEntry(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id, @Valid @RequestBody AddEntryRequest request) {
+		return ApplicationResponse.of(applications.addEntry(user.id(), id, request.type(), request.text(),
+				request.date(), request.version()));
+	}
+
+	@PutMapping(value = "/{id}/timeline/{seq}", consumes = JSON)
+	@ApiResponse(responseCode = "200", description = "The Application with the entry changed", content = @Content(
+			mediaType = JSON, schema = @Schema(implementation = ApplicationResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "409", description = "Code VERSION_CONFLICT", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	ApplicationResponse editEntry(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id, @PathVariable int seq, @Valid @RequestBody EditEntryRequest request) {
+		return ApplicationResponse.of(applications.editEntry(user.id(), id, seq, request.text(), request.date(),
+				request.version()));
+	}
+
+	@DeleteMapping("/{id}/timeline/{seq}")
+	@ApiResponse(responseCode = "200", description = "The Application without the entry", content = @Content(
+			mediaType = JSON, schema = @Schema(implementation = ApplicationResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST (a Stage entry cannot be deleted)", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "409", description = "Code VERSION_CONFLICT", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	ApplicationResponse deleteEntry(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id, @PathVariable int seq, @RequestParam int version) {
+		return ApplicationResponse.of(applications.deleteEntry(user.id(), id, seq, version));
 	}
 
 	private static String orEmpty(String text) {

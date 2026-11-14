@@ -2,6 +2,7 @@ package com.coreex.applications;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDate;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -12,11 +13,15 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.coreex.ApiTest;
 import com.coreex.TestJwts;
+import com.coreex.TestSupportConfiguration;
 
 class ApplicationApiTest extends ApiTest {
 
 	@Autowired
 	JdbcClient jdbc;
+
+	@Autowired
+	TestSupportConfiguration.TestClock clock;
 
 	private String userA;
 
@@ -161,6 +166,136 @@ class ApplicationApiTest extends ApiTest {
 				.isEqualTo(400);
 		assertThat(post("/api/applications", userA, "{\"company\":\"Acme\",\"role\":\" \"}").statusCode())
 				.isEqualTo(400);
+	}
+
+	// The app's clock is the test clock, so "today" is whatever it says.
+	private String days(long ago) {
+		return LocalDate.now(clock).minusDays(ago).toString();
+	}
+
+	private String entry(String token, String id, String json) throws Exception {
+		var added = post("/api/applications/" + id + "/timeline", token, json);
+		assertThat(added.statusCode()).as(added.body()).isEqualTo(201);
+		return added.body();
+	}
+
+	@Test
+	void closingNeedsAReasonAndNoOtherStageTakesOne() throws Exception {
+		var id = field(create(userA, "{\"company\":\"Acme\",\"role\":\"Engineer\"}"), "id");
+
+		var bare = post("/api/applications/" + id + "/stage", userA, "{\"stage\":\"CLOSED\",\"version\":1}");
+		assertThat(bare.statusCode()).isEqualTo(400);
+		assertThat(bare.body()).contains("Say why it closed.");
+		var odd = post("/api/applications/" + id + "/stage", userA,
+				"{\"stage\":\"APPLIED\",\"closeReason\":\"WITHDREW\",\"version\":1}");
+		assertThat(odd.statusCode()).isEqualTo(400);
+
+		var closed = post("/api/applications/" + id + "/stage", userA,
+				"{\"stage\":\"CLOSED\",\"closeReason\":\"NOT_SELECTED\",\"version\":1}");
+		assertThat(closed.statusCode()).as(closed.body()).isEqualTo(200);
+		assertThat(field(closed.body(), "closeReason")).isEqualTo("NOT_SELECTED");
+
+		// Reopening drops the reason.
+		var reopened = move(userA, id, "APPLIED", 2);
+		assertThat(field(reopened, "closeReason")).isEqualTo("null");
+	}
+
+	@Test
+	void aBackDatedStageEntryKeepsItsWriteOrderAndTheCurrentStageIsTheLastWritten() throws Exception {
+		var id = field(create(userA, "{\"company\":\"Acme\",\"role\":\"Engineer\"}"), "id");
+		move(userA, id, "SCREENING", 1);
+
+		var dated = days(5);
+		var applied = post("/api/applications/" + id + "/stage", userA,
+				"{\"stage\":\"APPLIED\",\"date\":\"" + dated + "\",\"version\":2}");
+
+		assertThat(applied.statusCode()).as(applied.body()).isEqualTo(200);
+		assertThat(field(applied.body(), "stage")).isEqualTo("APPLIED");
+		assertThat(applied.body()).contains("\"at\":\"" + dated + "T12:00:00Z\",\"seq\":3");
+		// The applied date follows the entry's date, not the day it was written.
+		assertThat(field(applied.body(), "appliedOn")).isEqualTo(dated + "T12:00:00Z");
+	}
+
+	@Test
+	void aFutureDateIsRefusedEverywhere() throws Exception {
+		var id = field(create(userA, "{\"company\":\"Acme\",\"role\":\"Engineer\"}"), "id");
+		var future = LocalDate.now(clock).plusDays(2);
+
+		assertThat(post("/api/applications/" + id + "/stage", userA,
+				"{\"stage\":\"APPLIED\",\"date\":\"" + future + "\",\"version\":1}").statusCode()).isEqualTo(400);
+		assertThat(post("/api/applications/" + id + "/timeline", userA,
+				"{\"type\":\"NOTE\",\"text\":\"x\",\"date\":\"" + future + "\",\"version\":1}").statusCode())
+				.isEqualTo(400);
+		assertThat(put("/api/applications/" + id + "/timeline/1", userA,
+				"{\"date\":\"" + future + "\",\"version\":1}").statusCode()).isEqualTo(400);
+		assertThat(get("/api/applications/" + id, userA).body()).contains("\"version\":1");
+	}
+
+	@Test
+	void notesCanBeAddedEditedAndDeletedButStageEntriesStay() throws Exception {
+		var id = field(create(userA, "{\"company\":\"Acme\",\"role\":\"Engineer\"}"), "id");
+
+		var added = entry(userA, id, "{\"type\":\"NOTE\",\"text\":\" Called the recruiter \",\"version\":1}");
+		assertThat(added).contains("\"type\":\"NOTE\"").contains("\"text\":\"Called the recruiter\"").contains("\"seq\":2");
+
+		var edited = put("/api/applications/" + id + "/timeline/2", userA,
+				"{\"text\":\"Called twice\",\"date\":\"" + days(1) + "\",\"version\":2}");
+		assertThat(edited.statusCode()).as(edited.body()).isEqualTo(200);
+		assertThat(edited.body()).contains("\"at\":\"" + days(1) + "T12:00:00Z\",\"seq\":2,\"text\":\"Called twice\"");
+
+	}
+
+	@Test
+	void anEmptyNoteIsRefusedAndAStageEntryCannotBeDeletedOrGetText() throws Exception {
+		var id = field(create(userA, "{\"company\":\"Acme\",\"role\":\"Engineer\"}"), "id");
+
+		assertThat(post("/api/applications/" + id + "/timeline", userA, "{\"type\":\"NOTE\",\"text\":\"  \",\"version\":1}")
+				.statusCode()).isEqualTo(400);
+		assertThat(delete("/api/applications/" + id + "/timeline/1?version=1", userA).statusCode()).isEqualTo(400);
+		assertThat(put("/api/applications/" + id + "/timeline/1", userA, "{\"text\":\"hi\",\"version\":1}").statusCode())
+				.isEqualTo(400);
+		assertThat(put("/api/applications/" + id + "/timeline/9", userA, "{\"date\":\"" + days(1) + "\",\"version\":1}")
+				.statusCode()).isEqualTo(404);
+
+		// A Stage entry can be re-dated, and a note deleted.
+		var redated = put("/api/applications/" + id + "/timeline/1", userA,
+				"{\"date\":\"" + days(3) + "\",\"version\":1}");
+		assertThat(redated.statusCode()).as(redated.body()).isEqualTo(200);
+		entry(userA, id, "{\"type\":\"NOTE\",\"text\":\"n\",\"version\":2}");
+		var deleted = delete("/api/applications/" + id + "/timeline/2?version=3", userA);
+		assertThat(deleted.statusCode()).as(deleted.body()).isEqualTo(200);
+		assertThat(deleted.body()).doesNotContain("NOTE");
+	}
+
+	@Test
+	void aFollowUpOrReplyRestartsTheNoReplyClockAndAnEarlierOneDoesNot() throws Exception {
+		var id = field(create(userA, "{\"company\":\"Acme\",\"role\":\"Engineer\"}"), "id");
+		assertThat(field(get("/api/applications/" + id, userA).body(), "noReplySince")).isEqualTo("null");
+
+		var applied = post("/api/applications/" + id + "/stage", userA,
+				"{\"stage\":\"APPLIED\",\"date\":\"" + days(10) + "\",\"version\":1}").body();
+		assertThat(field(applied, "noReplySince")).isEqualTo(days(10) + "T12:00:00Z");
+
+		var followed = entry(userA, id, "{\"type\":\"FOLLOWED_UP\",\"date\":\"" + days(4) + "\",\"version\":2}");
+		assertThat(field(followed, "noReplySince")).isEqualTo(days(4) + "T12:00:00Z");
+
+		var replied = entry(userA, id, "{\"type\":\"REPLIED\",\"date\":\"" + days(2) + "\",\"version\":3}");
+		assertThat(field(replied, "noReplySince")).isEqualTo(days(2) + "T12:00:00Z");
+
+		// A note does not count, and neither does a back-dated follow-up older than the last contact.
+		entry(userA, id, "{\"type\":\"NOTE\",\"text\":\"thinking\",\"version\":4}");
+		var older = entry(userA, id, "{\"type\":\"FOLLOWED_UP\",\"date\":\"" + days(8) + "\",\"version\":5}");
+		assertThat(field(older, "noReplySince")).isEqualTo(days(2) + "T12:00:00Z");
+	}
+
+	@Test
+	void anotherUserGets404OnTheTimelineEndpoints() throws Exception {
+		var id = field(create(userA, "{\"company\":\"Acme\",\"role\":\"Engineer\"}"), "id");
+
+		assertThat(post("/api/applications/" + id + "/timeline", userB, "{\"type\":\"REPLIED\",\"version\":1}")
+				.statusCode()).isEqualTo(404);
+		assertThat(put("/api/applications/" + id + "/timeline/1", userB, "{\"version\":1}").statusCode()).isEqualTo(404);
+		assertThat(delete("/api/applications/" + id + "/timeline/1?version=1", userB).statusCode()).isEqualTo(404);
 	}
 
 }

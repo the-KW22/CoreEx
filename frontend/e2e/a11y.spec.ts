@@ -2384,12 +2384,12 @@ test("an Application is made from a pasted posting, renamed, and moved through i
   await newApplication(page, `Acme ${stamp}`, "Engineer");
   // By id: the page being left, with its own Posting field in the dialog, stays on screen for a moment.
   await expect(page.locator("#posting-text")).toHaveValue("We are hiring.");
-  await expect(page.getByRole("button", { name: "Saved" })).toHaveAttribute("aria-current", "step");
+  await expect(page.getByRole("button", { name: "Saved", exact: true })).toHaveAttribute("aria-current", "step");
   await expectNoViolations(page);
 
   // Moving into Applied dates the Application and adds a timeline line.
-  await page.getByRole("button", { name: "Applied" }).click();
-  await expect(page.getByRole("button", { name: "Applied" })).toHaveAttribute("aria-current", "step");
+  await page.getByRole("button", { name: "Applied", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Applied", exact: true })).toHaveAttribute("aria-current", "step");
   await expect(page.getByText("Moved to Applied")).toBeVisible();
   await expect(page.getByText(/^Applied .*\d{4}$/)).toBeVisible();
 
@@ -2404,6 +2404,46 @@ test("an Application is made from a pasted posting, renamed, and moved through i
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByLabel("Company")).toHaveValue(`Gamma ${stamp}`);
   await expect(page.getByRole("heading", { name: `My pick ${stamp}`, level: 1 })).toBeVisible();
+});
+
+test("an Application closes with a reason, takes notes, and a follow-up is back-dated", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  await newApplication(page, `Delta ${stamp}`, "Analyst");
+  await expect(page.locator("#posting-text")).toBeVisible();
+
+  // Closing asks why first; cancelling changes nothing.
+  await page.getByRole("button", { name: "Closed", exact: true }).click();
+  await expect(page.getByLabel("Why did it close?")).toBeVisible();
+  await expectNoViolations(page);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Saved", exact: true })).toHaveAttribute("aria-current", "step");
+  await page.getByRole("button", { name: "Closed", exact: true }).click();
+  await page.getByLabel("Why did it close?").selectOption("WITHDREW");
+  await page.getByRole("button", { name: "Close Application" }).click();
+  await expect(page.getByRole("button", { name: "Closed", exact: true })).toHaveAttribute("aria-current", "step");
+  await expect(page.getByText("Closed: Withdrew")).toBeVisible();
+
+  // A note, then an edit of it, then a follow-up dated in the past that sorts before today's entries.
+  await page.getByLabel("Add to the timeline").fill("Spoke to the recruiter");
+  await page.getByRole("button", { name: "Add note" }).click();
+  await expect(page.getByText("Spoke to the recruiter")).toBeVisible();
+  await page.getByRole("button", { name: /^Edit: .* Spoke to the recruiter$/ }).click();
+  await page.getByLabel("Note", { exact: true }).fill("Spoke to the recruiter twice");
+  await page.getByRole("button", { name: "Save entry" }).click();
+  await expect(page.getByText("Spoke to the recruiter twice")).toBeVisible();
+
+  await page.getByLabel("Date", { exact: true }).last().fill("2020-01-15");
+  await page.getByRole("button", { name: "I followed up" }).click();
+  const lines = page.getByRole("list").filter({ hasText: "Moved to Closed" }).getByRole("listitem");
+  await expect(lines.first()).toContainText("Jan 15, 2020");
+  await expect(lines.first()).toContainText("I followed up");
+  await expectNoViolations(page);
+
+  // A note can go; a Stage entry has no Delete.
+  await page.getByRole("button", { name: /^Delete: .* Spoke to the recruiter twice$/ }).click();
+  await expect(page.getByText("Spoke to the recruiter twice")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Delete: .* Moved to/ })).toHaveCount(0);
 });
 
 test("Career opens from the rail with its panel and the Applications list, and New Application lands on the new page", async ({ page }) => {

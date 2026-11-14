@@ -116,6 +116,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/timeline/{seq}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["editEntry"];
+        post?: never;
+        delete: operations["deleteEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{id}/quota": {
         parameters: {
             query?: never;
@@ -398,6 +414,22 @@ export interface paths {
         get: operations["list_3"];
         put?: never;
         post: operations["create_3"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addEntry"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1039,10 +1071,20 @@ export interface components {
             /** @enum {string} */
             stage: "SAVED" | "APPLIED" | "SCREENING" | "INTERVIEW" | "OFFER" | "CLOSED";
             /**
+             * @description Why it closed; only when Closed
+             * @enum {string|null}
+             */
+            closeReason: "ACCEPTED" | "NOT_SELECTED" | "WITHDREW" | "ACCEPTED_ANOTHER" | "NO_RESPONSE" | null;
+            /**
              * Format: date-time
              * @description When the Application first moved into Applied, at 12:00 UTC
              */
             appliedOn: string | null;
+            /**
+             * Format: date-time
+             * @description Where the no-reply clock starts: the later of the applied date and the last follow-up or reply. Empty until applied
+             */
+            noReplySince: string | null;
             timeline: components["schemas"]["TimelineEntryResponse"][];
             /** Format: int32 */
             version: number;
@@ -1054,10 +1096,13 @@ export interface components {
             updatedAt: string;
         };
         TimelineEntryResponse: {
-            /** @description STAGE for now */
+            /** @description STAGE, NOTE, FOLLOWED_UP or REPLIED */
             type: string;
-            /** @enum {string} */
-            stage: "SAVED" | "APPLIED" | "SCREENING" | "INTERVIEW" | "OFFER" | "CLOSED";
+            /**
+             * @description The Stage moved to; only for STAGE
+             * @enum {string|null}
+             */
+            stage: "SAVED" | "APPLIED" | "SCREENING" | "INTERVIEW" | "OFFER" | "CLOSED" | null;
             /**
              * Format: date-time
              * @description The display date, at 12:00 UTC
@@ -1065,9 +1110,22 @@ export interface components {
             at: string;
             /**
              * Format: int32
-             * @description The order it was written in
+             * @description The order it was written in; names the entry in the edit and delete calls
              */
             seq: number;
+            /** @description The note; only for NOTE */
+            text: string | null;
+        };
+        EditEntryRequest: {
+            /** @description New note text; only for a NOTE. Empty keeps it */
+            text?: string | null;
+            /**
+             * Format: date
+             * @description A new day, never a future one. Empty keeps it
+             */
+            date?: string | null;
+            /** Format: int32 */
+            version: number;
         };
         SetQuotaRequest: {
             /**
@@ -1249,9 +1307,32 @@ export interface components {
             postingUrl?: string;
             postingText?: string;
         };
+        AddEntryRequest: {
+            /** @enum {string} */
+            type: "NOTE" | "FOLLOWED_UP" | "REPLIED";
+            /** @description The note; required for NOTE, ignored otherwise */
+            text?: string | null;
+            /**
+             * Format: date
+             * @description The day it happened, never a future one. Empty means today
+             */
+            date?: string | null;
+            /** Format: int32 */
+            version: number;
+        };
         MoveStageRequest: {
             /** @enum {string} */
             stage: "SAVED" | "APPLIED" | "SCREENING" | "INTERVIEW" | "OFFER" | "CLOSED";
+            /**
+             * @description Required for Closed, refused for every other Stage
+             * @enum {string|null}
+             */
+            closeReason?: "ACCEPTED" | "NOT_SELECTED" | "WITHDREW" | "ACCEPTED_ANOTHER" | "NO_RESPONSE" | null;
+            /**
+             * Format: date
+             * @description The day it happened, never a future one. Empty means today
+             */
+            date?: string | null;
             /** Format: int32 */
             version: number;
         };
@@ -2164,6 +2245,112 @@ export interface operations {
             };
         };
     };
+    editEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description The Application with the entry changed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    deleteEntry: {
+        parameters: {
+            query: {
+                version: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Application without the entry */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST (a Stage entry cannot be deleted) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     setQuota: {
         parameters: {
             query?: never;
@@ -3055,6 +3242,59 @@ export interface operations {
             };
             /** @description Code INVALID_REQUEST */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    addEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description The Application with the new timeline entry */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
