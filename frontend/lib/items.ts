@@ -1,3 +1,12 @@
+import { BriefcaseBusinessIcon, FileTextIcon, ImageIcon } from "lucide-react";
+
+// What each Item type looks like in a list: its icon and the word a screen reader says.
+export const TYPE_LOOK = {
+  NOTE: { Icon: FileTextIcon, label: "Note" },
+  ASSET: { Icon: ImageIcon, label: "Asset" },
+  APPLICATION: { Icon: BriefcaseBusinessIcon, label: "Application" },
+};
+
 // Notes, Assets and Applications are all Items; each type has its own page.
 const PAGES = { NOTE: "/notes", ASSET: "/assets", APPLICATION: "/career/applications" };
 export const itemHref = (item: { id: string; type: keyof typeof PAGES }) => `${PAGES[item.type]}/${item.id}`;

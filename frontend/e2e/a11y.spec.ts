@@ -2382,7 +2382,8 @@ test("an Application is made from a pasted posting, renamed, and moved through i
   await page.keyboard.press("Escape");
 
   await newApplication(page, `Acme ${stamp}`, "Engineer");
-  await expect(page.getByLabel("Posting", { exact: true })).toHaveValue("We are hiring.");
+  // By id: the page being left, with its own Posting field in the dialog, stays on screen for a moment.
+  await expect(page.locator("#posting-text")).toHaveValue("We are hiring.");
   await expect(page.getByRole("button", { name: "Saved" })).toHaveAttribute("aria-current", "step");
   await expectNoViolations(page);
 

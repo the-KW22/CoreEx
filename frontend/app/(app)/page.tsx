@@ -1,4 +1,4 @@
-import { BriefcaseBusinessIcon, FilePlusIcon, FileTextIcon, ImageIcon } from "lucide-react";
+import { FilePlusIcon } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -7,7 +7,7 @@ import { TagBadge } from "@/components/tag-badge";
 import { Button } from "@/components/ui/button";
 import { getApi } from "@/lib/api/server";
 import { pathTo, type Folder } from "@/lib/folders";
-import { formatBytes, itemHref } from "@/lib/items";
+import { formatBytes, itemHref, TYPE_LOOK } from "@/lib/items";
 import { relativeTime } from "@/lib/time";
 
 import { NewApplication } from "./career/applications/new-application";
@@ -37,18 +37,12 @@ function NewNote() {
   );
 }
 
-const TYPES = {
-  NOTE: { Icon: FileTextIcon, label: "Note:" },
-  ASSET: { Icon: ImageIcon, label: "Asset:" },
-  APPLICATION: { Icon: BriefcaseBusinessIcon, label: "Application:" },
-};
-
-const TypeIcon = ({ type }: { type: keyof typeof TYPES }) => {
-  const { Icon, label } = TYPES[type];
+const TypeIcon = ({ type }: { type: keyof typeof TYPE_LOOK }) => {
+  const { Icon, label } = TYPE_LOOK[type];
   return (
     <>
       <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-      <span className="sr-only">{label}</span>
+      <span className="sr-only">{label}:</span>
     </>
   );
 };

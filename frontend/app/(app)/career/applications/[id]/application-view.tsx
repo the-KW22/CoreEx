@@ -110,16 +110,19 @@ export function ApplicationView({ initial }: { initial: Application }) {
             />
           </label>
         </div>
-        <label className="grid gap-1 text-sm font-medium">
-          Posting
+        <div className="grid gap-1">
+          <label htmlFor="posting-text" className="text-sm font-medium">
+            Posting
+          </label>
           <textarea
+            id="posting-text"
             value={fields.postingText}
             onChange={set("postingText")}
             rows={10}
             maxLength={100000}
             className="rounded-lg border border-border bg-surface px-3 py-2"
           />
-        </label>
+        </div>
         <div>
           <Button type="submit" disabled={!dirty || pending}>
             Save

@@ -2,10 +2,8 @@
 
 import {
   FilePlusIcon,
-  FileTextIcon,
   FileUpIcon,
   GitForkIcon,
-  ImageIcon,
   Loader2Icon,
   SearchIcon,
   XIcon,
@@ -20,7 +18,7 @@ import { toggleTheme } from "@/components/theme-toggle";
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { viewingFolderId } from "@/lib/folders";
-import { itemHref } from "@/lib/items";
+import { itemHref, TYPE_LOOK } from "@/lib/items";
 
 import { openUpload } from "../assets/uploads";
 import { createNote } from "../notes/actions";
@@ -41,7 +39,7 @@ async function lookup(text: string): Promise<QuickHit[]> {
 }
 
 function HitRow({ hit, onSelect }: { hit: QuickHit; onSelect: () => void }) {
-  const Icon = hit.type === "NOTE" ? FileTextIcon : ImageIcon;
+  const { Icon } = TYPE_LOOK[hit.type];
   return (
     <CommandItem value={hit.id} onSelect={onSelect}>
       <Icon aria-hidden />

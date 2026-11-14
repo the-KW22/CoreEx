@@ -263,6 +263,21 @@ class ExportApiTest extends ApiTest {
 	}
 
 	@Test
+	void anApplicationIsListedAsOmittedUntilItHasItsOwnExportAndTheRestIsIntact() throws Exception {
+		note(userA, "Fine", "text", null);
+		var made = post("/api/applications", userA, "{\"company\":\"Acme\",\"role\":\"Engineer\"}");
+		assertThat(made.statusCode()).as(made.body()).isEqualTo(201);
+
+		var zip = exported(userA);
+
+		assertThat(zip.keySet()).containsExactlyInAnyOrder("Fine.md", "manifest.json");
+		var omitted = manifest(zip).path("omitted");
+		assertThat(omitted).hasSize(1);
+		assertThat(omitted.get(0).path("id").asString()).isEqualTo(id(made.body()));
+		assertThat(omitted.get(0).path("reason").asString()).contains("not in the Export yet");
+	}
+
+	@Test
 	void anAssetWhoseFileIsMissingIsListedAsOmittedAndTheRestIsIntact() throws Exception {
 		note(userA, "Fine", "text", null);
 		var lost = asset(userA, "lost.png", new byte[] { 1, 2 }, null);
