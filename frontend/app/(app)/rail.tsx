@@ -32,6 +32,7 @@ import { RAIL_COLLAPSED, RAIL_MAX, dragRail, formatRail, keyRail, type RailState
 import { cn } from "@/lib/utils";
 
 import { signOut } from "../actions";
+import { clearAllUnsaved } from "./notes/[id]/recovery";
 import { openPalette } from "./search/command-palette";
 
 // 40px targets, 44px on touch screens (docs/DESIGN.md section 8).
@@ -278,7 +279,16 @@ export function Rail({
             <DropdownMenuItem asChild>
               <Link href="/help/mcp">Connect an Agent</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => signOut()}>Log out</DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                // Text kept in the browser for recovery must not stay for the next person on this computer.
+                // shortcut: the Disabled and Invite-only pages sign out without this, their entries last up to 7 days.
+                clearAllUnsaved();
+                void signOut();
+              }}
+            >
+              Log out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

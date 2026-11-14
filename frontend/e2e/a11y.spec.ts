@@ -866,6 +866,113 @@ test("Load theirs keeps your text as a (mine) Note in the same Folder with the s
   await expect(page).toHaveURL(/\/items$/);
 });
 
+// Every save fails, as when the API is asleep: the Note page's server actions are the POSTs that carry Next-Action.
+async function blockSaves(page: Page) {
+  await page.route("**/notes/**", (route) =>
+    route.request().headers()["next-action"] ? route.abort() : route.continue(),
+  );
+}
+
+test("text typed while the API cannot be reached comes back after a reload, and is saved", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  await newNote(page, `Recover ${Date.now()}`);
+  const editor = page.getByRole("textbox", { name: "Note content" });
+  page.on("dialog", (dialog) => void dialog.accept());
+
+  await blockSaves(page);
+  await editor.click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("typed while offline");
+  await expect(page.getByRole("alert").filter({ hasText: "Cannot reach the CoreEx API" })).toBeVisible();
+
+  // The page is left with the text unsaved; the API answers again.
+  await page.unroute("**/notes/**");
+  await page.reload();
+  await expect(editor).toContainText("typed while offline");
+  await expect(page.locator("span", { hasText: "Restored changes that were not saved yet." })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /^Saved at/ })).toBeVisible();
+
+  // Saved for good: a reload brings it back from the server, with nothing to restore.
+  await page.reload();
+  await expect(editor).toContainText("typed while offline");
+  await expect(page.locator("span", { hasText: "Restored changes that were not saved yet." })).toHaveCount(0);
+
+  // Tidy up.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("logging out removes the unsaved text kept in the browser", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  await newNote(page, `Recover logout ${Date.now()}`);
+  const noteUrl = page.url();
+  const kept = () => page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("coreex:unsaved:")).length);
+  page.on("dialog", (dialog) => void dialog.accept());
+
+  await blockSaves(page);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(" never saved");
+  await expect(page.getByRole("alert").filter({ hasText: "Cannot reach the CoreEx API" })).toBeVisible();
+  expect(await kept()).toBe(1);
+
+  // Log out is a server action too, so the API must answer again for it. No save is retried by itself.
+  await page.unroute("**/notes/**");
+  await page.getByRole("button", { name: /^Account/ }).click();
+  await page.getByRole("menuitem", { name: "Log out" }).click();
+  await expect(page).toHaveURL(/\/login/);
+  expect(await kept()).toBe(0);
+
+  // Tidy up.
+  await signIn(page);
+  await page.goto(noteUrl);
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("unsaved text for a Note that changed meanwhile comes back in conflict", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  await newNote(page, `Recover conflict ${Date.now()}`);
+  const original = page.url();
+  const editor = page.getByRole("textbox", { name: "Note content" });
+  page.on("dialog", (dialog) => void dialog.accept());
+  // Another tab opens the Note first: a tab opened later would take this tab's unsaved text.
+  const other = await page.context().newPage();
+  await other.goto(original);
+  await expect(other.getByRole("textbox", { name: "Note content" })).toBeVisible();
+
+  await blockSaves(page);
+  await editor.click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("my unsaved words");
+  await expect(page.getByRole("alert").filter({ hasText: "Cannot reach the CoreEx API" })).toBeVisible();
+
+  // Meanwhile the Note is changed in that tab.
+  await other.getByRole("textbox", { name: "Note content" }).click();
+  await other.keyboard.press("Control+End");
+  await other.keyboard.type(" and elsewhere");
+  await expectSaved(other);
+  await other.close();
+
+  await page.unroute("**/notes/**");
+  await page.reload();
+  await expect(page.getByRole("alert").filter({ hasText: "changed somewhere else" })).toBeVisible();
+  await expect(editor).toContainText("my unsaved words");
+
+  // Keep mine settles it, and the text is saved.
+  await page.getByRole("button", { name: "Keep mine" }).click();
+  await expect(page.getByRole("status").filter({ hasText: /^Saved at/ })).toBeVisible();
+
+  // Tidy up.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
 test("the Users table shows you without Disable or Remove, and Overview has its chart", async ({ page }) => {
   await signIn(page);
   await page.goto("/admin/users");
