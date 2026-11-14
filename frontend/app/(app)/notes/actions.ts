@@ -68,10 +68,35 @@ export async function linkPreview(id: string, type: "NOTE" | "ASSET"): Promise<s
   return asset?.data ? firstLines(asset.data.description) : null;
 }
 
-export async function loadNote(id: string): Promise<LoadedNote | null> {
+export type CopyResult =
+  | { status: "loaded"; note: LoadedNote; copy: { id: string; title: string }; tagsCopied: boolean }
+  | { status: "error"; message: string };
+
+// "Load theirs" in a conflict: the User's text is first kept as a new Note beside the stored one (same Folder, same
+// Tags), then the stored Note is returned to load. If the copy cannot be made nothing is loaded, so no text is lost.
+// A Tag that cannot be put on the copy does not stop the rest: the text is safe, and `tagsCopied` says so.
+export async function keepCopyAndLoad(id: string, copy: { title: string; body: string }): Promise<CopyResult> {
   const api = await getApi();
-  const result = await api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null);
-  return result?.data ?? null;
+  const theirs = await api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null);
+  if (!theirs?.data) return { status: "error", message: "Could not load the other version, so nothing was changed." };
+  const tags = await api.GET("/api/items/{id}/tags", { params: { path: { id } } }).catch(() => null);
+
+  const made = await api
+    .POST("/api/notes", { body: { title: copy.title, body: copy.body, folderId: theirs.data.folderId } })
+    .catch(() => null);
+  if (!made?.data) {
+    return { status: "error", message: made?.error?.message ?? "Could not keep your text as a copy, so nothing was changed." };
+  }
+
+  let tagsCopied = tags?.data != null;
+  for (const tag of tags?.data?.items ?? []) {
+    const attached = await api
+      .POST("/api/items/{id}/tags", { params: { path: { id: made.data.id } }, body: { name: tag.name } })
+      .catch(() => null);
+    if (!attached?.data) tagsCopied = false;
+  }
+  revalidatePath("/", "layout");
+  return { status: "loaded", note: theirs.data, copy: { id: made.data.id, title: made.data.title }, tagsCopied };
 }
 
 export type NoteVersion = components["schemas"]["VersionSummary"];
