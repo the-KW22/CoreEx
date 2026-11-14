@@ -49,6 +49,36 @@ class McpWriteToolsApiTest extends McpApiTest {
 	}
 
 	@Test
+	void aRepeatedCreateNoteWithTheSameIdReturnsTheSameNoteAndAppliesTheTagsOnce() throws Exception {
+		var id = java.util.UUID.randomUUID().toString();
+		var args = "{\"id\":\"" + id + "\",\"title\":\"Once\",\"markdown\":\"text\",\"tags\":[\"draft\"]}";
+		var first = call("create_note", args);
+		// The User removes the Tag, then the Agent retries the same create.
+		var tagId = JSON.readTree(get("/api/items/" + id + "/tags", jwt).body()).path("items").get(0).path("id").asString();
+		assertThat(delete("/api/items/" + id + "/tags/" + tagId, jwt).statusCode()).isEqualTo(204);
+
+		var again = call("create_note", args.replace("Once", "Different").replace("text", "other"));
+
+		assertThat(first.path("id").asString()).isEqualTo(id);
+		assertThat(again.path("id").asString()).isEqualTo(id);
+		assertThat(again.path("version").asInt()).isEqualTo(first.path("version").asInt());
+		assertThat(restNote(id).path("title").asString()).isEqualTo("Once");
+		assertThat(get("/api/items/" + id + "/tags", jwt).body()).doesNotContain("draft");
+		assertThat(jdbc.sql("select count(*) from items where type = 'NOTE'").query(Integer.class).single()).isEqualTo(1);
+	}
+
+	@Test
+	void createNoteWithAnotherUsersIdIsRefusedAndTheirNoteIsUntouched() throws Exception {
+		var other = newUser("b@example.com");
+		var theirs = note(other, "Theirs", "private", null);
+
+		var error = callFails("create_note", "{\"id\":\"" + theirs + "\",\"title\":\"Mine\",\"markdown\":\"x\"}");
+
+		assertThat(error).contains("cannot be used");
+		assertThat(JSON.readTree(get("/api/notes/" + theirs, other).body()).path("title").asString()).isEqualTo("Theirs");
+	}
+
+	@Test
 	void theTitleComesFromTheFirstHeadingWhenNoneIsGiven() throws Exception {
 		var created = call("create_note", "{\"markdown\":" + q("# From the heading\nbody") + "}");
 

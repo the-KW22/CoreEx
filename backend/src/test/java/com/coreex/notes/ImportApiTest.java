@@ -116,6 +116,47 @@ class ImportApiTest extends ApiTest {
 	}
 
 	@Test
+	void importingTheSameFilesWithTheSameIdsTwiceMakesOneNotePerFile() throws Exception {
+		var first = UUID.randomUUID();
+		var second = UUID.randomUUID();
+		var query = "?ids=" + first + "&ids=" + second;
+
+		var once = send(userA, query, null, text("alpha.md", "# Alpha\n\none"), text("beta.md", "two"));
+		var again = send(userA, query, null, text("alpha.md", "# Alpha changed\n\none"), text("beta.md", "other"));
+
+		assertThat(once.statusCode()).isEqualTo(200);
+		assertThat(again.statusCode()).isEqualTo(200);
+		assertThat(noteIds(once.body())).containsExactly(first.toString(), second.toString());
+		assertThat(noteIds(again.body())).containsExactly(first.toString(), second.toString());
+		assertThat(again.body()).doesNotContain("REFUSED");
+		assertThat(storedTitle(first.toString())).isEqualTo("alpha");
+		assertThat(storedBody(second.toString())).isEqualTo("two");
+		assertThat(jdbc.sql("select count(*) from items where type = 'NOTE'").query(Integer.class).single()).isEqualTo(2);
+	}
+
+	@Test
+	void anIdOfAnotherUsersNoteRefusesOnlyThatFileOfAnImport() throws Exception {
+		var taken = UUID.fromString(note(userB, "Bs"));
+		var query = "?ids=" + taken + "&ids=" + UUID.randomUUID();
+
+		var imported = send(userA, query, null, text("alpha.md", "a"), text("beta.md", "b"));
+
+		assertThat(imported.statusCode()).isEqualTo(200);
+		assertThat(imported.body()).contains("REFUSED").contains("INVALID_REQUEST").contains("IMPORTED");
+		assertThat(noteIds(imported.body())).hasSize(1);
+		assertThat(storedTitle(taken.toString())).isEqualTo("Bs");
+	}
+
+	@Test
+	void aDifferentNumberOfIdsThanFilesIsRefusedAndNothingIsImported() throws Exception {
+		var imported = send(userA, "?ids=" + UUID.randomUUID(), null, text("alpha.md", "a"), text("beta.md", "b"));
+
+		assertThat(imported.statusCode()).isEqualTo(400);
+		assertThat(imported.body()).contains("INVALID_REQUEST");
+		assertThat(jdbc.sql("select count(*) from items").query(Integer.class).single()).isZero();
+	}
+
+	@Test
 	void severalFilesAreImportedInOneActionEachBecomingANote() throws Exception {
 		var imported = importFiles(userA, null, text("alpha.md", "# Alpha\n\ntext"), text("beta.txt", "plain"),
 				text("GAMMA.MD", "upper-case extension"));

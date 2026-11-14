@@ -66,7 +66,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "create_note",
     kind: "change",
-    summary: "Create a Note, optionally in a Folder and with Tags. Writing [[Exact Title]] links to another Item.",
+    summary: "Create a Note, optionally in a Folder and with Tags. Writing [[Exact Title]] links to another Item. Pass an id you make up (a UUID) and a retried call returns the same Note instead of making another.",
     useWhen: "You want something new written down.",
   },
   {

@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.coreex.common.ApiException;
 import com.coreex.common.ErrorBody;
 import com.coreex.identity.CurrentUserInterceptor;
 import com.coreex.identity.User;
@@ -63,10 +65,17 @@ class NoteImportController {
 			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
 	ImportResponse importNotes(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@RequestParam("files") List<MultipartFile> files,
-			@RequestParam(required = false) UUID folderId) throws IOException {
+			@RequestParam(required = false) UUID folderId,
+			@RequestParam(required = false) @Parameter(description = "An id you make up for each file's Note, in the order of the files: sending the same import again returns those Notes instead of making new ones") List<UUID> ids)
+			throws IOException {
+		if (ids != null && ids.size() != files.size()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Send one id per file, or none.");
+		}
 		var sources = new ArrayList<NoteImportService.Source>();
-		for (var file : files) {
-			sources.add(new NoteImportService.Source(file.getOriginalFilename(), file.getBytes()));
+		for (int i = 0; i < files.size(); i++) {
+			var file = files.get(i);
+			sources.add(new NoteImportService.Source(file.getOriginalFilename(), file.getBytes(),
+					ids == null ? null : ids.get(i)));
 		}
 		return new ImportResponse(imports.importAll(user.id(), folderId, sources).stream()
 				.map(ImportResultResponse::of).toList());

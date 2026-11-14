@@ -44,7 +44,8 @@ class NoteController {
 
 	record CreateNoteRequest(@Size(max = MAX_TITLE) @Pattern(regexp = NO_NUL) String title,
 			@Size(max = MAX_BODY) @Pattern(regexp = NO_NUL) String body,
-			@Schema(nullable = true, description = "The Folder to create the Note in; null is the top level") UUID folderId) {
+			@Schema(nullable = true, description = "The Folder to create the Note in; null is the top level") UUID folderId,
+			@Schema(nullable = true, description = "An id you make up. Sending the same request again returns that Note instead of making a second one; an id already used for anything else is refused with INVALID_REQUEST") UUID id) {
 	}
 
 	/** Carries the version the client last saw; a newer stored version means 409 VERSION_CONFLICT. */
@@ -85,7 +86,7 @@ class NoteController {
 			mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
 	NoteResponse create(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@Valid @RequestBody CreateNoteRequest request) {
-		return NoteResponse.of(notes.create(user.id(), request.folderId(), request.title(), request.body()));
+		return NoteResponse.of(notes.create(user.id(), request.folderId(), request.title(), request.body(), request.id()).note());
 	}
 
 	@GetMapping("/{id}")

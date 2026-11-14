@@ -984,6 +984,11 @@ export interface components {
              * @description The Folder to create the Note in; null is the top level
              */
             folderId?: string | null;
+            /**
+             * Format: uuid
+             * @description An id you make up. Sending the same request again returns that Note instead of making a second one; an id already used for anything else is refused with INVALID_REQUEST
+             */
+            id?: string | null;
         };
         RestoreRequest: {
             /** Format: int32 */
@@ -2202,6 +2207,8 @@ export interface operations {
         parameters: {
             query?: {
                 folderId?: string;
+                /** @description An id you make up for each file's Note, in the order of the files: sending the same import again returns those Notes instead of making new ones */
+                ids?: string[];
             };
             header?: never;
             path?: never;

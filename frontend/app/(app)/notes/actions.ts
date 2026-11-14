@@ -21,7 +21,8 @@ export type LoadedNote = { title: string; body: string; version: number; updated
 export async function createNote(formData: FormData) {
   const folderId = String(formData.get("folderId") ?? "") || null;
   const api = await getApi();
-  const result = await api.POST("/api/notes", { body: { folderId } }).catch(() => null);
+  // An id of its own for this click, so the API can tell a repeat of this request from another Note.
+  const result = await api.POST("/api/notes", { body: { folderId, id: crypto.randomUUID() } }).catch(() => null);
   if (!result?.data) redirect(folderId ? `/folders/${folderId}?error=create` : "/?failed=create");
   redirect(`/notes/${result.data.id}`);
 }
@@ -165,7 +166,8 @@ export async function importNotes(formData: FormData): Promise<ImportOutcome[]> 
   const api = await getApi();
   const result = await api
     .POST("/api/notes/import", {
-      params: { query: { folderId } },
+      // One id per file, in order, so the API can tell a repeat of this import from new Notes.
+      params: { query: { folderId, ids: files.map(() => crypto.randomUUID()) } },
       // The generated type calls the files strings; the serializer sends the real files as multipart.
       body: { files: [] },
       bodySerializer: () => {
