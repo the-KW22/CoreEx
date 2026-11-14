@@ -847,7 +847,8 @@ test("Load theirs keeps your text as a (mine) Note in the same Folder with the s
   await page.getByRole("button", { name: "Load theirs" }).click();
   await expect(editor).toContainText("from elsewhere");
   await expect(editor).not.toContainText("my unsaved words");
-  const kept = page.getByRole("status").getByRole("link", { name: `${title} (mine)` });
+  // The Details panel may list the copy too, so look in the message above the title.
+  const kept = page.locator("p", { hasText: "Your text is kept in" }).getByRole("link", { name: `${title} (mine)` });
   await expect(kept).toBeVisible();
 
   // The copy holds the typed text, in the same Folder, with the same Tag.

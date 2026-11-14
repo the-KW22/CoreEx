@@ -348,14 +348,20 @@ export function NoteEditor({
   async function loadTheirs() {
     setCopyBusy(true);
     setCopyError("");
-    const result = await keepCopyAndLoad(id, copyOf(latest.current)).catch(() => null);
+    const mine = { ...latest.current };
+    const result = await keepCopyAndLoad(id, copyOf(mine)).catch(() => null);
     setCopyBusy(false);
     if (result?.status !== "loaded") {
       setCopyError(result?.message ?? "Cannot reach the CoreEx API, so nothing was changed.");
       return;
     }
-    show(result.note);
     setKept({ ...result.copy, tagsCopied: result.tagsCopied });
+    // More was typed while the copy was made. Loading now would overwrite it, so the conflict stays open.
+    if (!same(latest.current, mine)) {
+      setCopyError("You kept typing, so the other version was not loaded. Choose again to keep the rest.");
+      return;
+    }
+    show(result.note);
   }
 
   // Puts a stored Note in the editor in place of what it holds, and treats it as saved.
@@ -503,23 +509,24 @@ export function NoteEditor({
               </div>
             </div>
           )}
-          {/* Always here: a live region is only announced when it already exists. */}
-          <div role="status" className="text-sm">
-            {kept && (
-              <p className="flex flex-wrap items-center gap-x-2 rounded-[10px] border border-border bg-surface p-3">
-                <span>
-                  Your text is kept in{" "}
-                  <Link href={`/notes/${kept.id}`} className="font-medium underline underline-offset-2">
-                    {kept.title}
-                  </Link>
-                  .{kept.tagsCopied ? "" : " Its Tags could not be copied."}
-                </span>
-                <Button type="button" size="sm" variant="ghost" onClick={() => setKept(null)}>
-                  Dismiss
-                </Button>
-              </p>
-            )}
-          </div>
+          {/* Always here (and out of the layout): a live region is only announced when it already exists. */}
+          <p aria-live="polite" className="sr-only">
+            {kept && `Your text is kept in ${kept.title}.${kept.tagsCopied ? "" : " Its Tags could not be copied."}`}
+          </p>
+          {kept && (
+            <p className="flex flex-wrap items-center gap-x-2 rounded-[10px] border border-border bg-surface p-3 text-sm">
+              <span>
+                Your text is kept in{" "}
+                <Link href={`/notes/${kept.id}`} className="font-medium underline underline-offset-2">
+                  {kept.title}
+                </Link>
+                .{kept.tagsCopied ? "" : " Its Tags could not be copied."}
+              </span>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setKept(null)}>
+                Dismiss
+              </Button>
+            </p>
+          )}
           {status === "error" && (
             <div
               role="alert"

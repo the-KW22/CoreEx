@@ -68,12 +68,6 @@ export async function linkPreview(id: string, type: "NOTE" | "ASSET"): Promise<s
   return asset?.data ? firstLines(asset.data.description) : null;
 }
 
-export async function loadNote(id: string): Promise<LoadedNote | null> {
-  const api = await getApi();
-  const result = await api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null);
-  return result?.data ?? null;
-}
-
 export type CopyResult =
   | { status: "loaded"; note: LoadedNote; copy: { id: string; title: string }; tagsCopied: boolean }
   | { status: "error"; message: string };
