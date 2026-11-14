@@ -1,6 +1,7 @@
 package com.coreex.storage;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -73,6 +74,26 @@ class SupabaseStorage implements Storage {
 		var size = response.headers().firstValueAsLong("content-length").orElse(-1);
 		var type = response.headers().firstValue("content-type").orElse("");
 		return size < 0 ? Optional.empty() : Optional.of(new StoredObject(size, type));
+	}
+
+	@Override
+	public Optional<InputStream> read(String key) {
+		var response = sendRaw(request("/object/authenticated/" + path(key)).GET().build(),
+				HttpResponse.BodyHandlers.ofInputStream());
+		if (response.statusCode() == 200) {
+			return Optional.of(response.body());
+		}
+		try {
+			response.body().close();
+		}
+		catch (IOException ignored) {
+			// Nothing to read from it anyway.
+		}
+		// Missing is 400 or 404, as for head; anything else is an outage, not a missing file.
+		if (response.statusCode() == 400 || response.statusCode() == 404) {
+			return Optional.empty();
+		}
+		throw unavailable("Storage answered HTTP " + response.statusCode() + " to a download");
 	}
 
 	@Override

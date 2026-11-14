@@ -195,6 +195,10 @@ for (const colorScheme of ["dark", "light"] as const) {
         await screen(page, failures, "admin invites", "/admin", heading("Admin"));
         await screen(page, failures, "access tokens", "/settings/tokens", heading("Access tokens"));
         await screen(page, failures, "mcp guide", "/help/mcp", heading("Connect an Agent"));
+        await screen(page, failures, "export", "/settings/export", heading("Export"));
+        await screen(page, failures, "export refused", "/settings/export?error=wait", async () => {
+          await expect(page.getByRole("alert").filter({ hasText: "once a minute" })).toBeVisible();
+        });
         await screen(page, failures, "invite-only", "/invite-only", heading("CoreEx is invite-only"));
         await screen(page, failures, "disabled", "/disabled", heading("Your account is disabled"));
         await screen(page, failures, "reset password", "/reset-password", heading("Choose a new password"));

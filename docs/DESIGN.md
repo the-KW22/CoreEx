@@ -242,6 +242,12 @@ The Knowledge Graph of one Folder and its subfolders (`?folderId=`), or of All I
 - More than 500 Items: the 500 most-linked show, under a note "Showing 500 of N Items. Open a smaller Folder to see them all, or load a node's neighbours." Empty: "Map how your Items connect" with a link back to the list.
 - **Local graph (Connections):** the last organization section of a Note's or Asset's Details panel (so on a phone it is in the Details Sheet). The same canvas (`graph/graph-canvas.tsx`), 14rem high, showing the open Item (drawn 1.5× larger) and the Items linked to or from it, with every Link among them. A **1 | 2** switch beside the heading picks how many Links away (`?depth=`, 1 by default). Labels are always shown, since the graph is small. No saved layout and no Reset layout; it fits itself again whenever its data changes (a Note's save that adds or removes a Link refreshes it). Below it a **Links to** list of cards (Backlinks already lists what links in), then **Open in Graph** (the Item's Folder graph). Empty: "No Links yet. Type [[ in the Note to link it."
 
+### 6.13 Export (`/settings/export`)
+
+- Reached from **Export** in the account menu. A narrow page (max 672px): the heading, one line of purpose, **What is in the zip** (Notes as Markdown with Links as written, Assets as their files, Folders as folders, `manifest.json`; the Trash and Chats are not included; one export a minute) and a primary **Download everything** button with a download icon.
+- The button is a plain link to `/settings/export/download`, a route that passes the API's zip through with the User's session. The browser saves it as `coreex-export-<date>.zip` and the page stays. A refusal or failure comes back to the page as an Alert: "You can export once a minute. Try again shortly." (`?error=wait`) or "The export could not be made. Try again." (`?error=failed`).
+- No loading state of its own: the page has no data to wait for. Works in both themes and at phone width.
+
 ## 7. Component map (shadcn/ui)
 
 Use shadcn components first (DEVELOPMENT.md §11), restyled to these tokens. Reach for the whole catalogue, not only tables and dialogs.

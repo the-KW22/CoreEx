@@ -112,6 +112,33 @@ class SupabaseStorageTest {
 	}
 
 	@Test
+	void readGivesTheObjectsBytesFromTheAuthenticatedEndpointWithTheKeyInBothHeaders() throws Exception {
+		answer = "the file bytes";
+
+		try (var in = storage.read("u/k").orElseThrow()) {
+			assertThat(new String(in.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo("the file bytes");
+		}
+
+		var request = seen.getFirst();
+		assertThat(request.method()).isEqualTo("GET");
+		assertThat(request.path()).isEqualTo("/storage/v1/object/authenticated/assets/u/k");
+		assertThat(request.apikey()).isEqualTo("sb_secret_test");
+		assertThat(request.authorization()).isEqualTo("Bearer sb_secret_test");
+	}
+
+	@Test
+	void readOfAMissingObjectIsEmptyButAFailureIsNotMistakenForOne() {
+		status = 404;
+		assertThat(storage.read("u/k")).isEmpty();
+		status = 400;
+		assertThat(storage.read("u/k")).isEmpty();
+
+		status = 500;
+		assertThatThrownBy(() -> storage.read("u/k")).isInstanceOf(ApiException.class)
+				.satisfies(e -> assertThat(((ApiException) e).code()).isEqualTo("STORAGE_UNAVAILABLE"));
+	}
+
+	@Test
 	void aMissingObjectIsEmptyButAFailureIsNotMistakenForOne() {
 		status = 400;
 		assertThat(storage.head("u/k")).isEmpty();

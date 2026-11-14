@@ -113,3 +113,7 @@ _Avoid_: Banned, suspended, deleted, deactivated
 **Storage Quota**:
 The maximum total size of all Assets a single User may keep.
 _Avoid_: Storage limit, allowance, cap
+
+**Export**:
+One zip a User downloads with everything they keep: their Notes as Markdown files, their Assets as the files they uploaded, in folders that mirror their Folders, and a manifest that lists every Item and anything that could not be included. It leaves out the Trash and Chats, and holds nothing of any other User, an Admin's included. A User may make one a minute.
+_Avoid_: Backup, dump, download all, archive
