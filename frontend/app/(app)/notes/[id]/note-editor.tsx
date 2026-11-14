@@ -3,7 +3,7 @@
 import { autocompletion, completionStatus, startCompletion } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { EditorState, type StateCommand } from "@codemirror/state";
+import { EditorState, type StateCommand, Transaction } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { FileTextIcon, ImageIcon, MinimizeIcon, TriangleAlertIcon } from "lucide-react";
 import Link from "next/link";
@@ -450,7 +450,12 @@ export function NoteEditor({
     setEditedBy(theirs.editedBy);
     external.current = true;
     const editor = view.current!;
-    editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: theirs.body } });
+    // Only what differs, so the caret and scroll stay put, and not in Undo: undoing a change from elsewhere would
+    // save the old text over it.
+    editor.dispatch({
+      changes: smallestEdit(editor.state.doc.toString(), theirs.body),
+      annotations: Transaction.addToHistory.of(false),
+    });
     external.current = false;
     setWords(wordCount(theirs.body));
     setStatus("saved");
