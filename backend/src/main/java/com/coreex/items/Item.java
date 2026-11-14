@@ -20,7 +20,7 @@ public record Item(UUID id, Type type, String title, UUID folderId, Instant upda
 
 
 	public enum Type {
-		NOTE, ASSET
+		NOTE, ASSET, APPLICATION
 	}
 
 }
