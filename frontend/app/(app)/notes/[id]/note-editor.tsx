@@ -27,6 +27,7 @@ import { smallestEdit } from "./edit";
 import { activeFormats, toggleInline } from "./format";
 import { copyOf } from "./conflict";
 import { restoreBlocker } from "./history";
+import { clearUnsaved, recoveryAction, storeUnsaved, takeNewestUnsaved } from "./recovery";
 import { NoteHistory } from "./note-history";
 import { type LinkTarget, linkCompletion, linkField, linkIds, setLinks } from "./links";
 import { livePreview } from "./live-preview";
@@ -95,6 +96,9 @@ export function NoteEditor({
   const [copyBusy, setCopyBusy] = useState(false);
   const [copyError, setCopyError] = useState("");
   const [kept, setKept] = useState<{ id: string; title: string; tagsCopied: boolean } | null>(null);
+  // Text typed in an earlier visit was put back; and this tab's id for the copy of the text kept in the browser.
+  const [restored, setRestored] = useState(false);
+  const [session] = useState(() => crypto.randomUUID());
   const [savedAt, setSavedAt] = useState(initial.updatedAt);
   // The Access token behind the latest change, or null when it was this User; their own save always clears it.
   const [editedBy, setEditedBy] = useState(initial.editedBy);
@@ -138,6 +142,7 @@ export function NoteEditor({
           setWords(wordCount(snapshot.body));
           if (same(snapshot, saved.current)) {
             setStatus("saved");
+            clearUnsaved(id, session);
             return;
           }
           setStatus("saving");
@@ -178,15 +183,17 @@ export function NoteEditor({
         saving.current = false;
       }
     },
-    [id, router],
+    [id, router, session],
   );
 
   const changed = useCallback(() => {
+    // Kept in the browser until saved, even during a conflict, when nothing is sent.
+    storeUnsaved(id, session, { ...latest.current, version: version.current, storedAt: Date.now() });
     if (conflict.current) return;
     setStatus("unsaved");
     clearTimeout(timer.current);
     timer.current = setTimeout(() => void flush(), DEBOUNCE_MS);
-  }, [flush]);
+  }, [flush, id, session]);
 
   // Looks up the Links in the text that are not known yet, and tells the editor what they point at.
   const lookUpLinks = useCallback(async () => {
@@ -291,6 +298,30 @@ export function NoteEditor({
     };
   }, [changed, lookUpLinks, showPreview]);
 
+  // Opening the Note: text typed before and never saved (a closed tab, a crash, an unreachable API) comes back.
+  // On the stored version it is saved again; on an older one the Note starts in conflict, so the User chooses.
+  useEffect(() => {
+    const entry = takeNewestUnsaved(id, Date.now());
+    const editor = view.current;
+    if (!entry || !editor) return;
+    const action = recoveryAction(entry, { ...saved.current, version: version.current });
+    if (action === "none") return;
+    latest.current = { title: entry.title, body: entry.body };
+    setTitle(entry.title);
+    external.current = true;
+    editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: entry.body } });
+    external.current = false;
+    setWords(wordCount(entry.body));
+    setRestored(true);
+    if (action === "conflict") {
+      storeUnsaved(id, session, { ...entry, storedAt: Date.now() });
+      conflict.current = true;
+      setStatus("conflict");
+    } else {
+      changed();
+    }
+  }, [id, session, changed]);
+
   // Leaving the page sends what is still waiting to be saved.
   useEffect(() => {
     return () => {
@@ -366,6 +397,8 @@ export function NoteEditor({
 
   // Puts a stored Note in the editor in place of what it holds, and treats it as saved.
   function show(theirs: LoadedNote) {
+    // What was typed is no longer waiting: it was kept in a copy, or replaced on purpose.
+    clearUnsaved(id, session);
     version.current = theirs.version;
     saved.current = { title: theirs.title, body: theirs.body };
     latest.current = { title: theirs.title, body: theirs.body };
@@ -511,8 +544,18 @@ export function NoteEditor({
           )}
           {/* Always here (and out of the layout): a live region is only announced when it already exists. */}
           <p aria-live="polite" className="sr-only">
-            {kept && `Your text is kept in ${kept.title}.${kept.tagsCopied ? "" : " Its Tags could not be copied."}`}
+            {kept
+              ? `Your text is kept in ${kept.title}.${kept.tagsCopied ? "" : " Its Tags could not be copied."}`
+              : restored && "Restored changes that were not saved yet."}
           </p>
+          {restored && !kept && (
+            <p className="flex flex-wrap items-center gap-x-2 rounded-[10px] border border-border bg-surface p-3 text-sm">
+              <span>Restored changes that were not saved yet.</span>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setRestored(false)}>
+                Dismiss
+              </Button>
+            </p>
+          )}
           {kept && (
             <p className="flex flex-wrap items-center gap-x-2 rounded-[10px] border border-border bg-surface p-3 text-sm">
               <span>
