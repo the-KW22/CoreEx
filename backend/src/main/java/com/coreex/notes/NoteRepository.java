@@ -47,6 +47,21 @@ class NoteRepository {
 		return jdbc.sql(SELECT).param("id", id).param("owner", ownerId).query(MAPPER).optional();
 	}
 
+	/** What changed about a Note, without its text: the save counter, when, and which Access token wrote it (null: the User). */
+	record Latest(int version, Instant updatedAt, String editedBy) {
+	}
+
+	Optional<Latest> latest(UUID ownerId, UUID id) {
+		return jdbc.sql("""
+				select c.version, i.updated_at, i.edited_by
+				from items i join note_contents c on c.item_id = i.id
+				where i.id = :id and i.owner_id = :owner and i.type = 'NOTE' and i.deleted_at is null""")
+				.param("id", id).param("owner", ownerId)
+				.query((rs, n) -> new Latest(rs.getInt("version"),
+						rs.getObject("updated_at", OffsetDateTime.class).toInstant(), rs.getString("edited_by")))
+				.optional();
+	}
+
 	/** False when the Note is missing or its stored version is not the one the caller saw. */
 	boolean save(UUID ownerId, UUID id, String title, String body, int seenVersion) {
 		var saved = jdbc.sql("""

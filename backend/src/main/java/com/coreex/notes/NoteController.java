@@ -99,6 +99,24 @@ class NoteController {
 		return NoteResponse.of(notes.get(user.id(), id));
 	}
 
+	record LatestResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int version,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+					description = "The name of the Access token that made the latest change; null when the User did") String editedBy) {
+	}
+
+	/** The save counter, time and writer of the Note's latest change, without its text: what an open editor polls. */
+	@GetMapping("/{id}/latest")
+	@ApiResponse(responseCode = "200", description = "The Note's latest change", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = LatestResponse.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's Note)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	LatestResponse latest(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id) {
+		var latest = notes.latest(user.id(), id);
+		return new LatestResponse(latest.version(), latest.updatedAt(), latest.editedBy());
+	}
+
 	@PutMapping(value = "/{id}", consumes = JSON)
 	@ApiResponse(responseCode = "200", description = "The saved Note, with its new version", content = @Content(
 			mediaType = JSON, schema = @Schema(implementation = NoteResponse.class)))
