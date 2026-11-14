@@ -11,6 +11,7 @@ import {
   email,
   expectNoViolations,
   expectSaved,
+  newApplication,
   newNote,
   noteWithTag,
   openPalette,
@@ -2370,4 +2371,37 @@ test("the Graph goes full screen, refits, and the button returns", async ({ page
   await page.getByRole("button", { name: "Exit full screen" }).click();
   await expect(page.getByRole("button", { name: "Full screen" })).toBeVisible();
   await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+});
+
+test("an Application is made from a pasted posting, renamed, and moved through its Stages", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  await page.goto("/");
+  await page.getByRole("button", { name: "New Application" }).click();
+  await expectNoViolations(page);
+  await page.keyboard.press("Escape");
+
+  await newApplication(page, `Acme ${stamp}`, "Engineer");
+  // By id: the page being left, with its own Posting field in the dialog, stays on screen for a moment.
+  await expect(page.locator("#posting-text")).toHaveValue("We are hiring.");
+  await expect(page.getByRole("button", { name: "Saved" })).toHaveAttribute("aria-current", "step");
+  await expectNoViolations(page);
+
+  // Moving into Applied dates the Application and adds a timeline line.
+  await page.getByRole("button", { name: "Applied" }).click();
+  await expect(page.getByRole("button", { name: "Applied" })).toHaveAttribute("aria-current", "step");
+  await expect(page.getByText("Moved to Applied")).toBeVisible();
+  await expect(page.getByText(/^Applied .*\d{4}$/)).toBeVisible();
+
+  // Editing the company follows the automatic title; typing a title of your own stops that.
+  await page.getByLabel("Company").fill(`Beta ${stamp}`);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("heading", { name: `Engineer at Beta ${stamp}`, level: 1 })).toBeVisible();
+  await page.getByLabel("Title").fill(`My pick ${stamp}`);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("heading", { name: `My pick ${stamp}`, level: 1 })).toBeVisible();
+  await page.getByLabel("Company").fill(`Gamma ${stamp}`);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByLabel("Company")).toHaveValue(`Gamma ${stamp}`);
+  await expect(page.getByRole("heading", { name: `My pick ${stamp}`, level: 1 })).toBeVisible();
 });

@@ -1,11 +1,11 @@
-import { FileTextIcon, FolderIcon, ImageIcon, SearchIcon } from "lucide-react";
+import { FolderIcon, SearchIcon } from "lucide-react";
 import Link from "next/link";
 
 import { Alert } from "@/components/alert";
 import { PageGone, Pager } from "@/components/pager";
 import { Button } from "@/components/ui/button";
 import { getApi } from "@/lib/api/server";
-import { itemHref } from "@/lib/items";
+import { itemHref, TYPE_LOOK } from "@/lib/items";
 import { pageInfo } from "@/lib/pages";
 import { relativeTime } from "@/lib/time";
 
@@ -147,7 +147,7 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
           {result.data.exactOnly && <ExactOnlyNote />}
           <ol className="grid gap-2">
             {result.data.items.map((hit) => {
-              const Icon = hit.type === "NOTE" ? FileTextIcon : ImageIcon;
+              const { Icon, label } = TYPE_LOOK[hit.type];
               return (
                 <li
                   key={hit.id}
@@ -155,7 +155,7 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
                 >
                   <Link href={itemHref(hit)} className="flex items-center gap-2 font-medium hover:underline">
                     <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="sr-only">{hit.type === "NOTE" ? "Note:" : "Asset:"}</span>
+                    <span className="sr-only">{label}:</span>
                     <span className="truncate" title={hit.title || undefined}>
                       {hit.title || "Untitled"}
                     </span>

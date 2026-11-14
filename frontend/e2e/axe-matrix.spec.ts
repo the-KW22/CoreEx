@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
-import { PIXEL, expectNoViolations, expectSaved, newNote, openPalette, signIn, trashRows } from "./helpers";
+import { PIXEL, expectNoViolations, expectSaved, newApplication, newNote, openPalette, signIn, trashRows } from "./helpers";
 
 // The whole UI against WCAG 2.2 AA (docs/DESIGN.md section 10): every main screen and every open state, in both
 // themes, at desktop width and at 375px. The data is seeded once and tidied up at the end. Run one cell while
@@ -16,7 +16,7 @@ const folderName = `Matrix folder ${word}`;
 const tagName = `matrix-${word}`;
 const invited = `matrix-${word}@example.com`;
 
-const seed = { note: "", asset: "", folder: "", tag: "" };
+const seed = { note: "", asset: "", folder: "", tag: "", application: "" };
 let seedPage: Page;
 
 test.beforeAll(async ({ browser }) => {
@@ -63,6 +63,10 @@ test.beforeAll(async ({ browser }) => {
   await dialog.getByRole("link", { name: image }).click();
   await expect(page).toHaveURL(/\/assets\//);
   seed.asset = new URL(page.url()).pathname;
+
+  // An Application cannot go to the Trash yet (#239), so this one stays behind.
+  await newApplication(page, `Matrix ${word}`, "Engineer");
+  seed.application = new URL(page.url()).pathname;
 
   await newNote(page, trashed);
   await page.getByRole("button", { name: "Move to Trash" }).click();
@@ -162,6 +166,9 @@ for (const colorScheme of ["dark", "light"] as const) {
         await screen(page, failures, "tags", "/tags", heading("Tags"));
         await screen(page, failures, "note", seed.note, async () => {
           await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(noteA);
+        });
+        await screen(page, failures, "application", seed.application, async () => {
+          await expect(page.getByRole("heading", { name: `Engineer at Matrix ${word}`, level: 1 })).toBeVisible();
         });
         await screen(page, failures, "asset", seed.asset, async () => {
           await expect(page.getByRole("img", { name: `matrix-${word}.png` })).toBeVisible();

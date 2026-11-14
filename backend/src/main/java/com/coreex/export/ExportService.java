@@ -112,6 +112,11 @@ class ExportService {
 					content = bodies.getOrDefault(row.id(), "").getBytes(StandardCharsets.UTF_8);
 					name = names.file(dir.path(), row.title(), ".md");
 				}
+				else if ("APPLICATION".equals(row.type())) {
+					// shortcut: Applications are listed as omitted, not exported, until #241 adds their JSON.
+					omitted.add(omission(row, "Applications are not in the Export yet."));
+					continue;
+				}
 				else {
 					content = readFile(row, omitted);
 					if (content == null) {

@@ -100,6 +100,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_2"];
+        put: operations["save_1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{id}/quota": {
         parameters: {
             query?: never;
@@ -372,6 +388,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_3"];
+        put?: never;
+        post: operations["create_3"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["moveStage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{id}/enable": {
         parameters: {
             query?: never;
@@ -411,9 +459,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_3"];
+        get: operations["list_4"];
         put?: never;
-        post: operations["create_3"];
+        post: operations["create_4"];
         delete?: never;
         options?: never;
         head?: never;
@@ -443,9 +491,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_4"];
+        get: operations["list_5"];
         put?: never;
-        post: operations["create_4"];
+        post: operations["create_5"];
         delete?: never;
         options?: never;
         head?: never;
@@ -459,7 +507,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_5"];
+        get: operations["list_6"];
         put?: never;
         post?: never;
         delete: operations["empty"];
@@ -507,7 +555,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_6"];
+        get: operations["list_7"];
         put?: never;
         post?: never;
         delete?: never;
@@ -523,7 +571,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_2"];
+        get: operations["get_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -619,7 +667,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_7"];
+        get: operations["list_8"];
         put?: never;
         post?: never;
         delete?: never;
@@ -635,7 +683,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_8"];
+        get: operations["list_9"];
         put?: never;
         post?: never;
         delete?: never;
@@ -763,7 +811,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_9"];
+        get: operations["list_10"];
         put?: never;
         post?: never;
         delete?: never;
@@ -968,6 +1016,59 @@ export interface components {
             /** @description The name of the Access token that made the latest change; null when the User did */
             editedBy: string | null;
         };
+        SaveApplicationRequest: {
+            /** @description The title as shown. Sending it back unchanged keeps the automatic Role at Company title; a different one renames the Application for good */
+            title: string;
+            company: string;
+            role: string;
+            location: string;
+            postingUrl: string;
+            postingText: string;
+            /** Format: int32 */
+            version: number;
+        };
+        ApplicationResponse: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            company: string;
+            role: string;
+            location: string;
+            postingUrl: string;
+            postingText: string;
+            /** @enum {string} */
+            stage: "SAVED" | "APPLIED" | "SCREENING" | "INTERVIEW" | "OFFER" | "CLOSED";
+            /**
+             * Format: date-time
+             * @description When the Application first moved into Applied, at 12:00 UTC
+             */
+            appliedOn: string | null;
+            timeline: components["schemas"]["TimelineEntryResponse"][];
+            /** Format: int32 */
+            version: number;
+            /** Format: uuid */
+            folderId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        TimelineEntryResponse: {
+            /** @description STAGE for now */
+            type: string;
+            /** @enum {string} */
+            stage: "SAVED" | "APPLIED" | "SCREENING" | "INTERVIEW" | "OFFER" | "CLOSED";
+            /**
+             * Format: date-time
+             * @description The display date, at 12:00 UTC
+             */
+            at: string;
+            /**
+             * Format: int32
+             * @description The order it was written in
+             */
+            seq: number;
+        };
         SetQuotaRequest: {
             /**
              * Format: int64
@@ -1056,7 +1157,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET";
+            type: "NOTE" | "ASSET" | "APPLICATION";
             title: string;
             /** @description The Folder path such as "Work / CoreEx", null at the top level */
             folderPath: string | null;
@@ -1082,7 +1183,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET";
+            type: "NOTE" | "ASSET" | "APPLICATION";
             title: string;
             /** Format: uuid */
             folderId: string | null;
@@ -1140,6 +1241,19 @@ export interface components {
             uploadId: string;
             /** @description PUT the file here, with its Content-Type */
             uploadUrl: string;
+        };
+        CreateApplicationRequest: {
+            company: string;
+            role: string;
+            location?: string;
+            postingUrl?: string;
+            postingText?: string;
+        };
+        MoveStageRequest: {
+            /** @enum {string} */
+            stage: "SAVED" | "APPLIED" | "SCREENING" | "INTERVIEW" | "OFFER" | "CLOSED";
+            /** Format: int32 */
+            version: number;
         };
         CreateInviteRequest: {
             /** Format: email */
@@ -1230,7 +1344,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET";
+            type: "NOTE" | "ASSET" | "APPLICATION";
             title: string;
             /** @description The Folder path such as "Work / CoreEx", null at the top level */
             folderPath: string | null;
@@ -1255,7 +1369,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET";
+            type: "NOTE" | "ASSET" | "APPLICATION";
             title: string;
             folderPath: string | null;
         };
@@ -1315,7 +1429,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET";
+            type: "NOTE" | "ASSET" | "APPLICATION";
             title: string;
             /**
              * Format: uuid
@@ -1447,6 +1561,11 @@ export interface components {
             usedBytes: number;
             /** Format: int64 */
             quotaBytes: number;
+        };
+        ApplicationPage: {
+            items: components["schemas"]["ApplicationResponse"][];
+            /** Format: int64 */
+            total: number;
         };
         UserPage: {
             items: components["schemas"]["UserResponse"][];
@@ -1952,6 +2071,90 @@ export interface operations {
             };
             /** @description Code NOT_FOUND (also for another User's Asset) */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    get_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Application */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Application) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    save_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveApplicationRequest"];
+            };
+        };
+        responses: {
+            /** @description The saved Application, with its new version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Application) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2805,6 +3008,115 @@ export interface operations {
             };
         };
     };
+    list_3: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of Applications */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationPage"];
+                };
+            };
+        };
+    };
+    create_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApplicationRequest"];
+            };
+        };
+        responses: {
+            /** @description The new Application, in Saved */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    moveStage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveStageRequest"];
+            };
+        };
+        responses: {
+            /** @description The Application in its new Stage, with the timeline entry added */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Application) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     enable: {
         parameters: {
             query?: never;
@@ -2876,7 +3188,7 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list_4: {
         parameters: {
             query?: {
                 page?: number;
@@ -2899,7 +3211,7 @@ export interface operations {
             };
         };
     };
-    create_3: {
+    create_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -2981,7 +3293,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -3001,7 +3313,7 @@ export interface operations {
             };
         };
     };
-    create_4: {
+    create_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -3043,7 +3355,7 @@ export interface operations {
             };
         };
     };
-    list_5: {
+    list_6: {
         parameters: {
             query?: {
                 page?: number;
@@ -3097,7 +3409,7 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string;
-                type?: "NOTE" | "ASSET";
+                type?: "NOTE" | "ASSET" | "APPLICATION";
                 tagId?: string;
                 folderId?: string;
                 page?: number;
@@ -3151,7 +3463,7 @@ export interface operations {
             };
         };
     };
-    list_6: {
+    list_7: {
         parameters: {
             query?: never;
             header?: never;
@@ -3182,7 +3494,7 @@ export interface operations {
             };
         };
     };
-    get_2: {
+    get_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -3358,12 +3670,12 @@ export interface operations {
             };
         };
     };
-    list_7: {
+    list_8: {
         parameters: {
             query?: {
                 folderId?: string;
                 tagId?: string;
-                type?: "NOTE" | "ASSET";
+                type?: "NOTE" | "ASSET" | "APPLICATION";
                 page?: number;
                 size?: number;
             };
@@ -3393,7 +3705,7 @@ export interface operations {
             };
         };
     };
-    list_8: {
+    list_9: {
         parameters: {
             query?: {
                 size?: number;
@@ -3641,7 +3953,7 @@ export interface operations {
             };
         };
     };
-    list_9: {
+    list_10: {
         parameters: {
             query?: {
                 page?: number;

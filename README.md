@@ -89,6 +89,10 @@ Press **Ctrl+K** (**Cmd+K** on a Mac) on any page to open the quick switcher: ty
 
 **Move to Trash** (on a Note, Asset or Folder) hides it; **Trash** in the sidebar lists what is there with the days left before it is removed for good (30). A deleted Folder is one row ("with 2 Folders and 5 Items"). **Restore** brings an Item back together with any trashed Folders above it (not what else was in them), and brings a Folder back with exactly what was deleted with it. Links to a restored Item work again. **Delete forever** and **Empty Trash** remove things for good, including the files in Storage, which frees your storage quota. Anything older than 30 days is removed by a background job every 6 hours while the app is awake, and by a daily scheduled GitHub Actions run that also wakes the free host (setup in `docs/DEPLOY.md`).
 
+### Applications (first part of Career)
+
+**New Application** on Home and the Items pages takes a company, a role and the pasted posting, and opens the Application's page: its fields, a stepper through the six Stages (Saved, Applied, Screening, Interview, Offer, Closed) and a timeline of every move. The title is "Role at Company" until you rename it. The first move into Applied sets the applied date. Applications also show in All Items; Trash, Folders, Tags and Search for them come in later Career tickets (#223).
+
 ### Access tokens
 
 **Access tokens** in the Account menu (bottom of the sidebar) creates the secret an Agent such as Claude Code or Codex uses to work with your knowledge base. Give it a name and an expiry (90 days unless you choose otherwise, or never), then copy it from the dialog: it is shown once, and only a hash of it is stored. **Revoke** stops it at once. Up to 10 tokens can be live at a time, and each is limited to 60 calls a minute (`coreex.tokens.*`). An Access token works only on the MCP server at `/mcp`, never on the rest of the API, and stops working if your account is disabled.

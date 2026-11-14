@@ -1,4 +1,4 @@
-import { FilePlusIcon, FileTextIcon, ImageIcon } from "lucide-react";
+import { FilePlusIcon } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -7,9 +7,10 @@ import { TagBadge } from "@/components/tag-badge";
 import { Button } from "@/components/ui/button";
 import { getApi } from "@/lib/api/server";
 import { pathTo, type Folder } from "@/lib/folders";
-import { formatBytes, itemHref } from "@/lib/items";
+import { formatBytes, itemHref, TYPE_LOOK } from "@/lib/items";
 import { relativeTime } from "@/lib/time";
 
+import { NewApplication } from "./career/applications/new-application";
 import { PickButton } from "./items/item-menus";
 import { createNote } from "./notes/actions";
 
@@ -36,12 +37,12 @@ function NewNote() {
   );
 }
 
-const TypeIcon = ({ type }: { type: "NOTE" | "ASSET" }) => {
-  const Icon = type === "NOTE" ? FileTextIcon : ImageIcon;
+const TypeIcon = ({ type }: { type: keyof typeof TYPE_LOOK }) => {
+  const { Icon, label } = TYPE_LOOK[type];
   return (
     <>
       <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-      <span className="sr-only">{type === "NOTE" ? "Note:" : "Asset:"}</span>
+      <span className="sr-only">{label}:</span>
     </>
   );
 };
@@ -63,6 +64,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </div>
         <div className="flex flex-wrap gap-2">
           <NewNote />
+          <NewApplication />
           <PickButton kind="upload" />
           <PickButton kind="import" label="Import Markdown" />
         </div>
@@ -107,6 +109,7 @@ async function HomeSections() {
         </p>
         <div className="flex flex-wrap justify-center gap-2">
           <NewNote />
+          <NewApplication />
           <PickButton kind="upload" />
         </div>
       </div>
