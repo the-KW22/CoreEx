@@ -218,6 +218,29 @@ class ExportApiTest extends ApiTest {
 	}
 
 	@Test
+	void moreNotesThanOneBatchAllExportOnceWithTheirOwnTextAndTags() throws Exception {
+		var last = "";
+		for (int i = 1; i <= 27; i++) {
+			last = note(userA, "Note " + i, "text of " + i, null);
+		}
+		tag(userA, last, "last-one");
+
+		var zip = exported(userA);
+
+		assertThat(zip).hasSize(28);
+		for (int i = 1; i <= 27; i++) {
+			assertThat(text(zip, "Note " + i + ".md")).isEqualTo("text of " + i);
+		}
+		var tagged = new java.util.ArrayList<String>();
+		manifest(zip).path("items").forEach(item -> {
+			assertThat(item.path("path").asString()).isEqualTo(item.path("title").asString() + ".md");
+			item.path("tags").forEach(t -> tagged.add(item.path("title").asString() + ":" + t.path("name").asString()));
+		});
+		assertThat(manifest(zip).path("items")).hasSize(27);
+		assertThat(tagged).containsExactly("Note 27:last-one");
+	}
+
+	@Test
 	void anEmptyAccountGivesAValidZipWithAnEmptyManifest() throws Exception {
 		var zip = exported(userA);
 

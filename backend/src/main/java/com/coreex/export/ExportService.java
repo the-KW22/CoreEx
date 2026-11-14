@@ -38,7 +38,8 @@ import tools.jackson.databind.json.JsonMapper;
 @Service
 class ExportService {
 
-	private static final int BATCH = 200;
+	// A Note may be 1 MB and its text is held twice (as text and as bytes), so a batch of 25 is at most about 50 MB.
+	private static final int BATCH = 25;
 
 	private static final Dir TOP = new Dir("", null);
 
