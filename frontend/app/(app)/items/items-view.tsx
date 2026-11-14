@@ -12,7 +12,6 @@ import { pageInfo } from "@/lib/pages";
 import { parseCollapsed, parseView } from "@/lib/prefs";
 
 import { ItemCount } from "../folders/item-count";
-import { NewApplication } from "../career/applications/new-application";
 import { createNote } from "../notes/actions";
 import { PickButton } from "./item-menus";
 import { ItemsBrowser } from "./items-browser";
@@ -99,7 +98,6 @@ export async function ItemsView({ crumbs, title, folderId, cards, folders, tags,
               />
             )}
             {newNote}
-            {!assetsOnly && <NewApplication />}
             <PickButton kind="upload" />
             {!assetsOnly && <PickButton kind="import" />}
           </div>
@@ -147,7 +145,6 @@ export async function ItemsView({ crumbs, title, folderId, cards, folders, tags,
             <p className="text-muted-foreground">{empty}</p>
             <div className="flex flex-wrap justify-center gap-2">
               {newNote}
-            {!assetsOnly && <NewApplication />}
               <PickButton kind="upload" />
             </div>
           </div>

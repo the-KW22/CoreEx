@@ -10,7 +10,6 @@ import { pathTo, type Folder } from "@/lib/folders";
 import { formatBytes, itemHref, TYPE_LOOK } from "@/lib/items";
 import { relativeTime } from "@/lib/time";
 
-import { NewApplication } from "./career/applications/new-application";
 import { PickButton } from "./items/item-menus";
 import { createNote } from "./notes/actions";
 
@@ -64,7 +63,6 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </div>
         <div className="flex flex-wrap gap-2">
           <NewNote />
-          <NewApplication />
           <PickButton kind="upload" />
           <PickButton kind="import" label="Import Markdown" />
         </div>
@@ -109,7 +107,6 @@ async function HomeSections() {
         </p>
         <div className="flex flex-wrap justify-center gap-2">
           <NewNote />
-          <NewApplication />
           <PickButton kind="upload" />
         </div>
       </div>

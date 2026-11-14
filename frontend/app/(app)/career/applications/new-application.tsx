@@ -17,7 +17,7 @@ import { createApplication } from "./actions";
 
 const input = "h-9 w-full rounded-lg border border-border bg-surface px-3";
 
-// shortcut: a button on the home and Items pages, because the Career rail entry and panel are a later ticket (#228).
+// The Applications list's New Application button: paste the posting, name the company and role.
 export function NewApplication() {
   const [state, action, pending] = useActionState(createApplication, undefined);
 
