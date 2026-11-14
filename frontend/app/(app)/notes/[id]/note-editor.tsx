@@ -18,6 +18,7 @@ import {
   linkPreview,
   type LoadedNote,
   keepCopyAndLoad,
+  noteIfNewer,
   resolveLinks,
   restoreVersion,
   saveNote,
@@ -26,6 +27,7 @@ import {
 import { smallestEdit } from "./edit";
 import { activeFormats, toggleInline } from "./format";
 import { copyOf } from "./conflict";
+import { changedNotice, externalChange } from "./external";
 import { restoreBlocker } from "./history";
 import { clearUnsaved, recoveryAction, storeUnsaved, takeNewestUnsaved } from "./recovery";
 import { NoteHistory } from "./note-history";
@@ -40,9 +42,13 @@ const LINK_LOOKUP_MS = 500;
 const PREVIEW_DELAY_MS = 300;
 const TITLE_MAX = 200;
 const STORE_MS = 500;
+// How often an open Note asks whether it was changed elsewhere (an Agent, another tab).
+const POLL_MS = 10_000;
 
 type Status = "saved" | "unsaved" | "saving" | "conflict" | "error";
 type Text = { title: string; body: string };
+// The line above the title: what just happened, with an optional link in the middle.
+type Notice = { before: string; link?: { href: string; label: string }; after?: string };
 type Preview = { id: string; target: LinkTarget; left: number; top: number; by: "mouse" | "caret" };
 
 const same = (a: Text, b: Text) => a.title === b.title && a.body === b.body;
@@ -96,9 +102,11 @@ export function NoteEditor({
   // "Load theirs" in progress, why it failed, and the copy of the User's text it made.
   const [copyBusy, setCopyBusy] = useState(false);
   const [copyError, setCopyError] = useState("");
-  const [kept, setKept] = useState<{ id: string; title: string; tagsCopied: boolean } | null>(null);
-  // Text typed in an earlier visit was put back; and this tab's id for the copy of the text kept in the browser.
-  const [restored, setRestored] = useState(false);
+  // The line above the title that says what just happened: a copy kept, text put back, or a change loaded.
+  const [notice, setNotice] = useState<Notice | null>(null);
+  // Who changed the Note, when the open conflict was found by the check for changes and not by a save.
+  const [conflictBy, setConflictBy] = useState<string | null>(null);
+  // This tab's id for the copy of the unsaved text kept in the browser.
   // Not crypto.randomUUID: that is missing on a plain-http address, and this only has to differ between tabs.
   const [session] = useState(() => Math.random().toString(36).slice(2));
   const [savedAt, setSavedAt] = useState(initial.updatedAt);
@@ -126,6 +134,7 @@ export function NoteEditor({
   const linkTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const previewTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const storeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const polling = useRef(false);
   // Writes the text that is not saved yet to the browser now, when there is any.
   const rememberNow = useCallback(() => {
     clearTimeout(storeTimer.current);
@@ -150,7 +159,10 @@ export function NoteEditor({
       if (saving.current || (conflict.current && !overwrite)) return;
       saving.current = true;
       // Overwriting settles the conflict even when the text turns out to match what was last saved.
-      if (overwrite) conflict.current = false;
+      if (overwrite) {
+        conflict.current = false;
+        setConflictBy(null);
+      }
       try {
         for (;;) {
           const snapshot = { ...latest.current };
@@ -329,7 +341,7 @@ export function NoteEditor({
     editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: entry.body } });
     external.current = false;
     setWords(wordCount(entry.body));
-    setRestored(true);
+    setNotice({ before: "Restored changes that were not saved yet." });
     // The entry was taken out of the browser, so it goes back under this tab at once.
     rememberNow();
     if (action === "conflict") {
@@ -410,7 +422,11 @@ export function NoteEditor({
       setCopyError(result?.message ?? "Cannot reach the CoreEx API, so nothing was changed.");
       return;
     }
-    setKept({ ...result.copy, tagsCopied: result.tagsCopied });
+    setNotice({
+      before: "Your text is kept in ",
+      link: { href: `/notes/${result.copy.id}`, label: result.copy.title },
+      after: result.tagsCopied ? "." : ". Its Tags could not be copied.",
+    });
     // More was typed while the copy was made. Loading now would overwrite it, so the conflict stays open.
     if (!same(latest.current, mine)) {
       setCopyError("You kept typing, so the other version was not loaded. Choose again to keep the rest.");
@@ -420,13 +436,15 @@ export function NoteEditor({
   }
 
   // Puts a stored Note in the editor in place of what it holds, and treats it as saved.
-  function show(theirs: LoadedNote) {
+  const show = useCallback(
+    (theirs: LoadedNote) => {
     // What was typed is no longer waiting: it was kept in a copy, or replaced on purpose.
     forget();
     version.current = theirs.version;
     saved.current = { title: theirs.title, body: theirs.body };
     latest.current = { title: theirs.title, body: theirs.body };
     conflict.current = false;
+    setConflictBy(null);
     setTitle(theirs.title);
     setSavedAt(theirs.updatedAt);
     setEditedBy(theirs.editedBy);
@@ -436,7 +454,46 @@ export function NoteEditor({
     external.current = false;
     setWords(wordCount(theirs.body));
     setStatus("saved");
-  }
+    },
+    [forget],
+  );
+
+  // Asks every POLL_MS while the tab is visible, and again when it becomes visible, whether the Note was changed
+  // elsewhere (an Agent, another tab). With nothing unsaved the new text is loaded; with unsaved text the conflict
+  // opens now instead of at the next save.
+  useEffect(() => {
+    const check = async () => {
+      if (document.hidden || saving.current || conflict.current || polling.current) return;
+      polling.current = true;
+      try {
+        const asked = version.current;
+        const theirs = await noteIfNewer(id, asked).catch(() => null);
+        // Saved, or changed by something else, while the answer was on its way: it is about an older state.
+        if (!theirs || version.current !== asked || saving.current || conflict.current) return;
+        const change = externalChange(theirs.version, {
+          version: version.current,
+          unsaved: !same(latest.current, saved.current),
+        });
+        if (change === "load") {
+          show(theirs);
+          setNotice({ before: changedNotice(theirs.editedBy) });
+        } else if (change === "conflict") {
+          conflict.current = true;
+          setConflictBy(theirs.editedBy);
+          setStatus("conflict");
+        }
+      } finally {
+        polling.current = false;
+      }
+    };
+    const timer = setInterval(() => void check(), POLL_MS);
+    const whenVisible = () => void check();
+    document.addEventListener("visibilitychange", whenVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", whenVisible);
+    };
+  }, [id, show]);
 
   // Brings an earlier text back. What is typed goes to the server first, so the copy the restore keeps includes it.
   // Returns why nothing was restored, or null.
@@ -552,7 +609,7 @@ export function NoteEditor({
             <div role="alert" className="grid gap-3 rounded-[10px] border border-destructive/50 bg-destructive/10 p-4">
               <p className="flex items-start gap-2 text-sm">
                 <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-destructive" />
-                This Note was changed somewhere else since you opened it. Keep your version, or load the other one?
+                This Note was changed {conflictBy ? `by ${conflictBy}` : "somewhere else"} since you opened it. Keep your version, or load the other one?
                 Loading the other one keeps your text as a new Note first.
               </p>
               {copyError && <p className="text-sm">{copyError}</p>}
@@ -568,28 +625,20 @@ export function NoteEditor({
           )}
           {/* Always here (and out of the layout): a live region is only announced when it already exists. */}
           <p aria-live="polite" className="sr-only">
-            {kept
-              ? `Your text is kept in ${kept.title}.${kept.tagsCopied ? "" : " Its Tags could not be copied."}`
-              : restored && "Restored changes that were not saved yet."}
+            {notice && `${notice.before}${notice.link?.label ?? ""}${notice.after ?? ""}`}
           </p>
-          {restored && !kept && (
-            <p className="flex flex-wrap items-center gap-x-2 rounded-[10px] border border-border bg-surface p-3 text-sm">
-              <span>Restored changes that were not saved yet.</span>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setRestored(false)}>
-                Dismiss
-              </Button>
-            </p>
-          )}
-          {kept && (
+          {notice && (
             <p className="flex flex-wrap items-center gap-x-2 rounded-[10px] border border-border bg-surface p-3 text-sm">
               <span>
-                Your text is kept in{" "}
-                <Link href={`/notes/${kept.id}`} className="font-medium underline underline-offset-2">
-                  {kept.title}
-                </Link>
-                .{kept.tagsCopied ? "" : " Its Tags could not be copied."}
+                {notice.before}
+                {notice.link && (
+                  <Link href={notice.link.href} className="font-medium underline underline-offset-2">
+                    {notice.link.label}
+                  </Link>
+                )}
+                {notice.after}
               </span>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setKept(null)}>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setNotice(null)}>
                 Dismiss
               </Button>
             </p>

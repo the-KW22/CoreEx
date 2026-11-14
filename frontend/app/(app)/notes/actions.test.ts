@@ -6,7 +6,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("../items/actions", () => ({ trashItem: vi.fn() }));
 
-import { createNote, importNotes, keepCopyAndLoad } from "./actions";
+import { createNote, importNotes, keepCopyAndLoad, noteIfNewer } from "./actions";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -92,5 +92,35 @@ describe("ids that let the API tell a repeat from a new Note", () => {
     expect(ids).toHaveLength(2);
     expect(ids.every((id: string) => UUID.test(id))).toBe(true);
     expect(new Set(ids).size).toBe(2);
+  });
+});
+
+describe("noteIfNewer", () => {
+  const latest = (version: number) => ({ data: { version, updatedAt: "2026-11-14T00:00:00Z", editedBy: "claude" } });
+
+  it("reads the whole Note only when the stored version is newer", async () => {
+    api.GET.mockImplementation(async (path: string) => (path.endsWith("/latest") ? latest(5) : { data: theirs }));
+
+    const result = await noteIfNewer("n1", 4);
+
+    expect(result).toEqual(theirs);
+    expect(api.GET.mock.calls.map(([path]) => path)).toEqual(["/api/notes/{id}/latest", "/api/notes/{id}"]);
+  });
+
+  it("answers nothing, and reads no text, when the version is the same", async () => {
+    api.GET.mockImplementation(async () => latest(4));
+
+    expect(await noteIfNewer("n1", 4)).toBeNull();
+    expect(api.GET).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers nothing when the API cannot be reached or the Note is gone", async () => {
+    api.GET.mockImplementation(async () => {
+      throw new Error("network");
+    });
+    expect(await noteIfNewer("n1", 4)).toBeNull();
+
+    api.GET.mockImplementation(async () => ({ error: { message: "gone" } }));
+    expect(await noteIfNewer("n1", 4)).toBeNull();
   });
 });
