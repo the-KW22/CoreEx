@@ -76,7 +76,7 @@ Agreed 2026-11-14 ([ADR 0010](adr/0010-career-items-are-applications-resumes-and
 |---|---|
 | `/career` | Today |
 | `/career/applications`, `/career/applications/[id]` | Applications views; one Application with its workspace tabs |
-| `/career/documents`, `/career/resumes/[id]`, `/career/letters/[id]` | Resumes & Letters library; the editors |
+| `/career/library`, `/career/resumes/[id]`, `/career/cover-letters/[id]` | Resumes & Letters library; the editors |
 | `/career/knowledge`, `/career/offers` | Knowledge; Offers |
 
 ## 4. Design tokens
