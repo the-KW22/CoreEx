@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import type { components } from "@/lib/api/schema";
 import { getApi } from "@/lib/api/server";
-import type { Stage } from "@/lib/applications";
+import type { CloseReason, Stage } from "@/lib/applications";
 
 type Application = components["schemas"]["ApplicationResponse"];
 
@@ -31,6 +31,18 @@ export async function createApplication(_previous: CreateState, formData: FormDa
   redirect(`/career/applications/${result.data.id}`);
 }
 
+// Every call that answers with the stored Application: a 409 is a stale version, anything else a message to show.
+async function outcome(
+  call: Promise<{ data?: Application; error?: { message?: string }; response: Response }>,
+  failure: string,
+): Promise<SaveResult> {
+  const result = await call.catch(() => null);
+  if (!result) return { status: "error", message: "Cannot reach the CoreEx API." };
+  if (result.data) return { status: "saved", application: result.data };
+  if (result.response.status === 409) return { status: "conflict" };
+  return { status: "error", message: result.error?.message ?? failure };
+}
+
 export async function saveApplication(
   id: string,
   fields: Pick<
@@ -39,20 +51,65 @@ export async function saveApplication(
   >,
 ): Promise<SaveResult> {
   const api = await getApi();
-  const result = await api.PUT("/api/applications/{id}", { params: { path: { id } }, body: fields }).catch(() => null);
-  if (!result) return { status: "error", message: "Cannot reach the CoreEx API." };
-  if (result.data) return { status: "saved", application: result.data };
-  if (result.response.status === 409) return { status: "conflict" };
-  return { status: "error", message: result.error?.message ?? "Could not save the Application." };
+  return outcome(
+    api.PUT("/api/applications/{id}", { params: { path: { id } }, body: fields }),
+    "Could not save the Application.",
+  );
 }
 
-export async function moveApplicationStage(id: string, stage: Stage, version: number): Promise<SaveResult> {
+// A day left empty means today; Closed needs its reason.
+export async function moveApplicationStage(
+  id: string,
+  stage: Stage,
+  version: number,
+  closeReason?: CloseReason,
+  date?: string,
+): Promise<SaveResult> {
   const api = await getApi();
-  const result = await api
-    .POST("/api/applications/{id}/stage", { params: { path: { id } }, body: { stage, version } })
-    .catch(() => null);
-  if (!result) return { status: "error", message: "Cannot reach the CoreEx API." };
-  if (result.data) return { status: "saved", application: result.data };
-  if (result.response.status === 409) return { status: "conflict" };
-  return { status: "error", message: result.error?.message ?? "Could not move the Application." };
+  return outcome(
+    api.POST("/api/applications/{id}/stage", {
+      params: { path: { id } },
+      body: { stage, version, closeReason, date: date || undefined },
+    }),
+    "Could not move the Application.",
+  );
+}
+
+export async function addTimelineEntry(
+  id: string,
+  entry: { type: "NOTE" | "FOLLOWED_UP" | "REPLIED"; text?: string; date?: string },
+  version: number,
+): Promise<SaveResult> {
+  const api = await getApi();
+  return outcome(
+    api.POST("/api/applications/{id}/timeline", {
+      params: { path: { id } },
+      body: { ...entry, date: entry.date || undefined, version },
+    }),
+    "Could not add to the timeline.",
+  );
+}
+
+export async function editTimelineEntry(
+  id: string,
+  seq: number,
+  change: { text?: string; date?: string },
+  version: number,
+): Promise<SaveResult> {
+  const api = await getApi();
+  return outcome(
+    api.PUT("/api/applications/{id}/timeline/{seq}", {
+      params: { path: { id, seq } },
+      body: { ...change, date: change.date || undefined, version },
+    }),
+    "Could not change the timeline entry.",
+  );
+}
+
+export async function deleteTimelineEntry(id: string, seq: number, version: number): Promise<SaveResult> {
+  const api = await getApi();
+  return outcome(
+    api.DELETE("/api/applications/{id}/timeline/{seq}", { params: { path: { id, seq }, query: { version } } }),
+    "Could not delete the timeline entry.",
+  );
 }

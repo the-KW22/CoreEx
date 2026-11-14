@@ -5,9 +5,10 @@ import { useState, useTransition } from "react";
 import { Alert } from "@/components/alert";
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/schema";
-import { formatDay, STAGES, stageLabel, type Stage } from "@/lib/applications";
+import { closeReasonLabel, CLOSE_REASONS, formatDay, STAGES, type CloseReason, type Stage } from "@/lib/applications";
 
 import { moveApplicationStage, saveApplication, type SaveResult } from "../actions";
+import { Timeline } from "./timeline";
 
 type Application = components["schemas"]["ApplicationResponse"];
 
@@ -42,10 +43,20 @@ export function ApplicationView({ initial }: { initial: Application }) {
     e.preventDefault();
     start(async () => settle(await saveApplication(application.id, { ...fields, version: application.version })));
   };
-  const move = (stage: Stage) =>
-    start(async () => settle(await moveApplicationStage(application.id, stage, application.version)));
-
-  const timeline = [...application.timeline].sort((a, b) => a.seq - b.seq);
+  const [movedOn, setMovedOn] = useState("");
+  const [closing, setClosing] = useState(false);
+  const [reason, setReason] = useState<CloseReason>("NOT_SELECTED");
+  const move = (stage: Stage, closeReason?: CloseReason) =>
+    start(async () => {
+      const result = await moveApplicationStage(application.id, stage, application.version, closeReason, movedOn);
+      if (result.status === "saved") {
+        setClosing(false);
+        setMovedOn("");
+      }
+      settle(result);
+    });
+  // Anything else on the timeline goes through the same pending state and conflict handling.
+  const run = (call: () => Promise<SaveResult>) => start(async () => settle(await call()));
 
   return (
     <div className="mx-auto grid max-w-3xl gap-8">
@@ -53,6 +64,9 @@ export function ApplicationView({ initial }: { initial: Application }) {
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">{application.title}</h1>
         {application.appliedOn && (
           <p className="text-muted-foreground">Applied {formatDay(application.appliedOn)}</p>
+        )}
+        {application.closeReason && (
+          <p className="text-muted-foreground">Closed: {closeReasonLabel(application.closeReason)}</p>
         )}
       </header>
 
@@ -71,13 +85,47 @@ export function ApplicationView({ initial }: { initial: Application }) {
                 variant={application.stage === stage ? "default" : "outline"}
                 aria-current={application.stage === stage ? "step" : undefined}
                 disabled={pending}
-                onClick={() => move(stage)}
+                onClick={() => (stage === "CLOSED" ? setClosing(true) : move(stage))}
               >
                 {label}
               </Button>
             </li>
           ))}
         </ol>
+        {closing && (
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-sm">
+              Why did it close?
+              <select
+                value={reason}
+                onChange={(e) => setReason(e.target.value as CloseReason)}
+                className="h-9 rounded-lg border border-border bg-surface px-3"
+              >
+                {CLOSE_REASONS.map(({ reason: value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button type="button" size="sm" disabled={pending} onClick={() => move("CLOSED", reason)}>
+              Close Application
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setClosing(false)}>
+              Cancel
+            </Button>
+          </div>
+        )}
+        <label className="flex items-center gap-2 text-sm">
+          Moved on
+          <input
+            type="date"
+            value={movedOn}
+            onChange={(e) => setMovedOn(e.target.value)}
+            className="h-9 rounded-lg border border-border bg-surface px-3"
+          />
+          <span className="text-xs text-muted-foreground">Empty means today.</span>
+        </label>
       </section>
 
       <form onSubmit={save} className="grid gap-4">
@@ -130,18 +178,7 @@ export function ApplicationView({ initial }: { initial: Application }) {
         </div>
       </form>
 
-      <section aria-labelledby="timeline-heading" className="grid gap-2">
-        <h2 id="timeline-heading" className="text-sm font-medium">
-          Timeline
-        </h2>
-        <ol className="grid gap-1 text-sm">
-          {timeline.map((entry) => (
-            <li key={entry.seq}>
-              <span className="text-muted-foreground">{formatDay(entry.at)}</span> Moved to {stageLabel(entry.stage)}
-            </li>
-          ))}
-        </ol>
-      </section>
+      <Timeline application={application} run={run} pending={pending} />
     </div>
   );
 }
