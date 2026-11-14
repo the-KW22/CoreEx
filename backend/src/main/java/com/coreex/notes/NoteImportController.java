@@ -2,6 +2,7 @@ package com.coreex.notes;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -68,8 +69,9 @@ class NoteImportController {
 			@RequestParam(required = false) UUID folderId,
 			@RequestParam(required = false) @Parameter(description = "An id you make up for each file's Note, in the order of the files: sending the same import again returns those Notes instead of making new ones") List<UUID> ids)
 			throws IOException {
-		if (ids != null && ids.size() != files.size()) {
-			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Send one id per file, or none.");
+		// A repeated id would give a second file the first one's Note, and drop its text while saying it was imported.
+		if (ids != null && (ids.size() != files.size() || new HashSet<>(ids).size() != ids.size())) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Send one different id per file, or none.");
 		}
 		var sources = new ArrayList<NoteImportService.Source>();
 		for (int i = 0; i < files.size(); i++) {

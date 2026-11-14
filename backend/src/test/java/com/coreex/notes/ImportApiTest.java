@@ -157,6 +157,17 @@ class ImportApiTest extends ApiTest {
 	}
 
 	@Test
+	void theSameIdForTwoFilesIsRefusedSoNoFileIsQuietlyDropped() throws Exception {
+		var same = UUID.randomUUID();
+
+		var imported = send(userA, "?ids=" + same + "&ids=" + same, null, text("alpha.md", "a"), text("beta.md", "b"));
+
+		assertThat(imported.statusCode()).isEqualTo(400);
+		assertThat(imported.body()).contains("INVALID_REQUEST");
+		assertThat(jdbc.sql("select count(*) from items").query(Integer.class).single()).isZero();
+	}
+
+	@Test
 	void severalFilesAreImportedInOneActionEachBecomingANote() throws Exception {
 		var imported = importFiles(userA, null, text("alpha.md", "# Alpha\n\ntext"), text("beta.txt", "plain"),
 				text("GAMMA.MD", "upper-case extension"));
