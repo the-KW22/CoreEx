@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+
 import { expect, test, type Page } from "@playwright/test";
 
 import { MCP_TOOLS } from "../lib/mcp-tools";
@@ -969,6 +971,43 @@ test("unsaved text for a Note that changed meanwhile comes back in conflict", as
   await expect(page.getByRole("status").filter({ hasText: /^Saved at/ })).toBeVisible();
 
   // Tidy up.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("Export downloads a zip with the Note, and a second one inside the minute says to wait", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  const title = `Export ${Date.now()}`;
+  await newNote(page, title);
+  const noteUrl = page.url();
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("exported words");
+  await expectSaved(page);
+
+  await page.getByRole("button", { name: /^Account/ }).click();
+  await page.getByRole("menuitem", { name: "Export" }).click();
+  await expect(page.getByRole("heading", { name: "Export", level: 1 })).toBeVisible();
+  await expectNoViolations(page);
+
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Download everything" }).click();
+  const download = await downloading;
+  expect(download.suggestedFilename()).toMatch(/^coreex-export-\d{4}-\d{2}-\d{2}\.zip$/);
+  const zip = await readFile(await download.path());
+  // A zip starts with "PK", and its entry names are stored as plain text.
+  expect(zip.subarray(0, 2).toString()).toBe("PK");
+  expect(zip.includes(Buffer.from(`${title}.md`))).toBe(true);
+  expect(zip.includes(Buffer.from("manifest.json"))).toBe(true);
+
+  // Straight away again: refused, and the page says to wait.
+  await page.getByRole("link", { name: "Download everything" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "once a minute" })).toBeVisible();
+
+  // Tidy up.
+  await page.goto(noteUrl);
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });

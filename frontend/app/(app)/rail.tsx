@@ -279,6 +279,9 @@ export function Rail({
             <DropdownMenuItem asChild>
               <Link href="/help/mcp">Connect an Agent</Link>
             </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/settings/export">Export</Link>
+            </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() => {
                 // Text kept in the browser for recovery must not stay for the next person on this computer.
