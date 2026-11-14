@@ -69,6 +69,16 @@ export async function linkPreview(id: string, type: "NOTE" | "ASSET"): Promise<s
   return asset?.data ? firstLines(asset.data.description) : null;
 }
 
+// The whole Note when its stored version is newer than `version`, else nothing. The check is one small read with no
+// text, so an open editor can ask every few seconds; null also when the API cannot be reached or the Note is gone.
+export async function noteIfNewer(id: string, version: number): Promise<LoadedNote | null> {
+  const api = await getApi();
+  const latest = await api.GET("/api/notes/{id}/latest", { params: { path: { id } } }).catch(() => null);
+  if (!latest?.data || latest.data.version <= version) return null;
+  const note = await api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null);
+  return note?.data ?? null;
+}
+
 export type CopyResult =
   | { status: "loaded"; note: LoadedNote; copy: { id: string; title: string }; tagsCopied: boolean }
   | { status: "error"; message: string };

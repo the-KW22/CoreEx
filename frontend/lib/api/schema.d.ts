@@ -532,6 +532,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notes/{id}/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["latest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me": {
         parameters: {
             query?: never;
@@ -1272,6 +1288,14 @@ export interface components {
             body: string;
             /** Format: date-time */
             savedAt: string;
+            editedBy: string | null;
+        };
+        LatestResponse: {
+            /** Format: int32 */
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description The name of the Access token that made the latest change; null when the User did */
             editedBy: string | null;
         };
         Me: {
@@ -3177,6 +3201,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VersionDetail"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Note) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    latest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Note's latest change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LatestResponse"];
                 };
             };
             /** @description Code NOT_FOUND (also for another User's Note) */

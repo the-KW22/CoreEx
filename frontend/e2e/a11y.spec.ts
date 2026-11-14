@@ -906,6 +906,83 @@ test("text typed while the API cannot be reached comes back after a reload, and 
   await expect(page).toHaveURL(/\/items$/);
 });
 
+// Only the saves fail: the check for changes (a server action with two arguments) still gets through.
+async function blockOnlySaves(page: Page) {
+  await page.route("**/notes/**", (route) => {
+    const request = route.request();
+    if (!request.headers()["next-action"]) return route.continue();
+    let args: unknown = null;
+    try {
+      args = JSON.parse(request.postData() ?? "");
+    } catch {
+      // Not a plain list of arguments: let it through.
+    }
+    return Array.isArray(args) && args.length === 5 ? route.abort() : route.continue();
+  });
+}
+
+test("a Note changed in another tab shows the change without a reload", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  await newNote(page, `Live ${Date.now()}`);
+  const noteUrl = page.url();
+  const editor = page.getByRole("textbox", { name: "Note content" });
+
+  const other = await page.context().newPage();
+  await other.goto(noteUrl);
+  await other.getByRole("textbox", { name: "Note content" }).click();
+  await other.keyboard.press("Control+End");
+  await other.keyboard.type(" written in another tab");
+  await expectSaved(other);
+  await other.close();
+
+  // Nothing unsaved here, so the new text is loaded and says why, within one check (10 seconds).
+  await expect(page.locator("span", { hasText: "Changed in another tab or device just now." })).toBeVisible({
+    timeout: 25_000,
+  });
+  await expect(editor).toContainText("written in another tab");
+  await expect(page.getByRole("status").filter({ hasText: /^Saved at/ })).toBeVisible();
+
+  // Tidy up.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("unsaved text meeting a change made elsewhere opens the conflict by itself", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  await newNote(page, `Live conflict ${Date.now()}`);
+  const noteUrl = page.url();
+  const editor = page.getByRole("textbox", { name: "Note content" });
+  page.on("dialog", (dialog) => void dialog.accept());
+  const other = await page.context().newPage();
+  await other.goto(noteUrl);
+  await expect(other.getByRole("textbox", { name: "Note content" })).toBeVisible();
+
+  await blockOnlySaves(page);
+  await editor.click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(" my unsaved words");
+  await expect(page.getByRole("alert").filter({ hasText: "Cannot reach the CoreEx API" })).toBeVisible();
+
+  await other.getByRole("textbox", { name: "Note content" }).click();
+  await other.keyboard.press("Control+End");
+  await other.keyboard.type(" and the other tab");
+  await expectSaved(other);
+  await other.close();
+
+  // No save is attempted, yet the conflict shows: the check found the newer version.
+  await expect(page.getByRole("alert").filter({ hasText: "changed somewhere else" })).toBeVisible({ timeout: 25_000 });
+  await expect(editor).toContainText("my unsaved words");
+
+  // Keep mine settles it once saves go through again; then tidy up.
+  await page.unroute("**/notes/**");
+  await page.getByRole("button", { name: "Keep mine" }).click();
+  await expect(page.getByRole("status").filter({ hasText: /^Saved at/ })).toBeVisible();
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
 test("logging out removes the unsaved text kept in the browser", async ({ page }) => {
   test.slow();
   await signIn(page);

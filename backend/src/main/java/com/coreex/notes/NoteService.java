@@ -76,6 +76,11 @@ public class NoteService {
 		return notes.find(ownerId, id).orElseThrow(NoteService::notFound);
 	}
 
+	/** The Note's save counter, time and writer, without its text: a cheap way to learn it changed elsewhere. */
+	public NoteRepository.Latest latest(UUID ownerId, UUID id) {
+		return notes.latest(ownerId, id).orElseThrow(NoteService::notFound);
+	}
+
 	/** A User's save: the text it replaces is kept as a version, except when the last one is close behind it. */
 	@Transactional
 	public Note save(UUID ownerId, UUID id, String title, String body, int seenVersion) {
