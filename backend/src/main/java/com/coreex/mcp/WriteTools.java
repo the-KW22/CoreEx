@@ -83,19 +83,24 @@ class WriteTools {
 		this.trash = trash;
 	}
 
-	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "create_note", description = "Create a new Note. Start the Markdown with a '# Title' line, which is also the Note's title unless you pass one. Write [[Exact Title]] to link to another Item. Returns the id and the version (1); keep the version to edit the Note later.")
+	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "create_note", description = "Create a new Note. Start the Markdown with a '# Title' line, which is also the Note's title unless you pass one. Write [[Exact Title]] to link to another Item. Returns the id and the version (1); keep the version to edit the Note later. Pass an id you made up (a UUID) to make a retry safe: sending the same call again returns that Note as it is, with nothing applied twice, instead of making a second one.")
 	NoteSaved createNote(McpTransportContext context,
 			@McpToolParam(required = false, description = "The title; by default the first '# Heading' line of the Markdown") String title,
 			@McpToolParam(description = "The Note's text in Markdown") String markdown,
 			@McpToolParam(required = false, description = "The Folder to put it in (an id from list_folders); by default the top level") UUID folderId,
-			@McpToolParam(required = false, description = "Tag names to put on it; missing Tags are created") List<String> tags) {
+			@McpToolParam(required = false, description = "Tag names to put on it; missing Tags are created") List<String> tags,
+			@McpToolParam(required = false, description = "An id you make up (a UUID), so a retried call returns the same Note instead of making another") UUID id) {
 		var agent = McpConfig.agent(context);
 		var text = Input.markdown(markdown);
 		var noteTitle = Input.title(title, text, "");
 		var tagNames = Input.tagNames(tags);
-		var note = notes.create(agent.user().id(), folderId, noteTitle, text);
-		tagNames.forEach(name -> tagService.attach(agent.user().id(), note.id(), name));
-		items.recordAgentEdit(agent.user().id(), note.id(), agent.tokenName());
+		var made = notes.create(agent.user().id(), folderId, noteTitle, text, id);
+		var note = made.note();
+		// A repeated call returns the Note as it is now: its Tags and edit mark are not applied again.
+		if (made.isNew()) {
+			tagNames.forEach(name -> tagService.attach(agent.user().id(), note.id(), name));
+			items.recordAgentEdit(agent.user().id(), note.id(), agent.tokenName());
+		}
 		return saved(note);
 	}
 

@@ -30,7 +30,8 @@ class NoteImportService {
 		IMPORTED, REFUSED
 	}
 
-	record Source(String filename, byte[] bytes) {
+	/** {@code id} is the id the caller made up for this file's Note, or null; see {@link NoteService#create}. */
+	record Source(String filename, byte[] bytes, UUID id) {
 	}
 
 	record Result(String filename, Status status, UUID noteId, String title, String code, String message) {
@@ -70,7 +71,7 @@ class NoteImportService {
 			var name = baseName(source.filename());
 			try {
 				var title = titleOf(name);
-				var note = notes.create(ownerId, folderId, title, textOf(name, source.bytes()));
+				var note = notes.create(ownerId, folderId, title, textOf(name, source.bytes()), source.id()).note();
 				created.add(note);
 				results.add(new Result(source.filename(), Status.IMPORTED, note.id(), note.title(), null, null));
 			}

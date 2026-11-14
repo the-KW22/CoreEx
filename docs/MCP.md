@@ -18,7 +18,7 @@ CoreEx has an MCP server (Model Context Protocol) at `/mcp`. It lets an **Agent*
 
 | Change | |
 |---|---|
-| `create_note` | A new Note, with an optional Folder and Tags; `[[Title]]` becomes a Link |
+| `create_note` | A new Note, with an optional Folder and Tags; `[[Title]]` becomes a Link. Pass an `id` (a UUID you make up) so a retried call returns the same Note instead of making a second one |
 | `update_note`, `edit_note` | Replace a Note's text, or replace exact pieces of it. Both need the `version` from `get_item` |
 | `create_folder`, `rename_folder`, `move_folder`, `trash_folder` | Organise Folders |
 | `create_tag`, `rename_tag`, `set_tag_colour`, `set_tags` | Manage Tags; `set_tags` makes an Item's Tags exactly the list given |

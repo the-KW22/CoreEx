@@ -35,15 +35,41 @@ public class NoteService {
 		this.clock = clock;
 	}
 
+	/** A Note, and whether this call made it (false: it was already there, see the id form of {@code create}). */
+	public record Created(Note note, boolean isNew) {
+	}
+
 	@Transactional
 	public Note create(UUID ownerId, UUID folderId, String title, String body) {
+		return create(ownerId, folderId, title, body, null).note();
+	}
+
+	/**
+	 * With an {@code id} the caller made up, a repeated request returns the Note instead of making a second one: a live
+	 * Note of this User with that id comes back exactly as stored (nothing in the request is applied, not even the
+	 * Folder). Any other use of the id is refused with one answer, so it does not say whose it is.
+	 */
+	@Transactional
+	public Created create(UUID ownerId, UUID folderId, String title, String body, UUID id) {
+		if (id != null) {
+			var existing = notes.find(ownerId, id);
+			if (existing.isPresent()) {
+				return new Created(existing.get(), false);
+			}
+		}
 		if (folderId != null) {
 			folders.requireLiveForWrite(ownerId, folderId);
 		}
 		var text = links.rewriteTitles(ownerId, body == null ? "" : body);
-		var id = notes.insert(ownerId, folderId, title == null ? "" : title, text);
-		links.reindex(id, text);
-		return get(ownerId, id);
+		var made = notes.insert(ownerId, folderId, title == null ? "" : title, text, id);
+		if (made.isEmpty()) {
+			// Taken since the look-up above, by a request racing this one (ours to return) or by someone else's Item.
+			var raced = notes.find(ownerId, id).orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST,
+					"INVALID_REQUEST", "That id cannot be used for a new Note."));
+			return new Created(raced, false);
+		}
+		links.reindex(made.get(), text);
+		return new Created(get(ownerId, made.get()), true);
 	}
 
 	public Note get(UUID ownerId, UUID id) {

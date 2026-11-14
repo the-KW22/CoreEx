@@ -6,7 +6,9 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("../items/actions", () => ({ trashItem: vi.fn() }));
 
-import { keepCopyAndLoad } from "./actions";
+import { createNote, importNotes, keepCopyAndLoad } from "./actions";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const theirs = { id: "n1", title: "Plans", body: "theirs", version: 4, updatedAt: "2026-11-14T00:00:00Z", editedBy: "agent", folderId: "f1" };
 const mine = { title: "Plans (mine)", body: "# Plans (mine)\nmy words" };
@@ -61,5 +63,34 @@ describe("keepCopyAndLoad", () => {
     const result = await keepCopyAndLoad("n1", mine);
 
     expect(result).toMatchObject({ status: "loaded", tagsCopied: false });
+  });
+});
+
+describe("ids that let the API tell a repeat from a new Note", () => {
+  it("createNote sends a fresh id with every click", async () => {
+    api.POST.mockImplementation(async () => ({ data: { id: "n1" } }));
+
+    await createNote(new FormData());
+    await createNote(new FormData());
+
+    const ids = api.POST.mock.calls.map(([, init]) => init.body.id);
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).toMatch(UUID);
+    expect(ids[1]).toMatch(UUID);
+    expect(ids[0]).not.toBe(ids[1]);
+  });
+
+  it("importNotes sends one id per file, in order", async () => {
+    api.POST.mockImplementation(async () => ({ data: { results: [] } }));
+    const form = new FormData();
+    form.append("files", new File(["a"], "a.md"));
+    form.append("files", new File(["b"], "b.md"));
+
+    await importNotes(form);
+
+    const { ids } = api.POST.mock.calls[0][1].params.query;
+    expect(ids).toHaveLength(2);
+    expect(ids.every((id: string) => UUID.test(id))).toBe(true);
+    expect(new Set(ids).size).toBe(2);
   });
 });
