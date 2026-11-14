@@ -59,7 +59,8 @@ export async function saveNote(
 
 // The opening text of a Link's target, for the hover preview: a Note's first lines or an Asset's description.
 // Null when it cannot be loaded; the preview then shows what the editor already knows.
-export async function linkPreview(id: string, type: "NOTE" | "ASSET"): Promise<string | null> {
+export async function linkPreview(id: string, type: "NOTE" | "ASSET" | "APPLICATION"): Promise<string | null> {
+  if (type === "APPLICATION") return null;
   const api = await getApi();
   if (type === "NOTE") {
     const note = await api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null);

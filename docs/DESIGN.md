@@ -195,6 +195,14 @@ The same tokens are used by CSS, Motion and View Transitions. They are defined o
 - A neutral **viewer stage**: the image fitted, or the PDF in its viewer.
 - Details panel: title and description (edited in place: a faint border and a pencil beside each label show they can be changed, with a gap between label and field), Folder, Tags, Backlinks, Connections, Info (type, size, updated), in three sections with dividers.
 
+### 6.4a Application (`/career/applications/[id]`)
+
+The first Career screen (#227); the rail entry, panel and views come in later tickets, so for now **New Application** (a Dialog: company, role, the pasted posting) sits beside New Note on Home and on the Items pages.
+
+- A single column: the title, then a **Stage stepper** (six buttons, the current one filled and `aria-current="step"`), the fields (title, company, role, location, posting link, posting) with one **Save**, and the **Timeline**, one line per move with its date.
+- No Details panel, Folder, Tags or Trash yet: they come with #239.
+- A save from an old version, or a move made meanwhile elsewhere, shows the conflict message and asks for a reload.
+
 ### 6.5 Uploading
 
 - An **Upload dialog** opened from header buttons, Home quick actions and the command palette, with a drop zone and a per-file list (Attachment + Progress).
