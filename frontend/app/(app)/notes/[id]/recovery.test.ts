@@ -55,6 +55,15 @@ describe("storeUnsaved and takeNewestUnsaved", () => {
     expect(store.keys()).toEqual([]);
   });
 
+  it("drops other Notes' entries past seven days too, and keeps their fresh ones", () => {
+    const store = fakeStore();
+    storeUnsaved("n2", "tab-a", entry("stale", NOW - 8 * DAY), store);
+    storeUnsaved("n3", "tab-a", entry("fresh", NOW - DAY), store);
+
+    expect(takeNewestUnsaved("n1", NOW, store)).toBeNull();
+    expect(store.keys()).toEqual(["coreex:unsaved:n3:tab-a"]);
+  });
+
   it("leaves the entries of other Notes alone", () => {
     const store = fakeStore();
     storeUnsaved("n2", "tab-a", entry("other note"), store);

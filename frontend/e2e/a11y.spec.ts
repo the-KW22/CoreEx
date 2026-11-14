@@ -904,6 +904,35 @@ test("text typed while the API cannot be reached comes back after a reload, and 
   await expect(page).toHaveURL(/\/items$/);
 });
 
+test("logging out removes the unsaved text kept in the browser", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  await newNote(page, `Recover logout ${Date.now()}`);
+  const noteUrl = page.url();
+  const kept = () => page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("coreex:unsaved:")).length);
+  page.on("dialog", (dialog) => void dialog.accept());
+
+  await blockSaves(page);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(" never saved");
+  await expect(page.getByRole("alert").filter({ hasText: "Cannot reach the CoreEx API" })).toBeVisible();
+  expect(await kept()).toBe(1);
+
+  // Log out is a server action too, so the API must answer again for it. No save is retried by itself.
+  await page.unroute("**/notes/**");
+  await page.getByRole("button", { name: /^Account/ }).click();
+  await page.getByRole("menuitem", { name: "Log out" }).click();
+  await expect(page).toHaveURL(/\/login/);
+  expect(await kept()).toBe(0);
+
+  // Tidy up.
+  await signIn(page);
+  await page.goto(noteUrl);
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
 test("unsaved text for a Note that changed meanwhile comes back in conflict", async ({ page }) => {
   test.slow();
   await signIn(page);

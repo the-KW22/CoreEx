@@ -59,16 +59,22 @@ function parse(raw: string | null): Unsaved | null {
 }
 
 // The newest entry for the Note, taken out of the store along with the older ones (the text it holds supersedes
-// them) and anything past seven days. The caller stores it again under its own tab once it has put it on screen.
+// them). Entries of any Note past seven days go too, so a Note never opened again does not keep its text forever.
+// The caller stores the entry again under its own tab once it has put it on screen.
 export function takeNewestUnsaved(noteId: string, now: number, store: Store | null = browserStore()): Unsaved | null {
   return safely(null, () => {
     if (!store) return null;
     const prefix = `${PREFIX}${noteId}:`;
-    const keys = Array.from({ length: store.length }, (_, i) => store.key(i)).filter((k) => k?.startsWith(prefix));
+    const keys = Array.from({ length: store.length }, (_, i) => store.key(i)).filter((k) => k?.startsWith(PREFIX));
     let newest: Unsaved | null = null;
     for (const key of keys) {
       const entry = parse(store.getItem(key!));
-      if (entry && now - entry.storedAt <= MAX_AGE_MS && (!newest || entry.storedAt > newest.storedAt)) newest = entry;
+      const fresh = !!entry && now - entry.storedAt <= MAX_AGE_MS;
+      if (!key!.startsWith(prefix)) {
+        if (!fresh) store.removeItem(key!);
+        continue;
+      }
+      if (fresh && (!newest || entry.storedAt > newest.storedAt)) newest = entry;
       store.removeItem(key!);
     }
     return newest;
