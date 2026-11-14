@@ -6,6 +6,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState, type StateCommand } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { FileTextIcon, ImageIcon, MinimizeIcon, TriangleAlertIcon } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -16,7 +17,7 @@ import {
   deleteNote,
   linkPreview,
   type LoadedNote,
-  loadNote,
+  keepCopyAndLoad,
   resolveLinks,
   restoreVersion,
   saveNote,
@@ -24,6 +25,7 @@ import {
 } from "../actions";
 import { smallestEdit } from "./edit";
 import { activeFormats, toggleInline } from "./format";
+import { copyOf } from "./conflict";
 import { restoreBlocker } from "./history";
 import { NoteHistory } from "./note-history";
 import { type LinkTarget, linkCompletion, linkField, linkIds, setLinks } from "./links";
@@ -89,6 +91,10 @@ export function NoteEditor({
   const [title, setTitle] = useState(initial.title);
   const [status, setStatus] = useState<Status>("saved");
   const [message, setMessage] = useState("");
+  // "Load theirs" in progress, why it failed, and the copy of the User's text it made.
+  const [copyBusy, setCopyBusy] = useState(false);
+  const [copyError, setCopyError] = useState("");
+  const [kept, setKept] = useState<{ id: string; title: string; tagsCopied: boolean } | null>(null);
   const [savedAt, setSavedAt] = useState(initial.updatedAt);
   // The Access token behind the latest change, or null when it was this User; their own save always clears it.
   const [editedBy, setEditedBy] = useState(initial.editedBy);
@@ -337,14 +343,19 @@ export function NoteEditor({
     return () => window.removeEventListener("scroll", hide, { capture: true });
   }, [preview]);
 
-  async function reload() {
-    const theirs = await loadNote(id);
-    if (!theirs) {
-      setMessage("Could not load the latest version.");
-      setStatus("error");
+  // "Load theirs": the text typed here is first kept as a "(mine)" Note beside this one. If that fails, nothing is
+  // loaded and the conflict stays, so nothing typed is lost.
+  async function loadTheirs() {
+    setCopyBusy(true);
+    setCopyError("");
+    const result = await keepCopyAndLoad(id, copyOf(latest.current)).catch(() => null);
+    setCopyBusy(false);
+    if (result?.status !== "loaded") {
+      setCopyError(result?.message ?? "Cannot reach the CoreEx API, so nothing was changed.");
       return;
     }
-    show(theirs);
+    show(result.note);
+    setKept({ ...result.copy, tagsCopied: result.tagsCopied });
   }
 
   // Puts a stored Note in the editor in place of what it holds, and treats it as saved.
@@ -479,17 +490,36 @@ export function NoteEditor({
               <p className="flex items-start gap-2 text-sm">
                 <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-destructive" />
                 This Note was changed somewhere else since you opened it. Keep your version, or load the other one?
+                Loading the other one keeps your text as a new Note first.
               </p>
+              {copyError && <p className="text-sm">{copyError}</p>}
               <div className="flex flex-wrap gap-2">
-                <Button type="button" size="sm" onClick={() => void flush(true)}>
+                <Button type="button" size="sm" disabled={copyBusy} onClick={() => void flush(true)}>
                   Keep mine
                 </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => void reload()}>
+                <Button type="button" size="sm" variant="outline" disabled={copyBusy} onClick={() => void loadTheirs()}>
                   Load theirs
                 </Button>
               </div>
             </div>
           )}
+          {/* Always here: a live region is only announced when it already exists. */}
+          <div role="status" className="text-sm">
+            {kept && (
+              <p className="flex flex-wrap items-center gap-x-2 rounded-[10px] border border-border bg-surface p-3">
+                <span>
+                  Your text is kept in{" "}
+                  <Link href={`/notes/${kept.id}`} className="font-medium underline underline-offset-2">
+                    {kept.title}
+                  </Link>
+                  .{kept.tagsCopied ? "" : " Its Tags could not be copied."}
+                </span>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setKept(null)}>
+                  Dismiss
+                </Button>
+              </p>
+            )}
+          </div>
           {status === "error" && (
             <div
               role="alert"

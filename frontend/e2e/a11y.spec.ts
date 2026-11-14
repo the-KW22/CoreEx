@@ -813,6 +813,58 @@ test("History keeps the text a save replaced, previews it, and restores it", asy
   await expect(page).toHaveURL(/\/items$/);
 });
 
+test("Load theirs keeps your text as a (mine) Note in the same Folder with the same Tags", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  const stamp = Date.now();
+  const title = `Conflict ${stamp}`;
+  const tagName = `kept-${stamp}`;
+  const folderName = `Conflict folder ${stamp}`;
+  await page.goto("/items");
+  await page.getByRole("button", { name: "New Folder" }).click();
+  await page.getByLabel("Folder name").fill(folderName);
+  await page.getByRole("button", { name: "Create Folder" }).click();
+  await noteWithTag(page, title, tagName);
+  await chooseFolder(page, page.getByRole("complementary", { name: "Details" }), "Folder", folderName);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: folderName })).toBeVisible();
+  const original = page.url();
+
+  // The Note is changed in another tab, so the next save from this one is a conflict.
+  const other = await page.context().newPage();
+  await other.goto(original);
+  await other.getByRole("textbox", { name: "Note content" }).click();
+  await other.keyboard.press("Control+End");
+  await other.keyboard.type(" from elsewhere");
+  await expectSaved(other);
+  await other.close();
+
+  const editor = page.getByRole("textbox", { name: "Note content" });
+  await editor.click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(" my unsaved words");
+  await expect(page.getByRole("alert").filter({ hasText: "changed somewhere else" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Load theirs" }).click();
+  await expect(editor).toContainText("from elsewhere");
+  await expect(editor).not.toContainText("my unsaved words");
+  const kept = page.getByRole("status").getByRole("link", { name: `${title} (mine)` });
+  await expect(kept).toBeVisible();
+
+  // The copy holds the typed text, in the same Folder, with the same Tag.
+  await kept.click();
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(`${title} (mine)`);
+  await expect(page.getByRole("textbox", { name: "Note content" })).toContainText("my unsaved words");
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: folderName })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Tags" }).getByRole("link", { name: tagName })).toBeVisible();
+
+  // Tidy up.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+  await page.goto(original);
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
 test("the Users table shows you without Disable or Remove, and Overview has its chart", async ({ page }) => {
   await signIn(page);
   await page.goto("/admin/users");
