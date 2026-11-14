@@ -26,11 +26,11 @@ The agreed design for the frontend redesign. It records **what** the UI looks li
 | Position | Entry | Who |
 |---|---|---|
 | Top | CoreEx logo, collapse button | All |
-| Modules | **Home**, **Knowledge Base**, **Assets**, **Graph** | All |
+| Modules | **Home**, **Knowledge Base**, **Assets**, **Graph**, **Career** | All |
 | Divider, then | **Quick find** (Ctrl K, desktop rail only), **Search**, **Trash**, **Admin** | Admin only for Admin |
 | Bottom | Theme toggle, **Account** menu (email, Access tokens, Connect an Agent, Log out) | All |
 
-- Planned modules (**Career**, then Integrations) are **not shown** until they exist. Career's entry goes after Graph once its first screen ships (section 3.4).
+- Planned modules (Integrations) are **not shown** until they exist. **Career** is shown after Graph (section 3.4).
 - **Expanded by default:** every entry shows its icon and label side by side (14rem wide).
 - **Resizing:** dragging the rail's right edge changes its width between 12rem and 20rem; the edge shows a `col-resize` cursor and a thin Link-coloured line on hover. The edge is a focusable separator: the arrow keys change the width by 1rem, Home and End go to the limits, and Enter collapses or expands.
 - **Collapsing:** to icons only (4rem), with the icon button beside the logo (Tooltip "Collapse sidebar" or "Expand sidebar") or Ctrl+\ from anywhere. Not Ctrl+B, which is bold in the Note editor. Dragged below the minimum, the rail waits at 12rem until the pointer passes the halfway point to 4rem, then snaps shut. It opens again at the width it had before that drag, by the button, the keyboard or dragging out.
@@ -62,12 +62,12 @@ The panel belongs to the Knowledge Base module: it shows only on Knowledge Base 
 | `/help/mcp` | The MCP guide (from the Account menu and the Access tokens page; no panel beside it) |
 | `/login`, `/reset-password`, `/invite-only`, `/disabled`, 404, error | Sign-in and system pages |
 
-### 3.4 Career module (planned)
+### 3.4 Career module (being built)
 
-Agreed 2026-11-14 ([ADR 0010](adr/0010-career-items-are-applications-resumes-and-cover-letters.md), decision records in `docs/career/`). Not built yet; each screen is designed in its own ticket and recorded here when it lands.
+Agreed 2026-11-14 ([ADR 0010](adr/0010-career-items-are-applications-resumes-and-cover-letters.md), decision records in `docs/career/`). The rail entry, the panel and the Applications list are built (#228); each other screen is designed in its own ticket and recorded here when it lands.
 
 - **One rail entry, "Career"**, after Graph. Applications, Resumes and Cover Letters are Items, so they also show in All Items, Folders, Tags, Search and the Graph, and open their Career page from there.
-- **A Career panel beside the rail**, like the Knowledge Base panel, shown only on Career routes: **Today**, **Applications**, **Resumes & Letters**, **Knowledge** (Facts, Stories, Preferences), **Offers**.
+- **A Career panel beside the rail**, like the Knowledge Base panel (the same width, and in a Sheet below 1280px, opened by the rail's "Panel" button), shown only on Career routes: **Today**, **Applications**, **Resumes & Letters**, **Knowledge** (Facts, Stories, Preferences), **Offers**. Only entries whose screen exists are shown: for now just **Applications**.
 - **Applications** has four views: List (grouped by Stage, sorted by Next step), Board (drag between Stages, with Undo), Calendar (interviews) and Insights. One Application opens its details and its workspace tabs: Fit, Apply, Interview prep, Practice, Debrief, Messages (where Application emails live), Library.
 - **The Resume and Cover Letter editor** uses the full width with the panel hidden: a form panel beside a real-size page preview, with Write, Design and Check modes (Cover Letters: Write and Design), and the same save status as the Note editor.
 - Every AI button carries its one-line "Sends: …" disclosure ([ADR 0013](adr/0013-career-ai-works-only-from-the-users-evidence.md)).
@@ -197,11 +197,18 @@ The same tokens are used by CSS, Motion and View Transitions. They are defined o
 
 ### 6.4a Application (`/career/applications/[id]`)
 
-The first Career screen (#227); the rail entry, panel and views come in later tickets, so for now **New Application** (a Dialog: company, role, the pasted posting) sits beside New Note on Home and on the Items pages.
+A Career screen (#227), opened from the Applications list below.
 
 - A single column: the title, then a **Stage stepper** (six buttons, the current one filled and `aria-current="step"`), the fields (title, company, role, location, posting link, posting) with one **Save**, and the **Timeline**, one line per move with its date.
 - No Details panel, Folder, Tags or Trash yet: they come with #239.
 - A save from an old version, or a move made meanwhile elsewhere, shows the conflict message and asks for a reload.
+
+### 6.4b Applications (`/career/applications`)
+
+- Header with the title and **New Application**, a Dialog (company, role, the pasted posting) that lands on the new Application's page. `/career` redirects here.
+- The User's Applications, newest first, as rows: the title, then the Stage and when it was last updated. Each row opens the Application. Paged like the Items list.
+- Empty: "No Applications yet. Add the first job you are interested in."
+- Grouping by Stage, Next step, the Board, Calendar and Insights come in later tickets.
 
 ### 6.5 Uploading
 

@@ -2376,7 +2376,7 @@ test("the Graph goes full screen, refits, and the button returns", async ({ page
 test("an Application is made from a pasted posting, renamed, and moved through its Stages", async ({ page }) => {
   await signIn(page);
   const stamp = Date.now();
-  await page.goto("/");
+  await page.goto("/career/applications");
   await page.getByRole("button", { name: "New Application" }).click();
   await expectNoViolations(page);
   await page.keyboard.press("Escape");
@@ -2404,4 +2404,31 @@ test("an Application is made from a pasted posting, renamed, and moved through i
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByLabel("Company")).toHaveValue(`Gamma ${stamp}`);
   await expect(page.getByRole("heading", { name: `My pick ${stamp}`, level: 1 })).toBeVisible();
+});
+
+test("Career opens from the rail with its panel and the Applications list, and New Application lands on the new page", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  await page.goto("/items");
+
+  // The rail entry opens Career, which lands on Applications, and the entry shows as the current page.
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Career" }).click();
+  await expect(page).toHaveURL(/\/career\/applications$/);
+  await expect(page.getByRole("heading", { name: "Applications", level: 1 })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Career" })).toHaveAttribute("aria-current", "page");
+  const panel = page.getByRole("navigation", { name: "Career" });
+  await expect(panel.getByRole("link", { name: "Applications" })).toHaveAttribute("aria-current", "page");
+  // Only Applications is live; the rest of the design's entries wait for their epics.
+  await expect(panel.getByRole("link")).toHaveCount(1);
+  await expectNoViolations(page);
+
+  // A new Application lands on its page, keeps the Career panel, and is listed when you go back.
+  await newApplication(page, `List ${stamp}`, "Designer");
+  await expect(page.getByRole("navigation", { name: "Career" })).toBeVisible();
+  await page.getByRole("navigation", { name: "Career" }).getByRole("link", { name: "Applications" }).click();
+  await expect(page.getByRole("link", { name: new RegExp(`^Designer at List ${stamp}`) })).toBeVisible();
+
+  // Other modules do not get the panel.
+  await page.goto("/trash");
+  await expect(page.getByRole("navigation", { name: "Career" })).toHaveCount(0);
 });

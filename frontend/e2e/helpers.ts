@@ -79,9 +79,9 @@ export async function newNote(page: Page, title: string) {
   await expectSaved(page);
 }
 
-// An Application made from the home page's New Application dialog; leaves you on its page.
+// An Application made from the Applications list's New Application dialog; leaves you on its page.
 export async function newApplication(page: Page, company: string, role: string) {
-  await page.goto("/");
+  await page.goto("/career/applications");
   await page.getByRole("button", { name: "New Application" }).click();
   const dialog = page.getByRole("dialog", { name: "New Application" });
   await dialog.getByLabel("Company").fill(company);

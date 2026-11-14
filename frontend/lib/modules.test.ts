@@ -30,6 +30,12 @@ describe("activeModule", () => {
     expect(activeModule("/graph")).toBe("graph");
   });
 
+  it("marks Career on its pages and every Application, so they have their own panel", () => {
+    for (const path of ["/career", "/career/applications", "/career/applications/1"]) {
+      expect(activeModule(path)).toBe("career");
+    }
+  });
+
   it("marks the Knowledge Base on every Item, Folder, Tag and Search page", () => {
     for (const path of ["/items", "/folders/1", "/tags", "/tags/1", "/notes/1", "/search"]) {
       expect(activeModule(path)).toBe("kb");

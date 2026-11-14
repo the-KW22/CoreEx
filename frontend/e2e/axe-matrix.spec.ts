@@ -167,6 +167,7 @@ for (const colorScheme of ["dark", "light"] as const) {
         await screen(page, failures, "note", seed.note, async () => {
           await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(noteA);
         });
+        await screen(page, failures, "applications", "/career/applications", heading("Applications"));
         await screen(page, failures, "application", seed.application, async () => {
           await expect(page.getByRole("heading", { name: `Engineer at Matrix ${word}`, level: 1 })).toBeVisible();
         });
@@ -331,6 +332,11 @@ for (const colorScheme of ["dark", "light"] as const) {
           await page.getByRole("button", { name: "Show the Knowledge Base panel" }).click();
           await expect(page.getByRole("dialog", { name: "Knowledge Base" })).toBeVisible();
           await scan(page, failures, "tablet panel");
+          await page.keyboard.press("Escape");
+          await page.goto("/career/applications");
+          await page.getByRole("button", { name: "Show the Career panel" }).click();
+          await expect(page.getByRole("dialog", { name: "Career" })).toBeVisible();
+          await scan(page, failures, "tablet career panel");
         }
 
         await context.close();

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BriefcaseBusinessIcon,
   CommandIcon,
   FilesIcon,
   HouseIcon,
@@ -50,6 +51,7 @@ const MODULES: { id: Module; href: string; label: string; icon: typeof HouseIcon
   { id: "kb", href: "/items", label: "Knowledge Base", icon: LibraryIcon },
   { id: "assets", href: "/assets", label: "Assets", icon: FilesIcon },
   { id: "graph", href: "/graph", label: "Graph", icon: WaypointsIcon },
+  { id: "career", href: "/career", label: "Career", icon: BriefcaseBusinessIcon },
 ];
 
 // A Tooltip only when the label is not already on screen.
@@ -131,8 +133,8 @@ function RailHandle({ rail, onChange }: { rail: RailState; onChange: (next: Rail
 
 // The module rail: every module of CoreEx, then the account. Labels show beside the icons unless the User collapsed the
 // rail. `saved` is the width and state remembered in the `rail` cookie; leave it out where the rail cannot resize or
-// collapse (the phone menu). `onShowPanel` adds the button that opens the Knowledge Base panel on screens too narrow to
-// show it beside the rail.
+// collapse (the phone menu). `onShowPanel` adds the button that opens the Knowledge Base or Career panel on screens too
+// narrow to show it beside the rail.
 export function Rail({
   email,
   isAdmin,
@@ -146,6 +148,7 @@ export function Rail({
 }) {
   const pathname = usePathname();
   const active = activeModule(pathname);
+  const panelName = active === "career" ? "Career" : "Knowledge Base";
   // Search is a page of the Knowledge Base module, but it has its own entry, so only that entry shows as current.
   const onSearch = pathname === "/search";
   const [rail, setRail] = useState(saved);
@@ -198,13 +201,13 @@ export function Rail({
       {MODULES.map((m) => (
         <RailLink key={m.id} {...m} current={active === m.id && !onSearch} collapsed={collapsed} />
       ))}
-      {/* Only the Knowledge Base has a panel to open. */}
-      {onShowPanel && active === "kb" && (
-        <Hint label="Show the Knowledge Base panel" show={collapsed}>
+      {/* Only the Knowledge Base and Career have a panel to open. */}
+      {onShowPanel && (active === "kb" || active === "career") && (
+        <Hint label={`Show the ${panelName} panel`} show={collapsed}>
           <button
             type="button"
             onClick={(e) => onShowPanel(e.currentTarget)}
-            aria-label="Show the Knowledge Base panel"
+            aria-label={`Show the ${panelName} panel`}
             className={cn(entry(collapsed), "xl:hidden")}
           >
             <PanelLeftIcon aria-hidden />
