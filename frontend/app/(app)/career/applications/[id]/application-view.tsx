@@ -8,6 +8,7 @@ import type { components } from "@/lib/api/schema";
 import { closeReasonLabel, CLOSE_REASONS, formatDay, STAGES, type CloseReason, type Stage } from "@/lib/applications";
 
 import { moveApplicationStage, saveApplication, type SaveResult } from "../actions";
+import { Interviews } from "./interviews";
 import { Timeline } from "./timeline";
 
 type Application = components["schemas"]["ApplicationResponse"];
@@ -177,6 +178,8 @@ export function ApplicationView({ initial }: { initial: Application }) {
           </Button>
         </div>
       </form>
+
+      <Interviews application={application} run={run} pending={pending} />
 
       <Timeline application={application} run={run} pending={pending} />
     </div>

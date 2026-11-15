@@ -2446,6 +2446,46 @@ test("an Application closes with a reason, takes notes, and a follow-up is back-
   await expect(page.getByRole("button", { name: /^Delete: .* Moved to/ })).toHaveCount(0);
 });
 
+test.describe("a User away from UTC", () => {
+  test.use({ timezoneId: "America/Los_Angeles" });
+
+  test("an Application takes an interview at the time typed, and one follow-up reminder", async ({ page }) => {
+    await signIn(page);
+    const stamp = Date.now();
+    await newApplication(page, `Echo ${stamp}`, "Tester");
+    await expect(page.locator("#posting-text")).toBeVisible();
+
+    // The time typed comes back as typed, though it is stored as an instant on the next UTC day.
+    await page.getByRole("button", { name: "Add interview" }).click();
+    await page.getByLabel("Interview time").fill("2030-03-05T17:30");
+    await page.getByLabel("Type").selectOption("VIDEO");
+    await page.getByLabel("Interview notes").fill("With the team");
+    await expectNoViolations(page);
+    await page.getByRole("button", { name: "Save interview" }).click();
+    await expect(page.getByText("Mar 5, 2030, 5:30 PM").first()).toBeVisible();
+    await expect(page.getByText("Interview (Video): With the team")).toBeVisible();
+
+    await page.getByRole("button", { name: /^Edit interview/ }).click();
+    await page.getByLabel("Interview time").fill("2030-03-06T09:00");
+    await page.getByRole("button", { name: "Save interview" }).click();
+    await expect(page.getByText("Mar 6, 2030, 9:00 AM").first()).toBeVisible();
+
+    // The reminder is set with a date alone, then a time, then cleared; "I followed up" would clear it too.
+    await page.getByLabel("Reminder date").fill("2030-03-10");
+    await page.getByRole("button", { name: "Set reminder" }).click();
+    await expect(page.getByText("Follow up on Mar 10, 2030 (09:00 unless you set a time).")).toBeVisible();
+    await page.getByLabel("Time", { exact: true }).fill("14:30");
+    await page.getByRole("button", { name: "Set reminder" }).click();
+    await expect(page.getByText("Follow up on Mar 10, 2030 at 14:30.")).toBeVisible();
+    await expectNoViolations(page);
+    await page.getByRole("button", { name: "I followed up" }).click();
+    await expect(page.getByText("No reminder set.")).toBeVisible();
+
+    await page.getByRole("button", { name: /^Remove interview/ }).click();
+    await expect(page.getByText("Interview (Video)")).toHaveCount(0);
+  });
+});
+
 test("Career opens from the rail with its panel and the Applications list, and New Application lands on the new page", async ({ page }) => {
   await signIn(page);
   const stamp = Date.now();
