@@ -3,6 +3,7 @@ package com.coreex.applications;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -422,23 +423,26 @@ class ApplicationApiTest extends ApiTest {
 	}
 
 	@Test
-	void theTimezoneTheBrowserSendsDecidesWhenADateOnlyReminderIsDue() throws Exception {
+	void theTimezoneTheBrowserSendsDecidesWhenAReminderIsDue() throws Exception {
 		var id = made("Acme");
 		move(userA, id, "APPLIED", 1);
-		var today = LocalDate.now(clock);
-		put("/api/applications/" + id + "/reminder", userA, "{\"on\":\"" + today + "\",\"version\":2}");
+		// Other tests move the shared test clock, so the day is chosen from it: 12:00 on this day is already past in
+		// Kiritimati (UTC+14) and still ahead in Pago Pago (UTC-11) whatever the time is now.
+		var day = LocalDate.ofInstant(clock.instant().plusSeconds(7200), ZoneOffset.UTC);
+		put("/api/applications/" + id + "/reminder", userA, "{\"on\":\"" + day + "\",\"time\":\"12:00\",\"version\":2}");
 
-		// The test clock says 10:00 UTC. 09:00 in Tokyo is 00:00 UTC, so due; 09:00 in Los Angeles is later, so not yet.
-		var tokyo = get("/api/applications/" + id, userA, "X-Timezone", "Asia/Tokyo").body();
-		assertThat(tokyo).contains("\"kind\":\"FOLLOW_UP_DUE\"").contains("\"due\":true");
-		var losAngeles = get("/api/applications/" + id, userA, "X-Timezone", "America/Los_Angeles").body();
-		assertThat(losAngeles).contains("\"kind\":\"WAITING\"");
-		assertThat(get("/api/applications?needsYou=true", userA, "X-Timezone", "America/Los_Angeles").body())
+		var early = get("/api/applications/" + id, userA, "X-Timezone", "Pacific/Kiritimati").body();
+		assertThat(early).contains("\"kind\":\"FOLLOW_UP_DUE\"").contains("\"due\":true");
+		var late = get("/api/applications/" + id, userA, "X-Timezone", "Pacific/Pago_Pago").body();
+		assertThat(late).contains("\"kind\":\"WAITING\"");
+		assertThat(get("/api/applications?needsYou=true", userA, "X-Timezone", "Pacific/Pago_Pago").body())
 				.contains("\"total\":0");
+		assertThat(get("/api/applications?needsYou=true", userA, "X-Timezone", "Pacific/Kiritimati").body())
+				.contains("\"total\":1");
 
-		// Missing or invalid means UTC, where 09:00 is already past.
-		assertThat(get("/api/applications/" + id, userA).body()).contains("\"kind\":\"FOLLOW_UP_DUE\"");
-		assertThat(get("/api/applications/" + id, userA, "X-Timezone", "Not/AZone").body()).contains("\"kind\":\"FOLLOW_UP_DUE\"");
+		// A missing or invalid zone is UTC.
+		assertThat(get("/api/applications/" + id, userA, "X-Timezone", "Not/AZone").body())
+				.isEqualTo(get("/api/applications/" + id, userA).body());
 	}
 
 	@Test
