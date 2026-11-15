@@ -141,15 +141,32 @@ public class ApplicationService {
 	@Transactional
 	public Application moveStage(UUID ownerId, UUID id, Stage stage, CloseReason closeReason, LocalDate date,
 			int seenVersion) {
-		if ((stage == Stage.CLOSED) != (closeReason != null)) {
-			throw invalid(stage == Stage.CLOSED ? "Say why it closed." : "A close reason only goes with Closed.");
-		}
+		checkMove(stage, closeReason, date);
 		var current = get(ownerId, id);
 		if (current.stage() == stage) {
 			return current;
 		}
 		return store(ownerId, id, seenVersion, stage, closeReason,
 				append(current.timeline(), "STAGE", stage, day(date), null, null));
+	}
+
+	/** The rules of a move that do not depend on the Application, so a bulk move can refuse them once. */
+	void checkMove(Stage stage, CloseReason closeReason, LocalDate date) {
+		if ((stage == Stage.CLOSED) != (closeReason != null)) {
+			throw invalid(stage == Stage.CLOSED ? "Say why it closed." : "A close reason only goes with Closed.");
+		}
+		day(date);
+	}
+
+	/**
+	 * Moves the Application to the Trash, where Restore brings it back with its timeline unchanged.
+	 * shortcut: the Trash page, delete forever and Folders for Applications are #239; they work on the Item row this sets.
+	 */
+	@Transactional
+	public void trash(UUID ownerId, UUID id) {
+		if (!applications.softDelete(ownerId, id, clock.instant())) {
+			throw notFound();
+		}
 	}
 
 	/** Adds a note, "I followed up" or "They replied", dated {@code date} or today. */

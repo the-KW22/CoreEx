@@ -135,6 +135,14 @@ class ApplicationRepository {
 		return true;
 	}
 
+	/** False when the Application is missing, not the User's or already in the Trash. */
+	boolean softDelete(UUID ownerId, UUID id, Instant at) {
+		return jdbc.sql("""
+				update items set deleted_at = :at, trash_batch_id = gen_random_uuid()
+				where id = :id and owner_id = :owner and type = 'APPLICATION' and deleted_at is null""")
+				.param("at", Timestamp.from(at)).param("id", id).param("owner", ownerId).update() > 0;
+	}
+
 	/** Bumps the Item's time, and sets its title when there is one. */
 	private void touch(UUID id, String title) {
 		jdbc.sql("update items set title = coalesce(:title, title), edited_by = null, updated_at = now() where id = :id")

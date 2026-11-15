@@ -2521,6 +2521,65 @@ test("the Applications list is grouped by Stage with a Needs you filter, and the
   await expect(page.getByRole("link", { name: new RegExp(`Planner at ${company}`) })).toContainText("Waiting");
 });
 
+test("several Applications are selected with a range and moved, tagged and trashed together", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const names = [1, 2, 3].map((n) => `Golf${n} ${stamp}`);
+  for (const company of names) await newApplication(page, company, "Dev");
+  await page.goto("/career/applications");
+  const box = (n: number) => page.getByRole("checkbox", { name: `Select Dev at ${names[n - 1]}` });
+  const bar = page.getByRole("region", { name: "Bulk actions" });
+
+  // A click, then Shift-click at the other end, selects everything between; the heading's box does the whole group.
+  await box(3).click();
+  await box(1).click({ modifiers: ["Shift"] });
+  await expect(box(2)).toBeChecked();
+  await expect(bar).toContainText(/\d+ selected/);
+  await expectNoViolations(page);
+  await bar.getByRole("button", { name: "Clear selection" }).click();
+  await expect(bar).toHaveCount(0);
+  await page.getByRole("checkbox", { name: "Select all in Saved" }).click();
+  await expect(box(1)).toBeChecked();
+  await bar.getByRole("button", { name: "Clear selection" }).click();
+
+  // Move three at once: each gets a timeline entry and they land under Applied, waiting.
+  for (const n of [1, 2, 3]) await box(n).click();
+  await bar.getByLabel("Move to").selectOption("APPLIED");
+  await bar.getByRole("button", { name: "Move", exact: true }).click();
+  await expect(page.getByText("Moved 3 Applications")).toBeVisible();
+  await expect(bar).toHaveCount(0);
+  await expect(page.getByRole("link", { name: new RegExp(`Dev at ${names[0]}`) })).toContainText("Waiting");
+
+  // Tag two, then take the Tag off again.
+  await box(1).click();
+  await box(2).click();
+  await bar.getByLabel("Tag", { exact: true }).fill(`bulk${stamp}`);
+  await bar.getByRole("button", { name: "Add Tag" }).click();
+  await expect(page.getByText("Tagged 2 Applications")).toBeVisible();
+  // Each action clears what it worked on, so the same two are picked again.
+  await box(1).click();
+  await box(2).click();
+  await bar.getByLabel("Remove").selectOption({ label: `bulk${stamp}` });
+  await bar.getByRole("button", { name: "Remove Tag" }).click();
+  await expect(page.getByText("Untagged 2 Applications")).toBeVisible();
+
+  // Closing asks for one reason for everyone selected.
+  await box(1).click();
+  await box(2).click();
+  await bar.getByLabel("Move to").selectOption("CLOSED");
+  await bar.getByLabel("Why did they close?").selectOption("WITHDREW");
+  await bar.getByRole("button", { name: "Move", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Closed", level: 2 })).toBeVisible();
+
+  // Trash one, then Undo from the toast.
+  await box(3).click();
+  await bar.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page.getByText("Moved 1 Application to the Trash")).toBeVisible();
+  await expect(box(3)).toHaveCount(0);
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(box(3)).toBeVisible();
+});
+
 test("Career opens from the rail with its panel and the Applications list, and New Application lands on the new page", async ({ page }) => {
   await signIn(page);
   const stamp = Date.now();
