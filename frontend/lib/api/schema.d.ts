@@ -132,6 +132,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/reminder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["setReminder"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/interviews/{seq}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["editInterview"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{id}/quota": {
         parameters: {
             query?: never;
@@ -446,6 +478,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["moveStage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/interviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addInterview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1085,6 +1133,16 @@ export interface components {
              * @description Where the no-reply clock starts: the later of the applied date and the last follow-up or reply. Empty until applied
              */
             noReplySince: string | null;
+            /**
+             * Format: date
+             * @description The follow-up reminder's day
+             */
+            reminderOn: string | null;
+            /**
+             * Format: time-local
+             * @description The reminder's time; empty means 09:00 in the User's timezone
+             */
+            reminderTime: string | null;
             timeline: components["schemas"]["TimelineEntryResponse"][];
             /** Format: int32 */
             version: number;
@@ -1096,7 +1154,7 @@ export interface components {
             updatedAt: string;
         };
         TimelineEntryResponse: {
-            /** @description STAGE, NOTE, FOLLOWED_UP or REPLIED */
+            /** @description STAGE, NOTE, FOLLOWED_UP, REPLIED or INTERVIEW */
             type: string;
             /**
              * @description The Stage moved to; only for STAGE
@@ -1113,8 +1171,10 @@ export interface components {
              * @description The order it was written in; names the entry in the edit and delete calls
              */
             seq: number;
-            /** @description The note; only for NOTE */
+            /** @description The note; only for NOTE. An interview's notes */
             text: string | null;
+            /** @description PHONE, VIDEO, ONSITE or OTHER; only for INTERVIEW, whose at is its exact start */
+            kind: string | null;
         };
         EditEntryRequest: {
             /** @description New note text; only for a NOTE. Empty keeps it */
@@ -1124,6 +1184,32 @@ export interface components {
              * @description A new day, never a future one. Empty keeps it
              */
             date?: string | null;
+            /** Format: int32 */
+            version: number;
+        };
+        ReminderRequest: {
+            /**
+             * Format: date
+             * @description The day to follow up. Empty clears the reminder
+             */
+            on?: string | null;
+            /**
+             * Format: time-local
+             * @description The time that day, in the User's timezone. Empty means 09:00. Needs a date
+             */
+            time?: string | null;
+            /** Format: int32 */
+            version: number;
+        };
+        InterviewRequest: {
+            /**
+             * Format: date-time
+             * @description The exact start. The page turns the User's local time into this, and back
+             */
+            startsAt: string;
+            /** @enum {string} */
+            kind: "PHONE" | "VIDEO" | "ONSITE" | "OTHER";
+            notes?: string | null;
             /** Format: int32 */
             version: number;
         };
@@ -2351,6 +2437,113 @@ export interface operations {
             };
         };
     };
+    setReminder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReminderRequest"];
+            };
+        };
+        responses: {
+            /** @description The Application with its reminder set, changed or cleared */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    editInterview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterviewRequest"];
+            };
+        };
+        responses: {
+            /** @description The Application with the interview changed. Remove an interview with the timeline entry delete */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     setQuota: {
         parameters: {
             query?: never;
@@ -3338,6 +3531,59 @@ export interface operations {
                 };
             };
             /** @description Code NOT_FOUND (also for another User's Application) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    addInterview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterviewRequest"];
+            };
+        };
+        responses: {
+            /** @description The Application with the new interview on its timeline */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND */
             404: {
                 headers: {
                     [name: string]: unknown;

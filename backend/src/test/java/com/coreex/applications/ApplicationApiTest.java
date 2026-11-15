@@ -298,4 +298,103 @@ class ApplicationApiTest extends ApiTest {
 		assertThat(delete("/api/applications/" + id + "/timeline/1?version=1", userB).statusCode()).isEqualTo(404);
 	}
 
+	private String newApplicationId() throws Exception {
+		return field(create(userA, "{\"company\":\"Acme\",\"role\":\"Engineer\"}"), "id");
+	}
+
+	@Test
+	void anInterviewKeepsItsExactStartForAUserInAnyTimezoneAndCanBeEditedAndRemoved() throws Exception {
+		var id = newApplicationId();
+
+		// 17:30 in Los Angeles (UTC-8) is 01:30 UTC the next day; the page sends the instant, so it comes back as sent.
+		var added = post("/api/applications/" + id + "/interviews", userA,
+				"{\"startsAt\":\"2026-11-21T01:30:00Z\",\"kind\":\"VIDEO\",\"notes\":\" With the team \",\"version\":1}");
+		assertThat(added.statusCode()).as(added.body()).isEqualTo(201);
+		assertThat(added.body()).contains("\"type\":\"INTERVIEW\"").contains("\"at\":\"2026-11-21T01:30:00Z\",\"seq\":2")
+				.contains("\"text\":\"With the team\",\"kind\":\"VIDEO\"");
+
+		var edited = put("/api/applications/" + id + "/interviews/2", userA,
+				"{\"startsAt\":\"2026-11-22T14:00:00Z\",\"kind\":\"ONSITE\",\"version\":2}");
+		assertThat(edited.statusCode()).as(edited.body()).isEqualTo(200);
+		assertThat(edited.body()).contains("\"at\":\"2026-11-22T14:00:00Z\",\"seq\":2,\"text\":\"\",\"kind\":\"ONSITE\"");
+
+		// The timeline's own edit is for notes and dates, not interviews.
+		assertThat(put("/api/applications/" + id + "/timeline/2", userA, "{\"text\":\"x\",\"version\":3}").statusCode())
+				.isEqualTo(400);
+		assertThat(put("/api/applications/" + id + "/interviews/1", userA,
+				"{\"startsAt\":\"2026-11-22T14:00:00Z\",\"kind\":\"PHONE\",\"version\":3}").statusCode()).isEqualTo(400);
+
+		var removed = delete("/api/applications/" + id + "/timeline/2?version=3", userA);
+		assertThat(removed.statusCode()).as(removed.body()).isEqualTo(200);
+		assertThat(removed.body()).doesNotContain("INTERVIEW");
+	}
+
+	@Test
+	void anInterviewNeedsAStartAndAKindAndDoesNotRestartTheNoReplyClock() throws Exception {
+		var id = newApplicationId();
+		assertThat(post("/api/applications/" + id + "/interviews", userA, "{\"kind\":\"PHONE\",\"version\":1}")
+				.statusCode()).isEqualTo(400);
+		assertThat(post("/api/applications/" + id + "/interviews", userA,
+				"{\"startsAt\":\"2026-11-21T01:30:00Z\",\"kind\":\"SEANCE\",\"version\":1}").statusCode()).isEqualTo(400);
+
+		var applied = post("/api/applications/" + id + "/stage", userA,
+				"{\"stage\":\"APPLIED\",\"date\":\"" + days(10) + "\",\"version\":1}").body();
+		var withInterview = post("/api/applications/" + id + "/interviews", userA,
+				"{\"startsAt\":\"2026-11-21T01:30:00Z\",\"kind\":\"PHONE\",\"version\":2}").body();
+
+		assertThat(field(withInterview, "noReplySince")).isEqualTo(field(applied, "noReplySince"));
+	}
+
+	@Test
+	void theReminderIsADateWithAnOptionalTimeAndCanBeChangedAndCleared() throws Exception {
+		var id = newApplicationId();
+		assertThat(field(get("/api/applications/" + id, userA).body(), "reminderOn")).isEqualTo("null");
+
+		var dated = put("/api/applications/" + id + "/reminder", userA, "{\"on\":\"2026-11-20\",\"version\":1}");
+		assertThat(dated.statusCode()).as(dated.body()).isEqualTo(200);
+		assertThat(field(dated.body(), "reminderOn")).isEqualTo("2026-11-20");
+		assertThat(field(dated.body(), "reminderTime")).isEqualTo("null");
+
+		var timed = put("/api/applications/" + id + "/reminder", userA,
+				"{\"on\":\"2026-11-21\",\"time\":\"14:30\",\"version\":2}");
+		assertThat(field(timed.body(), "reminderOn")).isEqualTo("2026-11-21");
+		assertThat(field(timed.body(), "reminderTime")).startsWith("14:30");
+
+		assertThat(put("/api/applications/" + id + "/reminder", userA, "{\"time\":\"14:30\",\"version\":3}").statusCode())
+				.isEqualTo(400);
+
+		var cleared = put("/api/applications/" + id + "/reminder", userA, "{\"version\":3}");
+		assertThat(cleared.statusCode()).as(cleared.body()).isEqualTo(200);
+		assertThat(field(cleared.body(), "reminderOn")).isEqualTo("null");
+		assertThat(field(cleared.body(), "reminderTime")).isEqualTo("null");
+	}
+
+	@Test
+	void iFollowedUpClearsTheReminderButAReplyOrNoteDoesNot() throws Exception {
+		var id = newApplicationId();
+		put("/api/applications/" + id + "/reminder", userA, "{\"on\":\"2026-11-20\",\"time\":\"10:00\",\"version\":1}");
+
+		var replied = entry(userA, id, "{\"type\":\"REPLIED\",\"version\":2}");
+		assertThat(field(replied, "reminderOn")).isEqualTo("2026-11-20");
+		var followed = entry(userA, id, "{\"type\":\"FOLLOWED_UP\",\"version\":3}");
+		assertThat(field(followed, "reminderOn")).isEqualTo("null");
+		assertThat(field(followed, "reminderTime")).isEqualTo("null");
+	}
+
+	@Test
+	void interviewAndReminderCallsAreScopedAndVersionChecked() throws Exception {
+		var id = newApplicationId();
+		var interview = "{\"startsAt\":\"2026-11-21T01:30:00Z\",\"kind\":\"PHONE\",\"version\":1}";
+
+		assertThat(post("/api/applications/" + id + "/interviews", userB, interview).statusCode()).isEqualTo(404);
+		assertThat(put("/api/applications/" + id + "/interviews/1", userB, interview).statusCode()).isEqualTo(404);
+		assertThat(put("/api/applications/" + id + "/reminder", userB, "{\"on\":\"2026-11-20\",\"version\":1}")
+				.statusCode()).isEqualTo(404);
+
+		put("/api/applications/" + id + "/reminder", userA, "{\"on\":\"2026-11-20\",\"version\":1}");
+		assertThat(put("/api/applications/" + id + "/reminder", userA, "{\"on\":\"2026-11-22\",\"version\":1}")
+				.statusCode()).isEqualTo(409);
+		assertThat(post("/api/applications/" + id + "/interviews", userA, interview).statusCode()).isEqualTo(409);
+	}
+
 }

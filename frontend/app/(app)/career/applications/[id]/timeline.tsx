@@ -4,8 +4,9 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/schema";
-import { formatDay, stageLabel } from "@/lib/applications";
+import { formatDay, formatLocal, interviewLabel, stageLabel } from "@/lib/applications";
 
+import { useHydrated } from "./interviews";
 import {
   addTimelineEntry,
   deleteTimelineEntry,
@@ -25,7 +26,9 @@ const describe = (entry: Entry) =>
       ? "I followed up"
       : entry.type === "REPLIED"
         ? "They replied"
-        : (entry.text ?? "");
+        : entry.type === "INTERVIEW"
+          ? `Interview (${interviewLabel(entry.kind)})${entry.text ? `: ${entry.text}` : ""}`
+          : (entry.text ?? "");
 
 // The timeline, oldest first by its date; entries on one day keep the order they were written in. `run` sends a
 // change through the page's one pending state and conflict handling.
@@ -38,6 +41,7 @@ export function Timeline({
   run: (call: () => Promise<SaveResult>) => void;
   pending: boolean;
 }) {
+  const hydrated = useHydrated();
   const [text, setText] = useState("");
   const [date, setDate] = useState("");
   const [editing, setEditing] = useState<number | null>(null);
@@ -77,8 +81,12 @@ export function Timeline({
               />
             ) : (
               <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="text-muted-foreground">{formatDay(entry.at)}</span>
+                <span className="text-muted-foreground">
+                  {entry.type === "INTERVIEW" ? (hydrated ? formatLocal(entry.at) : "") : formatDay(entry.at)}
+                </span>
                 <span className="whitespace-pre-wrap break-words">{describe(entry)}</span>
+                {/* An interview is changed or removed in the Interviews section above. */}
+                {entry.type !== "INTERVIEW" && (
                 <Button
                   type="button"
                   size="sm"
@@ -89,7 +97,8 @@ export function Timeline({
                 >
                   Edit
                 </Button>
-                {entry.type !== "STAGE" && (
+                )}
+                {entry.type !== "STAGE" && entry.type !== "INTERVIEW" && (
                   <Button
                     type="button"
                     size="sm"

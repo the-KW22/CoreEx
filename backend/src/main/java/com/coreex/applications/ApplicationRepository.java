@@ -2,6 +2,8 @@ package com.coreex.applications;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -27,7 +29,7 @@ class ApplicationRepository {
 
 	private static final String COLUMNS = """
 			select i.id, i.title, c.title_auto, c.company, c.role, c.location, c.posting_url, c.posting_text, c.stage,
-			c.close_reason, c.applied_on, c.timeline::text as timeline, c.version, i.folder_id, i.created_at, i.updated_at """;
+			c.close_reason, c.applied_on, c.reminder_on, c.reminder_time, c.timeline::text as timeline, c.version, i.folder_id, i.created_at, i.updated_at """;
 
 	private final JsonMapper json = JsonMapper.builder().build();
 
@@ -35,7 +37,7 @@ class ApplicationRepository {
 			rs.getString("title"), rs.getBoolean("title_auto"), rs.getString("company"), rs.getString("role"),
 			rs.getString("location"), rs.getString("posting_url"), rs.getString("posting_text"),
 			Stage.valueOf(rs.getString("stage")), closeReason(rs.getString("close_reason")), instant(rs.getObject("applied_on", OffsetDateTime.class)),
-			List.of(json.readValue(rs.getString("timeline"), TimelineEntry[].class)), rs.getInt("version"),
+			rs.getObject("reminder_on", LocalDate.class), rs.getObject("reminder_time", LocalTime.class), List.of(json.readValue(rs.getString("timeline"), TimelineEntry[].class)), rs.getInt("version"),
 			rs.getObject("folder_id", UUID.class), instant(rs.getObject("created_at", OffsetDateTime.class)),
 			instant(rs.getObject("updated_at", OffsetDateTime.class)));
 
@@ -102,17 +104,34 @@ class ApplicationRepository {
 
 	/** False when the Application is missing or its stored version is not the one the caller saw. */
 	boolean saveTimeline(UUID ownerId, UUID id, int seenVersion, Stage stage, CloseReason closeReason,
-			Instant appliedOn, List<TimelineEntry> timeline) {
+			Instant appliedOn, List<TimelineEntry> timeline, boolean clearReminder) {
 		var saved = jdbc.sql("""
 				update application_contents c set stage = :stage, close_reason = :reason, applied_on = :applied,
-				timeline = :timeline::jsonb, version = c.version + 1
+				timeline = :timeline::jsonb, version = c.version + 1,
+				reminder_on = case when :clear then null else c.reminder_on end,
+				reminder_time = case when :clear then null else c.reminder_time end
 				from items i
 				where c.item_id = i.id and i.id = :id and i.owner_id = :owner and i.type = 'APPLICATION'
 				  and i.deleted_at is null and c.version = :version""").param("stage", stage.name())
-				.param("reason", closeReason == null ? null : closeReason.name())
+				.param("clear", clearReminder).param("reason", closeReason == null ? null : closeReason.name())
 				.param("applied", appliedOn == null ? null : Timestamp.from(appliedOn))
 				.param("timeline", json.writeValueAsString(timeline)).param("id", id).param("owner", ownerId)
 				.param("version", seenVersion).update();
+		if (saved == 0) {
+			return false;
+		}
+		touch(id, null);
+		return true;
+	}
+
+	/** False when the Application is missing or its stored version is not the one the caller saw. */
+	boolean saveReminder(UUID ownerId, UUID id, int seenVersion, LocalDate on, LocalTime time) {
+		var saved = jdbc.sql("""
+				update application_contents c set reminder_on = :on, reminder_time = :time, version = c.version + 1
+				from items i
+				where c.item_id = i.id and i.id = :id and i.owner_id = :owner and i.type = 'APPLICATION'
+				  and i.deleted_at is null and c.version = :version""").param("on", on).param("time", time)
+				.param("id", id).param("owner", ownerId).param("version", seenVersion).update();
 		if (saved == 0) {
 			return false;
 		}

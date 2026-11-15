@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import type { components } from "@/lib/api/schema";
 import { getApi } from "@/lib/api/server";
-import type { CloseReason, Stage } from "@/lib/applications";
+import type { CloseReason, InterviewKind, Stage } from "@/lib/applications";
 
 type Application = components["schemas"]["ApplicationResponse"];
 
@@ -103,6 +103,34 @@ export async function editTimelineEntry(
       body: { ...change, date: change.date || undefined, version },
     }),
     "Could not change the timeline entry.",
+  );
+}
+
+export async function saveInterview(
+  id: string,
+  seq: number | null,
+  interview: { startsAt: string; kind: InterviewKind; notes: string },
+  version: number,
+): Promise<SaveResult> {
+  const api = await getApi();
+  const body = { ...interview, version };
+  return outcome(
+    seq === null
+      ? api.POST("/api/applications/{id}/interviews", { params: { path: { id } }, body })
+      : api.PUT("/api/applications/{id}/interviews/{seq}", { params: { path: { id, seq } }, body }),
+    "Could not save the interview.",
+  );
+}
+
+// No day clears the reminder.
+export async function saveReminder(id: string, on: string, time: string, version: number): Promise<SaveResult> {
+  const api = await getApi();
+  return outcome(
+    api.PUT("/api/applications/{id}/reminder", {
+      params: { path: { id } },
+      body: { on: on || undefined, time: on && time ? time : undefined, version },
+    }),
+    "Could not save the reminder.",
   );
 }
 

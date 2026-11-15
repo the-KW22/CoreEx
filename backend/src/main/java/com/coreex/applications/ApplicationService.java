@@ -3,6 +3,7 @@ package com.coreex.applications;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.coreex.applications.Application.CloseReason;
 import com.coreex.applications.Application.EntryType;
+import com.coreex.applications.Application.InterviewKind;
 import com.coreex.applications.Application.Stage;
 import com.coreex.applications.Application.TimelineEntry;
 import com.coreex.common.ApiException;
@@ -45,10 +47,10 @@ public class ApplicationService {
 
 	/** The timeline with one more entry, given the next write sequence. */
 	private static List<TimelineEntry> append(List<TimelineEntry> timeline, String type, Stage stage, Instant at,
-			String text) {
+			String text, String kind) {
 		var seq = timeline.stream().mapToInt(TimelineEntry::seq).max().orElse(0) + 1;
 		var entries = new ArrayList<>(timeline);
-		entries.add(new TimelineEntry(type, stage, at, seq, text));
+		entries.add(new TimelineEntry(type, stage, at, seq, text, kind));
 		return entries;
 	}
 
@@ -61,7 +63,13 @@ public class ApplicationService {
 	/** The one place a Stage, close reason and timeline are written together, so the applied date always follows. */
 	private Application store(UUID ownerId, UUID id, int seenVersion, Stage stage, CloseReason closeReason,
 			List<TimelineEntry> timeline) {
-		if (!applications.saveTimeline(ownerId, id, seenVersion, stage, closeReason, appliedOn(timeline), timeline)) {
+		return store(ownerId, id, seenVersion, stage, closeReason, timeline, false);
+	}
+
+	private Application store(UUID ownerId, UUID id, int seenVersion, Stage stage, CloseReason closeReason,
+			List<TimelineEntry> timeline, boolean clearReminder) {
+		if (!applications.saveTimeline(ownerId, id, seenVersion, stage, closeReason, appliedOn(timeline), timeline,
+				clearReminder)) {
 			throw conflict();
 		}
 		return get(ownerId, id);
@@ -76,7 +84,7 @@ public class ApplicationService {
 	public Application create(UUID ownerId, String company, String role, String location, String postingUrl,
 			String postingText) {
 		var id = applications.insert(ownerId, titleOf(role, company), company, role, location, postingUrl, postingText,
-				Stage.SAVED, null, append(List.of(), "STAGE", Stage.SAVED, day(null), null));
+				Stage.SAVED, null, append(List.of(), "STAGE", Stage.SAVED, day(null), null, null));
 		return get(ownerId, id);
 	}
 
@@ -120,7 +128,7 @@ public class ApplicationService {
 			return current;
 		}
 		return store(ownerId, id, seenVersion, stage, closeReason,
-				append(current.timeline(), "STAGE", stage, day(date), null));
+				append(current.timeline(), "STAGE", stage, day(date), null, null));
 	}
 
 	/** Adds a note, "I followed up" or "They replied", dated {@code date} or today. */
@@ -128,8 +136,9 @@ public class ApplicationService {
 	public Application addEntry(UUID ownerId, UUID id, EntryType type, String text, LocalDate date, int seenVersion) {
 		var current = get(ownerId, id);
 		var note = type == EntryType.NOTE ? requireText(text) : null;
+		// "I followed up" is the reminder done, so it clears the reminder.
 		return store(ownerId, id, seenVersion, current.stage(), current.closeReason(),
-				append(current.timeline(), type.name(), null, day(date), note));
+				append(current.timeline(), type.name(), null, day(date), note, null), type == EntryType.FOLLOWED_UP);
 	}
 
 	/** Re-dates an entry and, for a note, rewrites its text. A null date or text leaves that part as it was. */
@@ -137,13 +146,51 @@ public class ApplicationService {
 	public Application editEntry(UUID ownerId, UUID id, int seq, String text, LocalDate date, int seenVersion) {
 		var current = get(ownerId, id);
 		var old = entry(current, seq);
+		if (old.type().equals("INTERVIEW")) {
+			throw invalid("Change an interview through its own call.");
+		}
 		if (text != null && !old.type().equals("NOTE")) {
 			throw invalid("Only a note has text.");
 		}
 		var edited = new TimelineEntry(old.type(), old.stage(), date == null ? old.at() : day(date), seq,
-				text == null ? old.text() : requireText(text));
+				text == null ? old.text() : requireText(text), null);
 		return store(ownerId, id, seenVersion, current.stage(), current.closeReason(),
 				current.timeline().stream().map(e -> e.seq() == seq ? edited : e).toList());
+	}
+
+	/** Adds an interview: the exact start (any time, past or future), how it is held, and notes. */
+	@Transactional
+	public Application addInterview(UUID ownerId, UUID id, Instant startsAt, InterviewKind kind, String notes,
+			int seenVersion) {
+		var current = get(ownerId, id);
+		return store(ownerId, id, seenVersion, current.stage(), current.closeReason(),
+				append(current.timeline(), "INTERVIEW", null, startsAt, notes == null ? "" : notes.strip(), kind.name()));
+	}
+
+	/** Replaces an interview's start, kind and notes. */
+	@Transactional
+	public Application editInterview(UUID ownerId, UUID id, int seq, Instant startsAt, InterviewKind kind, String notes,
+			int seenVersion) {
+		var current = get(ownerId, id);
+		if (!entry(current, seq).type().equals("INTERVIEW")) {
+			throw invalid("That entry is not an interview.");
+		}
+		var edited = new TimelineEntry("INTERVIEW", null, startsAt, seq, notes == null ? "" : notes.strip(), kind.name());
+		return store(ownerId, id, seenVersion, current.stage(), current.closeReason(),
+				current.timeline().stream().map(e -> e.seq() == seq ? edited : e).toList());
+	}
+
+	/** Sets, changes or (with no date) clears the one follow-up reminder. A time needs a date. */
+	@Transactional
+	public Application setReminder(UUID ownerId, UUID id, LocalDate on, LocalTime time, int seenVersion) {
+		if (on == null && time != null) {
+			throw invalid("A reminder time needs a date.");
+		}
+		get(ownerId, id);
+		if (!applications.saveReminder(ownerId, id, seenVersion, on, time)) {
+			throw conflict();
+		}
+		return get(ownerId, id);
 	}
 
 	/** Deletes an entry. A Stage entry stays: it is the record of a move. */

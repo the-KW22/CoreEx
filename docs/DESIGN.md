@@ -202,6 +202,8 @@ A Career screen (#227), opened from the Applications list below.
 - A single column: the title, then a **Stage stepper** (six buttons, the current one filled and `aria-current="step"`), the fields (title, company, role, location, posting link, posting) with one **Save**, and the **Timeline** (#229).
 - Closing: the Closed button first asks "Why did it close?" (the five close reasons); the page then shows "Closed: <reason>". A **Moved on** date field (empty means today) back-dates a move.
 - Timeline: lines in date order, same-day lines in the order they were written. Each line has **Edit** (its date, and a note's text); notes, follow-ups and replies also have **Delete**, a Stage line does not. Below it, a note box with a date field and the buttons **Add note**, **I followed up** and **They replied**. A date cannot be in the future.
+- Interviews (#230): above the Timeline, a list with **Add interview** (time, type phone / video / onsite / other, notes), **Edit** and **Remove**. Times are drawn in the browser's timezone and stored as an exact instant; interviews show on the Timeline read-only. An interview counts as ended one hour after it starts.
+- Follow-up reminder: one per Application, a date and an optional time (date alone means 09:00 in the User's timezone), with **Set reminder** and **Clear reminder**. **I followed up** clears it.
 - No Details panel, Folder, Tags or Trash yet: they come with #239.
 - A save from an old version, or a move made meanwhile elsewhere, shows the conflict message and asks for a reload.
 

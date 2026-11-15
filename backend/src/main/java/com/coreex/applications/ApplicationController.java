@@ -2,6 +2,7 @@ package com.coreex.applications;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.coreex.applications.Application.CloseReason;
 import com.coreex.applications.Application.EntryType;
+import com.coreex.applications.Application.InterviewKind;
 import com.coreex.applications.Application.Stage;
 import com.coreex.common.ErrorBody;
 import com.coreex.identity.CurrentUserInterceptor;
@@ -92,17 +94,31 @@ class ApplicationController {
 			@NotNull Integer version) {
 	}
 
+	record InterviewRequest(
+			@NotNull @Schema(description = "The exact start. The page turns the User's local time into this, and back") Instant startsAt,
+			@NotNull InterviewKind kind,
+			@Size(max = MAX_NOTE) @Pattern(regexp = NO_NUL) @Schema(nullable = true) String notes,
+			@NotNull Integer version) {
+	}
+
+	record ReminderRequest(
+			@Schema(nullable = true, description = "The day to follow up. Empty clears the reminder") LocalDate on,
+			@Schema(nullable = true, description = "The time that day, in the User's timezone. Empty means 09:00. Needs a date") LocalTime time,
+			@NotNull Integer version) {
+	}
+
 	record EditEntryRequest(
 			@Size(max = MAX_NOTE) @Pattern(regexp = NO_NUL) @Schema(nullable = true, description = "New note text; only for a NOTE. Empty keeps it") String text,
 			@Schema(nullable = true, description = "A new day, never a future one. Empty keeps it") LocalDate date,
 			@NotNull Integer version) {
 	}
 
-	record TimelineEntryResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "STAGE, NOTE, FOLLOWED_UP or REPLIED") String type,
+	record TimelineEntryResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "STAGE, NOTE, FOLLOWED_UP, REPLIED or INTERVIEW") String type,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "The Stage moved to; only for STAGE") Stage stage,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The display date, at 12:00 UTC") Instant at,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The order it was written in; names the entry in the edit and delete calls") int seq,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "The note; only for NOTE") String text) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "The note; only for NOTE. An interview's notes") String text,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "PHONE, VIDEO, ONSITE or OTHER; only for INTERVIEW, whose at is its exact start") String kind) {
 	}
 
 	record ApplicationResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
@@ -118,6 +134,8 @@ class ApplicationController {
 					description = "When the Application first moved into Applied, at 12:00 UTC") Instant appliedOn,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
 					description = "Where the no-reply clock starts: the later of the applied date and the last follow-up or reply. Empty until applied") Instant noReplySince,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "The follow-up reminder's day") LocalDate reminderOn,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "The reminder's time; empty means 09:00 in the User's timezone") LocalTime reminderTime,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<TimelineEntryResponse> timeline,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int version,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID folderId,
@@ -127,7 +145,8 @@ class ApplicationController {
 		static ApplicationResponse of(Application a) {
 			return new ApplicationResponse(a.id(), a.title(), a.company(), a.role(), a.location(), a.postingUrl(),
 					a.postingText(), a.stage(), a.closeReason(), a.appliedOn(), a.noReplySince(),
-					a.timeline().stream().map(e -> new TimelineEntryResponse(e.type(), e.stage(), e.at(), e.seq(), e.text())).toList(),
+					a.reminderOn(), a.reminderTime(),
+					a.timeline().stream().map(e -> new TimelineEntryResponse(e.type(), e.stage(), e.at(), e.seq(), e.text(), e.kind())).toList(),
 					a.version(), a.folderId(), a.createdAt(), a.updatedAt());
 		}
 
@@ -250,6 +269,52 @@ class ApplicationController {
 	ApplicationResponse deleteEntry(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @PathVariable int seq, @RequestParam int version) {
 		return ApplicationResponse.of(applications.deleteEntry(user.id(), id, seq, version));
+	}
+
+	@PostMapping(value = "/{id}/interviews", consumes = JSON)
+	@ResponseStatus(HttpStatus.CREATED)
+	@ApiResponse(responseCode = "201", description = "The Application with the new interview on its timeline", content = @Content(
+			mediaType = JSON, schema = @Schema(implementation = ApplicationResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "409", description = "Code VERSION_CONFLICT", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	ApplicationResponse addInterview(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id, @Valid @RequestBody InterviewRequest request) {
+		return ApplicationResponse.of(applications.addInterview(user.id(), id, request.startsAt(), request.kind(),
+				request.notes(), request.version()));
+	}
+
+	@PutMapping(value = "/{id}/interviews/{seq}", consumes = JSON)
+	@ApiResponse(responseCode = "200", description = "The Application with the interview changed. Remove an interview with the timeline entry delete", content = @Content(
+			mediaType = JSON, schema = @Schema(implementation = ApplicationResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "409", description = "Code VERSION_CONFLICT", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	ApplicationResponse editInterview(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id, @PathVariable int seq, @Valid @RequestBody InterviewRequest request) {
+		return ApplicationResponse.of(applications.editInterview(user.id(), id, seq, request.startsAt(), request.kind(),
+				request.notes(), request.version()));
+	}
+
+	@PutMapping(value = "/{id}/reminder", consumes = JSON)
+	@ApiResponse(responseCode = "200", description = "The Application with its reminder set, changed or cleared", content = @Content(
+			mediaType = JSON, schema = @Schema(implementation = ApplicationResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "409", description = "Code VERSION_CONFLICT", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	ApplicationResponse setReminder(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id, @Valid @RequestBody ReminderRequest request) {
+		return ApplicationResponse.of(applications.setReminder(user.id(), id, request.on(), request.time(),
+				request.version()));
 	}
 
 	private static String orEmpty(String text) {
