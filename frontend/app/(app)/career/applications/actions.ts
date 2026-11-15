@@ -4,7 +4,10 @@ import { redirect } from "next/navigation";
 
 import type { components } from "@/lib/api/schema";
 import { getApi } from "@/lib/api/server";
+import { done } from "@/lib/refresh";
 import type { CloseReason, InterviewKind, Stage } from "@/lib/applications";
+
+import { restoreItem } from "../../items/actions";
 
 type Application = components["schemas"]["ApplicationResponse"];
 
@@ -140,4 +143,43 @@ export async function deleteTimelineEntry(id: string, seq: number, version: numb
     api.DELETE("/api/applications/{id}/timeline/{seq}", { params: { path: { id, seq }, query: { version } } }),
     "Could not delete the timeline entry.",
   );
+}
+
+// What a bulk action did: the Applications it worked on and the ones it did not, with why. Null when it could not run
+// at all (the API is down, or the request was refused).
+export type BulkOutcome = { done: string[]; failed: { id: string; code: string }[] } | null;
+
+function outcome_(result: { data?: { done: string[]; failed: { id: string; code: string }[] } } | null): BulkOutcome {
+  if (!result?.data) return null;
+  done(true);
+  return result.data;
+}
+
+export async function bulkMoveStage(ids: string[], stage: Stage, closeReason?: CloseReason): Promise<BulkOutcome> {
+  const api = await getApi();
+  return outcome_(await api.POST("/api/applications/bulk/stage", { body: { ids, stage, closeReason } }).catch(() => null));
+}
+
+export async function bulkAddTag(ids: string[], name: string): Promise<BulkOutcome> {
+  const api = await getApi();
+  return outcome_(await api.POST("/api/applications/bulk/tags/add", { body: { ids, name } }).catch(() => null));
+}
+
+export async function bulkRemoveTag(ids: string[], tagId: string): Promise<BulkOutcome> {
+  const api = await getApi();
+  return outcome_(await api.POST("/api/applications/bulk/tags/remove", { body: { ids, tagId } }).catch(() => null));
+}
+
+export async function bulkTrash(ids: string[]): Promise<BulkOutcome> {
+  const api = await getApi();
+  return outcome_(await api.POST("/api/applications/bulk/trash", { body: { ids } }).catch(() => null));
+}
+
+// Undo for a bulk Move to Trash: the Trash's own restore, one call per Application.
+export async function restoreApplications(ids: string[]): Promise<NonNullable<BulkOutcome>> {
+  const results = await Promise.all(ids.map(async (id) => ({ id, ok: await restoreItem(id) })));
+  return {
+    done: results.filter((r) => r.ok).map((r) => r.id),
+    failed: results.filter((r) => !r.ok).map((r) => ({ id: r.id, code: "NOT_FOUND" })),
+  };
 }

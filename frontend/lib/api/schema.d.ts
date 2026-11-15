@@ -500,6 +500,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/bulk/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["bulkTrash"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/bulk/tags/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["bulkRemoveTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/bulk/tags/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["bulkAddTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/bulk/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["bulkStage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{id}/enable": {
         parameters: {
             query?: never;
@@ -1436,6 +1500,45 @@ export interface components {
             date?: string | null;
             /** Format: int32 */
             version: number;
+        };
+        BulkIds: {
+            ids: string[];
+        };
+        BulkFailure: {
+            /** Format: uuid */
+            id: string;
+            /** @description NOT_FOUND (missing, in the Trash, or not the User's), VERSION_CONFLICT or INVALID_REQUEST */
+            code: string;
+        };
+        BulkResponse: {
+            /** @description The ones that worked */
+            done: string[];
+            /** @description The ones that did not, with why. The others are unaffected */
+            failed: components["schemas"]["BulkFailure"][];
+        };
+        BulkRemoveTagRequest: {
+            ids: string[];
+            /** Format: uuid */
+            tagId: string;
+        };
+        BulkAddTagRequest: {
+            ids: string[];
+            name: string;
+        };
+        BulkStageRequest: {
+            ids: string[];
+            /** @enum {string} */
+            stage: "SAVED" | "APPLIED" | "SCREENING" | "INTERVIEW" | "OFFER" | "CLOSED";
+            /**
+             * @description Required for Closed, refused for every other Stage
+             * @enum {string|null}
+             */
+            closeReason?: "ACCEPTED" | "NOT_SELECTED" | "WITHDREW" | "ACCEPTED_ANOTHER" | "NO_RESPONSE" | null;
+            /**
+             * Format: date
+             * @description The day it happened, never a future one. Empty means today
+             */
+            date?: string | null;
         };
         CreateInviteRequest: {
             /** Format: email */
@@ -3611,6 +3714,138 @@ export interface operations {
             };
             /** @description Code VERSION_CONFLICT */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    bulkTrash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkIds"];
+            };
+        };
+        responses: {
+            /** @description Each Application moved to the Trash (bring it back with the Trash restore call); the failures are listed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    bulkRemoveTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkRemoveTagRequest"];
+            };
+        };
+        responses: {
+            /** @description The Tag taken off each Application; the failures are listed. An unknown Tag is a 404 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    bulkAddTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkAddTagRequest"];
+            };
+        };
+        responses: {
+            /** @description The Tag put on each Application; the failures are listed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    bulkStage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkStageRequest"];
+            };
+        };
+        responses: {
+            /** @description Each Application moved through the transition rule, with a timeline entry; the failures are listed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

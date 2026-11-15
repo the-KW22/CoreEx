@@ -37,6 +37,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -60,6 +61,8 @@ class ApplicationController {
 	private static final int MAX_POSTING = 100_000;
 
 	private static final int MAX_NOTE = 5000;
+
+	private static final int MAX_BULK = 500;
 
 	// Postgres cannot store a NUL character in text.
 	private static final String NO_NUL = "[^\u0000]*";
@@ -95,6 +98,41 @@ class ApplicationController {
 			@Size(max = MAX_NOTE) @Pattern(regexp = NO_NUL) @Schema(nullable = true, description = "The note; required for NOTE, ignored otherwise") String text,
 			@Schema(nullable = true, description = "The day it happened, never a future one. Empty means today") LocalDate date,
 			@NotNull Integer version) {
+	}
+
+	record BulkIds(@NotEmpty @Size(max = MAX_BULK) List<@NotNull UUID> ids) {
+	}
+
+	record BulkStageRequest(@NotEmpty @Size(max = MAX_BULK) List<@NotNull UUID> ids, @NotNull Stage stage,
+			@Schema(nullable = true, description = "Required for Closed, refused for every other Stage") CloseReason closeReason,
+			@Schema(nullable = true, description = "The day it happened, never a future one. Empty means today") LocalDate date) {
+	}
+
+	record BulkAddTagRequest(@NotEmpty @Size(max = MAX_BULK) List<@NotNull UUID> ids,
+			@NotBlank @Size(max = 50) @Pattern(regexp = NO_NUL) String name) {
+
+		// Typed names often carry spaces; trim before validation, as the Item Tag call does.
+		BulkAddTagRequest {
+			name = name == null ? null : name.trim();
+		}
+
+	}
+
+	record BulkRemoveTagRequest(@NotEmpty @Size(max = MAX_BULK) List<@NotNull UUID> ids, @NotNull UUID tagId) {
+	}
+
+	record BulkFailure(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "NOT_FOUND (missing, in the Trash, or not the User's), VERSION_CONFLICT or INVALID_REQUEST") String code) {
+	}
+
+	record BulkResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The ones that worked") List<UUID> done,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The ones that did not, with why. The others are unaffected") List<BulkFailure> failed) {
+
+		static BulkResponse of(ApplicationBulkService.Result result) {
+			return new BulkResponse(result.done(),
+					result.failed().stream().map(f -> new BulkFailure(f.id(), f.code())).toList());
+		}
+
 	}
 
 	record InterviewRequest(
@@ -173,10 +211,13 @@ class ApplicationController {
 
 	private final ApplicationService applications;
 
+	private final ApplicationBulkService bulk;
+
 	private final HttpServletRequest request;
 
-	ApplicationController(ApplicationService applications, HttpServletRequest request) {
+	ApplicationController(ApplicationService applications, ApplicationBulkService bulk, HttpServletRequest request) {
 		this.applications = applications;
+		this.bulk = bulk;
 		this.request = request;
 	}
 
@@ -348,6 +389,46 @@ class ApplicationController {
 			@PathVariable UUID id, @Valid @RequestBody ReminderRequest request) {
 		return respond(applications.setReminder(user.id(), id, request.on(), request.time(),
 				request.version()));
+	}
+
+	@PostMapping(value = "/bulk/stage", consumes = JSON)
+	@ApiResponse(responseCode = "200", description = "Each Application moved through the transition rule, with a timeline entry; the failures are listed", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = BulkResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	BulkResponse bulkStage(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@Valid @RequestBody BulkStageRequest request) {
+		return BulkResponse.of(bulk.moveStage(user.id(), request.ids(), request.stage(), request.closeReason(), request.date()));
+	}
+
+	@PostMapping(value = "/bulk/tags/add", consumes = JSON)
+	@ApiResponse(responseCode = "200", description = "The Tag put on each Application; the failures are listed", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = BulkResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	BulkResponse bulkAddTag(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@Valid @RequestBody BulkAddTagRequest request) {
+		return BulkResponse.of(bulk.addTag(user.id(), request.ids(), request.name()));
+	}
+
+	@PostMapping(value = "/bulk/tags/remove", consumes = JSON)
+	@ApiResponse(responseCode = "200", description = "The Tag taken off each Application; the failures are listed. An unknown Tag is a 404", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = BulkResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	BulkResponse bulkRemoveTag(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@Valid @RequestBody BulkRemoveTagRequest request) {
+		return BulkResponse.of(bulk.removeTag(user.id(), request.ids(), request.tagId()));
+	}
+
+	@PostMapping(value = "/bulk/trash", consumes = JSON)
+	@ApiResponse(responseCode = "200", description = "Each Application moved to the Trash (bring it back with the Trash restore call); the failures are listed", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = BulkResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	BulkResponse bulkTrash(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@Valid @RequestBody BulkIds request) {
+		return BulkResponse.of(bulk.trash(user.id(), request.ids()));
 	}
 
 	private static String orEmpty(String text) {
