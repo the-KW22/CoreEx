@@ -137,16 +137,26 @@ public class ApplicationService {
 		return get(ownerId, id);
 	}
 
-	/** Moves to a Stage, dated {@code date} or today. Closed needs a close reason; no other Stage takes one. */
+	/**
+	 * Moves to a Stage, dated {@code date} or today. Closed needs a close reason; no other Stage takes one. The caller
+	 * names the version it saw, or the Stage it saw ({@code from}): a move from a Stage the Application has left is a
+	 * conflict, while an edit that left the Stage alone is not.
+	 */
 	@Transactional
 	public Application moveStage(UUID ownerId, UUID id, Stage stage, CloseReason closeReason, LocalDate date,
-			int seenVersion) {
+			Stage from, Integer seenVersion) {
 		checkMove(stage, closeReason, date);
+		if (from == null && seenVersion == null) {
+			throw invalid("Send the version or the Stage you saw.");
+		}
 		var current = get(ownerId, id);
+		if (from != null && current.stage() != from) {
+			throw conflict();
+		}
 		if (current.stage() == stage) {
 			return current;
 		}
-		return store(ownerId, id, seenVersion, stage, closeReason,
+		return store(ownerId, id, from != null ? current.version() : seenVersion, stage, closeReason,
 				append(current.timeline(), "STAGE", stage, day(date), null, null));
 	}
 

@@ -1498,8 +1498,16 @@ export interface components {
              * @description The day it happened, never a future one. Empty means today
              */
             date?: string | null;
-            /** Format: int32 */
-            version: number;
+            /**
+             * @description The Stage the client saw. A move from any other Stage is a 409, but an edit that left the Stage alone does not refuse it
+             * @enum {string|null}
+             */
+            fromStage?: "SAVED" | "APPLIED" | "SCREENING" | "INTERVIEW" | "OFFER" | "CLOSED" | null;
+            /**
+             * Format: int32
+             * @description The version the client saw. Send this or fromStage
+             */
+            version?: number | null;
         };
         BulkIds: {
             ids: string[];

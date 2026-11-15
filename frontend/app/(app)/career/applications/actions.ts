@@ -78,6 +78,29 @@ export async function moveApplicationStage(
   );
 }
 
+// The Board's move: it names the Stage the card was seen in, not a version, so a note added meanwhile does not refuse it
+// but a move made elsewhere does. The caller refreshes the page after either answer.
+export async function moveOnBoard(
+  id: string,
+  fromStage: Stage,
+  stage: Stage,
+  closeReason?: CloseReason,
+): Promise<"saved" | "conflict" | "error"> {
+  const api = await getApi();
+  const result = await api
+    .POST("/api/applications/{id}/stage", { params: { path: { id } }, body: { stage, fromStage, closeReason } })
+    .catch(() => null);
+  if (result?.data) {
+    done(true);
+    return "saved";
+  }
+  if (result?.response.status === 409) {
+    done(true);
+    return "conflict";
+  }
+  return "error";
+}
+
 export async function addTimelineEntry(
   id: string,
   entry: { type: "NOTE" | "FOLLOWED_UP" | "REPLIED"; text?: string; date?: string },
