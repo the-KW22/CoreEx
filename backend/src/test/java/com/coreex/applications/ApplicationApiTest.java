@@ -397,4 +397,60 @@ class ApplicationApiTest extends ApiTest {
 		assertThat(post("/api/applications/" + id + "/interviews", userA, interview).statusCode()).isEqualTo(409);
 	}
 
+	private String made(String company) throws Exception {
+		return field(create(userA, "{\"company\":\"" + company + "\",\"role\":\"Engineer\"}"), "id");
+	}
+
+	@Test
+	void theListIsGroupedByStageAndNeedsYouKeepsOnlyWhatIsDue() throws Exception {
+		var offer = made("Offer Co");
+		move(userA, offer, "OFFER", 1);
+		var applied = made("Applied Co");
+		move(userA, applied, "APPLIED", 1);
+		var saved = made("Saved Co");
+
+		var all = get("/api/applications", userA).body();
+		assertThat(all.indexOf(saved)).isPositive().isLessThan(all.indexOf(applied));
+		assertThat(all.indexOf(applied)).isLessThan(all.indexOf(offer));
+		assertThat(all).contains("\"total\":3").contains("\"nextStep\":{\"kind\":\"OFFER\",\"label\":\"Decide on the offer\"")
+				.contains("\"kind\":\"NOT_APPLIED\"").contains("\"kind\":\"WAITING\"");
+
+		// A job applied to a moment ago is just waiting, so Needs you leaves it out.
+		var needs = get("/api/applications?needsYou=true", userA).body();
+		assertThat(needs).contains(saved).contains(offer).doesNotContain(applied).contains("\"total\":2");
+		assertThat(get("/api/applications/" + applied, userA).body()).contains("\"kind\":\"WAITING\",\"label\":\"Waiting\",\"dueAt\":null,\"due\":false");
+	}
+
+	@Test
+	void theTimezoneTheBrowserSendsDecidesWhenADateOnlyReminderIsDue() throws Exception {
+		var id = made("Acme");
+		move(userA, id, "APPLIED", 1);
+		var today = LocalDate.now(clock);
+		put("/api/applications/" + id + "/reminder", userA, "{\"on\":\"" + today + "\",\"version\":2}");
+
+		// The test clock says 10:00 UTC. 09:00 in Tokyo is 00:00 UTC, so due; 09:00 in Los Angeles is later, so not yet.
+		var tokyo = get("/api/applications/" + id, userA, "X-Timezone", "Asia/Tokyo").body();
+		assertThat(tokyo).contains("\"kind\":\"FOLLOW_UP_DUE\"").contains("\"due\":true");
+		var losAngeles = get("/api/applications/" + id, userA, "X-Timezone", "America/Los_Angeles").body();
+		assertThat(losAngeles).contains("\"kind\":\"WAITING\"");
+		assertThat(get("/api/applications?needsYou=true", userA, "X-Timezone", "America/Los_Angeles").body())
+				.contains("\"total\":0");
+
+		// Missing or invalid means UTC, where 09:00 is already past.
+		assertThat(get("/api/applications/" + id, userA).body()).contains("\"kind\":\"FOLLOW_UP_DUE\"");
+		assertThat(get("/api/applications/" + id, userA, "X-Timezone", "Not/AZone").body()).contains("\"kind\":\"FOLLOW_UP_DUE\"");
+	}
+
+	@Test
+	void needsYouAndPagingCountWhatIsKept() throws Exception {
+		made("One");
+		made("Two");
+		made("Three");
+
+		var page = get("/api/applications?needsYou=true&size=2&page=1", userA).body();
+		assertThat(page).contains("\"total\":3");
+		assertThat(page.split("\"kind\":\"NOT_APPLIED\"", -1)).hasSize(2); // one item on the second page
+		assertThat(get("/api/applications?page=5", userA).body()).contains("\"items\":[]").contains("\"total\":3");
+	}
+
 }

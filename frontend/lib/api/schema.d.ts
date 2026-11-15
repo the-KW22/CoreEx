@@ -1143,6 +1143,8 @@ export interface components {
              * @description The reminder's time; empty means 09:00 in the User's timezone
              */
             reminderTime: string | null;
+            /** @description What this Application needs from the User now, in the timezone sent as X-Timezone */
+            nextStep: components["schemas"]["NextStepResponse"];
             timeline: components["schemas"]["TimelineEntryResponse"][];
             /** Format: int32 */
             version: number;
@@ -1152,6 +1154,19 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        NextStepResponse: {
+            /** @enum {string} */
+            kind: "CLOSED" | "OFFER" | "INTERVIEW_UPCOMING" | "INTERVIEW_FEEDBACK" | "FOLLOW_UP_DUE" | "NOT_APPLIED" | "NO_REPLY" | "WAITING";
+            /** @description Ready to show, with any time already in the User's timezone */
+            label: string;
+            /**
+             * Format: date-time
+             * @description When it became or becomes due; empty for Closed and Waiting
+             */
+            dueAt: string | null;
+            /** @description True when it needs the User now: what Needs you lists */
+            due: boolean;
         };
         TimelineEntryResponse: {
             /** @description STAGE, NOTE, FOLLOWED_UP, REPLIED or INTERVIEW */
@@ -3393,6 +3408,8 @@ export interface operations {
             query?: {
                 page?: number;
                 size?: number;
+                /** @description Only Applications whose Next step is due now */
+                needsYou?: boolean;
             };
             header?: never;
             path?: never;
@@ -3400,7 +3417,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description A page of Applications */
+            /** @description A page of Applications, grouped by Stage and sorted by Next step within each */
             200: {
                 headers: {
                     [name: string]: unknown;

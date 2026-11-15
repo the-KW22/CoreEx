@@ -99,7 +99,7 @@ Where an Application stands, one of a fixed six: Saved, Applied, Screening, Inte
 _Avoid_: Status, lane, column, step
 
 **Next step**:
-The one thing an Application needs from the User now, worked out from its Stage, interviews, follow-up reminder and how long it has been silent (an Applied Application with no reply for 10 days needs a follow-up). Today's "Needs you" is the Applications whose Next step is due.
+The one thing an Application needs from the User now, worked out from its Stage, interviews, follow-up reminder and how long it has been silent (an Applied Application with no reply for 10 days needs a follow-up). An upcoming interview is due from 24 hours before it starts. Today's "Needs you" is the Applications whose Next step is due.
 _Avoid_: Task, to-do, action item
 
 **Resume**:

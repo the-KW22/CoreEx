@@ -2469,6 +2469,8 @@ test.describe("a User away from UTC", () => {
     await page.getByLabel("Interview time").fill("2030-03-06T09:00");
     await page.getByRole("button", { name: "Save interview" }).click();
     await expect(page.getByText("Mar 6, 2030, 9:00 AM").first()).toBeVisible();
+    // The Next step names the interview in the User's timezone, which the browser told the server about.
+    await expect(page.getByText("Interview Mar 6, 09:00", { exact: true })).toBeVisible();
 
     // The reminder is set with a date alone, then a time, then cleared; "I followed up" would clear it too.
     await page.getByLabel("Reminder date").fill("2030-03-10");
@@ -2484,6 +2486,39 @@ test.describe("a User away from UTC", () => {
     await page.getByRole("button", { name: /^Remove interview/ }).click();
     await expect(page.getByText("Interview (Video)")).toHaveCount(0);
   });
+});
+
+test("the Applications list is grouped by Stage with a Needs you filter, and the page shows its Next step", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const company = `Foxtrot ${stamp}`;
+  await newApplication(page, company, "Planner");
+
+  // A new Application is Saved, so it needs applying; the page says so.
+  await expect(page.locator("#posting-text")).toBeVisible();
+  const card = page.getByRole("region", { name: "Next step" });
+  await expect(card).toContainText("Apply");
+  await expect(card).toContainText("Needs you now.");
+  await expectNoViolations(page);
+
+  await page.goto("/career/applications");
+  const row = page.getByRole("link", { name: new RegExp(`Planner at ${company}`) });
+  await expect(page.getByRole("heading", { name: "Saved", level: 2 })).toBeVisible();
+  await expect(row).toContainText("Needs you: Apply");
+  await page.getByRole("navigation", { name: "Show" }).getByRole("link", { name: "Needs you" }).click();
+  await expect(page).toHaveURL(/needs=1/);
+  await expect(page.getByRole("navigation", { name: "Show" }).getByRole("link", { name: "Needs you" })).toHaveAttribute("aria-current", "page");
+  await expect(row).toBeVisible();
+  await expectNoViolations(page);
+
+  // Applied a moment ago, it only waits, so Needs you drops it while All keeps it under Applied.
+  await row.click();
+  await page.getByRole("button", { name: "Applied", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Next step" })).toContainText("Waiting");
+  await page.goto("/career/applications?needs=1");
+  await expect(page.getByRole("link", { name: new RegExp(`Planner at ${company}`) })).toHaveCount(0);
+  await page.goto("/career/applications");
+  await expect(page.getByRole("link", { name: new RegExp(`Planner at ${company}`) })).toContainText("Waiting");
 });
 
 test("Career opens from the rail with its panel and the Applications list, and New Application lands on the new page", async ({ page }) => {

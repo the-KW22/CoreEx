@@ -75,13 +75,9 @@ class ApplicationRepository {
 				.optional();
 	}
 
-	List<Application> findPage(UUID ownerId, int limit, long offset) {
-		return jdbc.sql(COLUMNS + " " + FROM + " order by i.updated_at desc, i.id limit :limit offset :offset")
-				.param("owner", ownerId).param("limit", limit).param("offset", offset).query(mapper).list();
-	}
-
-	long count(UUID ownerId) {
-		return jdbc.sql("select count(*) " + FROM).param("owner", ownerId).query(Long.class).single();
+	List<Application> findAll(UUID ownerId) {
+		return jdbc.sql(COLUMNS + " " + FROM + " order by i.updated_at desc, i.id").param("owner", ownerId).query(mapper)
+				.list();
 	}
 
 	/** False when the Application is missing or its stored version is not the one the caller saw. */

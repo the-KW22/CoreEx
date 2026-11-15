@@ -210,9 +210,12 @@ A Career screen (#227), opened from the Applications list below.
 ### 6.4b Applications (`/career/applications`)
 
 - Header with the title and **New Application**, a Dialog (company, role, the pasted posting) that lands on the new Application's page. `/career` redirects here.
-- The User's Applications, newest first, as rows: the title, then the Stage and when it was last updated. Each row opens the Application. Paged like the Items list.
-- Empty: "No Applications yet. Add the first job you are interested in."
-- Grouping by Stage, Next step, the Board, Calendar and Insights come in later tickets.
+- A **Show** toggle of two links, **All** and **Needs you** (`?needs=1`, so it survives a reload and a shared link). Needs you keeps only Applications whose Next step is due now.
+- The User's Applications grouped by Stage, in Stage order, each group under a heading. Within a group they are sorted by Next step: those due now first, the earliest due first, then the rest. A row is the title, then the Next step (a due one reads "Needs you: ..." in the stronger colour) and when it was last updated. Each row opens the Application. Paged like the Items list.
+- Empty: "No Applications yet. Add the first job you are interested in." Empty under Needs you: "Nothing needs you right now."
+- The Application page starts with a **Next step** card: the label, and "Needs you now." when it is due.
+- Next step kinds, tried in this order: Closed; Offer ("Decide on the offer"); an upcoming interview ("Interview Mar 5, 17:30", due from 24 hours before it starts); interview feedback (an interview ended an hour after it started, with no later timeline entry); follow-up due (the reminder's moment has passed); not applied yet ("Apply"); no reply for 10 days since applied or the last follow-up; otherwise Waiting. Times in labels are in the User's timezone, which the browser reports in a `tz` cookie (UTC until it does).
+- The Board, Calendar and Insights come in later tickets.
 
 ### 6.5 Uploading
 

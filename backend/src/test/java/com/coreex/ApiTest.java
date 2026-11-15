@@ -32,6 +32,11 @@ public abstract class ApiTest {
 		return send("GET", path, token, null);
 	}
 
+	protected HttpResponse<String> get(String path, String token, String header, String value)
+			throws IOException, InterruptedException {
+		return send("GET", path, token, null, header, value);
+	}
+
 	protected HttpResponse<String> post(String path, String token, String json) throws IOException, InterruptedException {
 		return send("POST", path, token, json);
 	}
@@ -46,6 +51,11 @@ public abstract class ApiTest {
 
 	private HttpResponse<String> send(String method, String path, String token, String json)
 			throws IOException, InterruptedException {
+		return send(method, path, token, json, null, null);
+	}
+
+	private HttpResponse<String> send(String method, String path, String token, String json, String header,
+			String value) throws IOException, InterruptedException {
 		var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path)).method(method,
 				json == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(json));
 		if (json != null) {
@@ -53,6 +63,9 @@ public abstract class ApiTest {
 		}
 		if (token != null) {
 			request.header("Authorization", "Bearer " + token);
+		}
+		if (header != null) {
+			request.header(header, value);
 		}
 		return HttpClient.newHttpClient().send(request.build(), HttpResponse.BodyHandlers.ofString());
 	}
