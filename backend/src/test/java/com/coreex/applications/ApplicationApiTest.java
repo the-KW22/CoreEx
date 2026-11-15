@@ -3,6 +3,7 @@ package com.coreex.applications;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -395,6 +396,65 @@ class ApplicationApiTest extends ApiTest {
 		assertThat(put("/api/applications/" + id + "/reminder", userA, "{\"on\":\"2026-11-22\",\"version\":1}")
 				.statusCode()).isEqualTo(409);
 		assertThat(post("/api/applications/" + id + "/interviews", userA, interview).statusCode()).isEqualTo(409);
+	}
+
+	private String made(String company) throws Exception {
+		return field(create(userA, "{\"company\":\"" + company + "\",\"role\":\"Engineer\"}"), "id");
+	}
+
+	@Test
+	void theListIsGroupedByStageAndNeedsYouKeepsOnlyWhatIsDue() throws Exception {
+		var offer = made("Offer Co");
+		move(userA, offer, "OFFER", 1);
+		var applied = made("Applied Co");
+		move(userA, applied, "APPLIED", 1);
+		var saved = made("Saved Co");
+
+		var all = get("/api/applications", userA).body();
+		assertThat(all.indexOf(saved)).isPositive().isLessThan(all.indexOf(applied));
+		assertThat(all.indexOf(applied)).isLessThan(all.indexOf(offer));
+		assertThat(all).contains("\"total\":3").contains("\"nextStep\":{\"kind\":\"OFFER\",\"label\":\"Decide on the offer\"")
+				.contains("\"kind\":\"NOT_APPLIED\"").contains("\"kind\":\"WAITING\"");
+
+		// A job applied to a moment ago is just waiting, so Needs you leaves it out.
+		var needs = get("/api/applications?needsYou=true", userA).body();
+		assertThat(needs).contains(saved).contains(offer).doesNotContain(applied).contains("\"total\":2");
+		assertThat(get("/api/applications/" + applied, userA).body()).contains("\"kind\":\"WAITING\",\"label\":\"Waiting\",\"dueAt\":null,\"due\":false");
+	}
+
+	@Test
+	void theTimezoneTheBrowserSendsDecidesWhenAReminderIsDue() throws Exception {
+		var id = made("Acme");
+		move(userA, id, "APPLIED", 1);
+		// Other tests move the shared test clock, so the day is chosen from it: 12:00 on this day is already past in
+		// Kiritimati (UTC+14) and still ahead in Pago Pago (UTC-11) whatever the time is now.
+		var day = LocalDate.ofInstant(clock.instant().plusSeconds(7200), ZoneOffset.UTC);
+		put("/api/applications/" + id + "/reminder", userA, "{\"on\":\"" + day + "\",\"time\":\"12:00\",\"version\":2}");
+
+		var early = get("/api/applications/" + id, userA, "X-Timezone", "Pacific/Kiritimati").body();
+		assertThat(early).contains("\"kind\":\"FOLLOW_UP_DUE\"").contains("\"due\":true");
+		var late = get("/api/applications/" + id, userA, "X-Timezone", "Pacific/Pago_Pago").body();
+		assertThat(late).contains("\"kind\":\"WAITING\"");
+		assertThat(get("/api/applications?needsYou=true", userA, "X-Timezone", "Pacific/Pago_Pago").body())
+				.contains("\"total\":0");
+		assertThat(get("/api/applications?needsYou=true", userA, "X-Timezone", "Pacific/Kiritimati").body())
+				.contains("\"total\":1");
+
+		// A missing or invalid zone is UTC.
+		assertThat(get("/api/applications/" + id, userA, "X-Timezone", "Not/AZone").body())
+				.isEqualTo(get("/api/applications/" + id, userA).body());
+	}
+
+	@Test
+	void needsYouAndPagingCountWhatIsKept() throws Exception {
+		made("One");
+		made("Two");
+		made("Three");
+
+		var page = get("/api/applications?needsYou=true&size=2&page=1", userA).body();
+		assertThat(page).contains("\"total\":3");
+		assertThat(page.split("\"kind\":\"NOT_APPLIED\"", -1)).hasSize(2); // one item on the second page
+		assertThat(get("/api/applications?page=5", userA).body()).contains("\"items\":[]").contains("\"total\":3");
 	}
 
 }

@@ -91,7 +91,7 @@ Press **Ctrl+K** (**Cmd+K** on a Mac) on any page to open the quick switcher: ty
 
 ### Applications (first part of Career)
 
-**Career** in the sidebar opens the Applications list, newest first, with a panel beside the rail. **New Application** there takes a company, a role and the pasted posting, and opens the Application's page: its fields, a stepper through the six Stages (Saved, Applied, Screening, Interview, Offer, Closed; Closed asks why) and a timeline of every move, with notes, follow-ups and replies that can be back-dated, plus interviews and one follow-up reminder. The title is "Role at Company" until you rename it. The first move into Applied sets the applied date. Applications also show in All Items; Trash, Folders, Tags and Search for them come in later Career tickets (#223).
+**Career** in the sidebar opens the Applications list, grouped by Stage and sorted by what each needs next (a **Needs you** filter keeps only those due now), with a panel beside the rail. **New Application** there takes a company, a role and the pasted posting, and opens the Application's page: its fields, a stepper through the six Stages (Saved, Applied, Screening, Interview, Offer, Closed; Closed asks why) and a timeline of every move, with notes, follow-ups and replies that can be back-dated, plus interviews and one follow-up reminder. The title is "Role at Company" until you rename it. The first move into Applied sets the applied date. Applications also show in All Items; Trash, Folders, Tags and Search for them come in later Career tickets (#223).
 
 ### Access tokens
 

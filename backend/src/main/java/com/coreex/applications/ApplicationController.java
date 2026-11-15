@@ -3,6 +3,8 @@ package com.coreex.applications;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.DateTimeException;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,6 +34,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -121,6 +124,17 @@ class ApplicationController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "PHONE, VIDEO, ONSITE or OTHER; only for INTERVIEW, whose at is its exact start") String kind) {
 	}
 
+	record NextStepResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) NextStep.Kind kind,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Ready to show, with any time already in the User's timezone") String label,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "When it became or becomes due; empty for Closed and Waiting") Instant dueAt,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "True when it needs the User now: what Needs you lists") boolean due) {
+
+		static NextStepResponse of(NextStep n) {
+			return new NextStepResponse(n.kind(), n.label(), n.dueAt(), n.due());
+		}
+
+	}
+
 	record ApplicationResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String company,
@@ -136,16 +150,17 @@ class ApplicationController {
 					description = "Where the no-reply clock starts: the later of the applied date and the last follow-up or reply. Empty until applied") Instant noReplySince,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "The follow-up reminder's day") LocalDate reminderOn,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "The reminder's time; empty means 09:00 in the User's timezone") LocalTime reminderTime,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "What this Application needs from the User now, in the timezone sent as X-Timezone") NextStepResponse nextStep,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<TimelineEntryResponse> timeline,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int version,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID folderId,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt) {
 
-		static ApplicationResponse of(Application a) {
+		static ApplicationResponse of(Application a, NextStep next) {
 			return new ApplicationResponse(a.id(), a.title(), a.company(), a.role(), a.location(), a.postingUrl(),
 					a.postingText(), a.stage(), a.closeReason(), a.appliedOn(), a.noReplySince(),
-					a.reminderOn(), a.reminderTime(),
+					a.reminderOn(), a.reminderTime(), NextStepResponse.of(next),
 					a.timeline().stream().map(e -> new TimelineEntryResponse(e.type(), e.stage(), e.at(), e.seq(), e.text(), e.kind())).toList(),
 					a.version(), a.folderId(), a.createdAt(), a.updatedAt());
 		}
@@ -158,8 +173,26 @@ class ApplicationController {
 
 	private final ApplicationService applications;
 
-	ApplicationController(ApplicationService applications) {
+	private final HttpServletRequest request;
+
+	ApplicationController(ApplicationService applications, HttpServletRequest request) {
 		this.applications = applications;
+		this.request = request;
+	}
+
+	/** The User's timezone as the page sent it; UTC when it is missing or not a zone. */
+	private ZoneId zone() {
+		var sent = request.getHeader("X-Timezone");
+		try {
+			return sent == null ? ZoneId.of("UTC") : ZoneId.of(sent);
+		}
+		catch (DateTimeException e) {
+			return ZoneId.of("UTC");
+		}
+	}
+
+	private ApplicationResponse respond(Application a) {
+		return ApplicationResponse.of(a, applications.nextStep(a, zone()));
 	}
 
 	@PostMapping(consumes = JSON)
@@ -170,20 +203,20 @@ class ApplicationController {
 			schema = @Schema(implementation = ErrorBody.class)))
 	ApplicationResponse create(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@Valid @RequestBody CreateApplicationRequest request) {
-		return ApplicationResponse.of(applications.create(user.id(), request.company(), request.role(),
+		return respond(applications.create(user.id(), request.company(), request.role(),
 				orEmpty(request.location()), orEmpty(request.postingUrl()), orEmpty(request.postingText())));
 	}
 
-	/** The signed-in User's live Applications, most recently updated first. */
+	/** The signed-in User's live Applications, grouped by Stage and sorted by Next step within each. */
 	@GetMapping
-	@ApiResponse(responseCode = "200", description = "A page of Applications", content = @Content(mediaType = JSON,
+	@ApiResponse(responseCode = "200", description = "A page of Applications, grouped by Stage and sorted by Next step within each", content = @Content(mediaType = JSON,
 			schema = @Schema(implementation = ApplicationPage.class)))
 	ApplicationPage list(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
-			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
+			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size,
+			@Parameter(description = "Only Applications whose Next step is due now") @RequestParam(defaultValue = "false") boolean needsYou) {
 		var safeSize = Math.min(MAX_PAGE_SIZE, Math.max(1, size));
-		var found = applications.list(user.id(), Math.max(0, page), safeSize).stream().map(ApplicationResponse::of)
-				.toList();
-		return new ApplicationPage(found, applications.total(user.id()));
+		var listed = applications.list(user.id(), Math.max(0, page), safeSize, needsYou, zone());
+		return new ApplicationPage(listed.items().stream().map(this::respond).toList(), listed.total());
 	}
 
 	@GetMapping("/{id}")
@@ -193,7 +226,7 @@ class ApplicationController {
 			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
 	ApplicationResponse get(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id) {
-		return ApplicationResponse.of(applications.get(user.id(), id));
+		return respond(applications.get(user.id(), id));
 	}
 
 	@PutMapping(value = "/{id}", consumes = JSON)
@@ -207,7 +240,7 @@ class ApplicationController {
 			schema = @Schema(implementation = ErrorBody.class)))
 	ApplicationResponse save(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @Valid @RequestBody SaveApplicationRequest request) {
-		return ApplicationResponse.of(applications.save(user.id(), id, request.title(), request.company(),
+		return respond(applications.save(user.id(), id, request.title(), request.company(),
 				request.role(), request.location(), request.postingUrl(), request.postingText(), request.version()));
 	}
 
@@ -222,7 +255,7 @@ class ApplicationController {
 			schema = @Schema(implementation = ErrorBody.class)))
 	ApplicationResponse moveStage(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @Valid @RequestBody MoveStageRequest request) {
-		return ApplicationResponse.of(applications.moveStage(user.id(), id, request.stage(), request.closeReason(),
+		return respond(applications.moveStage(user.id(), id, request.stage(), request.closeReason(),
 				request.date(), request.version()));
 	}
 
@@ -238,7 +271,7 @@ class ApplicationController {
 			schema = @Schema(implementation = ErrorBody.class)))
 	ApplicationResponse addEntry(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @Valid @RequestBody AddEntryRequest request) {
-		return ApplicationResponse.of(applications.addEntry(user.id(), id, request.type(), request.text(),
+		return respond(applications.addEntry(user.id(), id, request.type(), request.text(),
 				request.date(), request.version()));
 	}
 
@@ -253,7 +286,7 @@ class ApplicationController {
 			schema = @Schema(implementation = ErrorBody.class)))
 	ApplicationResponse editEntry(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @PathVariable int seq, @Valid @RequestBody EditEntryRequest request) {
-		return ApplicationResponse.of(applications.editEntry(user.id(), id, seq, request.text(), request.date(),
+		return respond(applications.editEntry(user.id(), id, seq, request.text(), request.date(),
 				request.version()));
 	}
 
@@ -268,7 +301,7 @@ class ApplicationController {
 			schema = @Schema(implementation = ErrorBody.class)))
 	ApplicationResponse deleteEntry(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @PathVariable int seq, @RequestParam int version) {
-		return ApplicationResponse.of(applications.deleteEntry(user.id(), id, seq, version));
+		return respond(applications.deleteEntry(user.id(), id, seq, version));
 	}
 
 	@PostMapping(value = "/{id}/interviews", consumes = JSON)
@@ -283,7 +316,7 @@ class ApplicationController {
 			schema = @Schema(implementation = ErrorBody.class)))
 	ApplicationResponse addInterview(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @Valid @RequestBody InterviewRequest request) {
-		return ApplicationResponse.of(applications.addInterview(user.id(), id, request.startsAt(), request.kind(),
+		return respond(applications.addInterview(user.id(), id, request.startsAt(), request.kind(),
 				request.notes(), request.version()));
 	}
 
@@ -298,7 +331,7 @@ class ApplicationController {
 			schema = @Schema(implementation = ErrorBody.class)))
 	ApplicationResponse editInterview(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @PathVariable int seq, @Valid @RequestBody InterviewRequest request) {
-		return ApplicationResponse.of(applications.editInterview(user.id(), id, seq, request.startsAt(), request.kind(),
+		return respond(applications.editInterview(user.id(), id, seq, request.startsAt(), request.kind(),
 				request.notes(), request.version()));
 	}
 
@@ -313,7 +346,7 @@ class ApplicationController {
 			schema = @Schema(implementation = ErrorBody.class)))
 	ApplicationResponse setReminder(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @Valid @RequestBody ReminderRequest request) {
-		return ApplicationResponse.of(applications.setReminder(user.id(), id, request.on(), request.time(),
+		return respond(applications.setReminder(user.id(), id, request.on(), request.time(),
 				request.version()));
 	}
 

@@ -4,10 +4,12 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -92,12 +94,31 @@ public class ApplicationService {
 		return applications.find(ownerId, id).orElseThrow(ApplicationService::notFound);
 	}
 
-	public List<Application> list(UUID ownerId, int page, int size) {
-		return applications.findPage(ownerId, size, (long) page * size);
+	/** One page of the list, and how many Applications there are in all. */
+	public record Listed(List<Application> items, int total) {
 	}
 
-	public long total(UUID ownerId) {
-		return applications.count(ownerId);
+	public NextStep nextStep(Application application, ZoneId zone) {
+		return NextStep.of(application, clock.instant(), zone);
+	}
+
+	/**
+	 * The User's Applications grouped by Stage (in Stage order) and, within a Stage, by Next step; {@code needsYou}
+	 * keeps only those whose Next step is due now. The Next step is worked out for every Application, so the order
+	 * holds across pages.
+	 * shortcut: loads all of a User's Applications for each page, fine for hundreds; upgrade to a stored Next step
+	 * when anyone has thousands.
+	 */
+	public Listed list(UUID ownerId, int page, int size, boolean needsYou, ZoneId zone) {
+		var now = clock.instant();
+		var sorted = applications.findAll(ownerId).stream()
+				.map(a -> Map.entry(a, NextStep.of(a, now, zone)))
+				.filter(e -> !needsYou || e.getValue().due())
+				.sorted(Comparator.<Map.Entry<Application, NextStep>>comparingInt(e -> e.getKey().stage().ordinal())
+						.thenComparingLong(e -> e.getValue().sortKey()))
+				.map(Map.Entry::getKey).toList();
+		var from = Math.min(sorted.size(), page * size);
+		return new Listed(sorted.subList(from, Math.min(sorted.size(), from + size)), sorted.size());
 	}
 
 	/**

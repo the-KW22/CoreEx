@@ -73,6 +73,14 @@ export function ApplicationView({ initial }: { initial: Application }) {
 
       {problem && <Alert>{problem}</Alert>}
 
+      <section aria-labelledby="next-step-heading" className="grid gap-1 rounded-[10px] border border-border px-4 py-3">
+        <h2 id="next-step-heading" className="text-sm font-medium text-muted-foreground">
+          Next step
+        </h2>
+        <p className="font-medium">{application.nextStep.label}</p>
+        {application.nextStep.due && <p className="text-sm text-muted-foreground">Needs you now.</p>}
+      </section>
+
       <section aria-labelledby="stage-heading" className="grid gap-2">
         <h2 id="stage-heading" className="text-sm font-medium">
           Stage

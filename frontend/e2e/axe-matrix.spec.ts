@@ -168,6 +168,7 @@ for (const colorScheme of ["dark", "light"] as const) {
           await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(noteA);
         });
         await screen(page, failures, "applications", "/career/applications", heading("Applications"));
+        await screen(page, failures, "applications needs you", "/career/applications?needs=1", heading("Applications"));
         await screen(page, failures, "application", seed.application, async () => {
           await expect(page.getByRole("heading", { name: `Engineer at Matrix ${word}`, level: 1 })).toBeVisible();
         });
@@ -233,6 +234,8 @@ for (const colorScheme of ["dark", "light"] as const) {
         await upload.getByRole("link", { name: extra }).click();
         await page.getByRole("button", { name: "Move to Trash" }).click();
         await expect(page).toHaveURL(/\/items$/);
+        // The page's title arrives a moment after the address changes; axe fails a page without one.
+        await expect(page).toHaveTitle(/.+/);
         await page.dispatchEvent("main", "dragenter", {
           dataTransfer: await page.evaluateHandle(() => {
             const data = new DataTransfer();
