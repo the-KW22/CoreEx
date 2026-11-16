@@ -13,6 +13,7 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -239,6 +240,19 @@ class ApplicationController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "True when the page had JobPosting data; false when only its title and text were read") boolean structured) {
 	}
 
+	record DuplicatePostingResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String code,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String message,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Application that already holds this posting") UUID existingId,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String existingTitle) {
+	}
+
+	record EarlierApplication(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title) {
+	}
+
+	record EarlierList(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<EarlierApplication> items) {
+	}
+
 	record ApplicationTag(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
 			@Schema(nullable = true) TagColour colour) {
@@ -289,10 +303,29 @@ class ApplicationController {
 			mediaType = JSON, schema = @Schema(implementation = ApplicationResponse.class)))
 	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST", content = @Content(mediaType = JSON,
 			schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "409", description = "Code DUPLICATE_POSTING: another Application holds this posting link; existingId says which", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = DuplicatePostingResponse.class)))
 	ApplicationResponse create(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@Valid @RequestBody CreateApplicationRequest request) {
 		return respond(applications.create(user.id(), request.company(), request.role(),
 				orEmpty(request.location()), orEmpty(request.postingUrl()), orEmpty(request.postingText())));
+	}
+
+	@ExceptionHandler(DuplicatePostingException.class)
+	@ResponseStatus(HttpStatus.CONFLICT)
+	DuplicatePostingResponse duplicate(DuplicatePostingException e) {
+		return new DuplicatePostingResponse(e.code(), e.getMessage(), e.existingId(), e.existingTitle());
+	}
+
+	/** Applications at this company that never answered: "you applied here before and heard nothing". */
+	@GetMapping("/applied-before")
+	@ApiResponse(responseCode = "200", description = "The User's Applications at this company that were closed with no response, now or earlier",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = EarlierList.class)))
+	EarlierList appliedBefore(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@RequestParam(defaultValue = "") String company,
+			@Parameter(description = "Leave this Application out, when asking about its own company") @RequestParam(required = false) UUID excludeId) {
+		return new EarlierList(applications.neverAnswered(user.id(), company, excludeId).stream()
+				.map(f -> new EarlierApplication(f.id(), f.title())).toList());
 	}
 
 	/**

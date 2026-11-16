@@ -47,6 +47,18 @@ class McpApplicationToolsApiTest extends McpApiTest {
 	}
 
 	@Test
+	void aPostingThatIsAlreadyTrackedIsRefusedButARetryOfTheSameIdStillReturnsTheApplication() throws Exception {
+		var id = UUID.randomUUID().toString();
+		var args = "{\"id\":\"" + id + "\",\"company\":\"Acme\",\"role\":\"Dev\",\"postingUrl\":\"https://jobs.example/j/5\"}";
+		call("create_application", args);
+
+		assertThat(call("create_application", args).path("id").asString()).isEqualTo(id);
+		var error = callFails("create_application",
+				"{\"company\":\"Beta\",\"role\":\"Dev\",\"postingUrl\":\"https://www.jobs.example/j/5?utm_source=x\"}");
+		assertThat(error).contains("already tracked").contains(id);
+	}
+
+	@Test
 	void createApplicationWithAnotherUsersIdIsRefusedAndTheirApplicationIsUntouched() throws Exception {
 		var other = newUser("b@example.com");
 		var theirs = id(post("/api/applications", other, "{\"company\":\"Theirs\",\"role\":\"Spy\"}").body());

@@ -11,7 +11,7 @@ import { restoreItem, trashItem } from "../../items/actions";
 
 type Application = components["schemas"]["ApplicationResponse"];
 
-export type CreateState = { error?: string } | undefined;
+export type CreateState = { error?: string; existing?: { id: string; title: string } } | undefined;
 
 export type SaveResult =
   | { status: "saved"; application: Application }
@@ -38,6 +38,13 @@ export async function createApplication(_previous: CreateState, formData: FormDa
     })
     .catch(() => null);
   if (!result) return { error: "Cannot reach the CoreEx API." };
+  const duplicate = result.error as { code?: string; existingId?: string; existingTitle?: string } | undefined;
+  if (result.response.status === 409 && duplicate?.code === "DUPLICATE_POSTING" && duplicate.existingId) {
+    return {
+      error: "That posting is already tracked.",
+      existing: { id: duplicate.existingId, title: duplicate.existingTitle ?? "the Application" },
+    };
+  }
   if (!result.data) return { error: result.error?.message ?? "Could not create the Application." };
   redirect(`/career/applications/${result.data.id}`);
 }
@@ -80,6 +87,14 @@ export async function deleteApplication(formData: FormData) {
   redirect("/career/applications");
 }
 
+// The earlier Applications at this company that were closed with no response, for the notice in the dialog.
+export async function appliedBefore(company: string): Promise<{ id: string; title: string }[]> {
+  if (!company.trim()) return [];
+  const api = await getApi();
+  const result = await api.GET("/api/applications/applied-before", { params: { query: { company } } }).catch(() => null);
+  return result?.data?.items ?? [];
+}
+
 // What a link's page said: company, role, location and the posting. Nothing is stored; the dialog shows it for review.
 export type LinkRead = components["schemas"]["ReadLinkResponse"];
 
@@ -101,6 +116,10 @@ async function outcome(
   const result = await call.catch(() => null);
   if (!result) return { status: "error", message: "Cannot reach the CoreEx API." };
   if (result.data) return { status: "saved", application: result.data };
+  const duplicate = result.error as { code?: string; existingTitle?: string } | undefined;
+  if (result.response.status === 409 && duplicate?.code === "DUPLICATE_POSTING") {
+    return { status: "error", message: `That posting link is already tracked as "${duplicate.existingTitle}".` };
+  }
   if (result.response.status === 409) return { status: "conflict" };
   return { status: "error", message: result.error?.message ?? failure };
 }

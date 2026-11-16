@@ -2904,7 +2904,7 @@ test("an Application is added from a link: the page is read, typed fields are ke
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
-  const link = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}/job`;
+  const link = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}/job?gh_jid=${stamp}`;
   try {
     await signIn(page);
     await page.goto("/career/applications");
@@ -2934,6 +2934,52 @@ test("an Application is added from a link: the page is read, typed fields are ke
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
+});
+
+test("the same posting is refused with a pointer to the first, and a company that never answered is remembered", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page);
+  const stamp = Date.now();
+  const company = `Papa ${stamp}`;
+  const link = `https://jobs.example.com/p/${stamp}?utm_source=a&gh_jid=${stamp}`;
+  const add = async (name: string, url: string, ending: "open" | "refused") => {
+    await page.goto("/career/applications");
+    await page.getByRole("button", { name: "New Application" }).click();
+    const dialog = page.getByRole("dialog", { name: "New Application" });
+    await dialog.getByLabel("Link to the posting").fill(url);
+    await dialog.getByLabel("Company").fill(name);
+    await dialog.getByLabel("Role", { exact: true }).fill("Dev");
+    await dialog.getByRole("button", { name: "Add Application" }).click();
+    if (ending === "open") await expect(page).toHaveURL(/\/career\/applications\/[0-9a-f-]{36}$/);
+    return dialog;
+  };
+
+  // The first goes in and is closed with no response.
+  await add(company, link, "open");
+  await page.getByRole("button", { name: "Closed", exact: true }).click();
+  await page.getByLabel("Why did it close?").selectOption("NO_RESPONSE");
+  await page.getByRole("button", { name: "Close Application" }).click();
+  await expect(page.getByText("Closed: No response")).toBeVisible();
+
+  // The same job by another link (www, a slash, other tracking) is refused, and the message points to the first.
+  const dialog = await add(`Other ${stamp}`, `https://www.jobs.example.com/p/${stamp}/?gh_jid=${stamp}&utm_medium=b`, "refused");
+  await expect(dialog.getByRole("alert")).toContainText("That posting is already tracked.");
+  await expect(dialog.getByRole("alert").getByRole("link", { name: `Dev at ${company}` })).toBeVisible();
+  await expectNoViolations(page);
+
+  // The company is known by any case and spacing; the notice shows in the dialog and on the new page.
+  await page.goto("/career/applications");
+  await page.getByRole("button", { name: "New Application" }).click();
+  const second = page.getByRole("dialog", { name: "New Application" });
+  await second.getByLabel("Company").fill(`  papa   ${stamp} `);
+  await second.getByLabel("Role", { exact: true }).fill("Lead");
+  await expect(second.getByRole("note")).toContainText("before and never heard back");
+  await expect(second.getByRole("note").getByRole("link", { name: `Dev at ${company}` })).toBeVisible();
+  await second.getByRole("button", { name: "Add Application" }).click();
+  await expect(page.getByRole("heading", { name: `Lead at papa   ${stamp}`.replace(/\s+/g, " "), level: 1 })).toBeVisible();
+  await expect(page.getByRole("note")).toContainText("You applied to");
+  await expect(page.getByRole("note").getByRole("link", { name: `Dev at ${company}` })).toBeVisible();
+  await expectNoViolations(page);
 });
 
 test("Career opens from the rail with its panel and the Applications list, and New Application lands on the new page", async ({ page }) => {
