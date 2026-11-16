@@ -36,7 +36,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/notes/{id}": {
+    "/api/resumes/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -45,6 +45,38 @@ export interface paths {
         };
         get: operations["get"];
         put: operations["save"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/title": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["rename_1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_1"];
+        put: operations["save_1"];
         post?: never;
         delete: operations["delete_1"];
         options?: never;
@@ -76,7 +108,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put: operations["rename_1"];
+        put: operations["rename_2"];
         post?: never;
         delete: operations["delete_2"];
         options?: never;
@@ -91,7 +123,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_1"];
+        get: operations["get_2"];
         put: operations["update"];
         post?: never;
         delete: operations["delete_3"];
@@ -107,8 +139,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_2"];
-        put: operations["save_1"];
+        get: operations["get_3"];
+        put: operations["save_2"];
         post?: never;
         delete: operations["trash"];
         options?: never;
@@ -228,6 +260,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/resumes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_1"];
+        put?: never;
+        post: operations["create_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["duplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notes": {
         parameters: {
             query?: never;
@@ -237,7 +301,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["create_1"];
+        post: operations["create_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -299,7 +363,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_1"];
+        get: operations["list_2"];
         put?: never;
         post: operations["add"];
         delete?: never;
@@ -379,9 +443,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_2"];
+        get: operations["list_3"];
         put?: never;
-        post: operations["create_2"];
+        post: operations["create_3"];
         delete?: never;
         options?: never;
         head?: never;
@@ -443,9 +507,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_3"];
+        get: operations["list_4"];
         put?: never;
-        post: operations["create_3"];
+        post: operations["create_4"];
         delete?: never;
         options?: never;
         head?: never;
@@ -651,9 +715,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_4"];
+        get: operations["list_5"];
         put?: never;
-        post: operations["create_4"];
+        post: operations["create_5"];
         delete?: never;
         options?: never;
         head?: never;
@@ -683,9 +747,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_5"];
+        get: operations["list_6"];
         put?: never;
-        post: operations["create_5"];
+        post: operations["create_6"];
         delete?: never;
         options?: never;
         head?: never;
@@ -699,7 +763,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_6"];
+        get: operations["list_7"];
         put?: never;
         post?: never;
         delete: operations["empty"];
@@ -747,7 +811,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_7"];
+        get: operations["list_8"];
         put?: never;
         post?: never;
         delete?: never;
@@ -763,7 +827,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_3"];
+        get: operations["get_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -859,7 +923,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_8"];
+        get: operations["list_9"];
         put?: never;
         post?: never;
         delete?: never;
@@ -875,7 +939,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_9"];
+        get: operations["list_10"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1035,7 +1099,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_10"];
+        get: operations["list_11"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1203,6 +1267,79 @@ export interface components {
         ColourRequest: {
             /** @enum {string|null} */
             colour?: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
+        };
+        Basics: {
+            name: string;
+            headline: string;
+            email: string;
+            phone: string;
+            location: string;
+            website: string;
+            customFields: components["schemas"]["Field"][];
+        };
+        Entry: {
+            id: string;
+            hidden: boolean;
+            title: string;
+            subtitle: string;
+            location: string;
+            startDate: string;
+            endDate: string;
+            url: string;
+            description: string;
+            keywords: string[];
+        };
+        Field: {
+            label: string;
+            value: string;
+        };
+        Metadata: {
+            template: string;
+            accent: string;
+            font: string;
+            /** Format: int32 */
+            fontSize: number;
+            pageSize: string;
+        };
+        ResumeDocument: {
+            locale: string;
+            basics: components["schemas"]["Basics"];
+            summary: string;
+            sections: components["schemas"]["Section"][];
+            metadata: components["schemas"]["Metadata"];
+            privateNotes: string;
+            ignoredChecks: string[];
+        };
+        SaveResumeRequest: {
+            title: string;
+            document: components["schemas"]["ResumeDocument"];
+            /** Format: int32 */
+            version: number;
+        };
+        Section: {
+            id: string;
+            /** @enum {string} */
+            kind: "EXPERIENCE" | "EDUCATION" | "PROJECTS" | "SKILLS" | "LANGUAGES" | "CERTIFICATIONS" | "AWARDS" | "PUBLICATIONS" | "VOLUNTEERING" | "INTERESTS" | "REFERENCES" | "PROFILES" | "CUSTOM";
+            title: string;
+            hidden: boolean;
+            entries: components["schemas"]["Entry"][];
+        };
+        ResumeResponse: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            document: components["schemas"]["ResumeDocument"];
+            /** Format: int32 */
+            version: number;
+            /** Format: uuid */
+            folderId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        RenameResumeRequest: {
+            title: string;
         };
         SaveNoteRequest: {
             title: string;
@@ -1438,6 +1575,16 @@ export interface components {
         CreateTagRequest: {
             name: string;
         };
+        CreateResumeRequest: {
+            title?: string;
+            /** @description Start from made-up sample content instead of a blank Resume */
+            sample?: boolean;
+            /**
+             * Format: uuid
+             * @description An id you make up. Sending the same request again returns that Resume instead of making a second one; an id already used for anything else is refused with INVALID_REQUEST
+             */
+            id?: string | null;
+        };
         CreateNoteRequest: {
             title?: string;
             body?: string;
@@ -1486,7 +1633,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET" | "APPLICATION";
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
             title: string;
             /** @description The Folder path such as "Work / CoreEx", null at the top level */
             folderPath: string | null;
@@ -1512,7 +1659,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET" | "APPLICATION";
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
             title: string;
             /** Format: uuid */
             folderId: string | null;
@@ -1772,7 +1919,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET" | "APPLICATION";
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
             title: string;
             /** @description The Folder path such as "Work / CoreEx", null at the top level */
             folderPath: string | null;
@@ -1797,12 +1944,26 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET" | "APPLICATION";
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
             title: string;
             folderPath: string | null;
         };
         QuickList: {
             items: components["schemas"]["QuickHitResponse"][];
+        };
+        ResumePage: {
+            items: components["schemas"]["ResumeSummary"][];
+            /** Format: int64 */
+            total: number;
+        };
+        ResumeSummary: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** Format: uuid */
+            folderId: string | null;
+            /** Format: date-time */
+            updatedAt: string;
         };
         VersionList: {
             items: components["schemas"]["VersionSummary"][];
@@ -1857,7 +2018,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET" | "APPLICATION";
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
             title: string;
             /**
              * Format: uuid
@@ -2222,6 +2383,132 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description The Resume */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeResponse"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Resume) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveResumeRequest"];
+            };
+        };
+        responses: {
+            /** @description The saved Resume, with its new version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Resume) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    rename_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameResumeRequest"];
+            };
+        };
+        responses: {
+            /** @description Renamed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Resume) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    get_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
             /** @description The Note */
             200: {
                 headers: {
@@ -2242,7 +2529,7 @@ export interface operations {
             };
         };
     };
-    save: {
+    save_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -2368,7 +2655,7 @@ export interface operations {
             };
         };
     };
-    rename_1: {
+    rename_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -2441,7 +2728,7 @@ export interface operations {
             };
         };
     };
-    get_1: {
+    get_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -2545,7 +2832,7 @@ export interface operations {
             };
         };
     };
-    get_2: {
+    get_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -2585,7 +2872,7 @@ export interface operations {
             };
         };
     };
-    save_1: {
+    save_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -3084,7 +3371,94 @@ export interface operations {
             };
         };
     };
+    list_1: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the User's Resumes, newest change first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumePage"];
+                };
+            };
+        };
+    };
     create_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateResumeRequest"];
+            };
+        };
+        responses: {
+            /** @description The new Resume */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    duplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The copy, titled "<title> (copy)" */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeResponse"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Resume) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    create_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -3261,7 +3635,7 @@ export interface operations {
             };
         };
     };
-    list_1: {
+    list_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -3482,7 +3856,7 @@ export interface operations {
             };
         };
     };
-    list_2: {
+    list_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -3502,7 +3876,7 @@ export interface operations {
             };
         };
     };
-    create_2: {
+    create_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -3733,7 +4107,7 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list_4: {
         parameters: {
             query?: {
                 page?: number;
@@ -3767,7 +4141,7 @@ export interface operations {
             };
         };
     };
-    create_3: {
+    create_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -4409,7 +4783,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_5: {
         parameters: {
             query?: {
                 page?: number;
@@ -4432,7 +4806,7 @@ export interface operations {
             };
         };
     };
-    create_4: {
+    create_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -4514,7 +4888,7 @@ export interface operations {
             };
         };
     };
-    list_5: {
+    list_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -4534,7 +4908,7 @@ export interface operations {
             };
         };
     };
-    create_5: {
+    create_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -4576,7 +4950,7 @@ export interface operations {
             };
         };
     };
-    list_6: {
+    list_7: {
         parameters: {
             query?: {
                 page?: number;
@@ -4630,7 +5004,7 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string;
-                type?: "NOTE" | "ASSET" | "APPLICATION";
+                type?: "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
                 tagId?: string;
                 folderId?: string;
                 page?: number;
@@ -4684,7 +5058,7 @@ export interface operations {
             };
         };
     };
-    list_7: {
+    list_8: {
         parameters: {
             query?: never;
             header?: never;
@@ -4715,7 +5089,7 @@ export interface operations {
             };
         };
     };
-    get_3: {
+    get_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -4891,12 +5265,12 @@ export interface operations {
             };
         };
     };
-    list_8: {
+    list_9: {
         parameters: {
             query?: {
                 folderId?: string;
                 tagId?: string;
-                type?: "NOTE" | "ASSET" | "APPLICATION";
+                type?: "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
                 page?: number;
                 size?: number;
             };
@@ -4926,7 +5300,7 @@ export interface operations {
             };
         };
     };
-    list_9: {
+    list_10: {
         parameters: {
             query?: {
                 size?: number;
@@ -5227,7 +5601,7 @@ export interface operations {
             };
         };
     };
-    list_10: {
+    list_11: {
         parameters: {
             query?: {
                 page?: number;

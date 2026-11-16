@@ -3044,3 +3044,49 @@ test("Career opens from the rail with its panel and the Applications list, and N
   await page.goto("/trash");
   await expect(page.getByRole("navigation", { name: "Career" })).toHaveCount(0);
 });
+
+test("Resumes & Letters lists Resumes, and a Resume is created blank or with sample content, renamed and duplicated", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const blank = `Blank ${stamp}`;
+  const sample = `Sample ${stamp}`;
+
+  await page.goto("/career/library");
+  await expect(page.getByRole("heading", { name: "Resumes & Letters", level: 1 })).toBeVisible();
+  await expectNoViolations(page);
+
+  const create = async (name: string, withSample: boolean) => {
+    await page.getByRole("button", { name: "New Resume" }).click();
+    const dialog = page.getByRole("dialog", { name: "New Resume" });
+    await dialog.getByLabel("Name").fill(name);
+    if (withSample) await dialog.getByLabel("Start with sample content").check();
+    await dialog.getByRole("button", { name: "Create Resume" }).click();
+    await expect(dialog).toHaveCount(0);
+  };
+  await create(blank, false);
+  await create(sample, true);
+  const rows = page.getByRole("list", { name: "Resumes" });
+  await expect(rows.getByText(blank, { exact: true })).toBeVisible();
+  await expect(rows.getByText(sample, { exact: true })).toBeVisible();
+  await expectNoViolations(page);
+
+  // Rename.
+  await page.getByRole("button", { name: `Rename ${blank}` }).click();
+  const rename = page.getByRole("dialog", { name: "Rename Resume" });
+  await expectNoViolations(page);
+  await rename.getByLabel("Name").fill(`Renamed ${stamp}`);
+  await rename.getByRole("button", { name: "Save name" }).click();
+  await expect(rows.getByText(`Renamed ${stamp}`, { exact: true })).toBeVisible();
+  await expect(rows.getByText(blank, { exact: true })).toHaveCount(0);
+
+  // Duplicate keeps the original and adds "(copy)".
+  await page.getByRole("button", { name: `Duplicate ${sample}` }).click();
+  await expect(rows.getByText(`${sample} (copy)`, { exact: true })).toBeVisible();
+  await expect(rows.getByText(sample, { exact: true })).toBeVisible();
+
+  // The Career panel keeps the entry, and it is the current page.
+  await expect(page.getByRole("navigation", { name: "Career" }).getByRole("link", { name: "Resumes & Letters" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+});
