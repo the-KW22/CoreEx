@@ -253,6 +253,15 @@ class ApplicationController {
 	record EarlierList(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<EarlierApplication> items) {
 	}
 
+	record FillRequest(@NotBlank @Size(max = 100_000) String text) {
+	}
+
+	record FillResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String company,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String role,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String location,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The posting without the page around it") String postingText) {
+	}
+
 	record ApplicationTag(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
 			@Schema(nullable = true) TagColour colour) {
@@ -273,8 +282,11 @@ class ApplicationController {
 
 	private final PostingFetcher postings;
 
+	private final PostingFiller filler;
+
 	ApplicationController(ApplicationService applications, ApplicationBulkService bulk, HttpServletRequest request,
-			TagService tags, PostingFetcher postings) {
+			TagService tags, PostingFetcher postings, PostingFiller filler) {
+		this.filler = filler;
 		this.postings = postings;
 		this.applications = applications;
 		this.bulk = bulk;
@@ -344,6 +356,27 @@ class ApplicationController {
 		var url = page.url().contains("#") ? page.url().substring(0, page.url().indexOf('#')) : page.url();
 		return new ReadLinkResponse(read.company(), read.role(), read.location(),
 				url.length() <= MAX_URL ? url : "", read.text(), read.structured());
+	}
+
+	/**
+	 * Fills in company, role, location and a cleaned posting from the posting's text with the model, on the Shared key
+	 * and the Daily AI budget. Nothing is stored; the User reviews the fields before saving.
+	 */
+	@PostMapping(value = "/fill-with-ai", consumes = JSON)
+	@ApiResponse(responseCode = "200", description = "What the model made of the posting", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = FillResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST: no posting, or too long", content = @Content(
+			mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "429", description = "Code AI_BUDGET_SPENT: today's AI budget is used up", content = @Content(
+			mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "502", description = "Code AI_UNAVAILABLE or AI_BAD_ANSWER", content = @Content(
+			mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "503", description = "Code AI_OFF: no Shared key is set", content = @Content(
+			mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	FillResponse fillWithAi(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@Valid @RequestBody FillRequest request) {
+		var fields = filler.fill(user.id(), request.text());
+		return new FillResponse(fields.company(), fields.role(), fields.location(), fields.posting());
 	}
 
 	/** The signed-in User's live Applications, grouped by Stage and sorted by Next step within each. */

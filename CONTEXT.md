@@ -81,7 +81,7 @@ The model provider key CoreEx pays for, which every User's Chats use. An Admin c
 _Avoid_: Platform key, default key
 
 **Daily Chat budget**:
-How much of the Shared key's cost one User may use in a day, counted in money rather than words. Chats and every Career AI action draw on the same budget. It starts again each day at midnight UTC.
+How much of the Shared key's cost one User may use in a day, counted in money rather than words. Chats and every Career AI action, such as filling in an Application from a posting, draw on the same budget. It starts again each day at midnight UTC.
 _Avoid_: Quota (that is the Storage Quota), credits, token limit
 
 ### Career

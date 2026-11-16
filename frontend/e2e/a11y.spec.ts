@@ -2982,6 +2982,39 @@ test("the same posting is refused with a pointer to the first, and a company tha
   await expectNoViolations(page);
 });
 
+test("Fill with AI says what it sends, fills only empty fields, and leaves typed text alone", async ({ page }) => {
+  test.setTimeout(90_000);
+  const stamp = Date.now();
+  await signIn(page);
+  await page.goto("/career/applications");
+  await page.getByRole("button", { name: "New Application" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Application" });
+  const button = dialog.getByRole("button", { name: "Fill with AI" });
+
+  // Nothing to read yet, so the button waits; the line above it says where the text goes.
+  await expect(button).toBeDisabled();
+  await expect(dialog.getByText(/sends the posting text above to Claude, made by Anthropic/)).toBeVisible();
+  await expectNoViolations(page);
+
+  // The API answers with fixed fields when started with COREEX_AI_PROVIDER=fake; without a key it says AI is off.
+  await dialog.getByLabel("Role", { exact: true }).fill(`My own role ${stamp}`);
+  await dialog.locator('textarea[name="postingText"]').fill(`Platform Engineer ${stamp}\nWe run the platform.`);
+  await button.click();
+  const outcome = dialog.getByRole("status").or(dialog.getByRole("alert"));
+  await expect(outcome).toBeVisible();
+  test.skip((await outcome.innerText()).includes("not switched on"), "The API was not started with COREEX_AI_PROVIDER=fake");
+
+  await expect(outcome).toContainText("The AI filled in Company, Location.");
+  await expect(dialog.getByLabel("Company")).toHaveValue("Fake Company");
+  await expect(dialog.getByLabel("Role", { exact: true })).toHaveValue(`My own role ${stamp}`);
+  await expect(dialog.getByLabel("Location")).toHaveValue("Fake City");
+  await expect(dialog.locator('textarea[name="postingText"]')).toHaveValue(new RegExp(`^Platform Engineer ${stamp}`));
+  await expectNoViolations(page);
+
+  await dialog.getByRole("button", { name: "Add Application" }).click();
+  await expect(page.getByRole("heading", { name: `My own role ${stamp} at Fake Company`, level: 1 })).toBeVisible();
+});
+
 test("Career opens from the rail with its panel and the Applications list, and New Application lands on the new page", async ({ page }) => {
   await signIn(page);
   const stamp = Date.now();

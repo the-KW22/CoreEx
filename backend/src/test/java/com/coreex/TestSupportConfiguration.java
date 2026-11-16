@@ -34,6 +34,13 @@ public class TestSupportConfiguration {
 		return new TestEmbedder();
 	}
 
+	/** Replaces the language model, so no test touches the network or spends money. */
+	@Bean
+	@Primary
+	public TestModel testModel() {
+		return new TestModel();
+	}
+
 	/** Replaces Supabase Auth's admin API, so no test deletes a real sign-in. */
 	@Bean
 	@Primary

@@ -95,6 +95,19 @@ export async function appliedBefore(company: string): Promise<{ id: string; titl
   return result?.data?.items ?? [];
 }
 
+// What the model made of a posting's text (Fill with AI). Nothing is stored; the dialog shows it for review.
+export type AiFill = components["schemas"]["FillResponse"];
+
+export async function fillWithAi(
+  text: string,
+): Promise<{ ok: true; fill: AiFill } | { ok: false; message: string }> {
+  const api = await getApi();
+  const result = await api.POST("/api/applications/fill-with-ai", { body: { text } }).catch(() => null);
+  if (!result) return { ok: false, message: "Cannot reach the CoreEx API." };
+  if (!result.data) return { ok: false, message: result.error?.message ?? "The AI could not fill in the fields." };
+  return { ok: true, fill: result.data };
+}
+
 // What a link's page said: company, role, location and the posting. Nothing is stored; the dialog shows it for review.
 export type LinkRead = components["schemas"]["ReadLinkResponse"];
 

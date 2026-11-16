@@ -532,6 +532,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/fill-with-ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["fillWithAi"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/bulk/trash": {
         parameters: {
             query?: never;
@@ -1601,6 +1617,16 @@ export interface components {
             postingText: string;
             /** @description True when the page had JobPosting data; false when only its title and text were read */
             structured: boolean;
+        };
+        FillRequest: {
+            text: string;
+        };
+        FillResponse: {
+            company: string;
+            role: string;
+            location: string;
+            /** @description The posting without the page around it */
+            postingText: string;
         };
         BulkIds: {
             ids: string[];
@@ -4051,6 +4077,75 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+        };
+    };
+    fillWithAi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FillRequest"];
+            };
+        };
+        responses: {
+            /** @description What the model made of the posting */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FillResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST: no posting, or too long */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+            /** @description Code AI_BUDGET_SPENT: today's AI budget is used up */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code AI_UNAVAILABLE or AI_BAD_ANSWER */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code AI_OFF: no Shared key is set */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
