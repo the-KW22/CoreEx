@@ -13,10 +13,20 @@ import type { Template } from "@/lib/resume/blocks";
 import { cn } from "@/lib/utils";
 
 import { clearUnsaved, recoveryAction, storeUnsaved, takeNewestUnsaved } from "../../../notes/[id]/recovery";
-import { loadResume, photoData, saveCopy, saveResume, setLocked as lockResume } from "./actions";
+import {
+  loadResume,
+  nameCurrentVersion,
+  openVersion,
+  photoData,
+  restoreVersion,
+  saveCopy,
+  saveResume,
+  setLocked as lockResume,
+} from "./actions";
 import { Preview } from "./preview";
 import { Controls } from "./controls";
 import { Design } from "./design";
+import { History } from "./history";
 import { PhotoSection } from "./photo";
 import { Locked, RichText } from "./rich-text";
 import { Sections } from "./sections";
@@ -49,7 +59,12 @@ export function ResumeEditor({
   const [generation, setGeneration] = useState(0);
   const [notice, setNotice] = useState("");
   const [locked, setLocked] = useState(initial.locked);
-  const [mode, setMode] = useState<"write" | "design">("write");
+  const [mode, setMode] = useState<"write" | "design" | "history">("write");
+  // An earlier version looked at in the page preview (the Resume itself is not changed), and a counter that tells History
+  // to read its list again.
+  const [viewing, setViewing] = useState<{ id: string; doc: ResumeDocument } | null>(null);
+  const [historyRefresh, setHistoryRefresh] = useState(0);
+  const [restoring, setRestoring] = useState(false);
   const [fitting, setFitting] = useState(false);
   // The photo picture for an Asset id, once it has been fetched (null: it cannot be shown).
   const [loadedPhoto, setLoadedPhoto] = useState<{ id: string; src: string | null } | null>(null);
@@ -152,6 +167,44 @@ export function ResumeEditor({
   }, [photoId]);
   const photoSrc = photoId && loadedPhoto?.id === photoId ? loadedPhoto.src : null;
 
+  // Looks at an earlier version in the page preview; null stops looking.
+  async function view(versionId: string | null) {
+    if (!versionId) return setViewing(null);
+    const opened = await openVersion(id, versionId);
+    setViewing(opened ? { id: versionId, doc: opened.doc } : null);
+  }
+
+  // Keeps the Resume as it is saved now under a name: unsaved text is saved first, so the name is of what is on screen.
+  async function nameCurrent(name: string) {
+    if (!(await flush())) return false;
+    return nameCurrentVersion(id, name);
+  }
+
+  // Brings an earlier version back as the Resume. Unsaved text is saved first, so it is part of what is kept.
+  async function restore(versionId: string) {
+    setRestoring(true);
+    setNotice("");
+    try {
+      if (!(await flush())) return setNotice("Save the Resume first, then restore a version.");
+      const stored = await loadResume(id);
+      if (!stored) return setNotice("Could not read the Resume. Try again.");
+      const result = await restoreVersion(id, versionId, stored.version);
+      if (result.status === "restored") {
+        dispatch({ type: "load", title: result.resume.title, doc: result.resume.doc, version: result.resume.version });
+        setLocked(result.resume.locked);
+        setGeneration((g) => g + 1);
+        setViewing(null);
+        setMode("write");
+        setHistoryRefresh((n) => n + 1);
+        setNotice("The version is back. The one it replaced is kept in History.");
+      } else if (result.status === "locked") setNotice("This Resume is locked. Unlock it to restore a version.");
+      else if (result.status === "conflict") setNotice("This Resume was changed somewhere else. Look at the history again and retry.");
+      else setNotice("Could not restore that version. Try again.");
+    } finally {
+      setRestoring(false);
+    }
+  }
+
   // Squeezes the Resume back onto the pages it means to have, within limits, or says it cannot and changes nothing.
   async function fit() {
     setFitting(true);
@@ -206,6 +259,7 @@ export function ResumeEditor({
     if (mode === "write") return focusField(ref);
     setMode("write");
     setCandidate(null);
+    setViewing(null);
     requestAnimationFrame(() => focusField(ref));
   }
 
@@ -281,8 +335,8 @@ export function ResumeEditor({
   const { doc } = state;
   // What the page preview draws: the Resume, or a template being looked at. The same object while neither changes.
   const shown = useMemo(
-    () => (candidate ? { ...doc, metadata: { ...doc.metadata, template: candidate } } : doc),
-    [doc, candidate],
+    () => (viewing ? viewing.doc : candidate ? { ...doc, metadata: { ...doc.metadata, template: candidate } } : doc),
+    [doc, candidate, viewing],
   );
   const unsavedLabel = state.status === "error" ? "Not saved" : state.status === "saving" ? "Saving…" : state.status === "unsaved" ? "Unsaved changes" : "Saved";
 
@@ -329,7 +383,7 @@ export function ResumeEditor({
           </p>
         )}
         <nav aria-label="Mode" className="flex gap-2 text-sm">
-          {(["write", "design"] as const).map((m) => (
+          {(["write", "design", "history"] as const).map((m) => (
             <button
               key={m}
               type="button"
@@ -337,10 +391,11 @@ export function ResumeEditor({
               onClick={() => {
                 setMode(m);
                 if (m === "write") setCandidate(null);
+                if (m !== "history") setViewing(null);
               }}
               className={cn("rounded-lg border border-border px-3 py-1.5 hover:bg-surface", mode === m && "bg-surface font-medium")}
             >
-              {m === "write" ? "Write" : "Design"}
+              {m === "write" ? "Write" : m === "design" ? "Design" : "History"}
             </button>
           ))}
         </nav>
@@ -436,6 +491,20 @@ export function ResumeEditor({
           </section>
         </fieldset>
         </Locked>
+        {mode === "history" && (
+          <div className="grid min-w-0 content-start gap-6">
+            <History
+              id={id}
+              locked={locked}
+              busy={restoring}
+              viewing={viewing?.id ?? null}
+              refresh={historyRefresh}
+              onView={(versionId) => void view(versionId)}
+              onRestore={(versionId) => void restore(versionId)}
+              onNameCurrent={nameCurrent}
+            />
+          </div>
+        )}
         {mode === "design" && (
           <div className="grid min-w-0 content-start gap-6">
             <Design

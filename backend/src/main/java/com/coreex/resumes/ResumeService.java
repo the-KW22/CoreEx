@@ -20,8 +20,11 @@ public class ResumeService {
 
 	private final ResumeRepository resumes;
 
-	ResumeService(ResumeRepository resumes) {
+	private final ResumeVersionRepository versions;
+
+	ResumeService(ResumeRepository resumes, ResumeVersionRepository versions) {
 		this.resumes = resumes;
+		this.versions = versions;
 	}
 
 	/** A Resume, and whether this call made it (false: it was already there, see the id form of {@code create}). */
@@ -64,10 +67,25 @@ public class ResumeService {
 
 	@Transactional
 	public Resume save(UUID ownerId, UUID id, String title, ResumeDocument document, int seenVersion) {
+		return save(ownerId, id, title, document, seenVersion, false);
+	}
+
+	/**
+	 * A save keeps the document it replaces as a version first (in the same transaction, so a refused save keeps
+	 * nothing), and with {@code restoring} always keeps it and does not look at the photo again: a restore brings back
+	 * something the User once had, even a photo whose Asset has gone since.
+	 */
+	private Resume save(UUID ownerId, UUID id, String title, ResumeDocument document, int seenVersion, boolean restoring) {
 		// Missing, or someone else's, is 404 before anything else is looked at.
-		requirePhoto(ownerId, get(ownerId, id).document().basics().photo().assetId(), document.basics().photo().assetId());
+		var stored = get(ownerId, id);
+		if (!restoring) {
+			requirePhoto(ownerId, stored.document().basics().photo().assetId(), document.basics().photo().assetId());
+		}
 		var clean = ResumeText.clean(document);
 		var json = checked(clean);
+		if (versions.keep(ownerId, id, seenVersion, restoring)) {
+			versions.prune(ownerId, id);
+		}
 		if (!resumes.save(ownerId, id, seenVersion, title.strip(), json, ResumeText.plain(clean), ResumeText.markdown(clean))) {
 			// Missing (or someone else's) is 404; otherwise it is locked, or it moved on since the caller read it.
 			throwIfLocked(get(ownerId, id));
@@ -75,6 +93,42 @@ public class ResumeService {
 					"This Resume was changed somewhere else since you opened it.");
 		}
 		return get(ownerId, id);
+	}
+
+	// shortcut: not paged, a Resume keeps at most coreex.resumes.versions.keep (50) unnamed versions plus the named ones.
+	public List<ResumeVersionRepository.Version> versions(UUID ownerId, UUID id) {
+		get(ownerId, id);
+		return versions.list(ownerId, id);
+	}
+
+	public ResumeVersionRepository.Version version(UUID ownerId, UUID id, UUID versionId) {
+		return versions.find(ownerId, id, versionId).orElseThrow(ResumeService::versionNotFound);
+	}
+
+	/** Keeps the Resume as it is stored now under a name; it is never cleaned up. */
+	@Transactional
+	public ResumeVersionRepository.Version nameCurrent(UUID ownerId, UUID id, String name) {
+		get(ownerId, id);
+		var made = versions.keepNamed(ownerId, id, name.strip()).orElseThrow(ResumeService::notFound);
+		return version(ownerId, id, made);
+	}
+
+	/** Sets the name of a version, or clears it when blank (it then counts and expires like any other). */
+	public void renameVersion(UUID ownerId, UUID id, UUID versionId, String name) {
+		if (!versions.rename(ownerId, id, versionId, name == null || name.isBlank() ? null : name.strip())) {
+			throw versionNotFound();
+		}
+	}
+
+	/** Saves an earlier document as the Resume. The document it replaces is kept, so a restore can be undone. */
+	@Transactional
+	public Resume restore(UUID ownerId, UUID id, UUID versionId, int seenVersion) {
+		var old = version(ownerId, id, versionId);
+		return save(ownerId, id, old.title(), old.document(), seenVersion, true);
+	}
+
+	private static ApiException versionNotFound() {
+		return new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "There is no such version of the Resume.");
 	}
 
 	public void rename(UUID ownerId, UUID id, String title) {
