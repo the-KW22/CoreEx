@@ -343,7 +343,7 @@ export function ResumeEditor({
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const { doc } = state;
-  const checks = useMemo(() => checkResume(doc), [doc]);
+  const checks = useMemo(() => checkResume(doc, new Date().getUTCFullYear()), [doc]);
   // What the page preview draws: the Resume, or a template being looked at. The same object while neither changes.
   const shown = useMemo(
     () => (viewing ? viewing.doc : candidate ? { ...doc, metadata: { ...doc.metadata, template: candidate } } : doc),

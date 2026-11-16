@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { SAMPLE } from "./sample";
-import { checkResume } from "./check";
+import { checkResume as check } from "./check";
 
 const doc = () => structuredClone(SAMPLE);
+const checkResume = (value: ReturnType<typeof doc>) => check(value, 2026);
 
 describe("Resume Check", () => {
   it.each([

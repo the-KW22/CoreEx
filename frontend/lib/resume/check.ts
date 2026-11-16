@@ -5,7 +5,7 @@ import { resumeBlocks } from "./blocks";
 type Doc = components["schemas"]["ResumeDocument"];
 export type CheckIssue = { id: string; category: string; severity: "error" | "warning"; message: string; ref: string; ignored: boolean; fix?: "font" };
 
-export function checkResume(doc: Doc): { score: number; issues: CheckIssue[] } {
+export function checkResume(doc: Doc, year: number): { score: number; issues: CheckIssue[] } {
   const issues: CheckIssue[] = [];
   const sidebar = new Set(resumeBlocks(doc).flatMap((block) => block.kind === "heading" && block.column === "side" ? [block.ref] : []));
   const add = (id: string, category: string, severity: CheckIssue["severity"], message: string, ref: string, fix?: CheckIssue["fix"]) =>
@@ -42,7 +42,7 @@ export function checkResume(doc: Doc): { score: number; issues: CheckIssue[] } {
       const validDate = (value: string) => /^(\d{4})(?:-(0[1-9]|1[0-2]))?(?:-(0[1-9]|[12]\d|3[01]))?$/.test(value);
       if ([entry.startDate, entry.endDate].some((date) => date.trim() && date.toLowerCase() !== "present" && !validDate(date)))
         add(`dates-invalid-${entry.id}`, "Dates", "warning", "Check that the dates can be read.", `entry:${entry.id}:dates`);
-      if (validDate(entry.startDate) && entry.startDate.slice(0, 4) > String(new Date().getFullYear()))
+      if (validDate(entry.startDate) && Number(entry.startDate.slice(0, 4)) > year)
         add(`dates-future-${entry.id}`, "Dates", "warning", "This entry starts in the future; check its date.", `entry:${entry.id}:dates`);
       const earliest = (date: string) => date.length === 4 ? `${date}-01-01` : date.length === 7 ? `${date}-01` : date;
       const latest = (date: string) => date.length === 4 ? `${date}-12-31` : date.length === 7 ? `${date}-31` : date;
