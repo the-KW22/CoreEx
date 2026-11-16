@@ -7,13 +7,15 @@ type Doc = components["schemas"]["ResumeDocument"];
 
 // What a template draws, in order. Templates differ in how they draw these, never in what is drawn, so the page map
 // and the checks of later tickets can read the same list.
-export type RoleBlock = { title: string; dates: string; rich: Rich[] };
+export type RoleBlock = { id: string; title: string; dates: string; rich: Rich[] };
 export type Block =
   | { kind: "header"; name: string; headline: string; contact: string[] }
-  | { kind: "heading"; text: string }
+  // `ref` names the field a click on it should open: "summary" or "section:<id>".
+  | { kind: "heading"; text: string; ref: string }
   | { kind: "text"; rich: Rich[] }
   | {
       kind: "entry";
+      id: string;
       title: string;
       subtitle: string;
       location: string;
@@ -45,14 +47,15 @@ export function resumeBlocks(doc: Doc): Block[] {
     },
   ];
   const summary = parseRich(doc.summary);
-  if (summary.length) blocks.push({ kind: "heading", text: "Summary" }, { kind: "text", rich: summary });
+  if (summary.length) blocks.push({ kind: "heading", text: "Summary", ref: "summary" }, { kind: "text", rich: summary });
   for (const section of doc.sections) {
     const entries = section.entries.filter((e) => !e.hidden);
     if (section.hidden || entries.length === 0) continue;
-    blocks.push({ kind: "heading", text: section.title.trim() || section.kind });
+    blocks.push({ kind: "heading", text: section.title.trim() || section.kind, ref: `section:${section.id}` });
     for (const e of entries) {
       blocks.push({
         kind: "entry",
+        id: e.id,
         title: e.title.trim(),
         subtitle: e.subtitle.trim(),
         location: e.location.trim(),
@@ -61,6 +64,7 @@ export function resumeBlocks(doc: Doc): Block[] {
         level: e.level.trim(),
         rich: parseRich(e.description),
         roles: e.roles.map((r) => ({
+          id: r.id,
           title: r.title.trim(),
           dates: formatSpan(r.startDate, r.endDate, format),
           rich: parseRich(r.description),

@@ -3303,3 +3303,33 @@ test("a locked Resume cannot be edited until unlocked, and private notes are kep
   await expect(status).not.toHaveText("Saved");
   await expect(status).toHaveText("Saved");
 });
+
+test("a click on the page jumps to that field in the editor, on page 1 and on page 2", async ({ page }) => {
+  await signIn(page);
+  const name = `Map ${Date.now()}`;
+  await page.goto("/career/library");
+  await page.getByRole("button", { name: "New Resume" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Resume" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByLabel("Start with sample content").check();
+  await dialog.getByRole("button", { name: "Create Resume" }).click();
+  await page.getByRole("link", { name }).click();
+  const preview = page.getByRole("region", { name: "Page preview" });
+  await expect(preview.getByRole("img", { name: "Page 1 of 1" })).toBeVisible({ timeout: 30_000 });
+
+  // The name on the page is the name field.
+  await preview.locator('[data-page="1"] [data-ref="basics.name"]').click();
+  await expect(page.locator(":focus")).toHaveAttribute("data-field", "basics.name");
+
+  // Copies of the first job push the Resume onto a second page.
+  const experience = page.getByRole("region", { name: "Experience", exact: true });
+  for (let i = 0; i < 12; i++) await experience.getByRole("button", { name: "Duplicate Senior Software Engineer" }).first().click();
+  await expect(preview.getByRole("status")).toHaveText("2 pages", { timeout: 30_000 });
+  await expectNoViolations(page);
+
+  const onSecond = preview.locator('[data-page="2"] [data-ref$=":title"]').first();
+  const ref = await onSecond.getAttribute("data-ref");
+  expect(ref).toMatch(/^entry:.+:title$/);
+  await onSecond.click();
+  await expect(page.locator(":focus")).toHaveAttribute("data-field", ref!);
+});

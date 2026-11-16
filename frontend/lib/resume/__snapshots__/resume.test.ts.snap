@@ -15,6 +15,7 @@ exports[`what the template draws > lists the sample Resume in reading order 1`] 
   },
   {
     "kind": "heading",
+    "ref": "summary",
     "text": "Summary",
   },
   {
@@ -40,10 +41,12 @@ exports[`what the template draws > lists the sample Resume in reading order 1`] 
   },
   {
     "kind": "heading",
+    "ref": "section:experience",
     "text": "Experience",
   },
   {
     "dates": "Mar 2021 - Present",
+    "id": "exp-1",
     "keywords": [
       "Java",
       "PostgreSQL",
@@ -76,6 +79,7 @@ exports[`what the template draws > lists the sample Resume in reading order 1`] 
   },
   {
     "dates": "Jun 2018 - Feb 2021",
+    "id": "exp-2",
     "keywords": [],
     "kind": "entry",
     "level": "",
@@ -105,10 +109,12 @@ exports[`what the template draws > lists the sample Resume in reading order 1`] 
   },
   {
     "kind": "heading",
+    "ref": "section:education",
     "text": "Education",
   },
   {
     "dates": "Sep 2014 - Jun 2018",
+    "id": "edu-1",
     "keywords": [],
     "kind": "entry",
     "level": "",
@@ -121,10 +127,12 @@ exports[`what the template draws > lists the sample Resume in reading order 1`] 
   },
   {
     "kind": "heading",
+    "ref": "section:skills",
     "text": "Skills",
   },
   {
     "dates": "",
+    "id": "skill-1",
     "keywords": [
       "Java",
       "Spring Boot",
@@ -141,6 +149,7 @@ exports[`what the template draws > lists the sample Resume in reading order 1`] 
   },
   {
     "dates": "",
+    "id": "skill-2",
     "keywords": [
       "TypeScript",
       "React",

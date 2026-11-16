@@ -111,6 +111,14 @@ export function ResumeEditor({
     }
   }
 
+  // A click on the page: jump to the field it came from, and put the cursor in it.
+  function select(ref: string) {
+    const field = document.querySelector<HTMLElement>(`[data-field="${CSS.escape(ref)}"]`);
+    if (!field) return;
+    field.scrollIntoView({ block: "center" });
+    (field.querySelector<HTMLElement>("[contenteditable=true]") ?? field).focus();
+  }
+
   function onKeyDown(e: React.KeyboardEvent) {
     if (locked || !(e.ctrlKey || e.metaKey) || e.altKey) return;
     const key = e.key.toLowerCase();
@@ -249,6 +257,7 @@ export function ResumeEditor({
                 <label key={field} className="grid gap-1 text-sm font-medium">
                   {label}
                   <input
+                    data-field={`basics.${field}`}
                     value={doc.basics[field]}
                     autoComplete={autoComplete}
                     maxLength={200}
@@ -297,7 +306,7 @@ export function ResumeEditor({
             <h2 id="summary" className="text-lg font-semibold">
               Summary
             </h2>
-            <RichText key={generation} label="Summary" html={doc.summary} onChange={(html) => dispatch({ type: "summary", html })} />
+            <RichText key={generation} label="Summary" field="summary" html={doc.summary} onChange={(html) => dispatch({ type: "summary", html })} />
           </section>
 
           <Sections key={generation} doc={doc} dispatch={act} />
@@ -320,7 +329,7 @@ export function ResumeEditor({
         </fieldset>
         </Locked>
 
-        <Preview doc={state.doc} title={state.title} />
+        <Preview doc={state.doc} title={state.title} onSelect={select} />
       </div>
     </div>
   );
