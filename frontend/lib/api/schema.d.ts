@@ -500,6 +500,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["documents"];
+        put?: never;
+        post: operations["attach"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/bulk/trash": {
         parameters: {
             query?: never;
@@ -1044,6 +1060,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/documents/{assetId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["detach"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{id}": {
         parameters: {
             query?: never;
@@ -1509,6 +1541,12 @@ export interface components {
              */
             version?: number | null;
         };
+        AttachRequest: {
+            /** Format: uuid */
+            assetId: string;
+            /** @enum {string} */
+            label: "RESUME" | "COVER_LETTER" | "OTHER";
+        };
         BulkIds: {
             ids: string[];
         };
@@ -1870,6 +1908,20 @@ export interface components {
             name: string;
             /** @enum {string|null} */
             colour?: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
+        };
+        DocumentList: {
+            items: components["schemas"]["DocumentResponse"][];
+        };
+        DocumentResponse: {
+            /** Format: uuid */
+            assetId: string;
+            title: string;
+            /** @enum {string} */
+            label: "RESUME" | "COVER_LETTER" | "OTHER";
+            /** Format: int64 */
+            sizeBytes: number;
+            /** Format: date-time */
+            attachedAt: string;
         };
         UserPage: {
             items: components["schemas"]["UserResponse"][];
@@ -3771,6 +3823,79 @@ export interface operations {
             };
         };
     };
+    documents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The PDFs sent for the Application, oldest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentList"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Application) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    attach: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachRequest"];
+            };
+        };
+        responses: {
+            /** @description Attached; an Asset attached again has its label changed */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code INVALID_REQUEST (not a PDF, or not a label) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND (the Application or the Asset, also another User's) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     bulkTrash: {
         parameters: {
             query?: never;
@@ -4907,6 +5032,36 @@ export interface operations {
                 content?: never;
             };
             /** @description Code NOT_FOUND: no such Item or Tag (also for another User's) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    detach: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Detached; the Asset stays */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND */
             404: {
                 headers: {
                     [name: string]: unknown;

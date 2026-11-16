@@ -211,6 +211,33 @@ public class ApplicationService {
 		}
 	}
 
+	/** The PDFs sent for the Application, oldest first. Only the Assets that are not in the Trash. */
+	public List<ApplicationDocument> documents(UUID ownerId, UUID id) {
+		get(ownerId, id);
+		return applications.documents(ownerId, id);
+	}
+
+	/** Attaches one of the User's own PDFs with a label; attaching it again changes the label. */
+	@Transactional
+	public void attach(UUID ownerId, UUID id, UUID assetId, ApplicationDocument.Label label) {
+		get(ownerId, id);
+		var mime = applications.assetMimeType(ownerId, assetId)
+				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "There is no such Asset."));
+		if (!"application/pdf".equals(mime)) {
+			throw invalid("Only a PDF can be attached.");
+		}
+		applications.attach(id, assetId, label);
+	}
+
+	/** Takes the PDF off the Application; the Asset stays. */
+	@Transactional
+	public void detach(UUID ownerId, UUID id, UUID assetId) {
+		get(ownerId, id);
+		if (!applications.detach(id, assetId)) {
+			throw new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "That PDF is not attached.");
+		}
+	}
+
 	/** Adds a note, "I followed up" or "They replied", dated {@code date} or today. */
 	@Transactional
 	public Application addEntry(UUID ownerId, UUID id, EntryType type, String text, LocalDate date, int seenVersion) {

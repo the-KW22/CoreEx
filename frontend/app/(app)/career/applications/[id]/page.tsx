@@ -13,6 +13,7 @@ import { TagEditor } from "../../../items/tag-editor";
 import { RecordOpen } from "../../../search/record-open";
 import { deleteApplication } from "../actions";
 import { ApplicationView } from "./application-view";
+import { Documents } from "./documents";
 
 // The Application screen: the Item frame (breadcrumb, Move to Trash, and a Details panel with its Folder and Tags)
 // around its fields edited in place, the Stage stepper, the timeline and the posting.
@@ -20,11 +21,12 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
   const { id } = await params;
   const { error, depth: rawDepth, mentions } = await searchParams;
   const api = await getApi();
-  const [result, list, itemTags, allTags, jar] = await Promise.all([
+  const [result, list, itemTags, allTags, docs, jar] = await Promise.all([
     api.GET("/api/applications/{id}", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/folders").catch(() => null),
     api.GET("/api/items/{id}/tags", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/tags").catch(() => null),
+    api.GET("/api/applications/{id}/documents", { params: { path: { id } } }).catch(() => null),
     cookies(),
   ]);
 
@@ -78,6 +80,15 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
         <div className="grid flex-1 content-start gap-4 p-4 md:p-8">
           {error === "delete" && <Alert>Could not move the Application to the Trash. Try again.</Alert>}
           <ApplicationView initial={application} />
+          <div className="mx-auto w-full max-w-3xl">
+            {docs?.data ? (
+              <Documents applicationId={application.id} documents={docs.data.items} />
+            ) : (
+              <p role="alert" className="text-sm">
+                Could not load the PDFs.
+              </p>
+            )}
+          </div>
         </div>
       </ItemFrame>
     </>

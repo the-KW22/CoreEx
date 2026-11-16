@@ -2843,6 +2843,46 @@ test("a Note's mention of an Application becomes a Backlink, and Search finds th
   await trashRows(page, [noteTitle]);
 });
 
+test("the PDFs sent for an Application are uploaded with a label, downloaded and detached, and the Asset stays", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page);
+  const stamp = Date.now();
+  const company = `November ${stamp}`;
+  const file = `cv-${stamp}.pdf`;
+  const letter = `letter-${stamp}.pdf`;
+  const pdf = (text: string) => ({ name: "", mimeType: "application/pdf", buffer: Buffer.from(`%PDF-1.4
+${text}
+%%EOF`) });
+  await newApplication(page, company, "Dev");
+  await expect(page.locator("#posting-text")).toBeVisible();
+  const docs = page.getByRole("region", { name: "PDFs you sent" });
+  await expect(docs).toContainText("Nothing attached yet.");
+
+  // The label is chosen first; the file goes through the usual upload and is attached.
+  await page.getByLabel("PDF file").setInputFiles({ ...pdf("resume"), name: file });
+  await expect(docs.getByRole("link", { name: file })).toBeVisible();
+  await expect(docs.getByRole("listitem").filter({ hasText: file })).toContainText("Resume");
+  await docs.getByLabel("This PDF is a").selectOption("COVER_LETTER");
+  await page.getByLabel("PDF file").setInputFiles({ ...pdf("cover"), name: letter });
+  await expect(docs.getByRole("listitem").filter({ hasText: letter })).toContainText("Cover letter");
+  await expectNoViolations(page);
+
+  // Download gives the file; the Asset is in Assets too.
+  const download = page.waitForEvent("download");
+  await docs.getByRole("button", { name: `Download ${file}` }).click();
+  expect((await download).suggestedFilename()).toBe(file);
+  await page.goto("/assets");
+  await expect(page.getByRole("link", { name: file }).first()).toBeVisible();
+
+  // Detach takes it off the Application; the Asset stays.
+  await page.goBack();
+  await docs.getByRole("button", { name: `Detach ${file}` }).click();
+  await expect(docs.getByRole("link", { name: file })).toHaveCount(0);
+  await expect(docs.getByRole("link", { name: letter })).toBeVisible();
+  await page.goto("/assets");
+  await expect(page.getByRole("link", { name: file }).first()).toBeVisible();
+});
+
 test("Career opens from the rail with its panel and the Applications list, and New Application lands on the new page", async ({ page }) => {
   await signIn(page);
   const stamp = Date.now();
