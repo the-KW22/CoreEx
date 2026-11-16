@@ -15,7 +15,7 @@ public record ResumeDocument(@NotNull String locale, @NotNull Basics basics, @No
 
 	public ResumeDocument {
 		locale = locale == null || locale.isBlank() ? "en" : locale;
-		basics = basics == null ? new Basics(null, null, null, null, null, null, null) : basics;
+		basics = basics == null ? new Basics(null, null, null, null, null, null, null, null) : basics;
 		summary = summary == null ? "" : summary;
 		sections = sections == null ? List.of() : List.copyOf(sections);
 		metadata = metadata == null ? new Metadata(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null) : metadata;
@@ -23,12 +23,19 @@ public record ResumeDocument(@NotNull String locale, @NotNull Basics basics, @No
 		ignoredChecks = ignoredChecks == null ? List.of() : List.copyOf(ignoredChecks);
 	}
 
+	/** The same Resume with no photo chosen (its frame settings stay). */
+	public ResumeDocument withoutPhoto() {
+		var b = basics;
+		return new ResumeDocument(locale, new Basics(b.name(), b.headline(), b.email(), b.phone(), b.location(), b.website(),
+				b.customFields(), b.photo().without()), summary, sections, metadata, privateNotes, ignoredChecks);
+	}
+
 	public static ResumeDocument blank() {
 		return new ResumeDocument(null, null, null, null, null, null, null);
 	}
 
 	public record Basics(@NotNull String name, @NotNull String headline, @NotNull String email, @NotNull String phone,
-			@NotNull String location, @NotNull String website, @NotNull List<Field> customFields) {
+			@NotNull String location, @NotNull String website, @NotNull List<Field> customFields, @NotNull Photo photo) {
 
 		public Basics {
 			name = name == null ? "" : name;
@@ -38,6 +45,32 @@ public record ResumeDocument(@NotNull String locale, @NotNull Basics basics, @No
 			location = location == null ? "" : location;
 			website = website == null ? "" : website;
 			customFields = customFields == null ? List.of() : List.copyOf(customFields);
+			photo = photo == null ? new Photo(null, null, null, null, null, null, null) : photo;
+		}
+
+	}
+
+	/**
+	 * The photo on the page: the id of one of the User's image Assets (empty: none), whether it shows, its frame in points
+	 * (circle, rounded or square) and the crop, where the picture is centred in the frame (0 to 100 each way) and how
+	 * much it is zoomed (100 to 300 percent). That the Asset is the User's own image is checked when it is chosen
+	 * (ResumeService); the values are brought into range here.
+	 */
+	public record Photo(@NotNull String assetId, @NotNull Boolean visible, @NotNull Integer size, @NotNull String shape,
+			@NotNull Integer cropX, @NotNull Integer cropY, @NotNull Integer zoom) {
+
+		public Photo {
+			assetId = assetId != null && assetId.matches("[0-9a-fA-F-]{36}") ? assetId.toLowerCase() : "";
+			visible = visible == null || visible;
+			size = Metadata.within(size, 30, 160, 80);
+			shape = Metadata.oneOf(shape, "circle", "circle", "rounded", "square");
+			cropX = Metadata.within(cropX, 0, 100, 50);
+			cropY = Metadata.within(cropY, 0, 100, 50);
+			zoom = Metadata.within(zoom, 100, 300, 100);
+		}
+
+		public Photo without() {
+			return new Photo("", visible, size, shape, cropX, cropY, zoom);
 		}
 
 	}
@@ -148,11 +181,11 @@ public record ResumeDocument(@NotNull String locale, @NotNull Basics basics, @No
 			customCss = customCss == null ? "" : customCss;
 		}
 
-		private static int within(Integer value, int low, int high, int fallback) {
+		static int within(Integer value, int low, int high, int fallback) {
 			return value == null || value == 0 && low > 0 && fallback != 0 ? fallback : Math.min(high, Math.max(low, value));
 		}
 
-		private static String oneOf(String value, String fallback, String... allowed) {
+		static String oneOf(String value, String fallback, String... allowed) {
 			return value != null && java.util.Arrays.asList(allowed).contains(value) ? value : fallback;
 		}
 

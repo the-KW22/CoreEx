@@ -1,6 +1,6 @@
 import type { components } from "@/lib/api/schema";
 
-import { DEFAULT_DESIGN } from "./design";
+import { DEFAULT_DESIGN, DEFAULT_PHOTO } from "./design";
 
 // The same made-up person as the backend's sample Resume (ResumeSample.java), for tests that need a full document.
 export const SAMPLE: components["schemas"]["ResumeDocument"] = {
@@ -13,6 +13,7 @@ export const SAMPLE: components["schemas"]["ResumeDocument"] = {
     location: "Austin, TX",
     website: "https://alexmorgan.example",
     customFields: [],
+    photo: DEFAULT_PHOTO,
   },
   summary:
     "<p>Engineer with <strong>seven years</strong> of experience building reliable web services and the teams that run them.</p>",

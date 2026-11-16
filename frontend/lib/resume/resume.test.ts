@@ -56,6 +56,34 @@ describe("what the template draws", () => {
   });
 });
 
+describe("the photo", () => {
+  // A 1 x 1 PNG.
+  const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+  const withPhoto = (edit: (photo: typeof SAMPLE.basics.photo) => void = () => {}) => {
+    const doc = structuredClone(SAMPLE);
+    doc.basics.photo = { ...doc.basics.photo, assetId: "11111111-2222-3333-4444-555555555555" };
+    edit(doc.basics.photo);
+    return doc;
+  };
+  const render = async (doc: typeof SAMPLE, photoSrc: string | null) =>
+    new TextDecoder("latin1").decode(
+      new Uint8Array(await renderToBuffer(createElement(ResumePdf, { doc, fonts: { registered: false }, photoSrc }) as never)),
+    );
+
+  it("the header block carries the frame only when there is a photo to show", () => {
+    const header = (doc: typeof SAMPLE) => resumeBlocks(doc)[0] as { photo: unknown };
+    expect(header(SAMPLE).photo).toBeNull();
+    expect(header(withPhoto()).photo).toEqual({ size: 80, shape: "circle", cropX: 50, cropY: 50, zoom: 100 });
+    expect(header(withPhoto((p) => (p.visible = false))).photo).toBeNull();
+  });
+
+  it("the PDF holds the picture when it is given, and no picture when the Asset is gone", async () => {
+    expect(await render(withPhoto(), PNG)).toMatch(/\/Subtype\s*\/Image/);
+    expect(await render(withPhoto(), null)).not.toMatch(/\/Subtype\s*\/Image/);
+    expect(await render(withPhoto((p) => (p.visible = false)), PNG)).not.toMatch(/\/Subtype\s*\/Image/);
+  });
+});
+
 describe("the PDF", () => {
   it("never holds the private notes", async () => {
     const doc = { ...structuredClone(SAMPLE), privateNotes: "sent-to-acme-on-monday" };

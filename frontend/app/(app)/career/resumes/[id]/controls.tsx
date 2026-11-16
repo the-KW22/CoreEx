@@ -14,7 +14,7 @@ const input = "h-9 w-full rounded-lg border border-border bg-surface px-3";
 const select = "h-9 w-full rounded-lg border border-border bg-surface px-2";
 
 // A whole number that is only used once it is in range, so typing "1" on the way to "12" does not make the page tiny.
-function NumberField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (n: number) => void }) {
+export function NumberField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (n: number) => void }) {
   const [text, setText] = useState(String(value));
   return (
     <label className="grid gap-1 text-sm font-medium">

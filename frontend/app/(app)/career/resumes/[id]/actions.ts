@@ -57,3 +57,27 @@ export async function setLocked(id: string, locked: boolean): Promise<boolean> {
   const result = await api.PUT("/api/resumes/{id}/lock", { params: { path: { id } }, body: { locked } }).catch(() => null);
   return !!result?.response.ok;
 }
+
+// The photo's picture as a data URL, or null when it cannot be shown (the Asset is gone, not a PNG or JPEG, or too big).
+// The API's signed link is followed here, on the server, so the browser needs no access to Storage and a link cannot
+// run out while a page is being drawn. react-pdf draws PNG and JPEG only.
+export async function photoData(assetId: string): Promise<string | null> {
+  const api = await getApi();
+  const link = await api.GET("/api/assets/{id}/url", { params: { path: { id: assetId } } }).catch(() => null);
+  if (!link?.data) return null;
+  const file = await fetch(link.data.url).catch(() => null);
+  const type = file?.headers.get("content-type")?.split(";")[0] ?? "";
+  if (!file?.ok || (type !== "image/png" && type !== "image/jpeg")) return null;
+  const bytes = Buffer.from(await file.arrayBuffer());
+  return bytes.length > 5_000_000 ? null : `data:${type};base64,${bytes.toString("base64")}`;
+}
+
+export type ImageAsset = { id: string; title: string };
+
+// The User's PNG and JPEG Assets, for choosing a photo.
+// shortcut: the first 100 Assets, and "an image" is judged by the file name, upgrade when the list can filter by type.
+export async function imageAssets(): Promise<ImageAsset[]> {
+  const api = await getApi();
+  const result = await api.GET("/api/items", { params: { query: { type: "ASSET", page: 0, size: 100 } } }).catch(() => null);
+  return (result?.data?.items ?? []).filter((i) => /\.(png|jpe?g)$/i.test(i.title)).map((i) => ({ id: i.id, title: i.title }));
+}

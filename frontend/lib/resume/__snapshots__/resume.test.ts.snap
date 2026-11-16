@@ -12,6 +12,7 @@ exports[`what the template draws > lists the sample Resume in reading order 1`] 
     "headline": "Senior Software Engineer",
     "kind": "header",
     "name": "Alex Morgan",
+    "photo": null,
   },
   {
     "column": "main",

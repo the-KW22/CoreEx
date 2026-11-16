@@ -1292,6 +1292,7 @@ export interface components {
             location: string;
             website: string;
             customFields: components["schemas"]["Field"][];
+            photo: components["schemas"]["Photo"];
         };
         Entry: {
             id: string;
@@ -1337,6 +1338,19 @@ export interface components {
             entryHeader: string;
             placements: components["schemas"]["Placement"][];
             customCss: string;
+        };
+        Photo: {
+            assetId: string;
+            visible: boolean;
+            /** Format: int32 */
+            size: number;
+            shape: string;
+            /** Format: int32 */
+            cropX: number;
+            /** Format: int32 */
+            cropY: number;
+            /** Format: int32 */
+            zoom: number;
         };
         Placement: {
             section: string;

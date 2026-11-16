@@ -64,6 +64,8 @@ public class ResumeService {
 
 	@Transactional
 	public Resume save(UUID ownerId, UUID id, String title, ResumeDocument document, int seenVersion) {
+		// Missing, or someone else's, is 404 before anything else is looked at.
+		requirePhoto(ownerId, get(ownerId, id).document().basics().photo().assetId(), document.basics().photo().assetId());
 		var clean = ResumeText.clean(document);
 		var json = checked(clean);
 		if (!resumes.save(ownerId, id, seenVersion, title.strip(), json, ResumeText.plain(clean), ResumeText.markdown(clean))) {
@@ -98,7 +100,21 @@ public class ResumeService {
 	public Resume duplicate(UUID ownerId, UUID id) {
 		var source = get(ownerId, id);
 		var title = source.title().length() > MAX_TITLE - 7 ? source.title().substring(0, MAX_TITLE - 7) : source.title();
-		return get(ownerId, insert(ownerId, null, title + " (copy)", source.document()));
+		// A photo whose Asset has gone is not carried over: the copy would otherwise name an Asset it cannot show.
+		var photo = source.document().basics().photo().assetId();
+		var document = photo.isEmpty() || resumes.isImageAsset(ownerId, UUID.fromString(photo)) ? source.document() : source.document().withoutPhoto();
+		return get(ownerId, insert(ownerId, null, title + " (copy)", document));
+	}
+
+	/**
+	 * A photo that is new must be one of the User's own live image Assets; the same refusal for another User's, a PDF and
+	 * an id that is nothing, so it says nothing about whose it is. A photo the Resume already has is not looked at again,
+	 * so an Asset that was trashed since cannot stop the Resume from being saved.
+	 */
+	private void requirePhoto(UUID ownerId, String stored, String wanted) {
+		if (!wanted.isEmpty() && !wanted.equals(stored) && !resumes.isImageAsset(ownerId, UUID.fromString(wanted))) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "That photo is not one of your image Assets.");
+		}
 	}
 
 	private UUID insert(UUID ownerId, UUID id, String title, ResumeDocument document) {

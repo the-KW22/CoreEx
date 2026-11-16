@@ -1,5 +1,5 @@
 import type { components } from "@/lib/api/schema";
-import { type Metadata, resetDesign } from "../../../../../lib/resume/design";
+import { type Metadata, type Photo, resetDesign } from "../../../../../lib/resume/design";
 
 export type ResumeDocument = components["schemas"]["ResumeDocument"];
 type Basics = components["schemas"]["Basics"];
@@ -66,11 +66,12 @@ export type Action =
   | { type: "redo" }
   | { type: "privateNotes"; value: string }
   | { type: "template"; value: string }
+  | { type: "photo"; patch: Partial<Photo> }
   | { type: "design"; patch: Partial<Metadata> }
   | { type: "placeSection"; section: string; column?: string; page?: number }
   | { type: "resetDesign" }
   | { type: "title"; value: string }
-  | { type: "basic"; field: Exclude<keyof Basics, "customFields">; value: string }
+  | { type: "basic"; field: Exclude<keyof Basics, "customFields" | "photo">; value: string }
   | { type: "summary"; html: string }
   | { type: "addField" }
   | { type: "field"; index: number; part: "label" | "value"; value: string }
@@ -145,6 +146,8 @@ function groupOf(a: Action): string | null {
       return "notes";
     case "design":
       return `design:${Object.keys(a.patch).join(",")}`;
+    case "photo":
+      return `photo:${Object.keys(a.patch).join(",")}`;
     case "field":
       return `field:${a.index}:${a.part}`;
     case "renameSection":
@@ -197,6 +200,8 @@ function apply(s: EditorState, a: Action): EditorState {
       return edited(s, { doc: { ...s.doc, metadata: { ...s.doc.metadata, template: a.value } } });
     case "design":
       return edited(s, { doc: { ...s.doc, metadata: { ...s.doc.metadata, ...a.patch } } });
+    case "photo":
+      return withBasics(s, { photo: { ...s.doc.basics.photo, ...a.patch } });
     case "resetDesign":
       return edited(s, { doc: { ...s.doc, metadata: resetDesign(s.doc.metadata) } });
     case "placeSection": {

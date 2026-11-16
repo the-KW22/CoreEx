@@ -9,9 +9,11 @@ type Doc = components["schemas"]["ResumeDocument"];
 // and the checks of later tickets can read the same list. `column` says where the Sidebar template puts a block (the
 // other templates draw everything in one column) and `page` which page it is drawn on.
 export type Column = "side" | "main";
+export type PhotoFrame = { size: number; shape: string; cropX: number; cropY: number; zoom: number };
 export type RoleBlock = { id: string; title: string; dates: string; rich: Rich[] };
 export type Block =
-  | { kind: "header"; name: string; headline: string; contact: string[] }
+  // `photo` is the frame and crop of the photo when there is one to show (the picture itself comes with the render).
+  | { kind: "header"; name: string; headline: string; contact: string[]; photo: PhotoFrame | null }
   // `ref` names the field a click on it should open: "summary" or "section:<id>".
   | { kind: "heading"; text: string; ref: string; column: Column; page: number }
   | { kind: "text"; rich: Rich[]; column: Column; page: number }
@@ -61,6 +63,7 @@ export function resumeBlocks(doc: Doc): Block[] {
       basics.website,
       ...basics.customFields.map((f) => (f.label.trim() ? `${f.label.trim()}: ${f.value.trim()}` : f.value)),
     ]),
+    photo: basics.photo.assetId && basics.photo.visible ? { size: basics.photo.size, shape: basics.photo.shape, cropX: basics.photo.cropX, cropY: basics.photo.cropY, zoom: basics.photo.zoom } : null,
   };
   // Per page, the sidebar's blocks and the main column's.
   const pages = new Map<number, { side: Block[]; main: Block[] }>();

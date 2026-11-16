@@ -3473,6 +3473,52 @@ test("an overflowing Resume is fitted back onto its page in one Undo step, a hop
   await expect(overflow).toHaveCount(0, { timeout: 30_000 });
 });
 
+test("a photo is uploaded as an Asset, reaches the PDF, changes its frame, survives a reload and is removed", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const name = `Photo ${stamp}`;
+  await openNewResume(page, name);
+  const status = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+  const preview = page.getByRole("region", { name: "Page preview" });
+  await expect(preview.getByRole("img", { name: "Page 1 of 1" })).toBeVisible({ timeout: 30_000 });
+
+  // The downloaded PDF has an image in it only while there is a photo.
+  const hasImage = async () => {
+    const [download] = await Promise.all([page.waitForEvent("download"), preview.getByRole("button", { name: "Download PDF" }).click()]);
+    const { readFile } = await import("node:fs/promises");
+    return /\/Subtype\s*\/Image/.test((await readFile(await download.path())).toString("latin1"));
+  };
+  expect(await hasImage()).toBe(false);
+
+  // Uploading makes an Asset, and the photo is that Asset.
+  await page.getByLabel("Upload a photo").setInputFiles({ name: `me-${stamp}.png`, mimeType: "image/png", buffer: PIXEL });
+  await expect(page.getByRole("img", { name: "Your photo" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByLabel("Choose from your Assets")).toHaveValue(/.+/);
+  await expect(status).toHaveText("Saved");
+  await expect.poll(hasImage, { timeout: 30_000 }).toBe(true);
+  await expectNoViolations(page);
+
+  // The frame and crop are settings of the Resume.
+  await page.getByLabel("Shape").selectOption("square");
+  await page.getByLabel("Size (pt)").fill("120");
+  await page.getByLabel("Zoom (%)").fill("150");
+  await expect(status).not.toHaveText("Saved");
+  await expect(status).toHaveText("Saved");
+  await page.reload();
+  await expect(page.getByRole("img", { name: "Your photo" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByLabel("Shape")).toHaveValue("square");
+  await expect(page.getByLabel("Size (pt)")).toHaveValue("120");
+
+  // Hiding it takes it off the page; the Resume still names the Asset. Remove forgets it.
+  await page.getByLabel("Show the photo on the page").uncheck();
+  await expect.poll(hasImage, { timeout: 30_000 }).toBe(false);
+  await page.getByLabel("Show the photo on the page").check();
+  await expect.poll(hasImage, { timeout: 30_000 }).toBe(true);
+  await page.getByRole("button", { name: "Remove photo" }).click();
+  await expect(page.getByRole("img", { name: "Your photo" })).toHaveCount(0);
+  await expect.poll(hasImage, { timeout: 30_000 }).toBe(false);
+});
+
 test("custom style rules change the page, bad ones are explained and not saved, and a part is picked on the page", async ({ page }) => {
   await signIn(page);
   const name = `Style ${Date.now()}`;

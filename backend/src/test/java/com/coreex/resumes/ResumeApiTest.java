@@ -31,15 +31,41 @@ class ResumeApiTest extends ApiTest {
 	@BeforeEach
 	void cleanDatabase() {
 		jdbc.sql("delete from users").update();
+		idA = null;
+		idB = null;
 		userA = userToken("a@example.com");
 		userB = userToken("b@example.com");
 	}
+
+	private UUID idA;
+
+	private UUID idB;
 
 	private String userToken(String email) {
 		var id = UUID.randomUUID();
 		jdbc.sql("insert into users (id, email, role) values (:id, :email, 'USER')").param("id", id)
 				.param("email", email).update();
+		if (idA == null) {
+			idA = id;
+		}
+		else {
+			idB = id;
+		}
 		return TestJwts.tokenFor(id, email);
+	}
+
+	/** An Asset of the given type, made straight in the database (the file itself is not needed here). */
+	private UUID asset(UUID owner, String title, String mimeType) {
+		var id = UUID.randomUUID();
+		jdbc.sql("insert into items (id, owner_id, type, title) values (:id, :owner, 'ASSET', :title)").param("id", id)
+				.param("owner", owner).param("title", title).update();
+		jdbc.sql("insert into asset_files (item_id, storage_key, mime_type, size_bytes) values (:id, :key, :mime, 10)")
+				.param("id", id).param("key", "k/" + id).param("mime", mimeType).update();
+		return id;
+	}
+
+	private static Map<String, Object> withPhoto(Map<String, Object> photo) {
+		return Map.of("basics", Map.of("name", "Ada", "photo", photo));
 	}
 
 	private static String field(String json, String name) {
@@ -123,6 +149,55 @@ class ResumeApiTest extends ApiTest {
 		var markdown = jdbc.sql("select markdown from resume_contents where item_id = :id").param("id", UUID.fromString(id))
 				.query(String.class).single();
 		assertThat(markdown).contains("Lead").contains("Led **it**").contains("Fluent");
+	}
+
+	@Test
+	void aPhotoMustBeAnImageAssetOfTheUser() throws Exception {
+		var id = made(userA, "{}");
+		var mine = asset(idA, "me.png", "image/png");
+
+		var saved = put("/api/resumes/" + id, userA, save("CV", 1, withPhoto(Map.of("assetId", mine.toString(), "size", 100, "shape", "square"))));
+		assertThat(saved.statusCode()).as(saved.body()).isEqualTo(200);
+		assertThat(saved.body()).contains("\"assetId\":\"" + mine + "\"").contains("\"size\":100").contains("\"shape\":\"square\"");
+
+		// Another User's image, a PDF of one's own and an id that is nothing are all refused alike.
+		var version = 2;
+		for (var refused : List.of(asset(idB, "theirs.png", "image/png"), asset(idA, "cv.pdf", "application/pdf"), UUID.randomUUID())) {
+			var answer = put("/api/resumes/" + id, userA, save("CV", version, withPhoto(Map.of("assetId", refused.toString()))));
+			assertThat(answer.statusCode()).as(refused.toString()).isEqualTo(400);
+			assertThat(answer.body()).contains("INVALID_REQUEST").doesNotContain(idB.toString());
+		}
+		assertThat(get("/api/resumes/" + id, userA).body()).contains("\"assetId\":\"" + mine + "\"").contains("\"version\":2");
+	}
+
+	@Test
+	void aPhotoWhoseAssetWasTrashedStaysButDoesNotBlockSavingOrCopying() throws Exception {
+		var id = made(userA, "{}");
+		var mine = asset(idA, "me.png", "image/png");
+		put("/api/resumes/" + id, userA, save("CV", 1, withPhoto(Map.of("assetId", mine.toString()))));
+
+		jdbc.sql("update items set deleted_at = now() where id = :id").param("id", mine).update();
+
+		// The Resume still names the Asset, and an edit that leaves the photo alone is saved.
+		var saved = put("/api/resumes/" + id, userA, save("CV", 2, withPhoto(Map.of("assetId", mine.toString(), "size", 120))));
+		assertThat(saved.statusCode()).as(saved.body()).isEqualTo(200);
+		assertThat(saved.body()).contains("\"assetId\":\"" + mine + "\"");
+		// A copy has no photo to show, so it carries none.
+		var copy = post("/api/resumes/" + id + "/duplicate", userA, null);
+		assertThat(copy.statusCode()).isEqualTo(201);
+		assertThat(copy.body()).contains("\"assetId\":\"\"").doesNotContain(mine.toString());
+	}
+
+	@Test
+	void photoSettingsAreBroughtIntoRangeAndAnythingButAnIdIsNoPhoto() throws Exception {
+		var id = made(userA, "{}");
+
+		put("/api/resumes/" + id, userA, save("CV", 1, withPhoto(Map.of("assetId", "not-an-id", "size", 9999, "shape", "star", "zoom", 5,
+				"cropX", 400, "cropY", -3, "visible", false))));
+
+		var body = get("/api/resumes/" + id, userA).body();
+		assertThat(body).contains("\"assetId\":\"\"").contains("\"size\":160").contains("\"shape\":\"circle\"").contains("\"zoom\":100")
+				.contains("\"cropX\":100").contains("\"cropY\":0").contains("\"visible\":false");
 	}
 
 	@Test

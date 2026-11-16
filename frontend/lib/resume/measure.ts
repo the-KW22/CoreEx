@@ -8,7 +8,7 @@ type Doc = components["schemas"]["ResumeDocument"];
 
 // Prints documents one after another in a worker of its own and says how many pages each came to: what Fit to page asks
 // while it tries tighter settings. `close` ends the worker.
-export function createMeasurer() {
+export function createMeasurer(photoSrc: string | null = null) {
   const worker = new Worker(new URL("./render.worker.ts", import.meta.url), { type: "module" });
   let id = 0;
 
@@ -21,7 +21,7 @@ export function createMeasurer() {
         else resolve(event.data.bytes);
       };
       worker.onerror = () => reject(new Error("The page could not be drawn."));
-      const request: Request = { id: mine, doc };
+      const request: Request = { id: mine, doc, photoSrc };
       worker.postMessage(request);
     });
 

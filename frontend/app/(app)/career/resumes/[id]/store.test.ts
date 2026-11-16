@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_DESIGN } from "../../../../../lib/resume/design";
+import { DEFAULT_DESIGN, DEFAULT_PHOTO } from "../../../../../lib/resume/design";
 
 import { init, mineTitle, moved, reduce, type EditorState, type ResumeDocument } from "./store";
 
 const doc: ResumeDocument = {
   locale: "en",
-  basics: { name: "Ada", headline: "", email: "", phone: "", location: "", website: "", customFields: [] },
+  basics: { name: "Ada", headline: "", email: "", phone: "", location: "", website: "", customFields: [], photo: DEFAULT_PHOTO },
   summary: "<p></p>",
   sections: [],
   metadata: { ...DEFAULT_DESIGN, template: "classic", dateFormat: "MMM_YYYY", customCss: "" },
