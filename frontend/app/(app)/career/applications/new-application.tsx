@@ -14,7 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-import { appliedBefore, createApplication, readLink } from "./actions";
+import { appliedBefore, createApplication, fillWithAi, readLink } from "./actions";
 import { EarlierNotice } from "./earlier-notice";
 
 const input = "h-9 w-full rounded-lg border border-border bg-surface px-3";
@@ -30,6 +30,10 @@ export function NewApplication() {
   const [posting, setPosting] = useState("");
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [reading, startReading] = useTransition();
+  const [filling, startFilling] = useTransition();
+  // The posting came from a link, not from the User's typing, so a cleaned version may take its place.
+  const [postingFromLink, setPostingFromLink] = useState(false);
+  const [suggestAi, setSuggestAi] = useState(false);
   const [earlier, setEarlier] = useState<{ company: string; items: { id: string; title: string }[] }>({ company: "", items: [] });
 
   // Asked when the company is left, so typing is never slowed.
@@ -61,12 +65,47 @@ export function NewApplication() {
       }
       if (!posting.trim() && found.postingText) {
         setPosting(found.postingText);
+        setPostingFromLink(true);
         filled.push("Posting");
       }
+      setSuggestAi(!found.structured);
       const says = filled.length ? `Filled in ${filled.join(", ")}.` : "Nothing new to fill in.";
       setNote({
         ok: true,
         text: `${says} ${found.structured ? "Check them before saving." : "The page had no job data, so check them carefully."}`,
+      });
+    });
+  }
+
+  function fill() {
+    startFilling(async () => {
+      const result = await fillWithAi(posting);
+      if (!result.ok) {
+        setNote({ ok: false, text: result.message });
+        return;
+      }
+      const found = result.fill;
+      const filled: string[] = [];
+      if (!company.trim() && found.company) {
+        setCompany(found.company);
+        filled.push("Company");
+      }
+      if (!role.trim() && found.role) {
+        setRole(found.role);
+        filled.push("Role");
+      }
+      if (!location.trim() && found.location) {
+        setLocation(found.location);
+        filled.push("Location");
+      }
+      if (postingFromLink && found.postingText) {
+        setPosting(found.postingText);
+        filled.push("Posting");
+      }
+      setSuggestAi(false);
+      setNote({
+        ok: true,
+        text: `${filled.length ? `The AI filled in ${filled.join(", ")}.` : "The AI found nothing new to fill in."} Check them before saving.`,
       });
     });
   }
@@ -155,10 +194,33 @@ export function NewApplication() {
               rows={6}
               maxLength={100000}
               value={posting}
-              onChange={(e) => setPosting(e.target.value)}
+              onChange={(e) => {
+                setPosting(e.target.value);
+                setPostingFromLink(false);
+              }}
               className="rounded-lg border border-border bg-surface px-3 py-2"
             />
           </label>
+          <div className="grid gap-2">
+            <p id="ai-disclosure" className="text-sm text-muted-foreground">
+              Fill with AI sends the posting text above to Claude, made by Anthropic, and uses part of your daily AI budget.
+              Nothing else of yours is sent.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant={suggestAi ? "default" : "outline"}
+                aria-describedby="ai-disclosure"
+                disabled={filling || !posting.trim()}
+                onClick={fill}
+              >
+                {filling ? "Filling in…" : "Fill with AI"}
+              </Button>
+              {suggestAi && (
+                <span className="text-sm text-muted-foreground">The page had no job data. The AI can read it.</span>
+              )}
+            </div>
+          </div>
           {state?.error && (
             <p role="alert" className="text-sm text-destructive">
               {state.error}

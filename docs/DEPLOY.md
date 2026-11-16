@@ -35,6 +35,7 @@ Because the cloud database holds real data, a migration is first exercised on lo
 | `STORAGE_BUCKET` | `assets` (the default) |
 | `EMBED_URL` | `https://<project ref>.supabase.co/functions/v1/embed-8ba850b7e5aa` (needed for Semantic search, see "The embed Edge Function") |
 | `EMBED_SECRET` | A long random secret, the same value as the function's secret in Supabase |
+| `ANTHROPIC_API_KEY` | The owner's **Shared key** for Claude (ADR 0009). Optional: without it AI is off ("Fill with AI" says so) and nothing is sent anywhere. It costs money, so also set `COREEX_AI_DAILY_BUDGET_USD` (per User per day, 0.50 by default); `COREEX_AI_MODEL` and the two price variables in `backend/.env.example` follow the model. Set a spending limit with the provider as well |
 
 **Frontend (Vercel, under the Production environment).**
 
