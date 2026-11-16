@@ -12,6 +12,7 @@ import org.jsoup.nodes.TextNode;
 import org.jsoup.safety.Safelist;
 
 import com.coreex.resumes.ResumeDocument.Entry;
+import com.coreex.resumes.ResumeDocument.Role;
 import com.coreex.resumes.ResumeDocument.Section;
 
 /**
@@ -64,8 +65,9 @@ final class ResumeText {
 		for (var section : document.sections()) {
 			var entries = new ArrayList<Entry>();
 			for (var e : section.entries()) {
+				var roles = e.roles().stream().map(r -> new Role(r.id(), r.title(), r.startDate(), r.endDate(), clean(r.description()))).toList();
 				entries.add(new Entry(e.id(), e.hidden(), e.title(), e.subtitle(), e.location(), e.startDate(), e.endDate(),
-						e.url(), clean(e.description()), e.keywords()));
+						e.url(), e.level(), clean(e.description()), e.keywords(), roles));
 			}
 			sections.add(new Section(section.id(), section.kind(), section.title(), section.hidden(), entries));
 		}
@@ -157,7 +159,13 @@ final class ResumeText {
 				var head = String.join(" | ", List.of(e.title(), e.subtitle(), e.location(), dates, e.url()).stream()
 						.filter(s -> !s.isBlank()).toList());
 				out.add(markdown && !head.isBlank() ? "### " + head : head);
+				out.add(e.level());
 				out.add(text(e.description(), markdown));
+				for (var r : e.roles()) {
+					var span = r.startDate().isBlank() ? r.endDate() : r.startDate() + (r.endDate().isBlank() ? "" : " - " + r.endDate());
+					out.add(String.join(" | ", List.of(r.title(), span).stream().filter(s -> !s.isBlank()).toList()));
+					out.add(text(r.description(), markdown));
+				}
 				out.add(String.join(", ", e.keywords()));
 			}
 		}

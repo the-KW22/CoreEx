@@ -1286,8 +1286,10 @@ export interface components {
             startDate: string;
             endDate: string;
             url: string;
+            level: string;
             description: string;
             keywords: string[];
+            roles: components["schemas"]["Role"][];
         };
         Field: {
             label: string;
@@ -1300,6 +1302,7 @@ export interface components {
             /** Format: int32 */
             fontSize: number;
             pageSize: string;
+            dateFormat: string;
         };
         ResumeDocument: {
             locale: string;
@@ -1309,6 +1312,13 @@ export interface components {
             metadata: components["schemas"]["Metadata"];
             privateNotes: string;
             ignoredChecks: string[];
+        };
+        Role: {
+            id: string;
+            title: string;
+            startDate: string;
+            endDate: string;
+            description: string;
         };
         SaveResumeRequest: {
             title: string;

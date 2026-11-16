@@ -2,6 +2,42 @@ import type { components } from "@/lib/api/schema";
 
 export type ResumeDocument = components["schemas"]["ResumeDocument"];
 type Basics = components["schemas"]["Basics"];
+export type Section = components["schemas"]["Section"];
+export type Entry = components["schemas"]["Entry"];
+export type Role = components["schemas"]["Role"];
+export type Kind = Section["kind"];
+
+// The name a new section of each kind starts with.
+export const DEFAULT_TITLES: Record<Kind, string> = {
+  EXPERIENCE: "Experience",
+  EDUCATION: "Education",
+  PROJECTS: "Projects",
+  SKILLS: "Skills",
+  LANGUAGES: "Languages",
+  CERTIFICATIONS: "Certifications",
+  AWARDS: "Awards",
+  PUBLICATIONS: "Publications",
+  VOLUNTEERING: "Volunteering",
+  INTERESTS: "Interests",
+  REFERENCES: "References",
+  PROFILES: "Profiles",
+  CUSTOM: "Custom section",
+};
+
+export const blankEntry = (id: string): Entry => ({
+  id,
+  hidden: false,
+  title: "",
+  subtitle: "",
+  location: "",
+  startDate: "",
+  endDate: "",
+  url: "",
+  level: "",
+  description: "",
+  keywords: [],
+  roles: [],
+});
 
 export type Status = "saved" | "saving" | "unsaved" | "error";
 
@@ -21,6 +57,22 @@ export type Action =
   | { type: "addField" }
   | { type: "field"; index: number; part: "label" | "value"; value: string }
   | { type: "removeField"; index: number }
+  | { type: "dateFormat"; value: string }
+  | { type: "addSection"; id: string; kind: Kind }
+  | { type: "renameSection"; id: string; title: string }
+  | { type: "toggleSection"; id: string }
+  | { type: "removeSection"; id: string }
+  | { type: "moveSection"; id: string; to: number }
+  | { type: "addEntry"; section: string; id: string }
+  | { type: "editEntry"; section: string; id: string; patch: Partial<Entry> }
+  | { type: "duplicateEntry"; section: string; id: string; newId: string }
+  | { type: "toggleEntry"; section: string; id: string }
+  | { type: "removeEntry"; section: string; id: string }
+  | { type: "moveEntry"; section: string; id: string; to: number }
+  | { type: "moveEntryTo"; section: string; id: string; target: string }
+  | { type: "addRole"; section: string; entry: string; id: string }
+  | { type: "editRole"; section: string; entry: string; id: string; patch: Partial<Role> }
+  | { type: "removeRole"; section: string; entry: string; id: string }
   | { type: "saving" }
   | { type: "savedAs"; sent: { title: string; doc: ResumeDocument }; version: number }
   | { type: "failed" }
@@ -42,6 +94,26 @@ const edited = (s: EditorState, next: Partial<Pick<EditorState, "title" | "doc">
 const withBasics = (s: EditorState, change: Partial<Basics>) =>
   edited(s, { doc: { ...s.doc, basics: { ...s.doc.basics, ...change } } });
 
+// `list` with the item at `from` moved to index `to` (kept inside the list).
+export function moved<T>(list: T[], from: number, to: number): T[] {
+  if (from < 0 || from >= list.length) return list;
+  const next = list.slice();
+  const [item] = next.splice(from, 1);
+  next.splice(Math.min(Math.max(to, 0), next.length), 0, item);
+  return next;
+}
+
+const withSections = (s: EditorState, change: (sections: Section[]) => Section[]) =>
+  edited(s, { doc: { ...s.doc, sections: change(s.doc.sections) } });
+
+const inSection = (sections: Section[], id: string, change: (section: Section) => Section) =>
+  sections.map((section) => (section.id === id ? change(section) : section));
+
+const inEntry = (s: EditorState, section: string, id: string, change: (entry: Entry) => Entry) =>
+  withSections(s, (all) =>
+    inSection(all, section, (sec) => ({ ...sec, entries: sec.entries.map((e) => (e.id === id ? change(e) : e)) })),
+  );
+
 // The one place the editor's text changes. Later tickets (sections, Undo, design) add actions here.
 export function reduce(s: EditorState, a: Action): EditorState {
   switch (a.type) {
@@ -59,6 +131,87 @@ export function reduce(s: EditorState, a: Action): EditorState {
       });
     case "removeField":
       return withBasics(s, { customFields: s.doc.basics.customFields.filter((_, i) => i !== a.index) });
+    case "dateFormat":
+      return edited(s, { doc: { ...s.doc, metadata: { ...s.doc.metadata, dateFormat: a.value } } });
+    case "addSection":
+      return withSections(s, (all) => [
+        ...all,
+        { id: a.id, kind: a.kind, title: DEFAULT_TITLES[a.kind], hidden: false, entries: [] },
+      ]);
+    case "renameSection":
+      return withSections(s, (all) => inSection(all, a.id, (sec) => ({ ...sec, title: a.title })));
+    case "toggleSection":
+      return withSections(s, (all) => inSection(all, a.id, (sec) => ({ ...sec, hidden: !sec.hidden })));
+    case "removeSection":
+      return withSections(s, (all) => all.filter((sec) => sec.id !== a.id));
+    case "moveSection":
+      return withSections(s, (all) =>
+        moved(
+          all,
+          all.findIndex((sec) => sec.id === a.id),
+          a.to,
+        ),
+      );
+    case "addEntry":
+      return withSections(s, (all) =>
+        inSection(all, a.section, (sec) => ({ ...sec, entries: [...sec.entries, blankEntry(a.id)] })),
+      );
+    case "editEntry":
+      return inEntry(s, a.section, a.id, (e) => ({ ...e, ...a.patch }));
+    case "duplicateEntry":
+      return withSections(s, (all) =>
+        inSection(all, a.section, (sec) => {
+          const at = sec.entries.findIndex((e) => e.id === a.id);
+          if (at < 0) return sec;
+          const copy = { ...sec.entries[at], id: a.newId, roles: sec.entries[at].roles.map((r) => ({ ...r })) };
+          return { ...sec, entries: [...sec.entries.slice(0, at + 1), copy, ...sec.entries.slice(at + 1)] };
+        }),
+      );
+    case "toggleEntry":
+      return inEntry(s, a.section, a.id, (e) => ({ ...e, hidden: !e.hidden }));
+    case "removeEntry":
+      return withSections(s, (all) =>
+        inSection(all, a.section, (sec) => ({ ...sec, entries: sec.entries.filter((e) => e.id !== a.id) })),
+      );
+    case "moveEntry":
+      return withSections(s, (all) =>
+        inSection(all, a.section, (sec) => ({
+          ...sec,
+          entries: moved(
+            sec.entries,
+            sec.entries.findIndex((e) => e.id === a.id),
+            a.to,
+          ),
+        })),
+      );
+    case "moveEntryTo": {
+      // Only to another section of the same kind, where it goes last.
+      const from = s.doc.sections.find((sec) => sec.id === a.section);
+      const to = s.doc.sections.find((sec) => sec.id === a.target);
+      const entry = from?.entries.find((e) => e.id === a.id);
+      if (!from || !to || !entry || from.kind !== to.kind || from.id === to.id) return s;
+      return withSections(s, (all) =>
+        all.map((sec) =>
+          sec.id === from.id
+            ? { ...sec, entries: sec.entries.filter((e) => e.id !== a.id) }
+            : sec.id === to.id
+              ? { ...sec, entries: [...sec.entries, entry] }
+              : sec,
+        ),
+      );
+    }
+    case "addRole":
+      return inEntry(s, a.section, a.entry, (e) => ({
+        ...e,
+        roles: [...e.roles, { id: a.id, title: "", startDate: "", endDate: "", description: "" }],
+      }));
+    case "editRole":
+      return inEntry(s, a.section, a.entry, (e) => ({
+        ...e,
+        roles: e.roles.map((r) => (r.id === a.id ? { ...r, ...a.patch } : r)),
+      }));
+    case "removeRole":
+      return inEntry(s, a.section, a.entry, (e) => ({ ...e, roles: e.roles.filter((r) => r.id !== a.id) }));
     case "saving":
       return { ...s, status: "saving" };
     case "savedAs":
