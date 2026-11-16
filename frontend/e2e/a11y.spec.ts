@@ -3102,6 +3102,36 @@ async function openNewResume(page: Page, name: string) {
   await expect(page.getByRole("textbox", { name: "Resume name" })).toHaveValue(name);
 }
 
+test("Resume downloads Word, Markdown and a JSON backup", async ({ page, context }) => {
+  await signIn(page);
+  await openNewResume(page, `Downloads ${Date.now()}`);
+  await page.getByLabel("Name", { exact: true }).fill("Download Person");
+  await page.getByRole("region", { name: "Private notes" }).locator("textarea").fill("private backup note");
+  await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
+  const preview = page.getByRole("region", { name: "Page preview" });
+  for (const [label, extension] of [["Word", "docx"], ["Markdown", "md"], ["JSON", "json"]] as const) {
+    const [download] = await Promise.all([page.waitForEvent("download"), preview.getByRole("button", { name: `Download ${label}` }).click()]);
+    expect(download.suggestedFilename()).toMatch(new RegExp(`\\.${extension}$`));
+    const bytes = await readFile(await download.path());
+    if (extension === "docx") {
+      const zip = await (await import("jszip")).default.loadAsync(bytes);
+      const xml = await zip.file("word/document.xml")!.async("string");
+      expect(xml).toContain("Download Person");
+      expect(xml).not.toContain("private backup note");
+    }
+    else if (extension === "md") expect(bytes.toString()).toContain("Download Person");
+    else expect(JSON.parse(bytes.toString()).privateNotes).toBe("private backup note");
+  }
+  await expectNoViolations(page);
+  const other = await context.newPage();
+  await other.goto(page.url());
+  await other.getByLabel("Name", { exact: true }).fill("Changed elsewhere");
+  await expect(other.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
+  await preview.getByRole("button", { name: "Download Markdown" }).click();
+  await expect(preview.getByRole("alert")).toContainText("Could not download");
+  await other.close();
+});
+
 test("the Resume editor saves contact details and the summary as you type, and shows Not saved with Retry when offline", async ({ page }) => {
   await signIn(page);
   const name = `Editor ${Date.now()}`;

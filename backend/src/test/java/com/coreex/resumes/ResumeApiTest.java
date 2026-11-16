@@ -93,6 +93,18 @@ class ResumeApiTest extends ApiTest {
 	}
 
 	@Test
+	void markdownDownloadIsScopedAndExcludesPrivateNotes() throws Exception {
+		var id = made(userA, "{\"sample\":true}");
+		var saved = put("/api/resumes/" + id, userA, save("CV", 1,
+				Map.of("basics", Map.of("name", "Alex Morgan"), "summary", "<p><strong>seven years</strong></p>", "privateNotes", "private secret")));
+		assertThat(saved.statusCode()).isEqualTo(200);
+		var response = get("/api/resumes/" + id + "/markdown", userA);
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(response.body()).contains("Alex Morgan", "**seven years**", "\"version\":2").doesNotContain("private secret");
+		assertThat(get("/api/resumes/" + id + "/markdown", userB).statusCode()).isEqualTo(404);
+	}
+
+	@Test
 	void aBlankResumeIsCreatedAndRead() throws Exception {
 		var id = made(userA, "{}");
 

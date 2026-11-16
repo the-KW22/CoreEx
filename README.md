@@ -95,7 +95,7 @@ Press **Ctrl+K** (**Cmd+K** on a Mac) on any page to open the quick switcher: ty
 
 ### Resumes (second part of Career)
 
-**Resumes & Letters** in the Career panel lists your Resumes, newest change first. **New Resume** takes a name and starts blank or with made-up sample content; each row has **Rename** and **Duplicate** (the copy is named "<name> (copy)"). A Resume is one document (contact details, summary, sections, design) saved with a save counter, so two tabs never overwrite each other; its rich text is cleaned of anything but formatting (bold, italic, underline, lists, links, colour, alignment) every time it is saved. The editor, templates, PDF and the rest come in later Career tickets (#224).
+**Resumes & Letters** in the Career panel lists your Resumes, newest change first. **New Resume** takes a name and starts blank or with made-up sample content; each row has **Rename** and **Duplicate** (the copy is named "<name> (copy)"). A Resume is one document (contact details, summary, sections, design) saved with a save counter, so two tabs never overwrite each other; its rich text is cleaned of anything but formatting (bold, italic, underline, lists, links, colour, alignment) every time it is saved. The editor previews and downloads PDF, and also downloads Word, Markdown and a JSON backup. Word and Markdown leave out private notes; JSON includes them for a complete backup. JSON import comes in a later ticket (#260).
 
 ### Access tokens
 
