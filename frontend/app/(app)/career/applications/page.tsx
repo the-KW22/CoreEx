@@ -24,7 +24,9 @@ const BASE = "/career/applications";
 type View = "list" | "board" | "calendar" | "insights";
 
 // The title, New Application and the two toggles. Show (All, Needs you) only means something to the list and the board.
-function Chrome({ view, needsYou }: { view: View; needsYou: boolean }) {
+async function Chrome({ view, needsYou }: { view: View; needsYou: boolean }) {
+  const api = await getApi();
+  const ai = await api.GET("/api/ai/status").catch(() => null);
   const board = view === "board";
   const suffix = board ? "view=board" : "";
   const toggles = [
@@ -53,7 +55,7 @@ function Chrome({ view, needsYou }: { view: View; needsYou: boolean }) {
     <>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Applications</h1>
-        <NewApplication />
+        <NewApplication aiOn={ai?.data?.available ?? false} />
       </header>
 
       <div className="flex flex-wrap gap-x-6 gap-y-2">

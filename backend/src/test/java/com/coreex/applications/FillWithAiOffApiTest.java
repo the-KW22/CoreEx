@@ -38,4 +38,18 @@ class FillWithAiOffApiTest extends ApiTest {
 		assertThat(model.asked()).isEmpty();
 	}
 
+	@Test
+	void theStatusSaysAiIsNotAvailableSoScreensCanShowItAsPendingInsteadOfAnError() throws Exception {
+		jdbc.sql("delete from users").update();
+		var id = UUID.randomUUID();
+		jdbc.sql("insert into users (id, email, role) values (:id, :email, 'USER')").param("id", id)
+				.param("email", "a@example.com").update();
+
+		var status = get("/api/ai/status", TestJwts.tokenFor(id, "a@example.com"));
+
+		assertThat(status.statusCode()).isEqualTo(200);
+		assertThat(status.body()).contains("\"available\":false");
+		assertThat(get("/api/ai/status").statusCode()).isEqualTo(401);
+	}
+
 }
