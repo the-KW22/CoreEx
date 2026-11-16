@@ -3333,3 +3333,46 @@ test("a click on the page jumps to that field in the editor, on page 1 and on pa
   await onSecond.click();
   await expect(page.locator(":focus")).toHaveAttribute("data-field", ref!);
 });
+
+test("Design mode shows each template with the Resume's own content, previews one, and applies it", async ({ page }) => {
+  await signIn(page);
+  const name = `Templates ${Date.now()}`;
+  await page.goto("/career/library");
+  await page.getByRole("button", { name: "New Resume" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Resume" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByLabel("Start with sample content").check();
+  await dialog.getByRole("button", { name: "Create Resume" }).click();
+  await page.getByRole("link", { name }).click();
+  const status = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+
+  await page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Design" }).click();
+  const gallery = page.getByRole("list", { name: "Templates" });
+  for (const label of ["Classic", "Sidebar", "Modern"]) {
+    await expect(gallery.getByRole("img", { name: `${label} template with your content` })).toBeVisible({ timeout: 30_000 });
+  }
+  await expectNoViolations(page);
+
+  // Looking at a template changes the page preview but not the Resume.
+  await gallery.getByRole("button", { name: "Preview Modern" }).click();
+  await expect(gallery.getByRole("button", { name: "Use this template" })).toBeVisible();
+  await gallery.getByRole("button", { name: "Cancel" }).click();
+  await expect(gallery.getByRole("button", { name: "Use this template" })).toHaveCount(0);
+  await expect(status).toHaveText("Saved");
+
+  await gallery.getByRole("button", { name: "Preview Sidebar" }).click();
+  await gallery.getByRole("button", { name: "Use this template" }).click();
+  await expect(status).not.toHaveText("Saved");
+  await expect(status).toHaveText("Saved");
+  await expect(gallery.getByText("In use")).toHaveCount(1);
+
+  // The choice is saved, and a click on the page still finds its field in the two-column layout.
+  await page.reload();
+  await page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Design" }).click();
+  await expect(page.getByRole("list", { name: "Templates" }).getByRole("listitem").filter({ hasText: "In use" })).toContainText("Sidebar");
+  const preview = page.getByRole("region", { name: "Page preview" });
+  await expect(preview.getByRole("img", { name: "Page 1 of 1" })).toBeVisible({ timeout: 30_000 });
+  await preview.locator('[data-page="1"] [data-ref^="section:"]').first().click();
+  await expect(page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Write" })).toHaveAttribute("aria-current", "page");
+  await expect(page.locator(":focus")).toHaveAttribute("data-field", /^section:/);
+});

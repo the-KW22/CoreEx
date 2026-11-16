@@ -7,7 +7,7 @@ import type { components } from "@/lib/api/schema";
 import { resumeBlocks } from "./blocks";
 import { buildPageMap, readPages, segmentsOf, type Box } from "./page-map";
 import { SAMPLE } from "./sample";
-import { ResumePdf } from "./template-classic";
+import { ResumePdf } from "./templates";
 
 type Doc = components["schemas"]["ResumeDocument"];
 
@@ -51,6 +51,25 @@ describe("the page map", () => {
     expect(pages).toBeGreaterThan(1);
     expect(boxes.find((b) => b.ref === "entry:e0:title")?.page).toBe(1);
     expect(boxes.find((b) => b.ref === "entry:e39:title")?.page).toBe(pages);
+  });
+
+  it.each(["classic", "sidebar", "modern"])("the %s template prints every section and the map finds its fields", async (template) => {
+    const doc = structuredClone(SAMPLE);
+    doc.metadata.template = template;
+    const { boxes, pages } = await mapOf(doc);
+    expect(pages).toBe(1);
+    for (const ref of ["basics.name", "section:experience", "section:education", "section:skills", "entry:exp-1:title", "entry:skill-1:keywords"]) {
+      expect(boxes.some((b) => b.ref === ref), `${template}: ${ref}`).toBe(true);
+    }
+    expect(round(boxes)).toMatchSnapshot();
+  });
+
+  it("the sidebar template sits its skills beside the main column, not below it", async () => {
+    const doc = structuredClone(SAMPLE);
+    doc.metadata.template = "sidebar";
+    const { boxes } = await mapOf(doc);
+    const at = (ref: string) => boxes.find((b) => b.ref === ref)!;
+    expect(at("section:skills").x).toBeLessThan(at("section:experience").x);
   });
 
   it("a field that was not printed has no box and does not hide the next ones", () => {

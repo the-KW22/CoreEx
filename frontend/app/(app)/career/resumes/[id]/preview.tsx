@@ -139,7 +139,7 @@ export function Preview({ doc, title, onSelect }: { doc: Doc; title: string; onS
 
   const scale = POINT * zoom;
   return (
-    <section aria-label="Page preview" className="grid content-start gap-3">
+    <section aria-label="Page preview" className="grid min-w-0 content-start gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" variant="outline" size="icon" aria-label="Zoom out" disabled={zoom === ZOOMS[0]} onClick={() => step(-1)}>
           <ZoomOutIcon aria-hidden />

@@ -3,14 +3,16 @@ import type { Style } from "@react-pdf/types";
 
 import type { components } from "@/lib/api/schema";
 
-import { type Block, resumeBlocks } from "./blocks";
+import { type Block, type Template, resumeBlocks, templateOf } from "./blocks";
 import type { Rich, Run } from "./html";
 
 type Doc = components["schemas"]["ResumeDocument"];
 
-// Template 1, "Classic": one column, real text in reading order, plain headings and nothing a hiring system cannot
-// read (no icons, tables or text in images). Written for CoreEx; any later code taken from Reactive Resume (MIT)
-// keeps its licence notice here.
+// The three templates share the drawing of every block and differ in layout. "Classic": one column, real text in reading
+// order, plain headings and nothing a hiring system cannot read (no icons, tables or text in images). "Sidebar": the
+// header across the top, then a narrow column of short lists beside the main one. "Modern": one column under a header
+// band in the accent colour. Written for CoreEx; any later code taken from Reactive Resume (MIT) keeps its licence
+// notice here.
 
 // The font family the page uses: "Inter" when its files were registered, else the built-in Helvetica.
 export type Fonts = { registered: boolean };
@@ -68,16 +70,21 @@ function RichBlocks({ rich, fonts, accent }: { rich: Rich[]; fonts: Fonts; accen
   );
 }
 
-function BlockView({ block, fonts, accent, size }: { block: Block; fonts: Fonts; accent: string; size: number }) {
+function HeaderView({ block, fonts, size, light }: { block: Extract<Block, { kind: "header" }>; fonts: Fonts; size: number; light: boolean }) {
+  const color = light ? { color: "#ffffff" } : {};
+  return (
+    <View style={{ marginBottom: light ? 0 : 8 }}>
+      {block.name && <Text style={{ ...face(fonts, true), ...color, fontSize: size * 2.2 }}>{block.name}</Text>}
+      {block.headline && <Text style={{ ...color, fontSize: size * 1.2, marginTop: 2 }}>{block.headline}</Text>}
+      {block.contact.length > 0 && <Text style={{ ...color, marginTop: 4 }}>{block.contact.join("  |  ")}</Text>}
+    </View>
+  );
+}
+
+function BlockView({ block, fonts, accent, size, variant }: { block: Block; fonts: Fonts; accent: string; size: number; variant: Template }) {
   switch (block.kind) {
     case "header":
-      return (
-        <View style={{ marginBottom: 8 }}>
-          {block.name && <Text style={{ ...face(fonts, true), fontSize: size * 2.2 }}>{block.name}</Text>}
-          {block.headline && <Text style={{ fontSize: size * 1.2, marginTop: 2 }}>{block.headline}</Text>}
-          {block.contact.length > 0 && <Text style={{ marginTop: 4 }}>{block.contact.join("  |  ")}</Text>}
-        </View>
-      );
+      return <HeaderView block={block} fonts={fonts} size={size} light={variant === "modern"} />;
     case "heading":
       return (
         <Text
@@ -86,9 +93,9 @@ function BlockView({ block, fonts, accent, size }: { block: Block; fonts: Fonts;
             fontSize: size * 1.2,
             color: accent,
             textTransform: "uppercase",
-            borderBottomWidth: 1,
+            borderBottomWidth: variant === "modern" ? 0 : 1,
             borderBottomColor: accent,
-            paddingBottom: 2,
+            paddingBottom: variant === "modern" ? 0 : 2,
             marginTop: 10,
             marginBottom: 5,
           }}
@@ -131,15 +138,33 @@ function BlockView({ block, fonts, accent, size }: { block: Block; fonts: Fonts;
 
 export function ResumePdf({ doc, fonts }: { doc: Doc; fonts: Fonts }) {
   const { accent, fontSize, pageSize } = doc.metadata;
+  const variant = templateOf(doc);
+  const [header, ...rest] = resumeBlocks(doc);
+  const draw = (list: Block[]) =>
+    list.map((block, i) => <BlockView key={i} block={block} fonts={fonts} accent={accent} size={fontSize} variant={variant} />);
+  const PAD = 40;
   return (
     <Document title={doc.basics.name || undefined} language={doc.locale}>
       <Page
         size={pageSize === "LETTER" ? "LETTER" : "A4"}
-        style={{ ...face(fonts), fontSize, lineHeight: 1.35, color: "#111111", padding: 40 }}
+        style={{ ...face(fonts), fontSize, lineHeight: 1.35, color: "#111111", padding: variant === "modern" ? 0 : PAD }}
       >
-        {resumeBlocks(doc).map((block, i) => (
-          <BlockView key={i} block={block} fonts={fonts} accent={accent} size={fontSize} />
-        ))}
+        {variant === "modern" ? (
+          <>
+            <View style={{ backgroundColor: accent, padding: PAD, paddingBottom: 22 }}>{draw([header])}</View>
+            <View style={{ padding: PAD, paddingTop: 12 }}>{draw(rest)}</View>
+          </>
+        ) : variant === "sidebar" ? (
+          <>
+            {draw([header])}
+            <View style={{ flexDirection: "row" }}>
+              <View style={{ width: 170, paddingRight: 16 }}>{draw(rest.filter((b) => b.kind !== "header" && b.column === "side"))}</View>
+              <View style={{ flex: 1 }}>{draw(rest.filter((b) => b.kind !== "header" && b.column === "main"))}</View>
+            </View>
+          </>
+        ) : (
+          draw([header, ...rest])
+        )}
       </Page>
     </Document>
   );
