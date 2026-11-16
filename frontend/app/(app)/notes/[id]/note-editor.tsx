@@ -3,18 +3,34 @@
 import { autocompletion, completionStatus, startCompletion } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { EditorState, type StateCommand } from "@codemirror/state";
+import { EditorState, type StateCommand, Transaction } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { FileTextIcon, ImageIcon, MinimizeIcon, TriangleAlertIcon } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
 import { ItemFrame } from "../../items/item-frame";
-import { deleteNote, linkPreview, loadNote, resolveLinks, saveNote, suggestLinks } from "../actions";
+import {
+  deleteNote,
+  linkPreview,
+  type LoadedNote,
+  keepCopyAndLoad,
+  noteIfNewer,
+  resolveLinks,
+  restoreVersion,
+  saveNote,
+  suggestLinks,
+} from "../actions";
 import { smallestEdit } from "./edit";
 import { activeFormats, toggleInline } from "./format";
+import { copyOf } from "./conflict";
+import { changedNotice, externalChange } from "./external";
+import { restoreBlocker } from "./history";
+import { clearUnsaved, recoveryAction, storeUnsaved, takeNewestUnsaved } from "./recovery";
+import { NoteHistory } from "./note-history";
 import { type LinkTarget, linkCompletion, linkField, linkIds, setLinks } from "./links";
 import { livePreview } from "./live-preview";
 import { slashCompletion } from "./slash";
@@ -25,9 +41,14 @@ const DEBOUNCE_MS = 1000;
 const LINK_LOOKUP_MS = 500;
 const PREVIEW_DELAY_MS = 300;
 const TITLE_MAX = 200;
+const STORE_MS = 500;
+// How often an open Note asks whether it was changed elsewhere (an Agent, another tab).
+const POLL_MS = 10_000;
 
 type Status = "saved" | "unsaved" | "saving" | "conflict" | "error";
 type Text = { title: string; body: string };
+// The line above the title: what just happened, with an optional link in the middle.
+type Notice = { before: string; link?: { href: string; label: string }; after?: string };
 type Preview = { id: string; target: LinkTarget; left: number; top: number; by: "mouse" | "caret" };
 
 const same = (a: Text, b: Text) => a.title === b.title && a.body === b.body;
@@ -78,6 +99,16 @@ export function NoteEditor({
   const [title, setTitle] = useState(initial.title);
   const [status, setStatus] = useState<Status>("saved");
   const [message, setMessage] = useState("");
+  // "Load theirs" in progress, why it failed, and the copy of the User's text it made.
+  const [copyBusy, setCopyBusy] = useState(false);
+  const [copyError, setCopyError] = useState("");
+  // The line above the title that says what just happened: a copy kept, text put back, or a change loaded.
+  const [notice, setNotice] = useState<Notice | null>(null);
+  // Who changed the Note, when the open conflict was found by the check for changes and not by a save.
+  const [conflictBy, setConflictBy] = useState<string | null>(null);
+  // This tab's id for the copy of the unsaved text kept in the browser.
+  // Not crypto.randomUUID: that is missing on a plain-http address, and this only has to differ between tabs.
+  const [session] = useState(() => Math.random().toString(36).slice(2));
   const [savedAt, setSavedAt] = useState(initial.updatedAt);
   // The Access token behind the latest change, or null when it was this User; their own save always clears it.
   const [editedBy, setEditedBy] = useState(initial.editedBy);
@@ -102,6 +133,21 @@ export function NoteEditor({
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const linkTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const previewTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const storeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const polling = useRef(false);
+  // Writes the text that is not saved yet to the browser now, when there is any.
+  const rememberNow = useCallback(() => {
+    clearTimeout(storeTimer.current);
+    storeTimer.current = undefined;
+    if (same(latest.current, saved.current)) return;
+    storeUnsaved(id, session, { ...latest.current, version: version.current, storedAt: Date.now() });
+  }, [id, session]);
+  // The text is saved, or was handed over to a copy: nothing is waiting in the browser any more.
+  const forget = useCallback(() => {
+    clearTimeout(storeTimer.current);
+    storeTimer.current = undefined;
+    clearUnsaved(id, session);
+  }, [id, session]);
   // The text the editor opened with. A later re-render of the page (after adding a Tag, say) brings a newer body
   // in `initial`, which must not rebuild the editor and drop the cursor and what was typed since.
   const initialBody = useRef(initial.body);
@@ -113,7 +159,10 @@ export function NoteEditor({
       if (saving.current || (conflict.current && !overwrite)) return;
       saving.current = true;
       // Overwriting settles the conflict even when the text turns out to match what was last saved.
-      if (overwrite) conflict.current = false;
+      if (overwrite) {
+        conflict.current = false;
+        setConflictBy(null);
+      }
       try {
         for (;;) {
           const snapshot = { ...latest.current };
@@ -121,6 +170,7 @@ export function NoteEditor({
           setWords(wordCount(snapshot.body));
           if (same(snapshot, saved.current)) {
             setStatus("saved");
+            forget();
             return;
           }
           setStatus("saving");
@@ -161,15 +211,18 @@ export function NoteEditor({
         saving.current = false;
       }
     },
-    [id, router],
+    [id, router, forget],
   );
 
   const changed = useCallback(() => {
+    // Kept in the browser until saved, even during a conflict, when nothing is sent.
+    // At most one write per STORE_MS: the whole text is written, which a big Note must not do on every key press.
+    storeTimer.current ??= setTimeout(rememberNow, STORE_MS);
     if (conflict.current) return;
     setStatus("unsaved");
     clearTimeout(timer.current);
     timer.current = setTimeout(() => void flush(), DEBOUNCE_MS);
-  }, [flush]);
+  }, [flush, rememberNow]);
 
   // Looks up the Links in the text that are not known yet, and tells the editor what they point at.
   const lookUpLinks = useCallback(async () => {
@@ -274,6 +327,37 @@ export function NoteEditor({
     };
   }, [changed, lookUpLinks, showPreview]);
 
+  // Opening the Note: text typed before and never saved (a closed tab, a crash, an unreachable API) comes back.
+  // On the stored version it is saved again; on an older one the Note starts in conflict, so the User chooses.
+  useEffect(() => {
+    const entry = takeNewestUnsaved(id, Date.now());
+    const editor = view.current;
+    if (!entry || !editor) return;
+    const action = recoveryAction(entry, { ...saved.current, version: version.current });
+    if (action === "none") return;
+    latest.current = { title: entry.title, body: entry.body };
+    setTitle(entry.title);
+    external.current = true;
+    editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: entry.body } });
+    external.current = false;
+    setWords(wordCount(entry.body));
+    setNotice({ before: "Restored changes that were not saved yet." });
+    // The entry was taken out of the browser, so it goes back under this tab at once.
+    rememberNow();
+    if (action === "conflict") {
+      conflict.current = true;
+      setStatus("conflict");
+    } else {
+      changed();
+    }
+  }, [id, changed, rememberNow]);
+
+  // Closing or leaving the tab writes what the last half second would have missed.
+  useEffect(() => {
+    window.addEventListener("pagehide", rememberNow);
+    return () => window.removeEventListener("pagehide", rememberNow);
+  }, [rememberNow]);
+
   // Leaving the page sends what is still waiting to be saved.
   useEffect(() => {
     return () => {
@@ -326,26 +410,119 @@ export function NoteEditor({
     return () => window.removeEventListener("scroll", hide, { capture: true });
   }, [preview]);
 
-  async function reload() {
-    const theirs = await loadNote(id);
-    if (!theirs) {
-      setMessage("Could not load the latest version.");
-      setStatus("error");
+  // "Load theirs": the text typed here is first kept as a "(mine)" Note beside this one. If that fails, nothing is
+  // loaded and the conflict stays, so nothing typed is lost.
+  async function loadTheirs() {
+    setCopyBusy(true);
+    setCopyError("");
+    const mine = { ...latest.current };
+    const result = await keepCopyAndLoad(id, copyOf(mine)).catch(() => null);
+    setCopyBusy(false);
+    if (result?.status !== "loaded") {
+      setCopyError(result?.message ?? "Cannot reach the CoreEx API, so nothing was changed.");
       return;
     }
+    setNotice({
+      before: "Your text is kept in ",
+      link: { href: `/notes/${result.copy.id}`, label: result.copy.title },
+      after: result.tagsCopied ? "." : ". Its Tags could not be copied.",
+    });
+    // More was typed while the copy was made. Loading now would overwrite it, so the conflict stays open.
+    if (!same(latest.current, mine)) {
+      setCopyError("You kept typing, so the other version was not loaded. Choose again to keep the rest.");
+      return;
+    }
+    show(result.note);
+  }
+
+  // Puts a stored Note in the editor in place of what it holds, and treats it as saved.
+  const show = useCallback(
+    (theirs: LoadedNote) => {
+    // What was typed is no longer waiting: it was kept in a copy, or replaced on purpose.
+    forget();
     version.current = theirs.version;
     saved.current = { title: theirs.title, body: theirs.body };
     latest.current = { title: theirs.title, body: theirs.body };
     conflict.current = false;
+    setConflictBy(null);
     setTitle(theirs.title);
     setSavedAt(theirs.updatedAt);
     setEditedBy(theirs.editedBy);
     external.current = true;
     const editor = view.current!;
-    editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: theirs.body } });
+    // Only what differs, so the caret and scroll stay put, and not in Undo: undoing a change from elsewhere would
+    // save the old text over it.
+    editor.dispatch({
+      changes: smallestEdit(editor.state.doc.toString(), theirs.body),
+      annotations: Transaction.addToHistory.of(false),
+    });
     external.current = false;
     setWords(wordCount(theirs.body));
     setStatus("saved");
+    },
+    [forget],
+  );
+
+  // Asks every POLL_MS while the tab is visible, and again when it becomes visible, whether the Note was changed
+  // elsewhere (an Agent, another tab). With nothing unsaved the new text is loaded; with unsaved text the conflict
+  // opens now instead of at the next save.
+  useEffect(() => {
+    const check = async () => {
+      if (document.hidden || saving.current || conflict.current || polling.current) return;
+      polling.current = true;
+      try {
+        const asked = version.current;
+        const theirs = await noteIfNewer(id, asked).catch(() => null);
+        // Saved, or changed by something else, while the answer was on its way: it is about an older state.
+        if (!theirs || version.current !== asked || saving.current || conflict.current) return;
+        const change = externalChange(theirs.version, {
+          version: version.current,
+          unsaved: !same(latest.current, saved.current),
+        });
+        if (change === "load") {
+          show(theirs);
+          setNotice({ before: changedNotice(theirs.editedBy) });
+        } else if (change === "conflict") {
+          conflict.current = true;
+          setConflictBy(theirs.editedBy);
+          setStatus("conflict");
+        }
+      } finally {
+        polling.current = false;
+      }
+    };
+    const timer = setInterval(() => void check(), POLL_MS);
+    const whenVisible = () => void check();
+    document.addEventListener("visibilitychange", whenVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", whenVisible);
+    };
+  }, [id, show]);
+
+  // Brings an earlier text back. What is typed goes to the server first, so the copy the restore keeps includes it.
+  // Returns why nothing was restored, or null.
+  async function restore(versionId: string) {
+    clearTimeout(timer.current);
+    await flush();
+    const blocker = restoreBlocker({
+      conflict: conflict.current,
+      saving: saving.current,
+      unsaved: !same(latest.current, saved.current),
+    });
+    if (blocker) return blocker;
+    const result = await restoreVersion(id, versionId, version.current);
+    if (result.status === "restored") {
+      show(result.note);
+      router.refresh();
+      return null;
+    }
+    if (result.status === "conflict") {
+      conflict.current = true;
+      setStatus("conflict");
+      return "This Note was changed somewhere else, so nothing was restored.";
+    }
+    return result.message;
   }
 
   // A toolbar button: runs its command on the editor, keeps the editor focused, and opens the Link suggestions for [[ ]].
@@ -360,6 +537,7 @@ export function NoteEditor({
   const detailsBody = (
     <>
       {details}
+      <NoteHistory noteId={id} onRestore={restore} />
       <section aria-labelledby="info-heading" className="grid gap-2">
         <h2 id="info-heading" className="text-xs font-semibold text-muted-foreground">
           Info
@@ -436,17 +614,39 @@ export function NoteEditor({
             <div role="alert" className="grid gap-3 rounded-[10px] border border-destructive/50 bg-destructive/10 p-4">
               <p className="flex items-start gap-2 text-sm">
                 <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-destructive" />
-                This Note was changed somewhere else since you opened it. Keep your version, or load the other one?
+                This Note was changed {conflictBy ? `by ${conflictBy}` : "somewhere else"} since you opened it. Keep your version, or load the other one?
+                Loading the other one keeps your text as a new Note first.
               </p>
+              {copyError && <p className="text-sm">{copyError}</p>}
               <div className="flex flex-wrap gap-2">
-                <Button type="button" size="sm" onClick={() => void flush(true)}>
+                <Button type="button" size="sm" disabled={copyBusy} onClick={() => void flush(true)}>
                   Keep mine
                 </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => void reload()}>
+                <Button type="button" size="sm" variant="outline" disabled={copyBusy} onClick={() => void loadTheirs()}>
                   Load theirs
                 </Button>
               </div>
             </div>
+          )}
+          {/* Always here (and out of the layout): a live region is only announced when it already exists. */}
+          <p aria-live="polite" className="sr-only">
+            {notice && `${notice.before}${notice.link?.label ?? ""}${notice.after ?? ""}`}
+          </p>
+          {notice && (
+            <p className="flex flex-wrap items-center gap-x-2 rounded-[10px] border border-border bg-surface p-3 text-sm">
+              <span>
+                {notice.before}
+                {notice.link && (
+                  <Link href={notice.link.href} className="font-medium underline underline-offset-2">
+                    {notice.link.label}
+                  </Link>
+                )}
+                {notice.after}
+              </span>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setNotice(null)}>
+                Dismiss
+              </Button>
+            </p>
           )}
           {status === "error" && (
             <div

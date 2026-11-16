@@ -25,6 +25,7 @@ import {
   nodeColours,
   readFilter,
   suggestionsForOrphans,
+  typeName,
   where,
   writeFilter,
   type GraphEdge,
@@ -522,6 +523,7 @@ function GraphFilters({
           <ToggleGroupItem value="ALL">All</ToggleGroupItem>
           <ToggleGroupItem value="NOTE">Notes</ToggleGroupItem>
           <ToggleGroupItem value="ASSET">Assets</ToggleGroupItem>
+          <ToggleGroupItem value="APPLICATION">Applications</ToggleGroupItem>
         </ToggleGroup>
         {mode === "links" && (
           <Toggle variant="outline" pressed={filter.linkedOnly} onPressedChange={(linkedOnly) => onChange({ ...filter, linkedOnly })}>
@@ -661,7 +663,7 @@ function GraphTable({ nodes, edges, tagNames }: { nodes: GraphNode[]; edges: Gra
                     </Link>
                     {n.stub && <span className="block text-xs font-normal text-muted-foreground">{where(n)}</span>}
                   </th>
-                  <td className="px-4 py-2">{n.type === "NOTE" ? "Note" : "Asset"}</td>
+                  <td className="px-4 py-2">{typeName(n.type)}</td>
                   <td className="px-4 py-2">{names(out.get(n.id))}</td>
                   <td className="px-4 py-2">{names(into.get(n.id))}</td>
                   <td className="px-4 py-2">{tagNames.get(n.id)?.join(", ") || "None"}</td>

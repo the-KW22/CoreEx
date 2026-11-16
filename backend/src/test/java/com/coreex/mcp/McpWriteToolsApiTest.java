@@ -25,7 +25,7 @@ class McpWriteToolsApiTest extends McpApiTest {
 		var names = new ArrayList<String>();
 		rpc(token, "tools/list", "{}").path("result").path("tools").forEach(t -> names.add(t.path("name").asString()));
 
-		assertThat(names).hasSize(26).contains("create_note", "update_note", "edit_note", "create_folder",
+		assertThat(names).hasSize(32).contains("create_note", "update_note", "edit_note", "create_folder",
 				"rename_folder", "move_folder", "trash_folder", "create_tag", "rename_tag", "set_tag_colour", "set_tags",
 				"move_item", "trash_item", "restore", "update_asset", "start_upload", "confirm_upload", "get_asset_url");
 		assertThat(names).noneMatch(n -> n.matches(".*(delete|empty|import|admin|purge).*"));
@@ -46,6 +46,36 @@ class McpWriteToolsApiTest extends McpApiTest {
 		assertThat(rest.path("body").asString()).contains("[[" + target + "|Target]]");
 		var tags = get("/api/items/" + created.path("id").asString() + "/tags", jwt).body();
 		assertThat(tags).contains("physics").contains("draft");
+	}
+
+	@Test
+	void aRepeatedCreateNoteWithTheSameIdReturnsTheSameNoteAndAppliesTheTagsOnce() throws Exception {
+		var id = java.util.UUID.randomUUID().toString();
+		var args = "{\"id\":\"" + id + "\",\"title\":\"Once\",\"markdown\":\"text\",\"tags\":[\"draft\"]}";
+		var first = call("create_note", args);
+		// The User removes the Tag, then the Agent retries the same create.
+		var tagId = JSON.readTree(get("/api/items/" + id + "/tags", jwt).body()).path("items").get(0).path("id").asString();
+		assertThat(delete("/api/items/" + id + "/tags/" + tagId, jwt).statusCode()).isEqualTo(204);
+
+		var again = call("create_note", args.replace("Once", "Different").replace("text", "other"));
+
+		assertThat(first.path("id").asString()).isEqualTo(id);
+		assertThat(again.path("id").asString()).isEqualTo(id);
+		assertThat(again.path("version").asInt()).isEqualTo(first.path("version").asInt());
+		assertThat(restNote(id).path("title").asString()).isEqualTo("Once");
+		assertThat(get("/api/items/" + id + "/tags", jwt).body()).doesNotContain("draft");
+		assertThat(jdbc.sql("select count(*) from items where type = 'NOTE'").query(Integer.class).single()).isEqualTo(1);
+	}
+
+	@Test
+	void createNoteWithAnotherUsersIdIsRefusedAndTheirNoteIsUntouched() throws Exception {
+		var other = newUser("b@example.com");
+		var theirs = note(other, "Theirs", "private", null);
+
+		var error = callFails("create_note", "{\"id\":\"" + theirs + "\",\"title\":\"Mine\",\"markdown\":\"x\"}");
+
+		assertThat(error).contains("cannot be used");
+		assertThat(JSON.readTree(get("/api/notes/" + theirs, other).body()).path("title").asString()).isEqualTo("Theirs");
 	}
 
 	@Test
@@ -76,6 +106,22 @@ class McpWriteToolsApiTest extends McpApiTest {
 
 		assertThat(error).contains("changed somewhere else");
 		assertThat(restNote(id).path("body").asString()).isEqualTo("second");
+	}
+
+	@Test
+	void everyAgentEditKeepsTheTextItReplacedEvenRightAfterTheLast() throws Exception {
+		var id = note(jwt, "Doc", "user text", null);
+
+		call("update_note", "{\"id\":\"" + id + "\",\"version\":1,\"markdown\":\"agent one\"}");
+		call("edit_note", "{\"id\":\"" + id + "\",\"version\":2,\"edits\":[{\"oldText\":\"one\",\"newText\":\"two\"}]}");
+
+		// Newest first: the text the first Agent edit wrote (named after the token), then the User's own text.
+		var list = JSON.readTree(get("/api/notes/" + id + "/versions", jwt).body()).path("items");
+		assertThat(list).hasSize(2);
+		assertThat(list.get(0).path("editedBy").asString()).isEqualTo("agent");
+		assertThat(list.get(1).path("editedBy").isNull()).isTrue();
+		var newest = get("/api/notes/" + id + "/versions/" + list.get(0).path("id").asString(), jwt).body();
+		assertThat(JSON.readTree(newest).path("body").asString()).isEqualTo("agent one");
 	}
 
 	@Test

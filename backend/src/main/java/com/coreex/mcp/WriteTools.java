@@ -10,6 +10,7 @@ import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
+import com.coreex.applications.ApplicationService;
 import com.coreex.assets.AssetService;
 import com.coreex.common.ApiException;
 import com.coreex.folders.Folder;
@@ -73,8 +74,11 @@ class WriteTools {
 
 	private final TrashService trash;
 
+	private final ApplicationService applications;
+
 	WriteTools(ItemService items, NoteService notes, AssetService assets, FolderService folders, TagService tagService,
-			TrashService trash) {
+			TrashService trash, ApplicationService applications) {
+		this.applications = applications;
 		this.items = items;
 		this.notes = notes;
 		this.assets = assets;
@@ -83,19 +87,24 @@ class WriteTools {
 		this.trash = trash;
 	}
 
-	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "create_note", description = "Create a new Note. Start the Markdown with a '# Title' line, which is also the Note's title unless you pass one. Write [[Exact Title]] to link to another Item. Returns the id and the version (1); keep the version to edit the Note later.")
+	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "create_note", description = "Create a new Note. Start the Markdown with a '# Title' line, which is also the Note's title unless you pass one. Write [[Exact Title]] to link to another Item. Returns the id and the version (1); keep the version to edit the Note later. Pass an id you made up (a UUID) to make a retry safe: sending the same call again returns that Note as it is, with nothing applied twice, instead of making a second one.")
 	NoteSaved createNote(McpTransportContext context,
 			@McpToolParam(required = false, description = "The title; by default the first '# Heading' line of the Markdown") String title,
 			@McpToolParam(description = "The Note's text in Markdown") String markdown,
 			@McpToolParam(required = false, description = "The Folder to put it in (an id from list_folders); by default the top level") UUID folderId,
-			@McpToolParam(required = false, description = "Tag names to put on it; missing Tags are created") List<String> tags) {
+			@McpToolParam(required = false, description = "Tag names to put on it; missing Tags are created") List<String> tags,
+			@McpToolParam(required = false, description = "An id you make up (a UUID), so a retried call returns the same Note instead of making another") UUID id) {
 		var agent = McpConfig.agent(context);
 		var text = Input.markdown(markdown);
 		var noteTitle = Input.title(title, text, "");
 		var tagNames = Input.tagNames(tags);
-		var note = notes.create(agent.user().id(), folderId, noteTitle, text);
-		tagNames.forEach(name -> tagService.attach(agent.user().id(), note.id(), name));
-		items.recordAgentEdit(agent.user().id(), note.id(), agent.tokenName());
+		var made = notes.create(agent.user().id(), folderId, noteTitle, text, id);
+		var note = made.note();
+		// A repeated call returns the Note as it is now: its Tags and edit mark are not applied again.
+		if (made.isNew()) {
+			tagNames.forEach(name -> tagService.attach(agent.user().id(), note.id(), name));
+			items.recordAgentEdit(agent.user().id(), note.id(), agent.tokenName());
+		}
 		return saved(note);
 	}
 
@@ -210,14 +219,14 @@ class WriteTools {
 				tagService.forItem(userId, id).stream().map(t -> new ReadTools.TagRef(t.id(), t.name())).toList());
 	}
 
-	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "move_item", description = "Move a Note or Asset into a Folder, or to the top level.")
+	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "move_item", description = "Move a Note, Asset or Application into a Folder, or to the top level.")
 	Done moveItem(McpTransportContext context, @McpToolParam(description = "The Item's id") UUID id,
 			@McpToolParam(required = false, description = "The Folder (an id from list_folders); leave out for the top level") UUID folderId) {
 		items.move(McpConfig.agent(context).user().id(), id, folderId);
 		return new Done(id, "Moved.");
 	}
 
-	@McpTool(name = "trash_item", description = "Move a Note or Asset to the Trash. It stays there 30 days; restore brings it back.")
+	@McpTool(name = "trash_item", description = "Move a Note, Asset or Application to the Trash. It stays there 30 days; restore brings it back.")
 	Done trashItem(McpTransportContext context, @McpToolParam(description = "The Item's id") UUID id) {
 		var user = McpConfig.agent(context).user();
 		var item = items.findLive(user.id(), List.of(id)).stream().findFirst()
@@ -225,13 +234,16 @@ class WriteTools {
 		if (item.type() == Item.Type.NOTE) {
 			notes.delete(user.id(), id);
 		}
+		else if (item.type() == Item.Type.APPLICATION) {
+			applications.trash(user.id(), id);
+		}
 		else {
 			assets.delete(user, id);
 		}
 		return new Done(id, "Moved to the Trash." + TRASH_HINT);
 	}
 
-	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "restore", description = "Bring a Note, Asset or Folder back from the Trash (see list_trash). A Folder returns with what was deleted with it; an Item also brings back the Folders it was in.")
+	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "restore", description = "Bring a Note, Asset, Application or Folder back from the Trash (see list_trash). A Folder returns with what was deleted with it; an Item also brings back the Folders it was in.")
 	Done restore(McpTransportContext context, @McpToolParam(description = "The id from list_trash") UUID id) {
 		var userId = McpConfig.agent(context).user().id();
 		try {
@@ -297,7 +309,8 @@ class WriteTools {
 	}
 
 	private NoteSaved save(Agent agent, Note current, String title, String text, int version) {
-		var note = notes.save(agent.user().id(), current.id(), title, text, version);
+		// keepOld: every Agent edit leaves a restore point.
+		var note = notes.save(agent.user().id(), current.id(), title, text, version, true);
 		items.recordAgentEdit(agent.user().id(), note.id(), agent.tokenName());
 		return saved(note);
 	}

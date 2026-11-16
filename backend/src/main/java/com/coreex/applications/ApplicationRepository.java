@@ -1,0 +1,228 @@
+package com.coreex.applications;
+
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
+
+import com.coreex.applications.Application.CloseReason;
+import com.coreex.applications.Application.Stage;
+import com.coreex.applications.Application.TimelineEntry;
+
+import tools.jackson.databind.json.JsonMapper;
+
+/** Every query carries the owner id, and none sees a deleted Application. */
+@Repository
+class ApplicationRepository {
+
+	private static final String FROM = """
+			from items i join application_contents c on c.item_id = i.id
+			where i.owner_id = :owner and i.type = 'APPLICATION' and i.deleted_at is null""";
+
+	private static final String COLUMNS = """
+			select i.id, i.title, c.title_auto, c.company, c.role, c.location, c.posting_url, c.posting_text, c.stage,
+			c.close_reason, c.applied_on, c.reminder_on, c.reminder_time, c.timeline::text as timeline, c.version, i.folder_id, i.created_at, i.updated_at """;
+
+	private final JsonMapper json = JsonMapper.builder().build();
+
+	private final RowMapper<Application> mapper = (rs, n) -> new Application(rs.getObject("id", UUID.class),
+			rs.getString("title"), rs.getBoolean("title_auto"), rs.getString("company"), rs.getString("role"),
+			rs.getString("location"), rs.getString("posting_url"), rs.getString("posting_text"),
+			Stage.valueOf(rs.getString("stage")), closeReason(rs.getString("close_reason")), instant(rs.getObject("applied_on", OffsetDateTime.class)),
+			rs.getObject("reminder_on", LocalDate.class), rs.getObject("reminder_time", LocalTime.class), List.of(json.readValue(rs.getString("timeline"), TimelineEntry[].class)), rs.getInt("version"),
+			rs.getObject("folder_id", UUID.class), instant(rs.getObject("created_at", OffsetDateTime.class)),
+			instant(rs.getObject("updated_at", OffsetDateTime.class)));
+
+	private final JdbcClient jdbc;
+
+	ApplicationRepository(JdbcClient jdbc) {
+		this.jdbc = jdbc;
+	}
+
+	private static CloseReason closeReason(String name) {
+		return name == null ? null : CloseReason.valueOf(name);
+	}
+
+	private static Instant instant(OffsetDateTime time) {
+		return time == null ? null : time.toInstant();
+	}
+
+	/** A null {@code wanted} id means a new one; an id that is already used by any Item makes this return empty. */
+	Optional<UUID> insert(UUID ownerId, UUID wanted, String title, String company, String role, String location,
+			String postingUrl, String postingText, Stage stage, Instant appliedOn, List<TimelineEntry> timeline) {
+		var made = jdbc.sql("""
+				insert into items (id, owner_id, type, title)
+				values (coalesce(:wanted, gen_random_uuid()), :owner, 'APPLICATION', :title)
+				on conflict (id) do nothing returning id""").param("wanted", wanted).param("owner", ownerId)
+				.param("title", title).query(UUID.class).optional();
+		if (made.isEmpty()) {
+			return made;
+		}
+		var id = made.get();
+		jdbc.sql("""
+				insert into application_contents (item_id, company, role, location, posting_url, canonical_url, posting_text,
+				stage, applied_on, timeline)
+				values (:id, :company, :role, :location, :url, :canonical, :text, :stage, :applied, :timeline::jsonb)""")
+				.param("id", id).param("canonical", CanonicalUrl.of(postingUrl)).param("company", company).param("role", role).param("location", location)
+				.param("url", postingUrl).param("text", postingText).param("stage", stage.name())
+				.param("applied", appliedOn == null ? null : Timestamp.from(appliedOn))
+				.param("timeline", json.writeValueAsString(timeline)).update();
+		return made;
+	}
+
+	Optional<Application> find(UUID ownerId, UUID id) {
+		return jdbc.sql(COLUMNS + " " + FROM + " and i.id = :id").param("owner", ownerId).param("id", id).query(mapper)
+				.optional();
+	}
+
+	List<Application> findAll(UUID ownerId) {
+		return jdbc.sql(COLUMNS + " " + FROM + " order by i.updated_at desc, i.id").param("owner", ownerId).query(mapper)
+				.list();
+	}
+
+	/** Another live Application of the User's with this canonical address, if any. */
+	Optional<ApplicationService.Found> duplicateOf(UUID ownerId, String canonical, UUID except) {
+		return jdbc.sql("""
+				select i.id, i.title from items i join application_contents c on c.item_id = i.id
+				where i.owner_id = :owner and i.type = 'APPLICATION' and i.deleted_at is null
+				  and c.canonical_url = :canonical and (cast(:except as uuid) is null or i.id <> :except)
+				order by i.created_at, i.id limit 1""").param("owner", ownerId).param("canonical", canonical)
+				.param("except", except)
+				.query((rs, n) -> new ApplicationService.Found(rs.getObject("id", UUID.class), rs.getString("title")))
+				.optional();
+	}
+
+	/**
+	 * The User's live Applications at this company (case and spacing ignored) that were closed with "no response",
+	 * now or earlier: the Stage entry of that close keeps the reason in its text.
+	 */
+	List<ApplicationService.Found> neverAnswered(UUID ownerId, String company, UUID except) {
+		return jdbc.sql("""
+				select i.id, i.title from items i join application_contents c on c.item_id = i.id
+				where i.owner_id = :owner and i.type = 'APPLICATION' and i.deleted_at is null
+				  and lower(regexp_replace(btrim(c.company), '\\s+', ' ', 'g')) = lower(regexp_replace(btrim(:company), '\\s+', ' ', 'g'))
+				  and (c.close_reason = 'NO_RESPONSE'
+				       or exists (select 1 from jsonb_array_elements(c.timeline) e
+				                  where e ->> 'type' = 'STAGE' and e ->> 'stage' = 'CLOSED' and e ->> 'text' = 'NO_RESPONSE'))
+				  and (cast(:except as uuid) is null or i.id <> :except)
+				order by i.updated_at desc, i.id limit 5""").param("owner", ownerId).param("company", company)
+				.param("except", except)
+				.query((rs, n) -> new ApplicationService.Found(rs.getObject("id", UUID.class), rs.getString("title")))
+				.list();
+	}
+
+	/** The attached PDFs whose Asset is live, in the order they were attached. */
+	List<ApplicationDocument> documents(UUID ownerId, UUID applicationId) {
+		return jdbc.sql("""
+				select d.asset_id, i.title, d.label, f.size_bytes, d.attached_at
+				from application_documents d
+				join items i on i.id = d.asset_id and i.owner_id = :owner and i.deleted_at is null
+				join asset_files f on f.item_id = d.asset_id
+				where d.application_id = :app order by d.attached_at, d.asset_id""").param("owner", ownerId)
+				.param("app", applicationId)
+				.query((rs, n) -> new ApplicationDocument(rs.getObject("asset_id", UUID.class), rs.getString("title"),
+						ApplicationDocument.Label.valueOf(rs.getString("label")), rs.getLong("size_bytes"),
+						rs.getObject("attached_at", java.time.OffsetDateTime.class).toInstant()))
+				.list();
+	}
+
+	/** The MIME type of the User's live Asset, empty when there is none. */
+	Optional<String> assetMimeType(UUID ownerId, UUID assetId) {
+		return jdbc.sql("""
+				select f.mime_type from asset_files f join items i on i.id = f.item_id
+				where f.item_id = :asset and i.owner_id = :owner and i.deleted_at is null""").param("asset", assetId)
+				.param("owner", ownerId).query(String.class).optional();
+	}
+
+	/** Attaches the Asset, or changes its label when it is attached already. */
+	void attach(UUID applicationId, UUID assetId, ApplicationDocument.Label label) {
+		jdbc.sql("""
+				insert into application_documents (application_id, asset_id, label) values (:app, :asset, :label)
+				on conflict (application_id, asset_id) do update set label = excluded.label""")
+				.param("app", applicationId).param("asset", assetId).param("label", label.name()).update();
+	}
+
+	boolean detach(UUID applicationId, UUID assetId) {
+		return jdbc.sql("delete from application_documents where application_id = :app and asset_id = :asset")
+				.param("app", applicationId).param("asset", assetId).update() > 0;
+	}
+
+	/** False when the Application is missing or its stored version is not the one the caller saw. */
+	boolean saveFields(UUID ownerId, UUID id, int seenVersion, String title, boolean titleAuto, String company,
+			String role, String location, String postingUrl, String postingText) {
+		var saved = jdbc.sql("""
+				update application_contents c set company = :company, role = :role, location = :location,
+				posting_url = :url, canonical_url = :canonical, posting_text = :text, title_auto = :auto, version = c.version + 1
+				from items i
+				where c.item_id = i.id and i.id = :id and i.owner_id = :owner and i.type = 'APPLICATION'
+				  and i.deleted_at is null and c.version = :version""").param("company", company).param("role", role)
+				.param("location", location).param("url", postingUrl).param("canonical", CanonicalUrl.of(postingUrl))
+				.param("text", postingText)
+				.param("auto", titleAuto).param("id", id).param("owner", ownerId).param("version", seenVersion).update();
+		if (saved == 0) {
+			return false;
+		}
+		touch(id, title);
+		return true;
+	}
+
+	/** False when the Application is missing or its stored version is not the one the caller saw. */
+	boolean saveTimeline(UUID ownerId, UUID id, int seenVersion, Stage stage, CloseReason closeReason,
+			Instant appliedOn, List<TimelineEntry> timeline, boolean clearReminder) {
+		var saved = jdbc.sql("""
+				update application_contents c set stage = :stage, close_reason = :reason, applied_on = :applied,
+				timeline = :timeline::jsonb, version = c.version + 1,
+				reminder_on = case when :clear then null else c.reminder_on end,
+				reminder_time = case when :clear then null else c.reminder_time end
+				from items i
+				where c.item_id = i.id and i.id = :id and i.owner_id = :owner and i.type = 'APPLICATION'
+				  and i.deleted_at is null and c.version = :version""").param("stage", stage.name())
+				.param("clear", clearReminder).param("reason", closeReason == null ? null : closeReason.name())
+				.param("applied", appliedOn == null ? null : Timestamp.from(appliedOn))
+				.param("timeline", json.writeValueAsString(timeline)).param("id", id).param("owner", ownerId)
+				.param("version", seenVersion).update();
+		if (saved == 0) {
+			return false;
+		}
+		touch(id, null);
+		return true;
+	}
+
+	/** False when the Application is missing or its stored version is not the one the caller saw. */
+	boolean saveReminder(UUID ownerId, UUID id, int seenVersion, LocalDate on, LocalTime time) {
+		var saved = jdbc.sql("""
+				update application_contents c set reminder_on = :on, reminder_time = :time, version = c.version + 1
+				from items i
+				where c.item_id = i.id and i.id = :id and i.owner_id = :owner and i.type = 'APPLICATION'
+				  and i.deleted_at is null and c.version = :version""").param("on", on).param("time", time)
+				.param("id", id).param("owner", ownerId).param("version", seenVersion).update();
+		if (saved == 0) {
+			return false;
+		}
+		touch(id, null);
+		return true;
+	}
+
+	/** False when the Application is missing, not the User's or already in the Trash. */
+	boolean softDelete(UUID ownerId, UUID id, Instant at) {
+		return jdbc.sql("""
+				update items set deleted_at = :at, trash_batch_id = gen_random_uuid()
+				where id = :id and owner_id = :owner and type = 'APPLICATION' and deleted_at is null""")
+				.param("at", Timestamp.from(at)).param("id", id).param("owner", ownerId).update() > 0;
+	}
+
+	/** Bumps the Item's time, and sets its title when there is one. */
+	private void touch(UUID id, String title) {
+		jdbc.sql("update items set title = coalesce(:title, title), edited_by = null, updated_at = now() where id = :id")
+				.param("title", title).param("id", id).update();
+	}
+
+}

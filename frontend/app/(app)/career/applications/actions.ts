@@ -1,0 +1,299 @@
+"use server";
+
+import { redirect } from "next/navigation";
+
+import type { components } from "@/lib/api/schema";
+import { getApi } from "@/lib/api/server";
+import { done } from "@/lib/refresh";
+import type { CloseReason, InterviewKind, Stage } from "@/lib/applications";
+
+import { restoreItem, trashItem } from "../../items/actions";
+
+type Application = components["schemas"]["ApplicationResponse"];
+
+export type CreateState = { error?: string; existing?: { id: string; title: string } } | undefined;
+
+export type SaveResult =
+  | { status: "saved"; application: Application }
+  | { status: "conflict" }
+  | { status: "error"; message: string };
+
+// A new Application from pasted posting text and the typed company and role; it opens on success.
+export async function createApplication(_previous: CreateState, formData: FormData): Promise<CreateState> {
+  const field = (name: string) => String(formData.get(name) ?? "");
+  const company = field("company").trim();
+  const role = field("role").trim();
+  if (!company || !role) return { error: "Enter the company and the role." };
+
+  const api = await getApi();
+  const result = await api
+    .POST("/api/applications", {
+      body: {
+        company,
+        role,
+        location: field("location").trim(),
+        postingUrl: field("postingUrl").trim(),
+        postingText: field("postingText"),
+      },
+    })
+    .catch(() => null);
+  if (!result) return { error: "Cannot reach the CoreEx API." };
+  const duplicate = result.error as { code?: string; existingId?: string; existingTitle?: string } | undefined;
+  if (result.response.status === 409 && duplicate?.code === "DUPLICATE_POSTING" && duplicate.existingId) {
+    return {
+      error: "That posting is already tracked.",
+      existing: { id: duplicate.existingId, title: duplicate.existingTitle ?? "the Application" },
+    };
+  }
+  if (!result.data) return { error: result.error?.message ?? "Could not create the Application." };
+  redirect(`/career/applications/${result.data.id}`);
+}
+
+// The PDFs sent for an Application: attach an uploaded Asset with a label, take one off (the Asset stays), and get a
+// link to download one.
+export async function attachDocument(
+  id: string,
+  assetId: string,
+  label: "RESUME" | "COVER_LETTER" | "OTHER",
+): Promise<boolean> {
+  const api = await getApi();
+  const result = await api
+    .POST("/api/applications/{id}/documents", { params: { path: { id } }, body: { assetId, label } })
+    .catch(() => null);
+  return done(!!result && !result.error);
+}
+
+export async function detachDocument(id: string, assetId: string): Promise<boolean> {
+  const api = await getApi();
+  const result = await api
+    .DELETE("/api/applications/{id}/documents/{assetId}", { params: { path: { id, assetId } } })
+    .catch(() => null);
+  return done(!!result && !result.error);
+}
+
+export async function documentUrl(assetId: string): Promise<string | null> {
+  const api = await getApi();
+  const result = await api
+    .GET("/api/assets/{id}/url", { params: { path: { id: assetId }, query: { download: true } } })
+    .catch(() => null);
+  return result?.data?.url ?? null;
+}
+
+// Move to Trash from the Application's own page.
+export async function deleteApplication(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  if (!(await trashItem(id, "APPLICATION"))) redirect(`/career/applications/${id}?error=delete`);
+  redirect("/career/applications");
+}
+
+// The earlier Applications at this company that were closed with no response, for the notice in the dialog.
+export async function appliedBefore(company: string): Promise<{ id: string; title: string }[]> {
+  if (!company.trim()) return [];
+  const api = await getApi();
+  const result = await api.GET("/api/applications/applied-before", { params: { query: { company } } }).catch(() => null);
+  return result?.data?.items ?? [];
+}
+
+// What the model made of a posting's text (Fill with AI). Nothing is stored; the dialog shows it for review.
+export type AiFill = components["schemas"]["FillResponse"];
+
+export async function fillWithAi(
+  text: string,
+): Promise<{ ok: true; fill: AiFill } | { ok: false; message: string }> {
+  const api = await getApi();
+  const result = await api.POST("/api/applications/fill-with-ai", { body: { text } }).catch(() => null);
+  if (!result) return { ok: false, message: "Cannot reach the CoreEx API." };
+  if (!result.data) return { ok: false, message: result.error?.message ?? "The AI could not fill in the fields." };
+  return { ok: true, fill: result.data };
+}
+
+// What a link's page said: company, role, location and the posting. Nothing is stored; the dialog shows it for review.
+export type LinkRead = components["schemas"]["ReadLinkResponse"];
+
+export async function readLink(
+  url: string,
+): Promise<{ ok: true; read: LinkRead } | { ok: false; message: string }> {
+  const api = await getApi();
+  const result = await api.POST("/api/applications/read-link", { body: { url } }).catch(() => null);
+  if (!result) return { ok: false, message: "Cannot reach the CoreEx API." };
+  if (!result.data) return { ok: false, message: result.error?.message ?? "The link could not be read." };
+  return { ok: true, read: result.data };
+}
+
+// Every call that answers with the stored Application: a 409 is a stale version, anything else a message to show.
+async function outcome(
+  call: Promise<{ data?: Application; error?: { message?: string }; response: Response }>,
+  failure: string,
+): Promise<SaveResult> {
+  const result = await call.catch(() => null);
+  if (!result) return { status: "error", message: "Cannot reach the CoreEx API." };
+  if (result.data) return { status: "saved", application: result.data };
+  const duplicate = result.error as { code?: string; existingTitle?: string } | undefined;
+  if (result.response.status === 409 && duplicate?.code === "DUPLICATE_POSTING") {
+    return { status: "error", message: `That posting link is already tracked as "${duplicate.existingTitle}".` };
+  }
+  if (result.response.status === 409) return { status: "conflict" };
+  return { status: "error", message: result.error?.message ?? failure };
+}
+
+export async function saveApplication(
+  id: string,
+  fields: Pick<
+    Application,
+    "title" | "company" | "role" | "location" | "postingUrl" | "postingText" | "version"
+  >,
+): Promise<SaveResult> {
+  const api = await getApi();
+  return outcome(
+    api.PUT("/api/applications/{id}", { params: { path: { id } }, body: fields }),
+    "Could not save the Application.",
+  );
+}
+
+// A day left empty means today; Closed needs its reason.
+export async function moveApplicationStage(
+  id: string,
+  stage: Stage,
+  version: number,
+  closeReason?: CloseReason,
+  date?: string,
+): Promise<SaveResult> {
+  const api = await getApi();
+  return outcome(
+    api.POST("/api/applications/{id}/stage", {
+      params: { path: { id } },
+      body: { stage, version, closeReason, date: date || undefined },
+    }),
+    "Could not move the Application.",
+  );
+}
+
+// The Board's move: it names the Stage the card was seen in, not a version, so a note added meanwhile does not refuse it
+// but a move made elsewhere does. The caller refreshes the page after either answer.
+export async function moveOnBoard(
+  id: string,
+  fromStage: Stage,
+  stage: Stage,
+  closeReason?: CloseReason,
+): Promise<"saved" | "conflict" | "error"> {
+  const api = await getApi();
+  const result = await api
+    .POST("/api/applications/{id}/stage", { params: { path: { id } }, body: { stage, fromStage, closeReason } })
+    .catch(() => null);
+  if (result?.data) {
+    done(true);
+    return "saved";
+  }
+  if (result?.response.status === 409) {
+    done(true);
+    return "conflict";
+  }
+  return "error";
+}
+
+export async function addTimelineEntry(
+  id: string,
+  entry: { type: "NOTE" | "FOLLOWED_UP" | "REPLIED"; text?: string; date?: string },
+  version: number,
+): Promise<SaveResult> {
+  const api = await getApi();
+  return outcome(
+    api.POST("/api/applications/{id}/timeline", {
+      params: { path: { id } },
+      body: { ...entry, date: entry.date || undefined, version },
+    }),
+    "Could not add to the timeline.",
+  );
+}
+
+export async function editTimelineEntry(
+  id: string,
+  seq: number,
+  change: { text?: string; date?: string },
+  version: number,
+): Promise<SaveResult> {
+  const api = await getApi();
+  return outcome(
+    api.PUT("/api/applications/{id}/timeline/{seq}", {
+      params: { path: { id, seq } },
+      body: { ...change, date: change.date || undefined, version },
+    }),
+    "Could not change the timeline entry.",
+  );
+}
+
+export async function saveInterview(
+  id: string,
+  seq: number | null,
+  interview: { startsAt: string; kind: InterviewKind; notes: string },
+  version: number,
+): Promise<SaveResult> {
+  const api = await getApi();
+  const body = { ...interview, version };
+  return outcome(
+    seq === null
+      ? api.POST("/api/applications/{id}/interviews", { params: { path: { id } }, body })
+      : api.PUT("/api/applications/{id}/interviews/{seq}", { params: { path: { id, seq } }, body }),
+    "Could not save the interview.",
+  );
+}
+
+// No day clears the reminder.
+export async function saveReminder(id: string, on: string, time: string, version: number): Promise<SaveResult> {
+  const api = await getApi();
+  return outcome(
+    api.PUT("/api/applications/{id}/reminder", {
+      params: { path: { id } },
+      body: { on: on || undefined, time: on && time ? time : undefined, version },
+    }),
+    "Could not save the reminder.",
+  );
+}
+
+export async function deleteTimelineEntry(id: string, seq: number, version: number): Promise<SaveResult> {
+  const api = await getApi();
+  return outcome(
+    api.DELETE("/api/applications/{id}/timeline/{seq}", { params: { path: { id, seq }, query: { version } } }),
+    "Could not delete the timeline entry.",
+  );
+}
+
+// What a bulk action did: the Applications it worked on and the ones it did not, with why. Null when it could not run
+// at all (the API is down, or the request was refused).
+export type BulkOutcome = { done: string[]; failed: { id: string; code: string }[] } | null;
+
+function outcome_(result: { data?: { done: string[]; failed: { id: string; code: string }[] } } | null): BulkOutcome {
+  if (!result?.data) return null;
+  done(true);
+  return result.data;
+}
+
+export async function bulkMoveStage(ids: string[], stage: Stage, closeReason?: CloseReason): Promise<BulkOutcome> {
+  const api = await getApi();
+  return outcome_(await api.POST("/api/applications/bulk/stage", { body: { ids, stage, closeReason } }).catch(() => null));
+}
+
+export async function bulkAddTag(ids: string[], name: string): Promise<BulkOutcome> {
+  const api = await getApi();
+  return outcome_(await api.POST("/api/applications/bulk/tags/add", { body: { ids, name } }).catch(() => null));
+}
+
+export async function bulkRemoveTag(ids: string[], tagId: string): Promise<BulkOutcome> {
+  const api = await getApi();
+  return outcome_(await api.POST("/api/applications/bulk/tags/remove", { body: { ids, tagId } }).catch(() => null));
+}
+
+export async function bulkTrash(ids: string[]): Promise<BulkOutcome> {
+  const api = await getApi();
+  return outcome_(await api.POST("/api/applications/bulk/trash", { body: { ids } }).catch(() => null));
+}
+
+// Undo for a bulk Move to Trash: the Trash's own restore, one call per Application.
+export async function restoreApplications(ids: string[]): Promise<NonNullable<BulkOutcome>> {
+  const results = await Promise.all(ids.map(async (id) => ({ id, ok: await restoreItem(id) })));
+  return {
+    done: results.filter((r) => r.ok).map((r) => r.id),
+    failed: results.filter((r) => !r.ok).map((r) => ({ id: r.id, code: "NOT_FOUND" })),
+  };
+}

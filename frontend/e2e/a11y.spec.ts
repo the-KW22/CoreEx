@@ -1,3 +1,6 @@
+import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+
 import { expect, test, type Page } from "@playwright/test";
 
 import { MCP_TOOLS } from "../lib/mcp-tools";
@@ -9,6 +12,7 @@ import {
   email,
   expectNoViolations,
   expectSaved,
+  newApplication,
   newNote,
   noteWithTag,
   openPalette,
@@ -778,6 +782,313 @@ test("an Agent's edit is named in the Details panel until you edit the Note your
   await page.getByRole("row").filter({ hasText: name }).getByRole("button", { name: `Revoke ${name}` }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Revoke" }).click();
   await expect(page.getByRole("row").filter({ hasText: name })).toHaveCount(0);
+});
+
+test("History keeps the text a save replaced, previews it, and restores it", async ({ page }) => {
+  await signIn(page);
+  const title = `History ${Date.now()}`;
+  await newNote(page, title);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("First draft");
+  await expectSaved(page);
+  await page.keyboard.type(" and a second thought");
+  await expectSaved(page);
+
+  const details = page.getByRole("complementary", { name: "Details" });
+  await details.getByRole("button", { name: "History" }).click();
+  // The first save replaced the heading alone; the saves close behind it keep nothing more.
+  const previews = details.getByRole("button", { name: /^Preview the text from/ });
+  await expect(previews).toHaveCount(1);
+  await previews.click();
+  await expect(details.locator("pre[aria-label^='Text from']")).toHaveText(`# ${title}`);
+  await expectNoViolations(page);
+
+  // Restoring brings the heading-only text back, and keeps the text it replaced as a newer version.
+  await details.getByRole("button", { name: /^Restore the text from/ }).click();
+  await expect(page.getByRole("textbox", { name: "Note content" })).not.toContainText("First draft");
+  await expect(previews).toHaveCount(2);
+  await previews.first().click();
+  await expect(details.locator("pre[aria-label^='Text from']").first()).toContainText("First draft and a second thought");
+
+  // Tidy up.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("Load theirs keeps your text as a (mine) Note in the same Folder with the same Tags", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  const stamp = Date.now();
+  const title = `Conflict ${stamp}`;
+  const tagName = `kept-${stamp}`;
+  const folderName = `Conflict folder ${stamp}`;
+  await page.goto("/items");
+  await page.getByRole("button", { name: "New Folder" }).click();
+  await page.getByLabel("Folder name").fill(folderName);
+  await page.getByRole("button", { name: "Create Folder" }).click();
+  await noteWithTag(page, title, tagName);
+  await chooseFolder(page, page.getByRole("complementary", { name: "Details" }), "Folder", folderName);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: folderName })).toBeVisible();
+  const original = page.url();
+
+  // The Note is changed in another tab, so the next save from this one is a conflict.
+  const other = await page.context().newPage();
+  await other.goto(original);
+  await other.getByRole("textbox", { name: "Note content" }).click();
+  await other.keyboard.press("Control+End");
+  await other.keyboard.type(" from elsewhere");
+  await expectSaved(other);
+  await other.close();
+
+  const editor = page.getByRole("textbox", { name: "Note content" });
+  await editor.click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(" my unsaved words");
+  await expect(page.getByRole("alert").filter({ hasText: "changed somewhere else" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Load theirs" }).click();
+  await expect(editor).toContainText("from elsewhere");
+  await expect(editor).not.toContainText("my unsaved words");
+  // The Details panel may list the copy too, so look in the message above the title.
+  const kept = page.locator("p", { hasText: "Your text is kept in" }).getByRole("link", { name: `${title} (mine)` });
+  await expect(kept).toBeVisible();
+
+  // The copy holds the typed text, in the same Folder, with the same Tag.
+  await kept.click();
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(`${title} (mine)`);
+  await expect(page.getByRole("textbox", { name: "Note content" })).toContainText("my unsaved words");
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: folderName })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Tags" }).getByRole("link", { name: tagName })).toBeVisible();
+
+  // Tidy up.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+  await page.goto(original);
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+// Every save fails, as when the API is asleep: the Note page's server actions are the POSTs that carry Next-Action.
+async function blockSaves(page: Page) {
+  await page.route("**/notes/**", (route) =>
+    route.request().headers()["next-action"] ? route.abort() : route.continue(),
+  );
+}
+
+test("text typed while the API cannot be reached comes back after a reload, and is saved", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  await newNote(page, `Recover ${Date.now()}`);
+  const editor = page.getByRole("textbox", { name: "Note content" });
+  page.on("dialog", (dialog) => void dialog.accept());
+
+  await blockSaves(page);
+  await editor.click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("typed while offline");
+  await expect(page.getByRole("alert").filter({ hasText: "Cannot reach the CoreEx API" })).toBeVisible();
+
+  // The page is left with the text unsaved; the API answers again.
+  await page.unroute("**/notes/**");
+  await page.reload();
+  await expect(editor).toContainText("typed while offline");
+  await expect(page.locator("span", { hasText: "Restored changes that were not saved yet." })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /^Saved at/ })).toBeVisible();
+
+  // Saved for good: a reload brings it back from the server, with nothing to restore.
+  await page.reload();
+  await expect(editor).toContainText("typed while offline");
+  await expect(page.locator("span", { hasText: "Restored changes that were not saved yet." })).toHaveCount(0);
+
+  // Tidy up.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+// Only the saves fail: the check for changes (a server action with two arguments) still gets through.
+async function blockOnlySaves(page: Page) {
+  await page.route("**/notes/**", (route) => {
+    const request = route.request();
+    if (!request.headers()["next-action"]) return route.continue();
+    let args: unknown = null;
+    try {
+      args = JSON.parse(request.postData() ?? "");
+    } catch {
+      // Not a plain list of arguments: let it through.
+    }
+    return Array.isArray(args) && args.length === 5 ? route.abort() : route.continue();
+  });
+}
+
+test("a Note changed in another tab shows the change without a reload", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  await newNote(page, `Live ${Date.now()}`);
+  const noteUrl = page.url();
+  const editor = page.getByRole("textbox", { name: "Note content" });
+
+  const other = await page.context().newPage();
+  await other.goto(noteUrl);
+  await other.getByRole("textbox", { name: "Note content" }).click();
+  await other.keyboard.press("Control+End");
+  await other.keyboard.type(" written in another tab");
+  await expectSaved(other);
+  await other.close();
+
+  // Nothing unsaved here, so the new text is loaded and says why, within one check (10 seconds).
+  await expect(page.locator("span", { hasText: "Changed in another tab or device just now." })).toBeVisible({
+    timeout: 25_000,
+  });
+  await expect(editor).toContainText("written in another tab");
+  await expect(page.getByRole("status").filter({ hasText: /^Saved at/ })).toBeVisible();
+
+  // Tidy up.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("unsaved text meeting a change made elsewhere opens the conflict by itself", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  await newNote(page, `Live conflict ${Date.now()}`);
+  const noteUrl = page.url();
+  const editor = page.getByRole("textbox", { name: "Note content" });
+  page.on("dialog", (dialog) => void dialog.accept());
+  const other = await page.context().newPage();
+  await other.goto(noteUrl);
+  await expect(other.getByRole("textbox", { name: "Note content" })).toBeVisible();
+
+  await blockOnlySaves(page);
+  await editor.click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(" my unsaved words");
+  await expect(page.getByRole("alert").filter({ hasText: "Cannot reach the CoreEx API" })).toBeVisible();
+
+  await other.getByRole("textbox", { name: "Note content" }).click();
+  await other.keyboard.press("Control+End");
+  await other.keyboard.type(" and the other tab");
+  await expectSaved(other);
+  await other.close();
+
+  // No save is attempted, yet the conflict shows: the check found the newer version.
+  await expect(page.getByRole("alert").filter({ hasText: "changed somewhere else" })).toBeVisible({ timeout: 25_000 });
+  await expect(editor).toContainText("my unsaved words");
+
+  // Keep mine settles it once saves go through again; then tidy up.
+  await page.unroute("**/notes/**");
+  await page.getByRole("button", { name: "Keep mine" }).click();
+  await expect(page.getByRole("status").filter({ hasText: /^Saved at/ })).toBeVisible();
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("logging out removes the unsaved text kept in the browser", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  await newNote(page, `Recover logout ${Date.now()}`);
+  const noteUrl = page.url();
+  const kept = () => page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("coreex:unsaved:")).length);
+  page.on("dialog", (dialog) => void dialog.accept());
+
+  await blockSaves(page);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(" never saved");
+  await expect(page.getByRole("alert").filter({ hasText: "Cannot reach the CoreEx API" })).toBeVisible();
+  expect(await kept()).toBe(1);
+
+  // Log out is a server action too, so the API must answer again for it. No save is retried by itself.
+  await page.unroute("**/notes/**");
+  await page.getByRole("button", { name: /^Account/ }).click();
+  await page.getByRole("menuitem", { name: "Log out" }).click();
+  await expect(page).toHaveURL(/\/login/);
+  expect(await kept()).toBe(0);
+
+  // Tidy up.
+  await signIn(page);
+  await page.goto(noteUrl);
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("unsaved text for a Note that changed meanwhile comes back in conflict", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  await newNote(page, `Recover conflict ${Date.now()}`);
+  const original = page.url();
+  const editor = page.getByRole("textbox", { name: "Note content" });
+  page.on("dialog", (dialog) => void dialog.accept());
+  // Another tab opens the Note first: a tab opened later would take this tab's unsaved text.
+  const other = await page.context().newPage();
+  await other.goto(original);
+  await expect(other.getByRole("textbox", { name: "Note content" })).toBeVisible();
+
+  await blockSaves(page);
+  await editor.click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("my unsaved words");
+  await expect(page.getByRole("alert").filter({ hasText: "Cannot reach the CoreEx API" })).toBeVisible();
+
+  // Meanwhile the Note is changed in that tab.
+  await other.getByRole("textbox", { name: "Note content" }).click();
+  await other.keyboard.press("Control+End");
+  await other.keyboard.type(" and elsewhere");
+  await expectSaved(other);
+  await other.close();
+
+  await page.unroute("**/notes/**");
+  await page.reload();
+  await expect(page.getByRole("alert").filter({ hasText: "changed somewhere else" })).toBeVisible();
+  await expect(editor).toContainText("my unsaved words");
+
+  // Keep mine settles it, and the text is saved.
+  await page.getByRole("button", { name: "Keep mine" }).click();
+  await expect(page.getByRole("status").filter({ hasText: /^Saved at/ })).toBeVisible();
+
+  // Tidy up.
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
+});
+
+test("Export downloads a zip with the Note, and a second one inside the minute says to wait", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  const title = `Export ${Date.now()}`;
+  await newNote(page, title);
+  const noteUrl = page.url();
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("exported words");
+  await expectSaved(page);
+
+  await page.getByRole("button", { name: /^Account/ }).click();
+  await page.getByRole("menuitem", { name: "Export" }).click();
+  await expect(page.getByRole("heading", { name: "Export", level: 1 })).toBeVisible();
+  await expectNoViolations(page);
+
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Download everything" }).click();
+  const download = await downloading;
+  expect(download.suggestedFilename()).toMatch(/^coreex-export-\d{4}-\d{2}-\d{2}\.zip$/);
+  const zip = await readFile(await download.path());
+  // A zip starts with "PK", and its entry names are stored as plain text.
+  expect(zip.subarray(0, 2).toString()).toBe("PK");
+  expect(zip.includes(Buffer.from(`${title}.md`))).toBe(true);
+  expect(zip.includes(Buffer.from("manifest.json"))).toBe(true);
+
+  // Straight away again: refused, and the page says to wait.
+  await page.getByRole("link", { name: "Download everything" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "once a minute" })).toBeVisible();
+
+  // Tidy up.
+  await page.goto(noteUrl);
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/items$/);
 });
 
 test("the Users table shows you without Disable or Remove, and Overview has its chart", async ({ page }) => {
@@ -2061,4 +2372,675 @@ test("the Graph goes full screen, refits, and the button returns", async ({ page
   await page.getByRole("button", { name: "Exit full screen" }).click();
   await expect(page.getByRole("button", { name: "Full screen" })).toBeVisible();
   await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+});
+
+test("an Application is made from a pasted posting, renamed, and moved through its Stages", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  await page.goto("/career/applications");
+  await page.getByRole("button", { name: "New Application" }).click();
+  await expectNoViolations(page);
+  await page.keyboard.press("Escape");
+
+  await newApplication(page, `Acme ${stamp}`, "Engineer");
+  // By id: the page being left, with its own Posting field in the dialog, stays on screen for a moment.
+  await expect(page.locator("#posting-text")).toHaveValue("We are hiring.");
+  await expect(page.getByRole("button", { name: "Saved", exact: true })).toHaveAttribute("aria-current", "step");
+  await expectNoViolations(page);
+
+  // Moving into Applied dates the Application and adds a timeline line.
+  await page.getByRole("button", { name: "Applied", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Applied", exact: true })).toHaveAttribute("aria-current", "step");
+  await expect(page.getByText("Moved to Applied")).toBeVisible();
+  await expect(page.getByText(/^Applied .*\d{4}$/)).toBeVisible();
+
+  // Editing the company follows the automatic title; typing a title of your own stops that.
+  await page.getByLabel("Company").fill(`Beta ${stamp}`);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("heading", { name: `Engineer at Beta ${stamp}`, level: 1 })).toBeVisible();
+  await page.getByLabel("Title").fill(`My pick ${stamp}`);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("heading", { name: `My pick ${stamp}`, level: 1 })).toBeVisible();
+  await page.getByLabel("Company").fill(`Gamma ${stamp}`);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByLabel("Company")).toHaveValue(`Gamma ${stamp}`);
+  await expect(page.getByRole("heading", { name: `My pick ${stamp}`, level: 1 })).toBeVisible();
+});
+
+test("an Application closes with a reason, takes notes, and a follow-up is back-dated", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  await newApplication(page, `Delta ${stamp}`, "Analyst");
+  await expect(page.locator("#posting-text")).toBeVisible();
+
+  // Closing asks why first; cancelling changes nothing.
+  await page.getByRole("button", { name: "Closed", exact: true }).click();
+  await expect(page.getByLabel("Why did it close?")).toBeVisible();
+  await expectNoViolations(page);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Saved", exact: true })).toHaveAttribute("aria-current", "step");
+  await page.getByRole("button", { name: "Closed", exact: true }).click();
+  await page.getByLabel("Why did it close?").selectOption("WITHDREW");
+  await page.getByRole("button", { name: "Close Application" }).click();
+  await expect(page.getByRole("button", { name: "Closed", exact: true })).toHaveAttribute("aria-current", "step");
+  await expect(page.getByText("Closed: Withdrew")).toBeVisible();
+
+  // A note, then an edit of it, then a follow-up dated in the past that sorts before today's entries.
+  await page.getByLabel("Add to the timeline").fill("Spoke to the recruiter");
+  await page.getByRole("button", { name: "Add note" }).click();
+  await expect(page.getByText("Spoke to the recruiter")).toBeVisible();
+  await page.getByRole("button", { name: /^Edit: .* Spoke to the recruiter$/ }).click();
+  await page.getByLabel("Note", { exact: true }).fill("Spoke to the recruiter twice");
+  await page.getByRole("button", { name: "Save entry" }).click();
+  await expect(page.getByText("Spoke to the recruiter twice")).toBeVisible();
+
+  await page.getByLabel("Date", { exact: true }).last().fill("2020-01-15");
+  await page.getByRole("button", { name: "I followed up" }).click();
+  const lines = page.getByRole("list").filter({ hasText: "Moved to Closed" }).getByRole("listitem");
+  await expect(lines.first()).toContainText("Jan 15, 2020");
+  await expect(lines.first()).toContainText("I followed up");
+  await expectNoViolations(page);
+
+  // A note can go; a Stage entry has no Delete.
+  await page.getByRole("button", { name: /^Delete: .* Spoke to the recruiter twice$/ }).click();
+  await expect(page.getByText("Spoke to the recruiter twice")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Delete: .* Moved to/ })).toHaveCount(0);
+});
+
+test.describe("a User away from UTC", () => {
+  test.use({ timezoneId: "America/Los_Angeles" });
+
+  test("an Application takes an interview at the time typed, and one follow-up reminder", async ({ page }) => {
+    await signIn(page);
+    const stamp = Date.now();
+    await newApplication(page, `Echo ${stamp}`, "Tester");
+    await expect(page.locator("#posting-text")).toBeVisible();
+
+    // The time typed comes back as typed, though it is stored as an instant on the next UTC day.
+    await page.getByRole("button", { name: "Add interview" }).click();
+    await page.getByLabel("Interview time").fill("2030-03-05T17:30");
+    await page.getByLabel("Type").selectOption("VIDEO");
+    await page.getByLabel("Interview notes").fill("With the team");
+    await expectNoViolations(page);
+    await page.getByRole("button", { name: "Save interview" }).click();
+    await expect(page.getByText("Mar 5, 2030, 5:30 PM").first()).toBeVisible();
+    await expect(page.getByText("Interview (Video): With the team")).toBeVisible();
+
+    await page.getByRole("button", { name: /^Edit interview/ }).click();
+    await page.getByLabel("Interview time").fill("2030-03-06T09:00");
+    await page.getByRole("button", { name: "Save interview" }).click();
+    await expect(page.getByText("Mar 6, 2030, 9:00 AM").first()).toBeVisible();
+    // The Next step names the interview in the User's timezone, which the browser told the server about.
+    await expect(page.getByText("Interview Mar 6, 09:00", { exact: true })).toBeVisible();
+
+    // The reminder is set with a date alone, then a time, then cleared; "I followed up" would clear it too.
+    await page.getByLabel("Reminder date").fill("2030-03-10");
+    await page.getByRole("button", { name: "Set reminder" }).click();
+    await expect(page.getByText("Follow up on Mar 10, 2030 (09:00 unless you set a time).")).toBeVisible();
+    await page.getByLabel("Time", { exact: true }).fill("14:30");
+    await page.getByRole("button", { name: "Set reminder" }).click();
+    await expect(page.getByText("Follow up on Mar 10, 2030 at 14:30.")).toBeVisible();
+    await expectNoViolations(page);
+    await page.getByRole("button", { name: "I followed up" }).click();
+    await expect(page.getByText("No reminder set.")).toBeVisible();
+
+    await page.getByRole("button", { name: /^Remove interview/ }).click();
+    await expect(page.getByText("Interview (Video)")).toHaveCount(0);
+  });
+
+  test("the Calendar shows an interview on the User's own day, even near midnight, and a reminder on its day", async ({ page }) => {
+    await signIn(page);
+    const stamp = Date.now();
+    const company = `Kilo ${stamp}`;
+    await newApplication(page, company, "Tester");
+    await expect(page.locator("#posting-text")).toBeVisible();
+    // 23:30 in Los Angeles on 5 March is already 6 March in UTC.
+    await page.getByRole("button", { name: "Add interview" }).click();
+    await page.getByLabel("Interview time").fill("2030-03-05T23:30");
+    await page.getByLabel("Type").selectOption("VIDEO");
+    await page.getByRole("button", { name: "Save interview" }).click();
+    await expect(page.getByText("Mar 5, 2030, 11:30 PM").first()).toBeVisible();
+    await page.getByLabel("Reminder date").fill("2030-03-10");
+    await page.getByLabel("Time", { exact: true }).fill("14:30");
+    await page.getByRole("button", { name: "Set reminder" }).click();
+    await expect(page.getByText("Follow up on Mar 10, 2030 at 14:30.")).toBeVisible();
+
+    await page.goto("/career/applications?view=calendar&month=2030-03");
+    const day = (date: string) => page.locator(`time[datetime="${date}"]`).locator("xpath=ancestor::li[1]");
+    await expect(page.getByRole("heading", { name: "March 2030", level: 2 })).toBeVisible();
+    await expect(day("2030-03-05")).toContainText("23:30 Video interview");
+    await expect(day("2030-03-05")).toContainText(`Tester at ${company}`);
+    await expect(day("2030-03-06")).not.toContainText("Video interview");
+    await expect(day("2030-03-10")).toContainText("14:30 Follow up");
+    await expectNoViolations(page);
+
+    // The month is in the address, and Previous, Next and Today move it.
+    await page.getByRole("navigation", { name: "Month" }).getByRole("link", { name: "Next month" }).click();
+    await expect(page).toHaveURL(/month=2030-04/);
+    await expect(page.getByRole("heading", { name: "April 2030", level: 2 })).toBeVisible();
+    await page.getByRole("navigation", { name: "Month" }).getByRole("link", { name: "Today" }).click();
+    await expect(page.getByRole("heading", { name: "March 2030", level: 2 })).toHaveCount(0);
+
+    // An entry opens its Application.
+    await page.goto("/career/applications?view=calendar&month=2030-03");
+    await day("2030-03-05").getByRole("link", { name: new RegExp(`Video interview.*${company}`) }).click();
+    await expect(page.getByRole("heading", { name: `Tester at ${company}`, level: 1 })).toBeVisible();
+
+    // On a phone it is one week at a time.
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/career/applications?view=calendar&week=2030-03-04");
+    await expect(page.getByRole("heading", { name: /Mar 4 to Mar 10, 2030/ })).toBeVisible();
+    await expect(day("2030-03-05")).toContainText("23:30 Video interview");
+    await expect(day("2030-03-12")).toBeHidden();
+    await expectNoViolations(page);
+    await page.getByRole("navigation", { name: "Week" }).getByRole("link", { name: "Next week" }).click();
+    await expect(page.getByRole("heading", { name: /Mar 11 to Mar 17, 2030/ })).toBeVisible();
+  });
+});
+
+test("the Applications list is grouped by Stage with a Needs you filter, and the page shows its Next step", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const company = `Foxtrot ${stamp}`;
+  await newApplication(page, company, "Planner");
+
+  // A new Application is Saved, so it needs applying; the page says so.
+  await expect(page.locator("#posting-text")).toBeVisible();
+  const card = page.getByRole("region", { name: "Next step" });
+  await expect(card).toContainText("Apply");
+  await expect(card).toContainText("Needs you now.");
+  await expectNoViolations(page);
+
+  await page.goto("/career/applications");
+  const row = page.getByRole("link", { name: new RegExp(`Planner at ${company}`) });
+  await expect(page.getByRole("heading", { name: "Saved", level: 2 })).toBeVisible();
+  await expect(row).toContainText("Needs you: Apply");
+  await page.getByRole("navigation", { name: "Show" }).getByRole("link", { name: "Needs you" }).click();
+  await expect(page).toHaveURL(/needs=1/);
+  await expect(page.getByRole("navigation", { name: "Show" }).getByRole("link", { name: "Needs you" })).toHaveAttribute("aria-current", "page");
+  await expect(row).toBeVisible();
+  await expectNoViolations(page);
+
+  // Applied a moment ago, it only waits, so Needs you drops it while All keeps it under Applied.
+  await row.click();
+  await page.getByRole("button", { name: "Applied", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Next step" })).toContainText("Waiting");
+  await page.goto("/career/applications?needs=1");
+  await expect(page.getByRole("link", { name: new RegExp(`Planner at ${company}`) })).toHaveCount(0);
+  await page.goto("/career/applications");
+  await expect(page.getByRole("link", { name: new RegExp(`Planner at ${company}`) })).toContainText("Waiting");
+});
+
+test("several Applications are selected with a range and moved, tagged and trashed together", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const names = [1, 2, 3].map((n) => `Golf${n} ${stamp}`);
+  for (const company of names) await newApplication(page, company, "Dev");
+  await page.goto("/career/applications");
+  const box = (n: number) => page.getByRole("checkbox", { name: `Select Dev at ${names[n - 1]}` });
+  const bar = page.getByRole("region", { name: "Bulk actions" });
+
+  // A click, then Shift-click at the other end, selects everything between; the heading's box does the whole group.
+  await box(3).click();
+  await box(1).click({ modifiers: ["Shift"] });
+  await expect(box(2)).toBeChecked();
+  await expect(bar).toContainText(/\d+ selected/);
+  await expectNoViolations(page);
+  await bar.getByRole("button", { name: "Clear selection" }).click();
+  await expect(bar).toHaveCount(0);
+  await page.getByRole("checkbox", { name: "Select all in Saved" }).click();
+  await expect(box(1)).toBeChecked();
+  await bar.getByRole("button", { name: "Clear selection" }).click();
+
+  // Move three at once: each gets a timeline entry and they land under Applied, waiting.
+  for (const n of [1, 2, 3]) await box(n).click();
+  await bar.getByLabel("Move to").selectOption("APPLIED");
+  await bar.getByRole("button", { name: "Move", exact: true }).click();
+  await expect(page.getByText("Moved 3 Applications")).toBeVisible();
+  await expect(bar).toHaveCount(0);
+  await expect(page.getByRole("link", { name: new RegExp(`Dev at ${names[0]}`) })).toContainText("Waiting");
+
+  // Tag two, then take the Tag off again.
+  await box(1).click();
+  await box(2).click();
+  await bar.getByLabel("Tag", { exact: true }).fill(`bulk${stamp}`);
+  await bar.getByRole("button", { name: "Add Tag" }).click();
+  await expect(page.getByText("Tagged 2 Applications")).toBeVisible();
+  // Each action clears what it worked on, so the same two are picked again.
+  await box(1).click();
+  await box(2).click();
+  await bar.getByLabel("Remove").selectOption({ label: `bulk${stamp}` });
+  await bar.getByRole("button", { name: "Remove Tag" }).click();
+  await expect(page.getByText("Untagged 2 Applications")).toBeVisible();
+
+  // Closing asks for one reason for everyone selected.
+  await box(1).click();
+  await box(2).click();
+  await bar.getByLabel("Move to").selectOption("CLOSED");
+  await bar.getByLabel("Why did they close?").selectOption("WITHDREW");
+  await bar.getByRole("button", { name: "Move", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Closed", level: 2 })).toBeVisible();
+
+  // Trash one, then Undo from the toast.
+  await box(3).click();
+  await bar.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page.getByText("Moved 1 Application to the Trash")).toBeVisible();
+  await expect(box(3)).toHaveCount(0);
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(box(3)).toBeVisible();
+});
+
+test("the Board moves a card by drag or menu, Undo sends nothing, and a move made elsewhere wins", async ({ page }) => {
+  test.setTimeout(120_000); // five waits for an Undo toast to close
+  await signIn(page);
+  const stamp = Date.now();
+  const names = ["Hotel", "India", "Juliet"].map((n) => `${n} ${stamp}`);
+  for (const company of names) await newApplication(page, company, "Dev");
+  await page.goto("/career/applications?view=board");
+  const column = (stage: string) => page.getByRole("region", { name: new RegExp(`^${stage}`) });
+  const card = (n: number, stage: string) =>
+    column(stage).locator("li[draggable=true]").filter({ hasText: `Dev at ${names[n]}` });
+  const toast = (n: number, stage: string) => page.getByText(`Moved Dev at ${names[n]} to ${stage}`);
+  const grab = { sourcePosition: { x: 4, y: 4 } }; // the card's padding, not its link or menu
+  await expect(card(0, "Saved")).toBeVisible();
+  await expectNoViolations(page);
+
+  // Drag shows the move at once; Undo before the toast closes means nothing is ever sent.
+  await card(0, "Saved").dragTo(column("Applied"), grab);
+  await expect(card(0, "Applied")).toBeVisible();
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(card(0, "Saved")).toBeVisible();
+  await expect(toast(0, "Applied")).toBeHidden();
+  await page.waitForTimeout(6000);
+  await page.reload();
+  await expect(card(0, "Saved")).toBeVisible();
+
+  // Left alone, the write goes when the toast closes.
+  await card(0, "Saved").dragTo(column("Applied"), grab);
+  await expect(toast(0, "Applied")).toBeHidden({ timeout: 15000 });
+  await page.reload();
+  await expect(card(0, "Applied")).toBeVisible();
+  await expect(card(0, "Applied")).toContainText("Waiting");
+
+  // The keyboard moves a card with its Move to menu.
+  await page.getByLabel(`Move Dev at ${names[1]} to`).selectOption("SCREENING");
+  await expect(card(1, "Screening")).toBeVisible();
+  await expect(toast(1, "Screening")).toBeHidden({ timeout: 15000 });
+  await page.reload();
+  await expect(card(1, "Screening")).toBeVisible();
+
+  // Dropping on Closed asks why first.
+  // Closed sits off the right edge of a narrow window, so the drag is replayed as its two events.
+  const transfer = await page.evaluateHandle(() => new DataTransfer());
+  await card(2, "Saved").dispatchEvent("dragstart", { dataTransfer: transfer });
+  await column("Closed").dispatchEvent("drop", { dataTransfer: transfer });
+  await expect(card(2, "Saved")).toBeVisible();
+  await page.getByLabel(`Why did Dev at ${names[2]} close?`).selectOption("WITHDREW");
+  await expectNoViolations(page);
+  await page.getByRole("button", { name: "Close Application" }).click();
+  await expect(card(2, "Closed")).toBeVisible();
+  await expect(toast(2, "Closed")).toBeHidden({ timeout: 15000 });
+  await page.reload();
+  await expect(card(2, "Closed")).toBeVisible();
+
+  // Moved elsewhere meanwhile: that move wins, the card snaps to where it is and a message says so.
+  const href = await card(0, "Applied").getByRole("link").getAttribute("href");
+  const other = await page.context().newPage();
+  await other.goto(href!);
+  await other.getByRole("button", { name: "Interview", exact: true }).click();
+  await expect(other.getByRole("button", { name: "Interview", exact: true })).toHaveAttribute("aria-current", "step");
+  await other.close();
+  const again = await page.evaluateHandle(() => new DataTransfer());
+  await card(0, "Applied").dispatchEvent("dragstart", { dataTransfer: again });
+  await column("Screening").dispatchEvent("drop", { dataTransfer: again });
+  await expect(card(0, "Screening")).toBeVisible();
+  await expect(page.getByText(/was moved somewhere else/)).toBeVisible({ timeout: 15000 });
+  await expect(card(0, "Interview")).toBeVisible();
+  await expect(card(0, "Screening")).toHaveCount(0);
+});
+
+test("an Application sits in a Folder, takes a Tag shown on its row, and goes to the Trash and back", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  const stamp = Date.now();
+  const company = `Lima ${stamp}`;
+  const title = `Dev at ${company}`;
+  const tagName = `app-probe-${stamp}`;
+  const folderName = `App folder ${stamp}`;
+  await page.goto("/items");
+  await page.getByRole("button", { name: "New Folder" }).click();
+  await page.getByLabel("Folder name").fill(folderName);
+  await page.getByRole("button", { name: "Create Folder" }).click();
+  await newApplication(page, company, "Dev");
+  await expect(page.locator("#posting-text")).toBeVisible();
+
+  // The Details panel moves it into a Folder and tags it; the breadcrumb follows.
+  const details = page.getByRole("complementary", { name: "Details" });
+  await chooseFolder(page, details, "Folder", folderName);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: folderName })).toBeVisible();
+  await page.getByRole("button", { name: "Tag", exact: true }).click();
+  await page.getByPlaceholder("Find or create a Tag").fill(tagName);
+  await page.getByRole("option", { name: `Create “${tagName}”` }).click();
+  await expect(page.getByRole("list", { name: "Tags" }).getByRole("link", { name: tagName })).toBeVisible();
+  await expectNoViolations(page);
+
+  // The Folder lists it and opens its Career page; the Applications list shows the Tag on its row.
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: folderName }).click();
+  await page.getByRole("main").getByRole("link", { name: title }).click();
+  await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
+  await page.goto("/career/applications");
+  await expect(page.getByRole("link", { name: new RegExp(title) })).toContainText(tagName);
+
+  // Move to Trash from its page; the Trash lists it and Restore brings it back with its Folder.
+  await page.getByRole("link", { name: new RegExp(title) }).click();
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/career\/applications$/);
+  await expect(page.getByRole("link", { name: new RegExp(title) })).toHaveCount(0);
+  await page.goto("/trash");
+  const row = page.getByRole("row").filter({ hasText: title });
+  await expect(row).toContainText("Application");
+  await expectNoViolations(page);
+  await row.getByRole("button", { name: `Restore ${title}` }).click();
+  await expect(page.getByText(`Restored "${title}"`)).toBeVisible();
+  await page.goto("/career/applications");
+  await expect(page.getByRole("link", { name: new RegExp(title) })).toBeVisible();
+
+  // Tidy up: trash it for good, then the Folder and the Tag.
+  await page.getByRole("link", { name: new RegExp(title) }).click();
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.goto("/trash");
+  await row.getByRole("button", { name: `Delete forever: ${title}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete forever" }).click();
+  await expect(page.getByText(`Deleted "${title}" for good`)).toBeVisible();
+  await page.goto("/items");
+  await page.getByRole("main").getByRole("link", { name: folderName }).click();
+  await trashFolder(page, folderName);
+  await page.goto("/tags");
+  await page.getByRole("main").getByRole("link", { name: tagName }).click();
+  await deleteTag(page, tagName);
+});
+
+test("Insights count what was applied to in a range, using back-dated entries", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const company = `Mike ${stamp}`;
+  // A day of its own for each run, so the figures do not include what earlier runs left behind.
+  const iso = (offset: number) => new Date(Date.UTC(1990, 0, 1 + (stamp % 9000) + offset)).toISOString().slice(0, 10);
+  const applied = iso(0);
+  await newApplication(page, company, "Analyst");
+  await expect(page.locator("#posting-text")).toBeVisible();
+  await page.getByLabel("Moved on").fill(applied);
+  await page.getByRole("button", { name: "Applied", exact: true }).click();
+  await expect(page.getByText(/^Applied /)).toBeVisible();
+  await page.getByLabel("Date", { exact: true }).last().fill(iso(3));
+  await page.getByRole("button", { name: "They replied" }).click();
+  await expect(page.getByText("They replied").first()).toBeVisible();
+
+  await page.goto(`/career/applications?view=insights&from=${applied}&to=${applied}`);
+  const tile = (name: string) => page.getByRole("region", { name });
+  await expect(tile("Applied to")).toContainText("1");
+  await expect(tile("Reply rate")).toContainText("100%");
+  await expect(tile("Reply rate")).toContainText("1 of 1 had a reply");
+  await expect(tile("Median time to first reply")).toContainText("3 days");
+  const funnel = page.getByRole("region", { name: "How far they got" });
+  await expect(funnel.getByRole("listitem").filter({ hasText: "Applied" })).toContainText("1");
+  await expect(funnel.getByRole("listitem").filter({ hasText: "Screening" })).toContainText("0");
+  await expectNoViolations(page);
+
+  // A range with nothing in it says so, and Clear dates brings the rest back.
+  await page.getByLabel("From", { exact: true }).fill(iso(10));
+  await page.getByLabel("To", { exact: true }).fill(iso(11));
+  await page.getByRole("button", { name: "Show" }).click();
+  await expect(page.getByText("No Applications were applied to in these dates.")).toBeVisible();
+  await page.getByRole("link", { name: "Clear dates" }).click();
+  await expect(tile("Applied to")).toBeVisible();
+});
+
+test("a Note's mention of an Application becomes a Backlink, and Search finds the Application by its posting", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page);
+  const stamp = Date.now();
+  const company = `Nova${stamp}`;
+  const title = `Dev at ${company}`;
+  const word = `zebrawrangler${stamp}`;
+  await page.goto("/career/applications");
+  await page.getByRole("button", { name: "New Application" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Application" });
+  await dialog.getByLabel("Company").fill(company);
+  await dialog.getByLabel("Role").fill("Dev");
+  await dialog.getByLabel("Posting", { exact: true }).fill(`We need a ${word} who loves spreadsheets`);
+  await dialog.getByRole("button", { name: "Add Application" }).click();
+  await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
+
+  // A Note that only names the Application, then Link it from the Application's page.
+  const noteTitle = `Nova note ${stamp}`;
+  await newNote(page, noteTitle);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(`Phone screen for ${title} went well`);
+  await expectSaved(page);
+  await page.goto("/career/applications");
+  await page.getByRole("link", { name: new RegExp(title) }).click();
+  const section = page.getByRole("region", { name: /Mentioned without a Link/ });
+  await expect(section.getByRole("link", { name: noteTitle })).toBeVisible();
+  await section.getByRole("button", { name: `Link it in ${noteTitle}` }).click();
+  await expect(page.getByRole("region", { name: "Backlinks" }).getByRole("link", { name: noteTitle })).toBeVisible();
+  await expectNoViolations(page);
+
+  // Search finds it by a word of the posting, and the type filter narrows to Applications.
+  await page.goto(`/search?q=${word}`);
+  await expect(page.getByRole("link", { name: new RegExp(title) })).toBeVisible();
+  await page.goto(`/search?q=${word}&type=NOTE`);
+  await expect(page.getByRole("link", { name: new RegExp(title) })).toHaveCount(0);
+  await page.goto(`/search?q=${word}&type=APPLICATION`);
+  await expect(page.getByRole("link", { name: new RegExp(title) })).toBeVisible();
+  await expectNoViolations(page);
+
+  // The Graph has it as a node.
+  await page.goto("/graph?type=APPLICATION");
+  await expect(page.getByRole("link", { name: new RegExp(`^${title}, Application`) })).toBeVisible();
+
+  await page.goto("/items");
+  await trashRows(page, [noteTitle]);
+});
+
+test("the PDFs sent for an Application are uploaded with a label, downloaded and detached, and the Asset stays", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page);
+  const stamp = Date.now();
+  const company = `November ${stamp}`;
+  const file = `cv-${stamp}.pdf`;
+  const letter = `letter-${stamp}.pdf`;
+  const pdf = (text: string) => ({ name: "", mimeType: "application/pdf", buffer: Buffer.from(`%PDF-1.4
+${text}
+%%EOF`) });
+  await newApplication(page, company, "Dev");
+  await expect(page.locator("#posting-text")).toBeVisible();
+  const docs = page.getByRole("region", { name: "PDFs you sent" });
+  await expect(docs).toContainText("Nothing attached yet.");
+
+  // The label is chosen first; the file goes through the usual upload and is attached.
+  await page.getByLabel("PDF file").setInputFiles({ ...pdf("resume"), name: file });
+  await expect(docs.getByRole("link", { name: file })).toBeVisible();
+  await expect(docs.getByRole("listitem").filter({ hasText: file })).toContainText("Resume");
+  await docs.getByLabel("This PDF is a").selectOption("COVER_LETTER");
+  await page.getByLabel("PDF file").setInputFiles({ ...pdf("cover"), name: letter });
+  await expect(docs.getByRole("listitem").filter({ hasText: letter })).toContainText("Cover letter");
+  await expectNoViolations(page);
+
+  // Download gives the file; the Asset is in Assets too.
+  const download = page.waitForEvent("download");
+  await docs.getByRole("button", { name: `Download ${file}` }).click();
+  expect((await download).suggestedFilename()).toBe(file);
+  await page.goto("/assets");
+  await expect(page.getByRole("link", { name: file }).first()).toBeVisible();
+
+  // Detach takes it off the Application; the Asset stays.
+  await page.goBack();
+  await docs.getByRole("button", { name: `Detach ${file}` }).click();
+  await expect(docs.getByRole("link", { name: file })).toHaveCount(0);
+  await expect(docs.getByRole("link", { name: letter })).toBeVisible();
+  await page.goto("/assets");
+  await expect(page.getByRole("link", { name: file }).first()).toBeVisible();
+});
+
+test("an Application is added from a link: the page is read, typed fields are kept, and the link is stored", async ({ page }) => {
+  test.setTimeout(90_000);
+  const stamp = Date.now();
+  const company = `Oscar ${stamp}`;
+  // A fake posting page on this machine. The API reads it only when it was started with
+  // COREEX_POSTINGS_ALLOW_PRIVATE_HOSTS=true (it refuses every private address otherwise, which its own tests prove).
+  const posting = {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    title: "Staff Engineer",
+    hiringOrganization: { "@type": "Organization", name: company },
+    jobLocation: { address: { addressLocality: "Lisbon", addressCountry: "PT" } },
+    description: "<p>You will run the <b>platform</b>.</p><ul><li>Kubernetes</li></ul>",
+  };
+  const server = createServer((_, response) => {
+    response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    response.end(`<html><head><title>Jobs</title><script type="application/ld+json">${JSON.stringify(posting)}</script></head><body>menu</body></html>`);
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const link = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}/job?gh_jid=${stamp}`;
+  try {
+    await signIn(page);
+    await page.goto("/career/applications");
+    await page.getByRole("button", { name: "New Application" }).click();
+    const dialog = page.getByRole("dialog", { name: "New Application" });
+    await dialog.getByLabel("Role", { exact: true }).fill("My own role");
+    await dialog.getByLabel("Link to the posting").fill(link);
+    await dialog.getByRole("button", { name: "Read link" }).click();
+    const outcome = dialog.getByRole("status").or(dialog.getByRole("alert"));
+    await expect(outcome).toBeVisible();
+    test.skip((await outcome.innerText()).includes("not a public address"), "The API was not started with COREEX_POSTINGS_ALLOW_PRIVATE_HOSTS=true");
+
+    // What was empty is filled; what was typed stays.
+    await expect(outcome).toContainText("Filled in Company, Location, Posting.");
+    await expect(dialog.getByLabel("Company")).toHaveValue(company);
+    await expect(dialog.getByLabel("Role", { exact: true })).toHaveValue("My own role");
+    await expect(dialog.getByLabel("Location")).toHaveValue("Lisbon, PT");
+    // A label that wraps a filled-in textarea takes the text into its name, so this one is found by name instead.
+    await expect(dialog.locator('textarea[name="postingText"]')).toHaveValue(/You will run the platform\.\s+- Kubernetes/);
+    await expectNoViolations(page);
+    await dialog.getByRole("button", { name: "Add Application" }).click();
+
+    await expect(page.getByRole("heading", { name: `My own role at ${company}`, level: 1 })).toBeVisible();
+    await expect(page.getByLabel("Posting link")).toHaveValue(link);
+    await expect(page.getByLabel("Location", { exact: true })).toHaveValue("Lisbon, PT");
+    await expect(page.locator("#posting-text")).toHaveValue(/Kubernetes/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("the same posting is refused with a pointer to the first, and a company that never answered is remembered", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page);
+  const stamp = Date.now();
+  const company = `Papa ${stamp}`;
+  const link = `https://jobs.example.com/p/${stamp}?utm_source=a&gh_jid=${stamp}`;
+  const add = async (name: string, url: string, ending: "open" | "refused") => {
+    await page.goto("/career/applications");
+    await page.getByRole("button", { name: "New Application" }).click();
+    const dialog = page.getByRole("dialog", { name: "New Application" });
+    await dialog.getByLabel("Link to the posting").fill(url);
+    await dialog.getByLabel("Company").fill(name);
+    await dialog.getByLabel("Role", { exact: true }).fill("Dev");
+    await dialog.getByRole("button", { name: "Add Application" }).click();
+    if (ending === "open") await expect(page).toHaveURL(/\/career\/applications\/[0-9a-f-]{36}$/);
+    return dialog;
+  };
+
+  // The first goes in and is closed with no response.
+  await add(company, link, "open");
+  await page.getByRole("button", { name: "Closed", exact: true }).click();
+  await page.getByLabel("Why did it close?").selectOption("NO_RESPONSE");
+  await page.getByRole("button", { name: "Close Application" }).click();
+  await expect(page.getByText("Closed: No response")).toBeVisible();
+
+  // The same job by another link (www, a slash, other tracking) is refused, and the message points to the first.
+  const dialog = await add(`Other ${stamp}`, `https://www.jobs.example.com/p/${stamp}/?gh_jid=${stamp}&utm_medium=b`, "refused");
+  await expect(dialog.getByRole("alert")).toContainText("That posting is already tracked.");
+  await expect(dialog.getByRole("alert").getByRole("link", { name: `Dev at ${company}` })).toBeVisible();
+  await expectNoViolations(page);
+
+  // The company is known by any case and spacing; the notice shows in the dialog and on the new page.
+  await page.goto("/career/applications");
+  await page.getByRole("button", { name: "New Application" }).click();
+  const second = page.getByRole("dialog", { name: "New Application" });
+  await second.getByLabel("Company").fill(`  papa   ${stamp} `);
+  await second.getByLabel("Role", { exact: true }).fill("Lead");
+  await expect(second.getByRole("note")).toContainText("before and never heard back");
+  await expect(second.getByRole("note").getByRole("link", { name: `Dev at ${company}` })).toBeVisible();
+  await second.getByRole("button", { name: "Add Application" }).click();
+  await expect(page.getByRole("heading", { name: `Lead at papa   ${stamp}`.replace(/\s+/g, " "), level: 1 })).toBeVisible();
+  await expect(page.getByRole("note")).toContainText("You applied to");
+  await expect(page.getByRole("note").getByRole("link", { name: `Dev at ${company}` })).toBeVisible();
+  await expectNoViolations(page);
+});
+
+test("Fill with AI says what it sends, fills only empty fields, and leaves typed text alone", async ({ page }) => {
+  test.setTimeout(90_000);
+  const stamp = Date.now();
+  await signIn(page);
+  await page.goto("/career/applications");
+  await page.getByRole("button", { name: "New Application" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Application" });
+  const button = dialog.getByRole("button", { name: "Fill with AI" });
+
+  // Without an AI key the dialog says the feature is coming soon, with no error; this run needs the fake provider.
+  test.skip(await dialog.getByText("Fill with AI is coming soon").isVisible(), "The API was not started with COREEX_AI_PROVIDER=fake");
+
+  // Nothing to read yet, so the button waits; the line above it says where the text goes.
+  await expect(button).toBeDisabled();
+  await expect(dialog.getByText(/sends the posting text above to Claude, made by Anthropic/)).toBeVisible();
+  await expectNoViolations(page);
+
+  // The API answers with fixed fields when started with COREEX_AI_PROVIDER=fake; without a key it says AI is off.
+  await dialog.getByLabel("Role", { exact: true }).fill(`My own role ${stamp}`);
+  await dialog.locator('textarea[name="postingText"]').fill(`Platform Engineer ${stamp}\nWe run the platform.`);
+  await button.click();
+  const outcome = dialog.getByRole("status").or(dialog.getByRole("alert"));
+  await expect(outcome).toBeVisible();
+  test.skip((await outcome.innerText()).includes("not switched on"), "The API was not started with COREEX_AI_PROVIDER=fake");
+
+  await expect(outcome).toContainText("The AI filled in Company, Location.");
+  await expect(dialog.getByLabel("Company")).toHaveValue("Fake Company");
+  await expect(dialog.getByLabel("Role", { exact: true })).toHaveValue(`My own role ${stamp}`);
+  await expect(dialog.getByLabel("Location")).toHaveValue("Fake City");
+  await expect(dialog.locator('textarea[name="postingText"]')).toHaveValue(new RegExp(`^Platform Engineer ${stamp}`));
+  await expectNoViolations(page);
+
+  await dialog.getByRole("button", { name: "Add Application" }).click();
+  await expect(page.getByRole("heading", { name: `My own role ${stamp} at Fake Company`, level: 1 })).toBeVisible();
+});
+
+test("Career opens from the rail with its panel and the Applications list, and New Application lands on the new page", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  await page.goto("/items");
+
+  // The rail entry opens Career, which lands on Applications, and the entry shows as the current page.
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Career" }).click();
+  await expect(page).toHaveURL(/\/career\/applications$/);
+  await expect(page.getByRole("heading", { name: "Applications", level: 1 })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Career" })).toHaveAttribute("aria-current", "page");
+  const panel = page.getByRole("navigation", { name: "Career" });
+  await expect(panel.getByRole("link", { name: "Applications" })).toHaveAttribute("aria-current", "page");
+  // Only Applications is live; the rest of the design's entries wait for their epics.
+  await expect(panel.getByRole("link")).toHaveCount(1);
+  await expectNoViolations(page);
+
+  // A new Application lands on its page, keeps the Career panel, and is listed when you go back.
+  await newApplication(page, `List ${stamp}`, "Designer");
+  await expect(page.getByRole("navigation", { name: "Career" })).toBeVisible();
+  await page.getByRole("navigation", { name: "Career" }).getByRole("link", { name: "Applications" }).click();
+  await expect(page.getByRole("link", { name: new RegExp(`^Designer at List ${stamp}`) })).toBeVisible();
+
+  // Other modules do not get the panel.
+  await page.goto("/trash");
+  await expect(page.getByRole("navigation", { name: "Career" })).toHaveCount(0);
 });

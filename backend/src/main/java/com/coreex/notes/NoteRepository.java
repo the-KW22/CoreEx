@@ -30,18 +30,36 @@ class NoteRepository {
 		this.jdbc = jdbc;
 	}
 
-	UUID insert(UUID ownerId, UUID folderId, String title, String body) {
-		var id = jdbc.sql("""
-				insert into items (owner_id, type, title, folder_id) values (:owner, 'NOTE', :title, :folder)
-				returning id""").param("owner", ownerId).param("title", title).param("folder", folderId)
-				.query(UUID.class).single();
-		jdbc.sql("insert into note_contents (item_id, body) values (:id, :body)").param("id", id).param("body", body)
-				.update();
-		return id;
+	/** A null {@code id} lets the database choose one. Empty when the id is given and already taken, by anyone. */
+	Optional<UUID> insert(UUID ownerId, UUID folderId, String title, String body, UUID id) {
+		var made = jdbc.sql("""
+				insert into items (id, owner_id, type, title, folder_id)
+				values (coalesce(:id, gen_random_uuid()), :owner, 'NOTE', :title, :folder)
+				on conflict (id) do nothing
+				returning id""").param("id", id).param("owner", ownerId).param("title", title)
+				.param("folder", folderId).query(UUID.class).optional();
+		made.ifPresent(noteId -> jdbc.sql("insert into note_contents (item_id, body) values (:id, :body)")
+				.param("id", noteId).param("body", body).update());
+		return made;
 	}
 
 	Optional<Note> find(UUID ownerId, UUID id) {
 		return jdbc.sql(SELECT).param("id", id).param("owner", ownerId).query(MAPPER).optional();
+	}
+
+	/** What changed about a Note, without its text: the save counter, when, and which Access token wrote it (null: the User). */
+	record Latest(int version, Instant updatedAt, String editedBy) {
+	}
+
+	Optional<Latest> latest(UUID ownerId, UUID id) {
+		return jdbc.sql("""
+				select c.version, i.updated_at, i.edited_by
+				from items i join note_contents c on c.item_id = i.id
+				where i.id = :id and i.owner_id = :owner and i.type = 'NOTE' and i.deleted_at is null""")
+				.param("id", id).param("owner", ownerId)
+				.query((rs, n) -> new Latest(rs.getInt("version"),
+						rs.getObject("updated_at", OffsetDateTime.class).toInstant(), rs.getString("edited_by")))
+				.optional();
 	}
 
 	/** False when the Note is missing or its stored version is not the one the caller saw. */

@@ -12,6 +12,7 @@ import { activeModule } from "@/lib/modules";
 import type { RailState } from "@/lib/prefs";
 import type { TagColour } from "@/lib/tag-colour";
 
+import { CareerPanel } from "./career/career-panel";
 import { KbPanel } from "./kb-panel";
 import { Rail, railButton } from "./rail";
 import { Uploads } from "./assets/uploads";
@@ -31,8 +32,10 @@ type Props = {
 // ≥ 1280px rail + panel; 768–1279px rail, panel in a Sheet; < 768px top bar, rail + panel in a Sheet.
 export function AppFrame({ email, isAdmin, rail, folders, tags, children }: Props) {
   const pathname = usePathname();
-  // The panel belongs to the Knowledge Base; every other module's pages get the whole width.
-  const showPanel = activeModule(pathname) === "kb";
+  // The Knowledge Base and Career each have a panel; every other module's pages get the whole width.
+  const current = activeModule(pathname);
+  const showPanel = current === "kb" || current === "career";
+  const panelName = current === "career" ? "Career" : "Knowledge Base";
   // Which Sheet is open, and on which page: following a link inside it closes it.
   const [sheet, setSheet] = useState<{ kind: "menu" | "panel"; at: string } | null>(null);
   const open = sheet?.at === pathname;
@@ -45,7 +48,7 @@ export function AppFrame({ email, isAdmin, rail, folders, tags, children }: Prop
   // Keeps `kind` so the Sheet's content stays the same while it slides out.
   const onOpenChange = (isOpen: boolean) => !isOpen && setSheet((s) => s && { ...s, at: "" });
 
-  const panel = <KbPanel folders={folders} tags={tags} />;
+  const panel = current === "career" ? <CareerPanel /> : <KbPanel folders={folders} tags={tags} />;
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -64,7 +67,7 @@ export function AppFrame({ email, isAdmin, rail, folders, tags, children }: Prop
           <Rail email={email} isAdmin={isAdmin} saved={rail} onShowPanel={(button) => show("panel", button)} />
         </div>
         {showPanel && (
-          <aside aria-label="Knowledge Base" className="sticky top-0 hidden h-dvh shrink-0 xl:block">
+          <aside aria-label={panelName} className="sticky top-0 hidden h-dvh shrink-0 xl:block">
             {panel}
           </aside>
         )}
@@ -87,7 +90,7 @@ export function AppFrame({ email, isAdmin, rail, folders, tags, children }: Prop
             opener.current?.focus();
           }}
         >
-          <SheetTitle className="sr-only">{sheet?.kind === "menu" ? "Menu" : "Knowledge Base"}</SheetTitle>
+          <SheetTitle className="sr-only">{sheet?.kind === "menu" ? "Menu" : panelName}</SheetTitle>
           <div className="flex h-full min-w-0">
             {/* The rail with its labels is too wide to sit beside the panel on a phone, so its Panel button opens it alone. */}
             {sheet?.kind === "menu" ? (

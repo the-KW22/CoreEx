@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
-import { PIXEL, expectNoViolations, expectSaved, newNote, openPalette, signIn, trashRows } from "./helpers";
+import { PIXEL, expectNoViolations, expectSaved, newApplication, newNote, openPalette, signIn, trashRows } from "./helpers";
 
 // The whole UI against WCAG 2.2 AA (docs/DESIGN.md section 10): every main screen and every open state, in both
 // themes, at desktop width and at 375px. The data is seeded once and tidied up at the end. Run one cell while
@@ -16,7 +16,7 @@ const folderName = `Matrix folder ${word}`;
 const tagName = `matrix-${word}`;
 const invited = `matrix-${word}@example.com`;
 
-const seed = { note: "", asset: "", folder: "", tag: "" };
+const seed = { note: "", asset: "", folder: "", tag: "", application: "" };
 let seedPage: Page;
 
 test.beforeAll(async ({ browser }) => {
@@ -63,6 +63,10 @@ test.beforeAll(async ({ browser }) => {
   await dialog.getByRole("link", { name: image }).click();
   await expect(page).toHaveURL(/\/assets\//);
   seed.asset = new URL(page.url()).pathname;
+
+  // An Application cannot go to the Trash yet (#239), so this one stays behind.
+  await newApplication(page, `Matrix ${word}`, "Engineer");
+  seed.application = new URL(page.url()).pathname;
 
   await newNote(page, trashed);
   await page.getByRole("button", { name: "Move to Trash" }).click();
@@ -163,6 +167,18 @@ for (const colorScheme of ["dark", "light"] as const) {
         await screen(page, failures, "note", seed.note, async () => {
           await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(noteA);
         });
+        await screen(page, failures, "applications", "/career/applications", heading("Applications"));
+        await screen(page, failures, "applications needs you", "/career/applications?needs=1", heading("Applications"));
+        await screen(page, failures, "applications board", "/career/applications?view=board", heading("Applications"));
+        await screen(page, failures, "applications calendar", "/career/applications?view=calendar", heading("Applications"));
+        await screen(page, failures, "applications insights", "/career/applications?view=insights", heading("Applications"));
+        await screen(page, failures, "applications bulk bar", "/career/applications", async () => {
+          await page.getByRole("checkbox", { name: /^Select / }).first().click();
+          await expect(page.getByRole("region", { name: "Bulk actions" })).toBeVisible();
+        });
+        await screen(page, failures, "application", seed.application, async () => {
+          await expect(page.getByRole("heading", { name: `Engineer at Matrix ${word}`, level: 1 })).toBeVisible();
+        });
         await screen(page, failures, "asset", seed.asset, async () => {
           await expect(page.getByRole("img", { name: `matrix-${word}.png` })).toBeVisible();
         });
@@ -195,6 +211,10 @@ for (const colorScheme of ["dark", "light"] as const) {
         await screen(page, failures, "admin invites", "/admin", heading("Admin"));
         await screen(page, failures, "access tokens", "/settings/tokens", heading("Access tokens"));
         await screen(page, failures, "mcp guide", "/help/mcp", heading("Connect an Agent"));
+        await screen(page, failures, "export", "/settings/export", heading("Export"));
+        await screen(page, failures, "export refused", "/settings/export?error=wait", async () => {
+          await expect(page.getByRole("alert").filter({ hasText: "once a minute" })).toBeVisible();
+        });
         await screen(page, failures, "invite-only", "/invite-only", heading("CoreEx is invite-only"));
         await screen(page, failures, "disabled", "/disabled", heading("Your account is disabled"));
         await screen(page, failures, "reset password", "/reset-password", heading("Choose a new password"));
@@ -221,6 +241,8 @@ for (const colorScheme of ["dark", "light"] as const) {
         await upload.getByRole("link", { name: extra }).click();
         await page.getByRole("button", { name: "Move to Trash" }).click();
         await expect(page).toHaveURL(/\/items$/);
+        // The page's title arrives a moment after the address changes; axe fails a page without one.
+        await expect(page).toHaveTitle(/.+/);
         await page.dispatchEvent("main", "dragenter", {
           dataTransfer: await page.evaluateHandle(() => {
             const data = new DataTransfer();
@@ -264,8 +286,13 @@ for (const colorScheme of ["dark", "light"] as const) {
             await expect(sheet).toBeVisible({ timeout: 1500 });
           }).toPass();
           await scan(page, failures, "details sheet");
-          await page.keyboard.press("Escape");
         }
+        // History, opened in the Details panel (the Sheet on a phone): the Note has the version its first edit kept.
+        await page.getByRole("button", { name: "History" }).click();
+        await page.getByRole("button", { name: /^Preview the text from/ }).first().click();
+        await expect(page.locator("pre[aria-label^='Text from']").first()).toBeVisible();
+        await scan(page, failures, "history open");
+        if (phone) await page.keyboard.press("Escape");
         await page.goto(`/search?q=${word}`);
         await page.getByRole("listitem").filter({ hasText: noteB }).getByRole("link", { name: noteB }).click();
         const link = page.locator(".cm-wikilink", { hasText: noteA });
@@ -315,6 +342,11 @@ for (const colorScheme of ["dark", "light"] as const) {
           await page.getByRole("button", { name: "Show the Knowledge Base panel" }).click();
           await expect(page.getByRole("dialog", { name: "Knowledge Base" })).toBeVisible();
           await scan(page, failures, "tablet panel");
+          await page.keyboard.press("Escape");
+          await page.goto("/career/applications");
+          await page.getByRole("button", { name: "Show the Career panel" }).click();
+          await expect(page.getByRole("dialog", { name: "Career" })).toBeVisible();
+          await scan(page, failures, "tablet career panel");
         }
 
         await context.close();

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import type { components } from "@/lib/api/schema";
 import { getApi } from "@/lib/api/server";
 
 import { trashItem } from "../items/actions";
@@ -20,7 +21,8 @@ export type LoadedNote = { title: string; body: string; version: number; updated
 export async function createNote(formData: FormData) {
   const folderId = String(formData.get("folderId") ?? "") || null;
   const api = await getApi();
-  const result = await api.POST("/api/notes", { body: { folderId } }).catch(() => null);
+  // An id of its own for this click, so the API can tell a repeat of this request from another Note.
+  const result = await api.POST("/api/notes", { body: { folderId, id: crypto.randomUUID() } }).catch(() => null);
   if (!result?.data) redirect(folderId ? `/folders/${folderId}?error=create` : "/?failed=create");
   redirect(`/notes/${result.data.id}`);
 }
@@ -57,7 +59,8 @@ export async function saveNote(
 
 // The opening text of a Link's target, for the hover preview: a Note's first lines or an Asset's description.
 // Null when it cannot be loaded; the preview then shows what the editor already knows.
-export async function linkPreview(id: string, type: "NOTE" | "ASSET"): Promise<string | null> {
+export async function linkPreview(id: string, type: "NOTE" | "ASSET" | "APPLICATION"): Promise<string | null> {
+  if (type === "APPLICATION") return null;
   const api = await getApi();
   if (type === "NOTE") {
     const note = await api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null);
@@ -67,10 +70,80 @@ export async function linkPreview(id: string, type: "NOTE" | "ASSET"): Promise<s
   return asset?.data ? firstLines(asset.data.description) : null;
 }
 
-export async function loadNote(id: string): Promise<LoadedNote | null> {
+// The whole Note when its stored version is newer than `version`, else nothing. The check is one small read with no
+// text, so an open editor can ask every few seconds; null also when the API cannot be reached or the Note is gone.
+export async function noteIfNewer(id: string, version: number): Promise<LoadedNote | null> {
   const api = await getApi();
-  const result = await api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null);
-  return result?.data ?? null;
+  const latest = await api.GET("/api/notes/{id}/latest", { params: { path: { id } } }).catch(() => null);
+  if (!latest?.data || latest.data.version <= version) return null;
+  const note = await api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null);
+  return note?.data ?? null;
+}
+
+export type CopyResult =
+  | { status: "loaded"; note: LoadedNote; copy: { id: string; title: string }; tagsCopied: boolean }
+  | { status: "error"; message: string };
+
+// "Load theirs" in a conflict: the User's text is first kept as a new Note beside the stored one (same Folder, same
+// Tags), then the stored Note is returned to load. If the copy cannot be made nothing is loaded, so no text is lost.
+// A Tag that cannot be put on the copy does not stop the rest: the text is safe, and `tagsCopied` says so.
+export async function keepCopyAndLoad(id: string, copy: { title: string; body: string }): Promise<CopyResult> {
+  const api = await getApi();
+  const theirs = await api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null);
+  if (!theirs?.data) return { status: "error", message: "Could not load the other version, so nothing was changed." };
+  const tags = await api.GET("/api/items/{id}/tags", { params: { path: { id } } }).catch(() => null);
+
+  const made = await api
+    .POST("/api/notes", { body: { title: copy.title, body: copy.body, folderId: theirs.data.folderId } })
+    .catch(() => null);
+  if (!made?.data) {
+    return { status: "error", message: made?.error?.message ?? "Could not keep your text as a copy, so nothing was changed." };
+  }
+
+  let tagsCopied = tags?.data != null;
+  for (const tag of tags?.data?.items ?? []) {
+    const attached = await api
+      .POST("/api/items/{id}/tags", { params: { path: { id: made.data.id } }, body: { name: tag.name } })
+      .catch(() => null);
+    if (!attached?.data) tagsCopied = false;
+  }
+  revalidatePath("/", "layout");
+  return { status: "loaded", note: theirs.data, copy: { id: made.data.id, title: made.data.title }, tagsCopied };
+}
+
+export type NoteVersion = components["schemas"]["VersionSummary"];
+
+// The Note's earlier texts, newest first, without the text. Null when they cannot be loaded.
+export async function loadVersions(id: string): Promise<NoteVersion[] | null> {
+  const api = await getApi();
+  const result = await api.GET("/api/notes/{id}/versions", { params: { path: { id } } }).catch(() => null);
+  return result?.data?.items ?? null;
+}
+
+// The text of one version, for the preview. Null when it cannot be loaded.
+export async function loadVersionText(id: string, versionId: string): Promise<string | null> {
+  const api = await getApi();
+  const result = await api
+    .GET("/api/notes/{id}/versions/{versionId}", { params: { path: { id, versionId } } })
+    .catch(() => null);
+  return result?.data?.body ?? null;
+}
+
+export type RestoreResult =
+  | { status: "restored"; note: LoadedNote }
+  | { status: "conflict" }
+  | { status: "error"; message: string };
+
+// Saves an earlier text as the Note's text. `version` is the Note's version the editor last saw.
+export async function restoreVersion(id: string, versionId: string, version: number): Promise<RestoreResult> {
+  const api = await getApi();
+  const result = await api
+    .POST("/api/notes/{id}/versions/{versionId}/restore", { params: { path: { id, versionId } }, body: { version } })
+    .catch(() => null);
+  if (!result) return { status: "error", message: "Cannot reach the CoreEx API." };
+  if (result.data) return { status: "restored", note: result.data };
+  if (result.response.status === 409) return { status: "conflict" };
+  return { status: "error", message: result.error?.message ?? "Could not restore that version." };
 }
 
 // Autocomplete for "[[": the User's live Items whose title contains the text. Empty when the API is unreachable.
@@ -104,7 +177,8 @@ export async function importNotes(formData: FormData): Promise<ImportOutcome[]> 
   const api = await getApi();
   const result = await api
     .POST("/api/notes/import", {
-      params: { query: { folderId } },
+      // One id per file, in order, so the API can tell a repeat of this import from new Notes.
+      params: { query: { folderId, ids: files.map(() => crypto.randomUUID()) } },
       // The generated type calls the files strings; the serializer sends the real files as multipart.
       body: { files: [] },
       bodySerializer: () => {

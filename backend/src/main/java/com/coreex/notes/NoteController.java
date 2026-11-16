@@ -44,7 +44,8 @@ class NoteController {
 
 	record CreateNoteRequest(@Size(max = MAX_TITLE) @Pattern(regexp = NO_NUL) String title,
 			@Size(max = MAX_BODY) @Pattern(regexp = NO_NUL) String body,
-			@Schema(nullable = true, description = "The Folder to create the Note in; null is the top level") UUID folderId) {
+			@Schema(nullable = true, description = "The Folder to create the Note in; null is the top level") UUID folderId,
+			@Schema(nullable = true, description = "An id you make up. Sending the same request again returns that Note instead of making a second one; an id already used for anything else is refused with INVALID_REQUEST") UUID id) {
 	}
 
 	/** Carries the version the client last saw; a newer stored version means 409 VERSION_CONFLICT. */
@@ -85,7 +86,7 @@ class NoteController {
 			mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
 	NoteResponse create(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@Valid @RequestBody CreateNoteRequest request) {
-		return NoteResponse.of(notes.create(user.id(), request.folderId(), request.title(), request.body()));
+		return NoteResponse.of(notes.create(user.id(), request.folderId(), request.title(), request.body(), request.id()).note());
 	}
 
 	@GetMapping("/{id}")
@@ -96,6 +97,24 @@ class NoteController {
 	NoteResponse get(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id) {
 		return NoteResponse.of(notes.get(user.id(), id));
+	}
+
+	record LatestResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int version,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+					description = "The name of the Access token that made the latest change; null when the User did") String editedBy) {
+	}
+
+	/** The save counter, time and writer of the Note's latest change, without its text: what an open editor polls. */
+	@GetMapping("/{id}/latest")
+	@ApiResponse(responseCode = "200", description = "The Note's latest change", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = LatestResponse.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's Note)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	LatestResponse latest(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id) {
+		var latest = notes.latest(user.id(), id);
+		return new LatestResponse(latest.version(), latest.updatedAt(), latest.editedBy());
 	}
 
 	@PutMapping(value = "/{id}", consumes = JSON)

@@ -100,6 +100,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_2"];
+        put: operations["save_1"];
+        post?: never;
+        delete: operations["trash"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/timeline/{seq}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["editEntry"];
+        post?: never;
+        delete: operations["deleteEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/reminder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["setReminder"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/interviews/{seq}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["editInterview"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{id}/quota": {
         parameters: {
             query?: never;
@@ -174,6 +238,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["create_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes/{id}/versions/{versionId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restore"];
         delete?: never;
         options?: never;
         head?: never;
@@ -356,6 +436,182 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_3"];
+        put?: never;
+        post: operations["create_3"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["moveStage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/interviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addInterview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["documents"];
+        put?: never;
+        post: operations["attach"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/read-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["readLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/fill-with-ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["fillWithAi"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/bulk/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["bulkTrash"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/bulk/tags/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["bulkRemoveTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/bulk/tags/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["bulkAddTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/bulk/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["bulkStage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{id}/enable": {
         parameters: {
             query?: never;
@@ -395,9 +651,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_3"];
+        get: operations["list_4"];
         put?: never;
-        post: operations["create_3"];
+        post: operations["create_4"];
         delete?: never;
         options?: never;
         head?: never;
@@ -427,9 +683,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_4"];
+        get: operations["list_5"];
         put?: never;
-        post: operations["create_4"];
+        post: operations["create_5"];
         delete?: never;
         options?: never;
         head?: never;
@@ -443,7 +699,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_5"];
+        get: operations["list_6"];
         put?: never;
         post?: never;
         delete: operations["empty"];
@@ -476,6 +732,54 @@ export interface paths {
             cookie?: never;
         };
         get: operations["quick"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_7"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes/{id}/versions/{versionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_3"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes/{id}/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["latest"];
         put?: never;
         post?: never;
         delete?: never;
@@ -555,7 +859,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_6"];
+        get: operations["list_8"];
         put?: never;
         post?: never;
         delete?: never;
@@ -571,7 +875,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_7"];
+        get: operations["list_9"];
         put?: never;
         post?: never;
         delete?: never;
@@ -644,6 +948,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assets/{id}/url": {
         parameters: {
             query?: never;
@@ -676,6 +996,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/applied-before": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["appliedBefore"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users": {
         parameters: {
             query?: never;
@@ -683,7 +1035,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_8"];
+        get: operations["list_10"];
         put?: never;
         post?: never;
         delete?: never;
@@ -772,6 +1124,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/documents/{assetId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["detach"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{id}": {
         parameters: {
             query?: never;
@@ -808,6 +1176,16 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        DuplicatePostingResponse: {
+            code: string;
+            message: string;
+            /**
+             * Format: uuid
+             * @description The Application that already holds this posting
+             */
+            existingId: string;
+            existingTitle: string;
+        };
         RenameTagRequest: {
             name: string;
         };
@@ -888,6 +1266,138 @@ export interface components {
             /** @description The name of the Access token that made the latest change; null when the User did */
             editedBy: string | null;
         };
+        SaveApplicationRequest: {
+            /** @description The title as shown. Sending it back unchanged keeps the automatic Role at Company title; a different one renames the Application for good */
+            title: string;
+            company: string;
+            role: string;
+            location: string;
+            postingUrl: string;
+            postingText: string;
+            /** Format: int32 */
+            version: number;
+        };
+        ApplicationResponse: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            company: string;
+            role: string;
+            location: string;
+            postingUrl: string;
+            postingText: string;
+            /** @enum {string} */
+            stage: "SAVED" | "APPLIED" | "SCREENING" | "INTERVIEW" | "OFFER" | "CLOSED";
+            /**
+             * @description Why it closed; only when Closed
+             * @enum {string|null}
+             */
+            closeReason: "ACCEPTED" | "NOT_SELECTED" | "WITHDREW" | "ACCEPTED_ANOTHER" | "NO_RESPONSE" | null;
+            /**
+             * Format: date-time
+             * @description When the Application first moved into Applied, at 12:00 UTC
+             */
+            appliedOn: string | null;
+            /**
+             * Format: date-time
+             * @description Where the no-reply clock starts: the later of the applied date and the last follow-up or reply. Empty until applied
+             */
+            noReplySince: string | null;
+            /**
+             * Format: date
+             * @description The follow-up reminder's day
+             */
+            reminderOn: string | null;
+            /**
+             * Format: time-local
+             * @description The reminder's time; empty means 09:00 in the User's timezone
+             */
+            reminderTime: string | null;
+            /** @description What this Application needs from the User now, in the timezone sent as X-Timezone */
+            nextStep: components["schemas"]["NextStepResponse"];
+            timeline: components["schemas"]["TimelineEntryResponse"][];
+            /** Format: int32 */
+            version: number;
+            /** Format: uuid */
+            folderId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        NextStepResponse: {
+            /** @enum {string} */
+            kind: "CLOSED" | "OFFER" | "INTERVIEW_UPCOMING" | "INTERVIEW_FEEDBACK" | "FOLLOW_UP_DUE" | "NOT_APPLIED" | "NO_REPLY" | "WAITING";
+            /** @description Ready to show, with any time already in the User's timezone */
+            label: string;
+            /**
+             * Format: date-time
+             * @description When it became or becomes due; empty for Closed and Waiting
+             */
+            dueAt: string | null;
+            /** @description True when it needs the User now: what Needs you lists */
+            due: boolean;
+        };
+        TimelineEntryResponse: {
+            /** @description STAGE, NOTE, FOLLOWED_UP, REPLIED or INTERVIEW */
+            type: string;
+            /**
+             * @description The Stage moved to; only for STAGE
+             * @enum {string|null}
+             */
+            stage: "SAVED" | "APPLIED" | "SCREENING" | "INTERVIEW" | "OFFER" | "CLOSED" | null;
+            /**
+             * Format: date-time
+             * @description The display date, at 12:00 UTC
+             */
+            at: string;
+            /**
+             * Format: int32
+             * @description The order it was written in; names the entry in the edit and delete calls
+             */
+            seq: number;
+            /** @description The note; only for NOTE. An interview's notes */
+            text: string | null;
+            /** @description PHONE, VIDEO, ONSITE or OTHER; only for INTERVIEW, whose at is its exact start */
+            kind: string | null;
+        };
+        EditEntryRequest: {
+            /** @description New note text; only for a NOTE. Empty keeps it */
+            text?: string | null;
+            /**
+             * Format: date
+             * @description A new day, never a future one. Empty keeps it
+             */
+            date?: string | null;
+            /** Format: int32 */
+            version: number;
+        };
+        ReminderRequest: {
+            /**
+             * Format: date
+             * @description The day to follow up. Empty clears the reminder
+             */
+            on?: string | null;
+            /**
+             * Format: time-local
+             * @description The time that day, in the User's timezone. Empty means 09:00. Needs a date
+             */
+            time?: string | null;
+            /** Format: int32 */
+            version: number;
+        };
+        InterviewRequest: {
+            /**
+             * Format: date-time
+             * @description The exact start. The page turns the User's local time into this, and back
+             */
+            startsAt: string;
+            /** @enum {string} */
+            kind: "PHONE" | "VIDEO" | "ONSITE" | "OTHER";
+            notes?: string | null;
+            /** Format: int32 */
+            version: number;
+        };
         SetQuotaRequest: {
             /**
              * Format: int64
@@ -936,6 +1446,15 @@ export interface components {
              * @description The Folder to create the Note in; null is the top level
              */
             folderId?: string | null;
+            /**
+             * Format: uuid
+             * @description An id you make up. Sending the same request again returns that Note instead of making a second one; an id already used for anything else is refused with INVALID_REQUEST
+             */
+            id?: string | null;
+        };
+        RestoreRequest: {
+            /** Format: int32 */
+            version: number;
         };
         ImportResponse: {
             /** @description One result per file, in the order sent */
@@ -967,7 +1486,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET";
+            type: "NOTE" | "ASSET" | "APPLICATION";
             title: string;
             /** @description The Folder path such as "Work / CoreEx", null at the top level */
             folderPath: string | null;
@@ -993,7 +1512,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET";
+            type: "NOTE" | "ASSET" | "APPLICATION";
             title: string;
             /** Format: uuid */
             folderId: string | null;
@@ -1052,6 +1571,118 @@ export interface components {
             /** @description PUT the file here, with its Content-Type */
             uploadUrl: string;
         };
+        CreateApplicationRequest: {
+            company: string;
+            role: string;
+            location?: string;
+            postingUrl?: string;
+            postingText?: string;
+        };
+        AddEntryRequest: {
+            /** @enum {string} */
+            type: "NOTE" | "FOLLOWED_UP" | "REPLIED";
+            /** @description The note; required for NOTE, ignored otherwise */
+            text?: string | null;
+            /**
+             * Format: date
+             * @description The day it happened, never a future one. Empty means today
+             */
+            date?: string | null;
+            /** Format: int32 */
+            version: number;
+        };
+        MoveStageRequest: {
+            /** @enum {string} */
+            stage: "SAVED" | "APPLIED" | "SCREENING" | "INTERVIEW" | "OFFER" | "CLOSED";
+            /**
+             * @description Required for Closed, refused for every other Stage
+             * @enum {string|null}
+             */
+            closeReason?: "ACCEPTED" | "NOT_SELECTED" | "WITHDREW" | "ACCEPTED_ANOTHER" | "NO_RESPONSE" | null;
+            /**
+             * Format: date
+             * @description The day it happened, never a future one. Empty means today
+             */
+            date?: string | null;
+            /**
+             * @description The Stage the client saw. A move from any other Stage is a 409, but an edit that left the Stage alone does not refuse it
+             * @enum {string|null}
+             */
+            fromStage?: "SAVED" | "APPLIED" | "SCREENING" | "INTERVIEW" | "OFFER" | "CLOSED" | null;
+            /**
+             * Format: int32
+             * @description The version the client saw. Send this or fromStage
+             */
+            version?: number | null;
+        };
+        AttachRequest: {
+            /** Format: uuid */
+            assetId: string;
+            /** @enum {string} */
+            label: "RESUME" | "COVER_LETTER" | "OTHER";
+        };
+        ReadLinkRequest: {
+            url: string;
+        };
+        ReadLinkResponse: {
+            company: string;
+            role: string;
+            location: string;
+            /** @description The address the page was read from, after any redirects */
+            postingUrl: string;
+            postingText: string;
+            /** @description True when the page had JobPosting data; false when only its title and text were read */
+            structured: boolean;
+        };
+        FillRequest: {
+            text: string;
+        };
+        FillResponse: {
+            company: string;
+            role: string;
+            location: string;
+            /** @description The posting without the page around it */
+            postingText: string;
+        };
+        BulkIds: {
+            ids: string[];
+        };
+        BulkFailure: {
+            /** Format: uuid */
+            id: string;
+            /** @description NOT_FOUND (missing, in the Trash, or not the User's), VERSION_CONFLICT or INVALID_REQUEST */
+            code: string;
+        };
+        BulkResponse: {
+            /** @description The ones that worked */
+            done: string[];
+            /** @description The ones that did not, with why. The others are unaffected */
+            failed: components["schemas"]["BulkFailure"][];
+        };
+        BulkRemoveTagRequest: {
+            ids: string[];
+            /** Format: uuid */
+            tagId: string;
+        };
+        BulkAddTagRequest: {
+            ids: string[];
+            name: string;
+        };
+        BulkStageRequest: {
+            ids: string[];
+            /** @enum {string} */
+            stage: "SAVED" | "APPLIED" | "SCREENING" | "INTERVIEW" | "OFFER" | "CLOSED";
+            /**
+             * @description Required for Closed, refused for every other Stage
+             * @enum {string|null}
+             */
+            closeReason?: "ACCEPTED" | "NOT_SELECTED" | "WITHDREW" | "ACCEPTED_ANOTHER" | "NO_RESPONSE" | null;
+            /**
+             * Format: date
+             * @description The day it happened, never a future one. Empty means today
+             */
+            date?: string | null;
+        };
         CreateInviteRequest: {
             /** Format: email */
             email: string;
@@ -1094,7 +1725,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "FOLDER" | "NOTE" | "ASSET";
+            kind: "FOLDER" | "NOTE" | "ASSET" | "APPLICATION";
             /** @description A Folder's name, or an Item's title (may be empty) */
             title: string;
             /** Format: date-time */
@@ -1141,7 +1772,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET";
+            type: "NOTE" | "ASSET" | "APPLICATION";
             title: string;
             /** @description The Folder path such as "Work / CoreEx", null at the top level */
             folderPath: string | null;
@@ -1166,12 +1797,48 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET";
+            type: "NOTE" | "ASSET" | "APPLICATION";
             title: string;
             folderPath: string | null;
         };
         QuickList: {
             items: components["schemas"]["QuickHitResponse"][];
+        };
+        VersionList: {
+            items: components["schemas"]["VersionSummary"][];
+            /** Format: int32 */
+            total: number;
+        };
+        VersionSummary: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /**
+             * Format: date-time
+             * @description When this text was written
+             */
+            savedAt: string;
+            /** @description The name of the Access token that wrote this text; null when the User did */
+            editedBy: string | null;
+            /** Format: int32 */
+            sizeBytes: number;
+        };
+        VersionDetail: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            body: string;
+            /** Format: date-time */
+            savedAt: string;
+            editedBy: string | null;
+        };
+        LatestResponse: {
+            /** Format: int32 */
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description The name of the Access token that made the latest change; null when the User did */
+            editedBy: string | null;
         };
         Me: {
             /** Format: uuid */
@@ -1190,7 +1857,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET";
+            type: "NOTE" | "ASSET" | "APPLICATION";
             title: string;
             /**
              * Format: uuid
@@ -1322,6 +1989,48 @@ export interface components {
             usedBytes: number;
             /** Format: int64 */
             quotaBytes: number;
+        };
+        ApplicationPage: {
+            items: components["schemas"]["ApplicationResponse"][];
+            /** Format: int64 */
+            total: number;
+            /** @description The Tags of each listed Application, by its id; one without Tags is left out */
+            tags: {
+                [key: string]: components["schemas"]["ApplicationTag"][];
+            };
+        };
+        ApplicationTag: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string|null} */
+            colour?: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
+        };
+        DocumentList: {
+            items: components["schemas"]["DocumentResponse"][];
+        };
+        DocumentResponse: {
+            /** Format: uuid */
+            assetId: string;
+            title: string;
+            /** @enum {string} */
+            label: "RESUME" | "COVER_LETTER" | "OTHER";
+            /** Format: int64 */
+            sizeBytes: number;
+            /** Format: date-time */
+            attachedAt: string;
+        };
+        EarlierApplication: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+        };
+        EarlierList: {
+            items: components["schemas"]["EarlierApplication"][];
+        };
+        Status: {
+            /** @description False until the owner sets the Shared key: AI features then show as pending */
+            available: boolean;
         };
         UserPage: {
             items: components["schemas"]["UserResponse"][];
@@ -1836,6 +2545,350 @@ export interface operations {
             };
         };
     };
+    get_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Application */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Application) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+        };
+    };
+    save_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveApplicationRequest"];
+            };
+        };
+        responses: {
+            /** @description The saved Application, with its new version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Application) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    trash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Moved to the Trash */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND (also for another User's Application) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+        };
+    };
+    editEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description The Application with the entry changed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    deleteEntry: {
+        parameters: {
+            query: {
+                version: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Application without the entry */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST (a Stage entry cannot be deleted) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    setReminder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReminderRequest"];
+            };
+        };
+        responses: {
+            /** @description The Application with its reminder set, changed or cleared */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    editInterview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterviewRequest"];
+            };
+        };
+        responses: {
+            /** @description The Application with the interview changed. Remove an interview with the timeline entry delete */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     setQuota: {
         parameters: {
             query?: never;
@@ -2073,10 +3126,57 @@ export interface operations {
             };
         };
     };
+    restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreRequest"];
+            };
+        };
+        responses: {
+            /** @description The Note, saved with the earlier text and a new version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteResponse"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Note) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     importNotes: {
         parameters: {
             query?: {
                 folderId?: string;
+                /** @description An id you make up for each file's Note, in the order of the files: sending the same import again returns those Notes instead of making new ones */
+                ids?: string[];
             };
             header?: never;
             path?: never;
@@ -2633,6 +3733,611 @@ export interface operations {
             };
         };
     };
+    list_3: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                /** @description Only Applications whose Next step is due now */
+                needsYou?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of Applications, grouped by Stage and sorted by Next step within each */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationPage"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+        };
+    };
+    create_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApplicationRequest"];
+            };
+        };
+        responses: {
+            /** @description The new Application, in Saved */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code DUPLICATE_POSTING: another Application holds this posting link; existingId says which */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+        };
+    };
+    addEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description The Application with the new timeline entry */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    moveStage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveStageRequest"];
+            };
+        };
+        responses: {
+            /** @description The Application in its new Stage, with the timeline entry added */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Application) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    addInterview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterviewRequest"];
+            };
+        };
+        responses: {
+            /** @description The Application with the new interview on its timeline */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    documents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The PDFs sent for the Application, oldest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentList"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Application) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+        };
+    };
+    attach: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachRequest"];
+            };
+        };
+        responses: {
+            /** @description Attached; an Asset attached again has its label changed */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code INVALID_REQUEST (not a PDF, or not a label) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND (the Application or the Asset, also another User's) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+        };
+    };
+    readLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description What the page said: company, role, location, the posting */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadLinkResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST: not a web address, not a public address, too large, too slow, not a web page, or it could not be read */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+        };
+    };
+    fillWithAi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FillRequest"];
+            };
+        };
+        responses: {
+            /** @description What the model made of the posting */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FillResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST: no posting, or too long */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+            /** @description Code AI_BUDGET_SPENT: today's AI budget is used up */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code AI_UNAVAILABLE or AI_BAD_ANSWER */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code AI_OFF: no Shared key is set */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    bulkTrash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkIds"];
+            };
+        };
+        responses: {
+            /** @description Each Application moved to the Trash (bring it back with the Trash restore call); the failures are listed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+        };
+    };
+    bulkRemoveTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkRemoveTagRequest"];
+            };
+        };
+        responses: {
+            /** @description The Tag taken off each Application; the failures are listed. An unknown Tag is a 404 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+        };
+    };
+    bulkAddTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkAddTagRequest"];
+            };
+        };
+        responses: {
+            /** @description The Tag put on each Application; the failures are listed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+        };
+    };
+    bulkStage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkStageRequest"];
+            };
+        };
+        responses: {
+            /** @description Each Application moved through the transition rule, with a timeline entry; the failures are listed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+        };
+    };
     enable: {
         parameters: {
             query?: never;
@@ -2704,7 +4409,7 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list_4: {
         parameters: {
             query?: {
                 page?: number;
@@ -2727,7 +4432,7 @@ export interface operations {
             };
         };
     };
-    create_3: {
+    create_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -2809,7 +4514,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -2829,7 +4534,7 @@ export interface operations {
             };
         };
     };
-    create_4: {
+    create_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -2871,7 +4576,7 @@ export interface operations {
             };
         };
     };
-    list_5: {
+    list_6: {
         parameters: {
             query?: {
                 page?: number;
@@ -2925,7 +4630,7 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string;
-                type?: "NOTE" | "ASSET";
+                type?: "NOTE" | "ASSET" | "APPLICATION";
                 tagId?: string;
                 folderId?: string;
                 page?: number;
@@ -2975,6 +4680,100 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuickList"];
+                };
+            };
+        };
+    };
+    list_7: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Note's versions, newest first, without their text */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionList"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Note) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    get_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One version, with its text */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionDetail"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Note) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    latest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Note's latest change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LatestResponse"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Note) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -3092,12 +4891,12 @@ export interface operations {
             };
         };
     };
-    list_6: {
+    list_8: {
         parameters: {
             query?: {
                 folderId?: string;
                 tagId?: string;
-                type?: "NOTE" | "ASSET";
+                type?: "NOTE" | "ASSET" | "APPLICATION";
                 page?: number;
                 size?: number;
             };
@@ -3127,7 +4926,7 @@ export interface operations {
             };
         };
     };
-    list_7: {
+    list_9: {
         parameters: {
             query?: {
                 size?: number;
@@ -3284,6 +5083,35 @@ export interface operations {
             };
         };
     };
+    export: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A zip: Notes as Markdown and Assets as files in the Folder tree, and a manifest.json */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            /** @description Code EXPORT_TOO_SOON: one export per minute */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     url: {
         parameters: {
             query?: {
@@ -3346,7 +5174,60 @@ export interface operations {
             };
         };
     };
-    list_8: {
+    appliedBefore: {
+        parameters: {
+            query?: {
+                company?: string;
+                /** @description Leave this Application out, when asking about its own company */
+                excludeId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The User's Applications at this company that were closed with no response, now or earlier */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EarlierList"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+        };
+    };
+    status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Status"];
+                };
+            };
+        };
+    };
+    list_10: {
         parameters: {
             query?: {
                 page?: number;
@@ -3520,6 +5401,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    detach: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Detached; the Asset stays */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DuplicatePostingResponse"];
                 };
             };
         };

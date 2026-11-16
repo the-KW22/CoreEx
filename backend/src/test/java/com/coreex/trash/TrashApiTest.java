@@ -418,6 +418,21 @@ class TrashApiTest extends ApiTest {
 	}
 
 	@Test
+	void purgingANoteRemovesItsVersionsToo() throws Exception {
+		var id = note(userA, "Has history", null);
+		put("/api/notes/" + id, userA, "{\"title\":\"Has history\",\"body\":\"one\",\"version\":1}");
+		put("/api/notes/" + id, userA, "{\"title\":\"Has history\",\"body\":\"two\",\"version\":2}");
+		var kept = "select count(*) from note_versions where item_id = :id";
+		assertThat(jdbc.sql(kept).param("id", UUID.fromString(id)).query(Integer.class).single()).isPositive();
+		trashNote(userA, id);
+
+		clock.advance(Duration.ofDays(31));
+		purge.run();
+
+		assertThat(jdbc.sql(kept).param("id", UUID.fromString(id)).query(Integer.class).single()).isZero();
+	}
+
+	@Test
 	void thePurgeJobLeavesAnAssetWhoseFileCannotBeDeletedAndRetriesLater() throws Exception {
 		var id = asset(userA, "stuck.png", 100);
 		var key = keyOf(id);

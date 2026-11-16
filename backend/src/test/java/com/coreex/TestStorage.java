@@ -1,5 +1,7 @@
 package com.coreex;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
@@ -17,11 +19,19 @@ public class TestStorage implements Storage {
 
 	private final Map<String, StoredObject> objects = new ConcurrentHashMap<>();
 
+	private final Map<String, byte[]> contents = new ConcurrentHashMap<>();
+
 	private volatile boolean down;
 
 	/** What the browser's PUT to the presigned URL would have stored. */
 	public void put(String key, long size, String contentType) {
 		objects.put(key, new StoredObject(size, contentType));
+	}
+
+	/** An object with real bytes, for tests that read them back. */
+	public void putBytes(String key, byte[] bytes, String contentType) {
+		objects.put(key, new StoredObject(bytes.length, contentType));
+		contents.put(key, bytes);
 	}
 
 	public boolean exists(String key) {
@@ -34,6 +44,7 @@ public class TestStorage implements Storage {
 
 	public void clear() {
 		objects.clear();
+		contents.clear();
 		down = false;
 	}
 
@@ -61,10 +72,23 @@ public class TestStorage implements Storage {
 		return Optional.ofNullable(objects.get(key));
 	}
 
+	/** The stored bytes; an object put without any reads as that many zero bytes. */
+	@Override
+	public Optional<InputStream> read(String key) {
+		requireUp();
+		var object = objects.get(key);
+		if (object == null) {
+			return Optional.empty();
+		}
+		var bytes = contents.getOrDefault(key, new byte[(int) object.size()]);
+		return Optional.of(new ByteArrayInputStream(bytes));
+	}
+
 	@Override
 	public void delete(String key) {
 		requireUp();
 		objects.remove(key);
+		contents.remove(key);
 	}
 
 	private void requireUp() {

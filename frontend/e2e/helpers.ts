@@ -79,6 +79,19 @@ export async function newNote(page: Page, title: string) {
   await expectSaved(page);
 }
 
+// An Application made from the Applications list's New Application dialog; leaves you on its page.
+export async function newApplication(page: Page, company: string, role: string) {
+  await page.goto("/career/applications");
+  await page.getByRole("button", { name: "New Application" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Application" });
+  await dialog.getByLabel("Company").fill(company);
+  await dialog.getByLabel("Role").fill(role);
+  await dialog.getByLabel("Posting", { exact: true }).fill("We are hiring.");
+  await dialog.getByRole("button", { name: "Add Application" }).click();
+  await expect(page).toHaveURL(/\/career\/applications\//);
+  await expect(page.getByRole("heading", { name: `${role} at ${company}`, level: 1 })).toBeVisible();
+}
+
 // A Note carrying a new Tag, so the Tags page has a row. Leaves you on the Note.
 export async function noteWithTag(page: Page, title: string, tagName: string) {
   await newNote(page, title);

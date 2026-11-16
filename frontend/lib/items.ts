@@ -1,6 +1,15 @@
-// Notes and Assets are both Items; each type has its own page.
-export const itemHref = (item: { id: string; type: "NOTE" | "ASSET" }) =>
-  `${item.type === "NOTE" ? "/notes" : "/assets"}/${item.id}`;
+import { BriefcaseBusinessIcon, FileTextIcon, ImageIcon } from "lucide-react";
+
+// What each Item type looks like in a list: its icon and the word a screen reader says.
+export const TYPE_LOOK = {
+  NOTE: { Icon: FileTextIcon, label: "Note" },
+  ASSET: { Icon: ImageIcon, label: "Asset" },
+  APPLICATION: { Icon: BriefcaseBusinessIcon, label: "Application" },
+};
+
+// Notes, Assets and Applications are all Items; each type has its own page.
+const PAGES = { NOTE: "/notes", ASSET: "/assets", APPLICATION: "/career/applications" };
+export const itemHref = (item: { id: string; type: keyof typeof PAGES }) => `${PAGES[item.type]}/${item.id}`;
 
 export function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -9,11 +18,11 @@ export function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-export type ItemType = "NOTE" | "ASSET";
+export type ItemType = keyof typeof PAGES;
 
-// The ?type= filter on the Items pages; anything but NOTE or ASSET means no filter.
+// The ?type= filter on the Items pages; anything but a known type means no filter.
 export const parseType = (raw: string | string[] | undefined): ItemType | undefined =>
-  raw === "NOTE" || raw === "ASSET" ? raw : undefined;
+  raw === "NOTE" || raw === "ASSET" || raw === "APPLICATION" ? raw : undefined;
 
 // A list page's link with its page number and type filter, which are left out when they are the defaults.
 export function listHref(path: string, page: number, type?: ItemType) {
