@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { TagBadge } from "@/components/tag-badge";
 import { Button } from "@/components/ui/button";
 import { CLOSE_REASONS, STAGES, type CloseReason, type Stage } from "@/lib/applications";
+import type { TagColour } from "@/lib/tag-colour";
 import { cn } from "@/lib/utils";
 
 import {
@@ -17,7 +19,15 @@ import {
   type BulkOutcome,
 } from "./actions";
 
-export type Row = { id: string; title: string; next: string; due: boolean; updated: string | null };
+export type RowTag = { id: string; name: string; colour?: TagColour | null };
+export type Row = {
+  id: string;
+  title: string;
+  next: string;
+  due: boolean;
+  updated: string | null;
+  tags: RowTag[];
+};
 export type Group = { stage: Stage; label: string; items: Row[] };
 
 const control = "h-9 rounded-lg border border-border bg-surface px-3 text-sm";
@@ -229,6 +239,13 @@ export function ApplicationsList({ groups, tags }: { groups: Group[]; tags: { id
                       </span>
                       {row.updated && ` · Updated ${row.updated}`}
                     </span>
+                    {row.tags.length > 0 && (
+                      <span className="flex flex-wrap gap-1">
+                        {row.tags.map((tag) => (
+                          <TagBadge key={tag.id} name={tag.name} colour={tag.colour} />
+                        ))}
+                      </span>
+                    )}
                   </Link>
                 </li>
               ))}

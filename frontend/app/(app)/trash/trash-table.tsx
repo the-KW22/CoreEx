@@ -1,6 +1,6 @@
 "use client";
 
-import { FileTextIcon, FolderIcon, ImageIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
+import { BriefcaseBusinessIcon, FileTextIcon, FolderIcon, ImageIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
 import { useTransition } from "react";
 import { toast } from "sonner";
 
@@ -23,8 +23,8 @@ import { deleteEntryForGood, emptyTrash, restoreEntry, type Removal } from "./ac
 
 type Entry = components["schemas"]["TrashEntryResponse"];
 
-const kindLabel = { FOLDER: "Folder", NOTE: "Note", ASSET: "Asset" } as const;
-const icons = { FOLDER: FolderIcon, NOTE: FileTextIcon, ASSET: ImageIcon } as const;
+const kindLabel = { FOLDER: "Folder", NOTE: "Note", ASSET: "Asset", APPLICATION: "Application" } as const;
+const icons = { FOLDER: FolderIcon, NOTE: FileTextIcon, ASSET: ImageIcon, APPLICATION: BriefcaseBusinessIcon } as const;
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 const STORAGE = "File storage is not available right now, so nothing was deleted. Try again in a moment.";

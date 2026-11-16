@@ -7,7 +7,7 @@ import { getApi } from "@/lib/api/server";
 import { done } from "@/lib/refresh";
 import type { CloseReason, InterviewKind, Stage } from "@/lib/applications";
 
-import { restoreItem } from "../../items/actions";
+import { restoreItem, trashItem } from "../../items/actions";
 
 type Application = components["schemas"]["ApplicationResponse"];
 
@@ -32,6 +32,14 @@ export async function createApplication(_previous: CreateState, formData: FormDa
   if (!result) return { error: "Cannot reach the CoreEx API." };
   if (!result.data) return { error: result.error?.message ?? "Could not create the Application." };
   redirect(`/career/applications/${result.data.id}`);
+}
+
+// Move to Trash from the Application's own page.
+export async function deleteApplication(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  if (!(await trashItem(id, "APPLICATION"))) redirect(`/career/applications/${id}?error=delete`);
+  redirect("/career/applications");
 }
 
 // Every call that answers with the stored Application: a 409 is a stale version, anything else a message to show.
