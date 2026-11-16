@@ -3519,6 +3519,56 @@ test("a photo is uploaded as an Asset, reaches the PDF, changes its frame, survi
   await expect.poll(hasImage, { timeout: 30_000 }).toBe(false);
 });
 
+test("History keeps earlier versions: one is named, looked at in the preview without changing the Resume, and restored", async ({ page }) => {
+  await signIn(page);
+  await openNewResume(page, `History ${Date.now()}`);
+  const status = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+  const mode = page.getByRole("navigation", { name: "Mode" });
+  const name = page.getByLabel("Name", { exact: true });
+
+  await name.fill("Ada One");
+  await expect(status).not.toHaveText("Saved");
+  await expect(status).toHaveText("Saved");
+
+  // Nothing was replaced yet that is worth keeping; naming keeps the Resume as it is now, for good.
+  await mode.getByRole("button", { name: "History" }).click();
+  await expect(page.getByText("No earlier versions yet.")).toBeVisible();
+  await page.getByLabel("Name this version").fill("First draft");
+  await page.getByRole("button", { name: "Keep as a named version" }).click();
+  const versions = page.getByRole("list", { name: "Versions" });
+  await expect(versions.getByRole("button", { name: /First draft/ })).toBeVisible();
+  await expectNoViolations(page);
+
+  // The Resume changes.
+  await mode.getByRole("button", { name: "Write" }).click();
+  await name.fill("Ada Two");
+  await expect(status).not.toHaveText("Saved");
+  await expect(status).toHaveText("Saved");
+
+  // Looking at the named version changes nothing, and Stop looking drops it.
+  await mode.getByRole("button", { name: "History" }).click();
+  await versions.getByRole("button", { name: /First draft/ }).click();
+  await expect(page.getByText("Looking at “First draft” in the page preview.")).toBeVisible();
+  await page.getByRole("button", { name: "Stop looking" }).click();
+  await expect(page.getByText(/Looking at/)).toHaveCount(0);
+  await mode.getByRole("button", { name: "Write" }).click();
+  await expect(name).toHaveValue("Ada Two");
+
+  // Restoring brings back exactly that document, and keeps the one it replaced.
+  await mode.getByRole("button", { name: "History" }).click();
+  await versions.getByRole("button", { name: /First draft/ }).click();
+  await page.getByRole("button", { name: "Restore this version" }).click();
+  await expect(page.getByText("The version is back.")).toBeVisible();
+  await expect(mode.getByRole("button", { name: "Write" })).toHaveAttribute("aria-current", "page");
+  await expect(name).toHaveValue("Ada One");
+  await mode.getByRole("button", { name: "History" }).click();
+  await expect(versions.getByRole("listitem")).toHaveCount(2);
+  // The older "Ada Two" is the one that was kept: restoring it gets it back.
+  await versions.getByRole("listitem").filter({ hasNotText: "First draft" }).getByRole("button").click();
+  await page.getByRole("button", { name: "Restore this version" }).click();
+  await expect(name).toHaveValue("Ada Two");
+});
+
 test("custom style rules change the page, bad ones are explained and not saved, and a part is picked on the page", async ({ page }) => {
   await signIn(page);
   const name = `Style ${Date.now()}`;

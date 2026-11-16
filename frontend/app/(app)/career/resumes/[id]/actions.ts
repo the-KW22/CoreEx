@@ -1,5 +1,6 @@
 "use server";
 
+import type { components } from "@/lib/api/schema";
 import { getApi } from "@/lib/api/server";
 
 import { mineTitle, type ResumeDocument } from "./store";
@@ -70,6 +71,59 @@ export async function photoData(assetId: string): Promise<string | null> {
   if (!file?.ok || (type !== "image/png" && type !== "image/jpeg")) return null;
   const bytes = Buffer.from(await file.arrayBuffer());
   return bytes.length > 5_000_000 ? null : `data:${type};base64,${bytes.toString("base64")}`;
+}
+
+export type VersionSummary = components["schemas"]["ResumeVersionSummary"];
+export type OpenedVersion = { id: string; title: string; name: string | null; doc: ResumeDocument };
+export type Restored = { status: "restored"; resume: Loaded } | { status: "conflict" } | { status: "locked" } | { status: "error" };
+
+// The Resume's history, newest first. Null when it could not be read.
+export async function listVersions(id: string): Promise<VersionSummary[] | null> {
+  const api = await getApi();
+  const result = await api.GET("/api/resumes/{id}/versions", { params: { path: { id } } }).catch(() => null);
+  return result?.data?.items ?? null;
+}
+
+// One version with its document, to look at on the page.
+export async function openVersion(id: string, versionId: string): Promise<OpenedVersion | null> {
+  const api = await getApi();
+  const result = await api
+    .GET("/api/resumes/{id}/versions/{versionId}", { params: { path: { id, versionId } } })
+    .catch(() => null);
+  const v = result?.data;
+  return v ? { id: v.id, title: v.title, name: v.name, doc: v.document } : null;
+}
+
+// Keeps the Resume as it is stored now under a name.
+export async function nameCurrentVersion(id: string, name: string): Promise<boolean> {
+  const api = await getApi();
+  const result = await api.POST("/api/resumes/{id}/versions", { params: { path: { id } }, body: { name } }).catch(() => null);
+  return !!result?.data;
+}
+
+// Names a version, or clears its name with an empty one.
+export async function renameVersion(id: string, versionId: string, name: string): Promise<boolean> {
+  const api = await getApi();
+  const result = await api
+    .PUT("/api/resumes/{id}/versions/{versionId}/name", { params: { path: { id, versionId } }, body: { name } })
+    .catch(() => null);
+  return !!result?.response.ok;
+}
+
+// Saves that version as the Resume, at the save counter the caller last saw; what it replaces is kept as a version.
+export async function restoreVersion(id: string, versionId: string, version: number): Promise<Restored> {
+  const api = await getApi();
+  const result = await api
+    .POST("/api/resumes/{id}/versions/{versionId}/restore", { params: { path: { id, versionId } }, body: { version } })
+    .catch(() => null);
+  if (result?.data) {
+    const r = result.data;
+    return { status: "restored", resume: { title: r.title, doc: r.document, version: r.version, locked: r.locked } };
+  }
+  if (result?.response.status === 409) {
+    return (result.error as { code?: string } | undefined)?.code === "RESUME_LOCKED" ? { status: "locked" } : { status: "conflict" };
+  }
+  return { status: "error" };
 }
 
 export type ImageAsset = { id: string; title: string };

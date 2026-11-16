@@ -197,6 +197,10 @@ for (const colorScheme of ["dark", "light"] as const) {
           await page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Design" }).click();
           await expect(page.getByRole("heading", { name: "Template", level: 2 })).toBeVisible();
         });
+        await screen(page, failures, "resume history", seed.resume, async () => {
+          await page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "History" }).click();
+          await expect(page.getByRole("heading", { name: "History", level: 2 })).toBeVisible();
+        });
         await screen(page, failures, "asset", seed.asset, async () => {
           await expect(page.getByRole("img", { name: `matrix-${word}.png` })).toBeVisible();
         });
