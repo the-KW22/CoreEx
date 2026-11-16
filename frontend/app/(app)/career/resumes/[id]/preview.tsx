@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/schema";
 import { resumeBlocks } from "@/lib/resume/blocks";
+import { intendedPages, overflows } from "@/lib/resume/fit";
 import { type Box, buildPageMap, readPages, segmentsOf } from "@/lib/resume/page-map";
 import { useResumePdf } from "@/lib/resume/use-resume-pdf";
 
@@ -25,7 +26,21 @@ function fileName(title: string) {
 // The page as it will print: the PDF the worker made, drawn at real size with pdfjs. Download and Print use those very
 // bytes, so what is shown is what is saved. Over each page lie the boxes of the page map: hover outlines a field and a
 // click calls `onSelect` with its reference, so the editor can jump to it.
-export function Preview({ doc, title, onSelect }: { doc: Doc; title: string; onSelect: (ref: string) => void }) {
+export function Preview({
+  doc,
+  title,
+  onSelect,
+  onFit,
+  onAddPage,
+  fitting,
+}: {
+  doc: Doc;
+  title: string;
+  onSelect: (ref: string) => void;
+  onFit: () => void;
+  onAddPage: () => void;
+  fitting: boolean;
+}) {
   const { bytes, doc: rendered, error, busy } = useResumePdf(doc);
   const [zoom, setZoom] = useState(1);
   const [sizes, setSizes] = useState<{ width: number; height: number }[]>([]);
@@ -103,6 +118,9 @@ export function Preview({ doc, title, onSelect }: { doc: Doc; title: string; onS
     [loaded],
   );
 
+  // More pages printed than the Resume means to have: say so, and offer to squeeze it back or to accept the new page.
+  const overflow = !busy && rendered !== null && pages > 0 && overflows(pages, rendered);
+
   const byPage = useMemo(() => Object.groupBy(boxes, (b) => b.page), [boxes]);
 
   function download() {
@@ -164,6 +182,19 @@ export function Preview({ doc, title, onSelect }: { doc: Doc; title: string; onS
       <p role="status" className="text-sm text-muted-foreground">
         {error || drawError ? "" : busy ? "Updating the page…" : pages > 0 ? `${pages} ${pages === 1 ? "page" : "pages"}` : ""}
       </p>
+      {overflow && rendered && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
+          <p role="status" className="mr-auto">
+            This Resume runs onto page {intendedPages(rendered) + 1}.
+          </p>
+          <Button type="button" variant="outline" size="sm" disabled={fitting} onClick={onFit}>
+            {fitting ? "Fitting…" : "Fit to page"}
+          </Button>
+          <Button type="button" variant="outline" size="sm" disabled={fitting} onClick={onAddPage}>
+            Add a page
+          </Button>
+        </div>
+      )}
       {(error || drawError) && (
         <p role="alert" className="text-sm text-destructive">
           {error ?? drawError}

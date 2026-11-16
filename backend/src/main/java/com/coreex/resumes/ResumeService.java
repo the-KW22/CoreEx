@@ -107,12 +107,16 @@ public class ResumeService {
 				.orElse(null);
 	}
 
-	/** The document as JSON, refused when it is too big or holds a NUL character (Postgres cannot store one). */
+	/** The document as JSON, refused when it is too big, holds a NUL character (Postgres cannot store one) or has a custom style rule that cannot be drawn. */
 	private String checked(ResumeDocument document) {
 		var json = resumes.toJson(document);
 		if (json.length() > MAX_DOCUMENT || json.indexOf('\0') >= 0 || json.contains("\\u0000")) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST",
 					"The Resume is too big or holds a character that cannot be stored.");
+		}
+		var css = ResumeCss.problems(document.metadata().customCss());
+		if (!css.isEmpty()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Custom style: " + String.join(" ", css));
 		}
 		return json;
 	}

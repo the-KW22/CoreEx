@@ -18,7 +18,7 @@ public record ResumeDocument(@NotNull String locale, @NotNull Basics basics, @No
 		basics = basics == null ? new Basics(null, null, null, null, null, null, null) : basics;
 		summary = summary == null ? "" : summary;
 		sections = sections == null ? List.of() : List.copyOf(sections);
-		metadata = metadata == null ? new Metadata(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null) : metadata;
+		metadata = metadata == null ? new Metadata(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null) : metadata;
 		privateNotes = privateNotes == null ? "" : privateNotes;
 		ignoredChecks = ignoredChecks == null ? List.of() : List.copyOf(ignoredChecks);
 	}
@@ -116,15 +116,15 @@ public record ResumeDocument(@NotNull String locale, @NotNull Basics basics, @No
 
 	/**
 	 * The look: template, accent colour, fonts (body and headings), text size in points, density, page size (A4, LETTER or
-	 * FREE with its own width and height in points), margin, how dates print (MMM_YYYY, MM_YYYY, YYYY_MM or YYYY), the
+	 * FREE with its own width and height in points), how many pages it means to have, margin, how dates print (MMM_YYYY, MM_YYYY, YYYY_MM or YYYY), the
 	 * sidebar's side and width, entries in one or two columns, the entry header and where sections go. A value the
 	 * renderer cannot draw is brought back into range when it is saved, so an import or an Agent cannot break the page.
 	 */
 	public record Metadata(@NotNull String template, @NotNull String accent, @NotNull String font, @NotNull String headingFont,
 			@NotNull Integer fontSize, @NotNull String density, @NotNull String pageSize, @NotNull Integer pageWidth,
-			@NotNull Integer pageHeight, @NotNull Integer margin, @NotNull String dateFormat, @NotNull String sidebarSide,
+			@NotNull Integer pageHeight, @NotNull Integer pageCount, @NotNull Integer margin, @NotNull String dateFormat, @NotNull String sidebarSide,
 			@NotNull Integer sidebarWidth, @NotNull Integer entryColumns, @NotNull String entryHeader,
-			@NotNull List<Placement> placements) {
+			@NotNull List<Placement> placements, @NotNull String customCss) {
 
 		public Metadata {
 			template = template == null || template.isBlank() ? "classic" : template;
@@ -136,6 +136,7 @@ public record ResumeDocument(@NotNull String locale, @NotNull Basics basics, @No
 			pageSize = oneOf(pageSize, "A4", "A4", "LETTER", "FREE");
 			pageWidth = within(pageWidth, 200, 2000, 595);
 			pageHeight = within(pageHeight, 200, 2000, 842);
+			pageCount = within(pageCount, 1, 9, 1);
 			margin = within(margin, 0, 120, 40);
 			dateFormat = dateFormat == null || dateFormat.isBlank() ? "MMM_YYYY" : dateFormat;
 			sidebarSide = oneOf(sidebarSide, "left", "left", "right");
@@ -143,6 +144,8 @@ public record ResumeDocument(@NotNull String locale, @NotNull Basics basics, @No
 			entryColumns = entryColumns != null && entryColumns == 2 ? 2 : 1;
 			entryHeader = oneOf(entryHeader, "inline", "inline", "stacked");
 			placements = placements == null ? List.of() : List.copyOf(placements);
+			// Not brought into range like the rest: a rule that cannot be drawn is refused when it is saved (ResumeService).
+			customCss = customCss == null ? "" : customCss;
 		}
 
 		private static int within(Integer value, int low, int high, int fallback) {

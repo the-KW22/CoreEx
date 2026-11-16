@@ -4,6 +4,7 @@ import type { Style } from "@react-pdf/types";
 import type { components } from "@/lib/api/schema";
 
 import { type Block, resumeBlocks, templateOf } from "./blocks";
+import { type Custom, type Part, customStyles } from "./custom-css";
 import { DENSITIES, pageDimensions } from "./design";
 import type { Rich, Run } from "./html";
 
@@ -30,6 +31,7 @@ type Look = {
   twoColumns: boolean;
   stacked: boolean;
   modern: boolean;
+  custom: Custom;
 };
 
 // The PDF's built-in families; Inter is the one embedded font.
@@ -50,12 +52,19 @@ const face = (fonts: Fonts, family: string, bold?: boolean, italic?: boolean): S
 const body = (look: Look, bold?: boolean, italic?: boolean) => face(look.fonts, look.font, bold, italic);
 const heading = (look: Look) => face(look.fonts, look.headingFont, true);
 
+// What the User's custom rules say about a part of the page, over the template's own look for it: a face for bold and
+// italic (the PDF has one face per weight), and the other properties as they are.
+const custom = (look: Look, part: Part, base: { bold?: boolean; italic?: boolean; heading?: boolean } = {}): Style => ({
+  ...face(look.fonts, base.heading ? look.headingFont : look.font, look.custom.bold[part] ?? base.bold, look.custom.italic[part] ?? base.italic),
+  ...look.custom.styles[part],
+});
+
 function Runs({ runs, look }: { runs: Run[]; look: Look }) {
   return (
     <>
       {runs.map((run, i) => {
         const style: Style = {
-          ...body(look, run.bold, run.italic),
+          ...body(look, run.bold ?? look.custom.bold.text, run.italic ?? look.custom.italic.text),
           textDecoration: run.underline || run.href ? "underline" : "none",
           ...(run.color ? { color: run.color } : run.href ? { color: look.accent } : {}),
         };
@@ -78,7 +87,7 @@ function RichBlocks({ rich, look }: { rich: Rich[]; look: Look }) {
     <>
       {rich.map((block, i) =>
         block.kind === "paragraph" ? (
-          <Text key={i} style={{ textAlign: block.align ?? "left", marginBottom: 3 * look.gap }}>
+          <Text key={i} style={{ textAlign: block.align ?? "left", marginBottom: 3 * look.gap, ...look.custom.styles.text }}>
             <Runs runs={block.runs} look={look} />
           </Text>
         ) : (
@@ -102,8 +111,8 @@ function RichBlocks({ rich, look }: { rich: Rich[]; look: Look }) {
 function Head({ title, dates, look }: { title: string; dates: string; look: Look }) {
   return (
     <View style={{ flexDirection: look.stacked ? "column" : "row", justifyContent: "space-between" }} wrap={false}>
-      <Text style={body(look, true)}>{title}</Text>
-      {dates && <Text>{dates}</Text>}
+      <Text style={custom(look, "entry-title", { bold: true })}>{title}</Text>
+      {dates && <Text style={custom(look, "entry-dates")}>{dates}</Text>}
     </View>
   );
 }
@@ -112,9 +121,17 @@ function HeaderView({ block, look }: { block: Extract<Block, { kind: "header" }>
   const color = look.modern ? { color: "#ffffff" } : {};
   return (
     <View style={{ marginBottom: look.modern ? 0 : 8 * look.gap }}>
-      {block.name && <Text style={{ ...heading(look), ...color, fontSize: look.size * 2.2 }}>{block.name}</Text>}
-      {block.headline && <Text style={{ ...body(look), ...color, fontSize: look.size * 1.2, marginTop: 2 }}>{block.headline}</Text>}
-      {block.contact.length > 0 && <Text style={{ ...color, marginTop: 4 }}>{block.contact.join("  |  ")}</Text>}
+      {block.name && (
+        <Text style={{ ...heading(look), ...color, fontSize: look.size * 2.2, ...custom(look, "name", { bold: true, heading: true }) }}>
+          {block.name}
+        </Text>
+      )}
+      {block.headline && (
+        <Text style={{ ...body(look), ...color, fontSize: look.size * 1.2, marginTop: 2, ...custom(look, "headline") }}>{block.headline}</Text>
+      )}
+      {block.contact.length > 0 && (
+        <Text style={{ ...color, marginTop: 4, ...custom(look, "contact") }}>{block.contact.join("  |  ")}</Text>
+      )}
     </View>
   );
 }
@@ -136,6 +153,7 @@ function BlockView({ block, look }: { block: Block; look: Look }) {
             paddingBottom: look.modern ? 0 : 2,
             marginTop: 10 * look.gap,
             marginBottom: 5 * look.gap,
+            ...custom(look, "heading", { bold: true, heading: true }),
           }}
         >
           {block.text}
@@ -146,9 +164,9 @@ function BlockView({ block, look }: { block: Block; look: Look }) {
     case "entry": {
       const second = [block.subtitle, block.location].filter(Boolean).join(", ");
       return (
-        <View style={{ marginBottom: 6 * look.gap }}>
+        <View style={{ marginBottom: 6 * look.gap, ...look.custom.styles.entry }}>
           <Head title={[block.title, block.level].filter(Boolean).join(" - ")} dates={block.dates} look={look} />
-          {second && <Text style={body(look, false, true)}>{second}</Text>}
+          {second && <Text style={custom(look, "entry-subtitle", { italic: true })}>{second}</Text>}
           {block.url && (
             <Link src={block.url} style={{ color: look.accent }}>
               {block.url}
@@ -207,6 +225,7 @@ export function ResumePdf({ doc, fonts }: { doc: Doc; fonts: Fonts }) {
     twoColumns: m.entryColumns === 2,
     stacked: m.entryHeader === "stacked",
     modern: template === "modern",
+    custom: customStyles(m.customCss),
   };
   const [header, ...rest] = resumeBlocks(doc);
   const pages = [...new Set(rest.map((b) => (b.kind === "header" ? 1 : b.page)).concat(1))].sort((a, b) => a - b);

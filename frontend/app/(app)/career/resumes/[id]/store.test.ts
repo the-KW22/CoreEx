@@ -9,7 +9,7 @@ const doc: ResumeDocument = {
   basics: { name: "Ada", headline: "", email: "", phone: "", location: "", website: "", customFields: [] },
   summary: "<p></p>",
   sections: [],
-  metadata: { ...DEFAULT_DESIGN, template: "classic", dateFormat: "MMM_YYYY" },
+  metadata: { ...DEFAULT_DESIGN, template: "classic", dateFormat: "MMM_YYYY", customCss: "" },
   privateNotes: "",
   ignoredChecks: [],
 };

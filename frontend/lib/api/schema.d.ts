@@ -1325,6 +1325,8 @@ export interface components {
             /** Format: int32 */
             pageHeight: number;
             /** Format: int32 */
+            pageCount: number;
+            /** Format: int32 */
             margin: number;
             dateFormat: string;
             sidebarSide: string;
@@ -1334,6 +1336,7 @@ export interface components {
             entryColumns: number;
             entryHeader: string;
             placements: components["schemas"]["Placement"][];
+            customCss: string;
         };
         Placement: {
             section: string;

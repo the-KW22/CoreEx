@@ -6,6 +6,9 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { parseCss, partOf } from "@/lib/resume/custom-css";
+import { fitToPage, intendedPages, LIMITS } from "@/lib/resume/fit";
+import { createMeasurer } from "@/lib/resume/measure";
 import type { Template } from "@/lib/resume/blocks";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +49,11 @@ export function ResumeEditor({
   const [notice, setNotice] = useState("");
   const [locked, setLocked] = useState(initial.locked);
   const [mode, setMode] = useState<"write" | "design">("write");
+  const [fitting, setFitting] = useState(false);
+  // Custom style text that has problems stays here, not in the document, until it is fixed. Null: the document's own.
+  const [draft, setDraft] = useState<string | null>(null);
+  // The next click on the page picks a part for a custom rule instead of jumping to its field.
+  const [picking, setPicking] = useState(false);
   // A template being looked at in the page preview, not yet applied.
   const [candidate, setCandidate] = useState<Template | null>(null);
   const [session] = useState(() => Math.random().toString(36).slice(2));
@@ -53,7 +61,10 @@ export function ResumeEditor({
   const saving = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const storeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  latest.current = state;
+  // The newest text for the timers and handlers below, which run after a render.
+  useEffect(() => {
+    latest.current = state;
+  });
 
   // True when the Resume is saved as it stands (or already was); false when a save is running or did not go through.
   async function flush(): Promise<boolean> {
@@ -126,8 +137,57 @@ export function ResumeEditor({
     (field.querySelector<HTMLElement>("[contenteditable=true]") ?? field).focus();
   }
 
+  // Squeezes the Resume back onto the pages it means to have, within limits, or says it cannot and changes nothing.
+  async function fit() {
+    setFitting(true);
+    setNotice("");
+    const measurer = createMeasurer();
+    try {
+      const pages = intendedPages(doc);
+      const result = await fitToPage(doc, measurer.pagesFor);
+      if (!result) {
+        setNotice(
+          `This Resume does not fit on ${pages === 1 ? "one page" : `${pages} pages`} even with compact density, ${LIMITS.margin} pt margins and ${LIMITS.fontSize} pt text, so nothing was changed. Add a page, or shorten the text.`,
+        );
+      } else if (Object.keys(result.patch).length > 0) {
+        dispatch({ type: "design", patch: result.patch });
+        const { density, margin, fontSize } = result.patch;
+        setNotice(
+          `Fitted to ${pages === 1 ? "one page" : `${pages} pages`}: ${[density && "compact density", margin !== undefined && `${margin} pt margins`, fontSize !== undefined && `${fontSize} pt text`].filter(Boolean).join(", ")}.`,
+        );
+      }
+    } catch {
+      setNotice("Could not fit the page. Try again.");
+    } finally {
+      measurer.close();
+      setFitting(false);
+    }
+  }
+
+  // The custom rules: text with problems is kept apart (and shown with them); fine text goes into the document.
+  const css = draft ?? state.doc.metadata.customCss;
+  function changeCss(text: string) {
+    if (parseCss(text).problems.length > 0) {
+      setDraft(text);
+      return;
+    }
+    setDraft(null);
+    dispatch({ type: "design", patch: { customCss: text } });
+  }
+
+  // A click on the page while picking: a rule for that kind of part (kept if there is one already), cursor in the rules.
+  function pick(ref: string) {
+    const part = partOf(ref);
+    setPicking(false);
+    if (!part) return;
+    const has = new RegExp(`(^|[},\\s])${part}\\s*[,{]`).test(css);
+    if (!has) changeCss(`${css.trimEnd()}${css.trim() ? "\n" : ""}${part} {\n  \n}\n`);
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-field="custom-css"]')?.focus());
+  }
+
   // A click on the page: jump to the field it came from. From Design mode the form comes back first.
   function select(ref: string) {
+    if (picking) return pick(ref);
     if (mode === "write") return focusField(ref);
     setMode("write");
     setCandidate(null);
@@ -376,6 +436,10 @@ export function ResumeEditor({
                 key={generation}
                 doc={doc}
                 dispatch={dispatch}
+                css={css}
+                onCss={changeCss}
+                picking={picking}
+                onPicking={() => setPicking((p) => !p)}
                 onReset={() => {
                   dispatch({ type: "resetDesign" });
                   setGeneration((g) => g + 1);
@@ -385,7 +449,7 @@ export function ResumeEditor({
           </div>
         )}
 
-        <Preview doc={shown} title={state.title} onSelect={select} />
+        <Preview doc={shown} title={state.title} onSelect={select} fitting={fitting} onFit={() => void fit()} onAddPage={() => dispatch({ type: "design", patch: { pageCount: intendedPages(doc) + 1 } })} />
       </div>
     </div>
   );
