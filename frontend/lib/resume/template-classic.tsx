@@ -1,0 +1,137 @@
+import { Document, Link, Page, Text, View } from "@react-pdf/renderer";
+import type { Style } from "@react-pdf/types";
+
+import type { components } from "@/lib/api/schema";
+
+import { type Block, resumeBlocks } from "./blocks";
+import type { Rich, Run } from "./html";
+
+type Doc = components["schemas"]["ResumeDocument"];
+
+// Template 1, "Classic": one column, real text in reading order, plain headings and nothing a hiring system cannot
+// read (no icons, tables or text in images). Written for CoreEx; any later code taken from Reactive Resume (MIT)
+// keeps its licence notice here.
+
+// The font family the page uses: "Inter" when its files were registered, else the built-in Helvetica.
+export type Fonts = { registered: boolean };
+
+const face = (fonts: Fonts, bold?: boolean, italic?: boolean): Style =>
+  fonts.registered
+    ? { fontFamily: "Inter", fontWeight: bold ? 700 : 400, fontStyle: italic ? "italic" : "normal" }
+    : { fontFamily: bold ? (italic ? "Helvetica-BoldOblique" : "Helvetica-Bold") : italic ? "Helvetica-Oblique" : "Helvetica" };
+
+function Runs({ runs, fonts, accent }: { runs: Run[]; fonts: Fonts; accent: string }) {
+  return (
+    <>
+      {runs.map((run, i) => {
+        const style: Style = {
+          ...face(fonts, run.bold, run.italic),
+          textDecoration: run.underline || run.href ? "underline" : "none",
+          ...(run.color ? { color: run.color } : run.href ? { color: accent } : {}),
+        };
+        return run.href ? (
+          <Link key={i} src={run.href} style={style}>
+            {run.text}
+          </Link>
+        ) : (
+          <Text key={i} style={style}>
+            {run.text}
+          </Text>
+        );
+      })}
+    </>
+  );
+}
+
+function RichBlocks({ rich, fonts, accent }: { rich: Rich[]; fonts: Fonts; accent: string }) {
+  return (
+    <>
+      {rich.map((block, i) =>
+        block.kind === "paragraph" ? (
+          <Text key={i} style={{ textAlign: block.align ?? "left", marginBottom: 3 }}>
+            <Runs runs={block.runs} fonts={fonts} accent={accent} />
+          </Text>
+        ) : (
+          <View key={i} style={{ marginBottom: 3 }}>
+            {block.items.map((item, n) => (
+              <View key={n} style={{ flexDirection: "row", marginBottom: 1 }}>
+                <Text style={{ width: 14 }}>{block.ordered ? `${n + 1}.` : "•"}</Text>
+                <Text style={{ flex: 1 }}>
+                  <Runs runs={item} fonts={fonts} accent={accent} />
+                </Text>
+              </View>
+            ))}
+          </View>
+        ),
+      )}
+    </>
+  );
+}
+
+function BlockView({ block, fonts, accent, size }: { block: Block; fonts: Fonts; accent: string; size: number }) {
+  switch (block.kind) {
+    case "header":
+      return (
+        <View style={{ marginBottom: 8 }}>
+          {block.name && <Text style={{ ...face(fonts, true), fontSize: size * 2.2 }}>{block.name}</Text>}
+          {block.headline && <Text style={{ fontSize: size * 1.2, marginTop: 2 }}>{block.headline}</Text>}
+          {block.contact.length > 0 && <Text style={{ marginTop: 4 }}>{block.contact.join("  |  ")}</Text>}
+        </View>
+      );
+    case "heading":
+      return (
+        <Text
+          style={{
+            ...face(fonts, true),
+            fontSize: size * 1.2,
+            color: accent,
+            textTransform: "uppercase",
+            borderBottomWidth: 1,
+            borderBottomColor: accent,
+            paddingBottom: 2,
+            marginTop: 10,
+            marginBottom: 5,
+          }}
+        >
+          {block.text}
+        </Text>
+      );
+    case "text":
+      return <RichBlocks rich={block.rich} fonts={fonts} accent={accent} />;
+    case "entry": {
+      const second = [block.subtitle, block.location].filter(Boolean).join(", ");
+      return (
+        <View style={{ marginBottom: 6 }} wrap={false}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <Text style={face(fonts, true)}>{block.title}</Text>
+            {block.dates && <Text>{block.dates}</Text>}
+          </View>
+          {second && <Text style={face(fonts, false, true)}>{second}</Text>}
+          {block.url && (
+            <Link src={block.url} style={{ color: accent }}>
+              {block.url}
+            </Link>
+          )}
+          <RichBlocks rich={block.rich} fonts={fonts} accent={accent} />
+          {block.keywords.length > 0 && <Text>{block.keywords.join(", ")}</Text>}
+        </View>
+      );
+    }
+  }
+}
+
+export function ResumePdf({ doc, fonts }: { doc: Doc; fonts: Fonts }) {
+  const { accent, fontSize, pageSize } = doc.metadata;
+  return (
+    <Document title={doc.basics.name || undefined} language={doc.locale}>
+      <Page
+        size={pageSize === "LETTER" ? "LETTER" : "A4"}
+        style={{ ...face(fonts), fontSize, lineHeight: 1.35, color: "#111111", padding: 40 }}
+      >
+        {resumeBlocks(doc).map((block, i) => (
+          <BlockView key={i} block={block} fonts={fonts} accent={accent} size={fontSize} />
+        ))}
+      </Page>
+    </Document>
+  );
+}

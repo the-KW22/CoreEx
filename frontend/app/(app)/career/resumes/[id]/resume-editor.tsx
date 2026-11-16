@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 
 import { clearUnsaved, recoveryAction, storeUnsaved, takeNewestUnsaved } from "../../../notes/[id]/recovery";
 import { loadResume, saveCopy, saveResume } from "./actions";
+import { Preview } from "./preview";
 import { RichText } from "./rich-text";
 import { init, reduce, type ResumeDocument } from "./store";
 
@@ -224,9 +225,7 @@ export function ResumeEditor({
           </section>
         </div>
 
-        <aside aria-label="Page preview" className="grid min-h-64 place-items-center rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          The page preview appears here once templates are in.
-        </aside>
+        <Preview doc={state.doc} title={state.title} />
       </div>
     </div>
   );

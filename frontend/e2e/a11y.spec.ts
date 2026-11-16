@@ -3166,3 +3166,46 @@ test("text typed but not saved before the tab closed is offered again on reopeni
   await expect(again.getByText("Unsaved text from your last visit was put back.")).toBeVisible();
   await expect(again.getByLabel("Headline")).toHaveValue("Unsaved headline");
 });
+
+test("the Resume preview shows the page at real size, follows typing, zooms, and downloads the same PDF", async ({ page }) => {
+  await signIn(page);
+  const name = `Preview ${Date.now()}`;
+  await page.goto("/career/library");
+  await page.getByRole("button", { name: "New Resume" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Resume" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByLabel("Start with sample content").check();
+  await dialog.getByRole("button", { name: "Create Resume" }).click();
+  await page.getByRole("link", { name }).click();
+
+  const preview = page.getByRole("region", { name: "Page preview" });
+  const sheet = preview.getByRole("img", { name: "Page 1 of 1" });
+  await expect(sheet).toBeVisible({ timeout: 30_000 });
+  // A4 at 100% is 595 points wide, which is about 794 CSS pixels.
+  const before = (await sheet.boundingBox())!;
+  expect(Math.round(before.width)).toBeGreaterThan(780);
+  expect(Math.round(before.width)).toBeLessThan(810);
+  await expectNoViolations(page);
+
+  // Typing changes the page without waiting for it: the field answers at once, the page follows.
+  const status = preview.getByRole("status");
+  await page.getByLabel("Name", { exact: true }).fill("Grace Hopper");
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Grace Hopper");
+  await expect(status).toHaveText("1 page", { timeout: 30_000 });
+
+  await preview.getByRole("button", { name: "Zoom in" }).click();
+  await expect(preview.getByRole("button", { name: "Reset zoom" })).toHaveText("125%");
+  await expect(async () => {
+    expect((await preview.getByRole("img", { name: "Page 1 of 1" }).boundingBox())!.width).toBeGreaterThan(before.width * 1.2);
+  }).toPass();
+  await preview.getByRole("button", { name: "Reset zoom" }).click();
+
+  // The download is a PDF named after the Resume, with real text in it.
+  const [download] = await Promise.all([page.waitForEvent("download"), preview.getByRole("button", { name: "Download PDF" }).click()]);
+  expect(download.suggestedFilename()).toBe(`${name}.pdf`);
+  const path = await download.path();
+  const { readFile } = await import("node:fs/promises");
+  const bytes = await readFile(path);
+  expect(bytes.subarray(0, 5).toString()).toBe("%PDF-");
+  expect(bytes.byteLength).toBeGreaterThan(5000);
+});
