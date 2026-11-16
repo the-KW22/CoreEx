@@ -20,7 +20,7 @@ class ResumeRepository {
 			where i.owner_id = :owner and i.type = 'RESUME' and i.deleted_at is null""";
 
 	/** One row of the list: no document, so a page of Resumes stays small. */
-	record Summary(UUID id, String title, UUID folderId, Instant updatedAt) {
+	record Summary(UUID id, String title, UUID folderId, Instant createdAt, Instant updatedAt) {
 	}
 
 	private final JsonMapper json = JsonMapper.builder().build();
@@ -58,13 +58,38 @@ class ResumeRepository {
 				.optional();
 	}
 
-	List<Summary> list(UUID ownerId, int limit, long offset) {
-		return jdbc.sql("select i.id, i.title, i.folder_id, i.updated_at " + FROM
-				+ " order by i.updated_at desc, i.id limit :limit offset :offset").param("owner", ownerId)
+	// A title that contains the text, in any case; % and _ in the text are letters.
+	private static final String MATCH = " and (:q = '' or i.title ilike :contains escape '\\')";
+
+	private static String contains(String q) {
+		return "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+	}
+
+	/** Newest change first by default; "name" and "created" are the other orders. Anything else is the default. */
+	private static String order(String sort) {
+		return switch (sort) {
+			case "name" -> " order by lower(i.title), i.id";
+			case "created" -> " order by i.created_at desc, i.id";
+			default -> " order by i.updated_at desc, i.id";
+		};
+	}
+
+	List<Summary> list(UUID ownerId, String q, String sort, int limit, long offset) {
+		return jdbc.sql("select i.id, i.title, i.folder_id, i.created_at, i.updated_at " + FROM + MATCH + order(sort)
+				+ " limit :limit offset :offset").param("owner", ownerId).param("q", q).param("contains", contains(q))
 				.param("limit", limit).param("offset", offset)
 				.query((rs, n) -> new Summary(rs.getObject("id", UUID.class), rs.getString("title"),
-						rs.getObject("folder_id", UUID.class), rs.getObject("updated_at", OffsetDateTime.class).toInstant()))
+						rs.getObject("folder_id", UUID.class), rs.getObject("created_at", OffsetDateTime.class).toInstant(),
+						rs.getObject("updated_at", OffsetDateTime.class).toInstant()))
 				.list();
+	}
+
+	/** False when the Resume is missing, not the User's or already in the Trash. */
+	boolean softDelete(UUID ownerId, UUID id, Instant at) {
+		return jdbc.sql("""
+				update items set deleted_at = :at, trash_batch_id = gen_random_uuid()
+				where id = :id and owner_id = :owner and type = 'RESUME' and deleted_at is null""")
+				.param("at", java.sql.Timestamp.from(at)).param("id", id).param("owner", ownerId).update() > 0;
 	}
 
 	/** True when the Asset is a live image of this User's. */
@@ -75,8 +100,9 @@ class ResumeRepository {
 				  and f.mime_type like 'image/%'""").param("asset", assetId).param("owner", ownerId).query(Long.class).single() > 0;
 	}
 
-	long count(UUID ownerId) {
-		return jdbc.sql("select count(*) " + FROM).param("owner", ownerId).query(Long.class).single();
+	long count(UUID ownerId, String q) {
+		return jdbc.sql("select count(*) " + FROM + MATCH).param("owner", ownerId).param("q", q).param("contains", contains(q))
+				.query(Long.class).single();
 	}
 
 	/** False when the Resume is missing or its stored version is not the one the caller saw. */

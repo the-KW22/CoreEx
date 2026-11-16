@@ -1,22 +1,45 @@
+import Link from "next/link";
+
 import { PageGone, Pager } from "@/components/pager";
 import { getApi } from "@/lib/api/server";
 import { pageInfo } from "@/lib/pages";
 import { relativeTime } from "@/lib/time";
+import { cn } from "@/lib/utils";
 
 import { NewResume } from "./new-resume";
 import { ResumeRow } from "./resume-row";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 24;
 const BASE = "/career/library";
+const SORTS = [
+  { value: "updated", label: "Changed" },
+  { value: "name", label: "Name" },
+  { value: "created", label: "Created" },
+] as const;
+const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
-// Resumes & Letters (docs/DESIGN.md section 3.4): the User's Resumes, newest change first. Cover Letters, thumbnails,
-// search and grouping by Application come with their own tickets.
+// A link to the library with the page's own choices kept (search, sort, view); the defaults are left out.
+function link({ q, sort, view, page }: { q: string; sort: string; view: string; page?: number }) {
+  const query = new URLSearchParams();
+  if (q) query.set("q", q);
+  if (sort !== "updated") query.set("sort", sort);
+  if (view === "list") query.set("view", "list");
+  if (page) query.set("page", String(page));
+  return query.size > 0 ? `${BASE}?${query}` : BASE;
+}
+
+// Resumes & Letters (docs/DESIGN.md section 3.4): the User's Resumes as cards with their first page, or as a list,
+// searched by title and sorted by change, name or creation. Cover Letters and grouping by Application come with their own
+// tickets.
 export default async function LibraryPage({ searchParams }: PageProps<"/career/library">) {
-  const { page: raw } = await searchParams;
-  const requested = pageInfo(0, raw, PAGE_SIZE).page;
+  const params = await searchParams;
+  const q = first(params.q).trim();
+  const sort = SORTS.some((s) => s.value === first(params.sort)) ? first(params.sort) : "updated";
+  const view = first(params.view) === "list" ? "list" : "grid";
+  const requested = pageInfo(0, first(params.page) || undefined, PAGE_SIZE).page;
   const api = await getApi();
   const result = await api
-    .GET("/api/resumes", { params: { query: { page: requested, size: PAGE_SIZE } } })
+    .GET("/api/resumes", { params: { query: { page: requested, size: PAGE_SIZE, q, sort } } })
     .catch(() => null);
 
   if (!result) {
@@ -26,35 +49,75 @@ export default async function LibraryPage({ searchParams }: PageProps<"/career/l
     return <p role="alert">Could not load your Resumes. Try again.</p>;
   }
 
-  const { items, total } = result.data;
-  const page = pageInfo(total, raw, PAGE_SIZE);
+  const { items, total, tags } = result.data;
+  const page = pageInfo(total, first(params.page) || undefined, PAGE_SIZE);
   // The API's clock, as Home does: a page render must not read the time itself.
   const now = Date.parse(result.response.headers.get("date") ?? "");
+  const here = { q, sort, view };
+  const pill = (current: boolean) =>
+    cn("rounded-lg border border-border px-3 py-1.5 hover:bg-surface", current && "bg-surface font-medium");
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-8">
+    <div className="mx-auto grid max-w-6xl gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Resumes &amp; Letters</h1>
         <NewResume />
       </header>
 
-      {total === 0 ? (
+      <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+        <form action={BASE} role="search" className="flex gap-2">
+          {sort !== "updated" && <input type="hidden" name="sort" value={sort} />}
+          {view === "list" && <input type="hidden" name="view" value="list" />}
+          <label className="grid gap-1 text-sm font-medium">
+            Search by title
+            <input name="q" type="search" defaultValue={q} maxLength={200} autoComplete="off" className="h-9 w-64 max-w-full rounded-lg border border-border bg-surface px-3 font-normal" />
+          </label>
+          <button type="submit" className="mt-6 h-9 rounded-lg border border-border px-3 text-sm hover:bg-surface">
+            Search
+          </button>
+        </form>
+        <nav aria-label="Sort" className="flex gap-2 text-sm">
+          {SORTS.map((s) => (
+            <Link key={s.value} href={link({ ...here, sort: s.value })} aria-current={sort === s.value ? "page" : undefined} className={pill(sort === s.value)}>
+              {s.label}
+            </Link>
+          ))}
+        </nav>
+        <nav aria-label="View" className="flex gap-2 text-sm">
+          <Link href={link({ ...here, view: "grid" })} aria-current={view === "grid" ? "page" : undefined} className={pill(view === "grid")}>
+            Grid
+          </Link>
+          <Link href={link({ ...here, view: "list" })} aria-current={view === "list" ? "page" : undefined} className={pill(view === "list")}>
+            List
+          </Link>
+        </nav>
+      </div>
+
+      {total === 0 && q ? (
+        <p className="text-muted-foreground">No Resume has “{q}” in its name.</p>
+      ) : total === 0 ? (
         <p className="text-muted-foreground">No Resumes yet. Start a blank one, or one with sample content.</p>
       ) : items.length === 0 ? (
-        <PageGone first={BASE} />
+        <PageGone first={link(here)} />
       ) : (
-        <ul className="grid gap-2" aria-label="Resumes">
+        <ul
+          className={view === "grid" ? "grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-4" : "grid gap-2"}
+          aria-label="Resumes"
+        >
           {items.map((resume) => (
             <ResumeRow
               key={resume.id}
               id={resume.id}
               title={resume.title}
+              updatedAt={resume.updatedAt}
               updated={Number.isNaN(now) ? null : relativeTime(resume.updatedAt, now)}
+              tags={tags[resume.id] ?? []}
+              layout={view}
             />
           ))}
         </ul>
       )}
-      <Pager page={page} href={(n) => (n > 0 ? `${BASE}?page=${n}` : BASE)} />
+      <Pager page={page} href={(n) => link({ ...here, page: n > 0 ? n : undefined })} />
     </div>
   );
 }

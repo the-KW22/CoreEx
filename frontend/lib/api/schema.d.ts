@@ -46,7 +46,7 @@ export interface paths {
         get: operations["get"];
         put: operations["save"];
         post?: never;
-        delete?: never;
+        delete: operations["trash"];
         options?: never;
         head?: never;
         patch?: never;
@@ -174,7 +174,7 @@ export interface paths {
         get: operations["get_3"];
         put: operations["save_2"];
         post?: never;
-        delete: operations["trash"];
+        delete: operations["trash_1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2031,7 +2031,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "FOLDER" | "NOTE" | "ASSET" | "APPLICATION";
+            kind: "FOLDER" | "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
             /** @description A Folder's name, or an Item's title (may be empty) */
             title: string;
             /** Format: date-time */
@@ -2114,6 +2114,10 @@ export interface components {
             items: components["schemas"]["ResumeSummary"][];
             /** Format: int64 */
             total: number;
+            /** @description The Tags of each listed Resume, by its id; one without Tags is left out */
+            tags: {
+                [key: string]: components["schemas"]["ResumeTag"][];
+            };
         };
         ResumeSummary: {
             /** Format: uuid */
@@ -2122,7 +2126,16 @@ export interface components {
             /** Format: uuid */
             folderId: string | null;
             /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
             updatedAt: string;
+        };
+        ResumeTag: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string|null} */
+            colour?: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
         };
         ResumeVersionList: {
             items: components["schemas"]["ResumeVersionSummary"][];
@@ -2619,6 +2632,35 @@ export interface operations {
             };
             /** @description Code VERSION_CONFLICT, or RESUME_LOCKED when the Resume is locked */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    trash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Moved to the Trash */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND (also for another User's Resume) */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3164,7 +3206,7 @@ export interface operations {
             };
         };
     };
-    trash: {
+    trash_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -3615,6 +3657,10 @@ export interface operations {
             query?: {
                 page?: number;
                 size?: number;
+                /** @description Only Resumes whose title contains this, in any case */
+                q?: string;
+                /** @description updated (newest change first, the default), name or created (newest first) */
+                sort?: string;
             };
             header?: never;
             path?: never;

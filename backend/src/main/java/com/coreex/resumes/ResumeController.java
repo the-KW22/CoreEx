@@ -1,11 +1,14 @@
 package com.coreex.resumes;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,6 +24,8 @@ import com.coreex.common.ErrorBody;
 import com.coreex.identity.CurrentUserInterceptor;
 import com.coreex.identity.User;
 import com.coreex.resumes.ResumeRepository.Summary;
+import com.coreex.tags.TagColour;
+import com.coreex.tags.TagService;
 
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -78,22 +83,31 @@ class ResumeController {
 	record ResumeSummary(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID folderId,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt) {
 
 		static ResumeSummary of(Summary s) {
-			return new ResumeSummary(s.id(), s.title(), s.folderId(), s.updatedAt());
+			return new ResumeSummary(s.id(), s.title(), s.folderId(), s.createdAt(), s.updatedAt());
 		}
 
 	}
 
+	record ResumeTag(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name, @Schema(nullable = true) TagColour colour) {
+	}
+
 	record ResumePage(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ResumeSummary> items,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) long total) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) long total,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Tags of each listed Resume, by its id; one without Tags is left out") Map<UUID, List<ResumeTag>> tags) {
 	}
 
 	private final ResumeService resumes;
 
-	ResumeController(ResumeService resumes) {
+	private final TagService tags;
+
+	ResumeController(ResumeService resumes, TagService tags) {
 		this.resumes = resumes;
+		this.tags = tags;
 	}
 
 	@PostMapping(consumes = JSON)
@@ -111,9 +125,24 @@ class ResumeController {
 	@ApiResponse(responseCode = "200", description = "A page of the User's Resumes, newest change first", content = @Content(
 			mediaType = JSON, schema = @Schema(implementation = ResumePage.class)))
 	ResumePage list(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
-			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
-		var listed = resumes.list(user.id(), Math.max(0, page), Math.min(MAX_PAGE_SIZE, Math.max(1, size)));
-		return new ResumePage(listed.items().stream().map(ResumeSummary::of).toList(), listed.total());
+			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size,
+			@Parameter(description = "Only Resumes whose title contains this, in any case") @RequestParam(defaultValue = "") String q,
+			@Parameter(description = "updated (newest change first, the default), name or created (newest first)") @RequestParam(defaultValue = "updated") String sort) {
+		var listed = resumes.list(user.id(), q, sort, Math.max(0, page), Math.min(MAX_PAGE_SIZE, Math.max(1, size)));
+		var tagged = tags.forItems(user.id(), listed.items().stream().map(Summary::id).toList());
+		var chips = new LinkedHashMap<UUID, List<ResumeTag>>();
+		tagged.forEach((id, list) -> chips.put(id, list.stream().map(t -> new ResumeTag(t.id(), t.name(), t.colour())).toList()));
+		return new ResumePage(listed.items().stream().map(ResumeSummary::of).toList(), listed.total(), chips);
+	}
+
+	/** Moves the Resume to the Trash, where Restore brings it back with its document unchanged. */
+	@DeleteMapping("/{id}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@ApiResponse(responseCode = "204", description = "Moved to the Trash")
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's Resume)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	void trash(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user, @PathVariable UUID id) {
+		resumes.trash(user.id(), id);
 	}
 
 	@GetMapping("/{id}")

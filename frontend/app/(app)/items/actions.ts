@@ -34,14 +34,14 @@ export async function untagItem(id: string, tagId: string): Promise<boolean> {
 }
 
 export async function trashItem(id: string, type: ItemType): Promise<boolean> {
-  // shortcut: a Resume cannot go to the Trash yet, upgrade with the library ticket (#255).
-  if (type === "RESUME") return false;
   const api = await getApi();
   const result = await (type === "NOTE"
     ? api.DELETE("/api/notes/{id}", { params: { path: { id } } })
     : type === "ASSET"
       ? api.DELETE("/api/assets/{id}", { params: { path: { id } } })
-      : api.DELETE("/api/applications/{id}", { params: { path: { id } } })
+      : type === "RESUME"
+        ? api.DELETE("/api/resumes/{id}", { params: { path: { id } } })
+        : api.DELETE("/api/applications/{id}", { params: { path: { id } } })
   ).catch(() => null);
   return done(!!result && !result.error);
 }

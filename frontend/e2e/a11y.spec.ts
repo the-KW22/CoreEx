@@ -3519,6 +3519,99 @@ test("a photo is uploaded as an Asset, reaches the PDF, changes its frame, survi
   await expect.poll(hasImage, { timeout: 30_000 }).toBe(false);
 });
 
+test("the library searches and sorts Resumes, draws their first page, files them in a Folder and Tags, and trashes and restores them", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const folderName = `Resume folder ${stamp}`;
+  const tagName = `resume-probe-${stamp}`;
+  const [beta, alpha, gamma] = [`Beta ${stamp}`, `Alpha ${stamp}`, `Gamma ${stamp}`];
+  await page.goto("/items");
+  await page.getByRole("button", { name: "New Folder" }).click();
+  await page.getByLabel("Folder name").fill(folderName);
+  await page.getByRole("button", { name: "Create Folder" }).click();
+
+  const make = async (name: string, sample: boolean) => {
+    await page.goto("/career/library");
+    await page.getByRole("button", { name: "New Resume" }).click();
+    const dialog = page.getByRole("dialog", { name: "New Resume" });
+    await dialog.getByLabel("Name").fill(name);
+    if (sample) await dialog.getByLabel("Start with sample content").check();
+    await dialog.getByRole("button", { name: "Create Resume" }).click();
+    await expect(dialog).toHaveCount(0);
+  };
+  await make(beta, false);
+  await make(alpha, true);
+  await make(gamma, false);
+
+  // Search by title, and sort by name.
+  await page.goto("/career/library");
+  await page.getByLabel("Search by title").fill(stamp.toString());
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(page).toHaveURL(/q=/);
+  const list = page.getByRole("list", { name: "Resumes" });
+  await page.getByRole("navigation", { name: "Sort" }).getByRole("link", { name: "Name" }).click();
+  await expect(page).toHaveURL(/sort=name/);
+  await expect(list.getByRole("link")).toHaveText([alpha, beta, gamma]);
+  await page.getByLabel("Search by title").fill(`ALPHA ${stamp}`);
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(list.getByRole("link")).toHaveText([alpha]);
+
+  // The card shows the Resume's first page, drawn (the sample Resume has text, so it is not blank).
+  // The canvas is hidden until the page is drawn, so it is found by its label rather than by role.
+  const first = page.locator(`canvas[aria-label="First page of ${alpha}"]`);
+  await expect(first).toHaveAttribute("data-state", "done", { timeout: 60_000 });
+  expect(await first.evaluate((canvas: HTMLCanvasElement) => {
+    const data = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data;
+    let ink = 0;
+    for (let i = 0; i < data.length; i += 4) if (data[i] < 200 || data[i + 1] < 200 || data[i + 2] < 200) ink++;
+    return ink;
+  })).toBeGreaterThan(100);
+  await expectNoViolations(page);
+
+  // The list view keeps the search and drops the pictures.
+  await page.getByRole("navigation", { name: "View" }).getByRole("link", { name: "List" }).click();
+  await expect(page).toHaveURL(/view=list/);
+  await expect(page.locator(`canvas[aria-label="First page of ${alpha}"]`)).toHaveCount(0);
+  await expect(list.getByRole("link")).toHaveText([alpha]);
+
+  // A Folder and a Tag, set on the Resume's page (a Resume is an Item).
+  await list.getByRole("link", { name: alpha }).click();
+  const organise = page.getByRole("region", { name: "Folder and Tags" });
+  await chooseFolder(page, organise, "Folder", folderName);
+  await organise.getByRole("button", { name: "Tag", exact: true }).click();
+  await page.getByPlaceholder("Find or create a Tag").fill(tagName);
+  await page.getByRole("option", { name: `Create “${tagName}”` }).click();
+  await expect(organise.getByRole("list", { name: "Tags" }).getByRole("link", { name: tagName })).toBeVisible();
+  await expectNoViolations(page);
+
+  // The Tag shows on its card, and the Folder lists the Resume and opens its page.
+  await page.goto(`/career/library?q=${alpha}`);
+  await expect(page.getByRole("list", { name: `Tags of ${alpha}` })).toContainText(tagName);
+  await page.goto("/items");
+  await page.getByRole("link", { name: folderName }).first().click();
+  const listed = page.getByRole("main").getByRole("link", { name: alpha }).first();
+  await expect(listed).toHaveAttribute("href", /^\/career\/resumes\//);
+  await page.goto((await listed.getAttribute("href"))!);
+  await expect(page.getByRole("textbox", { name: "Resume name" })).toHaveValue(alpha);
+
+  // Move to Trash with Undo, then for good enough to see the Trash: Restore brings it back.
+  await page.goto(`/career/library?q=${alpha}`);
+  await page.getByRole("button", { name: `Move to Trash: ${alpha}` }).click();
+  await expect(page.getByText(`Moved “${alpha}” to the Trash`)).toBeVisible();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(list.getByRole("link", { name: alpha })).toBeVisible();
+  await page.getByRole("button", { name: `Move to Trash: ${alpha}` }).click();
+  await expect(list.getByRole("link", { name: alpha })).toHaveCount(0);
+  await page.goto("/trash");
+  const row = page.getByRole("row").filter({ hasText: alpha });
+  await expect(row).toContainText("Resume");
+  await expectNoViolations(page);
+  await row.getByRole("button", { name: `Restore ${alpha}` }).click();
+  await expect(page.getByText(`Restored "${alpha}"`)).toBeVisible();
+  await page.goto(`/career/library?q=${alpha}`);
+  await expect(list.getByRole("link", { name: alpha })).toBeVisible();
+});
+
 test("History keeps earlier versions: one is named, looked at in the preview without changing the Resume, and restored", async ({ page }) => {
   await signIn(page);
   await openNewResume(page, `History ${Date.now()}`);
