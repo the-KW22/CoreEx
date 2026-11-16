@@ -23,7 +23,7 @@ export type ItemType = keyof typeof PAGES;
 
 // The ?type= filter on the Items pages; anything but a known type means no filter.
 export const parseType = (raw: string | string[] | undefined): ItemType | undefined =>
-  raw === "NOTE" || raw === "ASSET" || raw === "APPLICATION" ? raw : undefined;
+  raw === "NOTE" || raw === "ASSET" || raw === "APPLICATION" || raw === "RESUME" ? raw : undefined;
 
 // A list page's link with its page number and type filter, which are left out when they are the defaults.
 export function listHref(path: string, page: number, type?: ItemType) {

@@ -63,11 +63,11 @@ _Avoid_: Bin, archive, recycle bin
 ### Search
 
 **Semantic search**:
-Finding Notes and Applications by what they mean, not only by the words they contain, so a search for "car" can find a Note about an automobile. It sits beside exact-word search, and the Search page shows both as one list.
+Finding Notes, Applications and Resumes by what they mean, not only by the words they contain, so a search for "car" can find a Note about an automobile. It sits beside exact-word search, and the Search page shows both as one list.
 _Avoid_: Vector search, AI search, smart search
 
 **Chunk**:
-A piece of a Note, about 250 words, cut at headings and whole paragraphs, that Semantic search matches and shows as the snippet. A short Note is one Chunk. An Application is cut the same way from its plain text: company, role, location, posting and the notes on its timeline.
+A piece of a Note, about 250 words, cut at headings and whole paragraphs, that Semantic search matches and shows as the snippet. A short Note is one Chunk. Applications and Resumes are cut the same way from their plain text.
 _Avoid_: Segment, passage, fragment, block
 
 ### Chat

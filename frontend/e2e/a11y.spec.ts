@@ -3577,6 +3577,7 @@ test("the library searches and sorts Resumes, draws their first page, files them
   // A Folder and a Tag, set on the Resume's page (a Resume is an Item).
   await list.getByRole("link", { name: alpha }).click();
   const organise = page.getByRole("region", { name: "Folder and Tags" });
+  await expect(page.getByRole("heading", { name: "Backlinks" })).toBeVisible();
   await chooseFolder(page, organise, "Folder", folderName);
   await organise.getByRole("button", { name: "Tag", exact: true }).click();
   await page.getByPlaceholder("Find or create a Tag").fill(tagName);

@@ -16,6 +16,7 @@ import {
   pinchView,
   readFilter,
   step,
+  typeName,
   suggestionsForOrphans,
   visibleLabels,
   writeFilter,
@@ -35,6 +36,11 @@ const node = (over: Partial<GraphNode>): GraphNode => ({
   y: null,
   tagIds: [],
   ...over,
+});
+
+it("labels and filters Resume nodes", () => {
+  expect(typeName("RESUME")).toBe("Resume");
+  expect(readFilter(new URLSearchParams("type=RESUME")).type).toBe("RESUME");
 });
 
 describe("step", () => {
