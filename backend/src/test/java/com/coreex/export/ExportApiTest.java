@@ -263,18 +263,39 @@ class ExportApiTest extends ApiTest {
 	}
 
 	@Test
-	void anApplicationIsListedAsOmittedUntilItHasItsOwnExportAndTheRestIsIntact() throws Exception {
+	void anApplicationIsExportedOnceAsJsonInItsFolderWithItsTimelineAndTags() throws Exception {
 		note(userA, "Fine", "text", null);
-		var made = post("/api/applications", userA, "{\"company\":\"Acme\",\"role\":\"Engineer\"}");
+		var jobs = folder(userA, "Jobs", null);
+		var made = post("/api/applications", userA,
+				"{\"company\":\"Acme\",\"role\":\"Engineer\",\"postingText\":\"We need a zebra wrangler\"}");
 		assertThat(made.statusCode()).as(made.body()).isEqualTo(201);
+		var id = id(made.body());
+		post("/api/items/" + id + "/move", userA, "{\"folderId\":\"" + jobs + "\"}");
+		tag(userA, id, "remote");
+		post("/api/applications/" + id + "/timeline", userA,
+				"{\"type\":\"NOTE\",\"text\":\"Spoke to the recruiter\",\"version\":1}");
+		// Another User's and a trashed Application are not in this Export.
+		post("/api/applications", userB, "{\"company\":\"Theirs\",\"role\":\"Spy\"}");
+		var trashed = id(post("/api/applications", userA, "{\"company\":\"Gone\",\"role\":\"Ghost\"}").body());
+		delete("/api/applications/" + trashed, userA);
 
 		var zip = exported(userA);
 
-		assertThat(zip.keySet()).containsExactlyInAnyOrder("Fine.md", "manifest.json");
-		var omitted = manifest(zip).path("omitted");
-		assertThat(omitted).hasSize(1);
-		assertThat(omitted.get(0).path("id").asString()).isEqualTo(id(made.body()));
-		assertThat(omitted.get(0).path("reason").asString()).contains("not in the Export yet");
+		assertThat(zip.keySet()).containsExactlyInAnyOrder("Fine.md", "Jobs/Engineer at Acme.json", "manifest.json");
+		var application = JSON.readTree(text(zip, "Jobs/Engineer at Acme.json"));
+		assertThat(application.path("id").asString()).isEqualTo(id);
+		assertThat(application.path("title").asString()).isEqualTo("Engineer at Acme");
+		assertThat(application.path("company").asString()).isEqualTo("Acme");
+		assertThat(application.path("role").asString()).isEqualTo("Engineer");
+		assertThat(application.path("postingText").asString()).isEqualTo("We need a zebra wrangler");
+		assertThat(application.path("stage").asString()).isEqualTo("SAVED");
+		assertThat(application.path("timeline")).hasSize(2);
+		assertThat(application.path("timeline").get(1).path("text").asString()).isEqualTo("Spoke to the recruiter");
+		assertThat(application.path("tags").get(0).asString()).isEqualTo("remote");
+		var entries = new java.util.ArrayList<String>();
+		manifest(zip).path("items").forEach(i -> entries.add(i.path("type").asString() + ":" + i.path("path").asString()));
+		assertThat(entries).containsExactlyInAnyOrder("NOTE:Fine.md", "APPLICATION:Jobs/Engineer at Acme.json");
+		assertThat(manifest(zip).path("omitted")).isEmpty();
 	}
 
 	@Test

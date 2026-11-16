@@ -12,7 +12,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "search",
     kind: "read",
-    summary: "Find Notes and Assets by words in a title, a Note's text, an Asset's description or a Tag name, and Notes also by meaning (English). Narrow by type, Folder and Tag.",
+    summary: "Find Notes, Assets and Applications by words in a title, a Note's text, an Asset's description, an Application's company, role, posting or notes, or a Tag name, and Notes and Applications also by meaning (English). Narrow by type, Folder and Tag.",
     useWhen: "You know what you are looking for.",
   },
   {
@@ -24,7 +24,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "get_item",
     kind: "read",
-    summary: "Read one Note (its Markdown, version, Tags, Folder and Backlinks) or an Asset's title, description and size. An Asset's file is not sent: get_asset_url gives a link to it.",
+    summary: "Read one Note (its Markdown, version, Tags, Folder and Backlinks), an Asset's title, description and size, or an Application's short summary and version. An Asset's file is not sent: get_asset_url gives a link to it.",
     useWhen: "Before editing a Note: it gives the version the edit needs.",
   },
   {
@@ -52,6 +52,18 @@ export const MCP_TOOLS: McpTool[] = [
     useWhen: "To get a Tag id for search or list_items.",
   },
   {
+    name: "get_application",
+    kind: "read",
+    summary: "Read one Application in full: its fields, the posting, its Stage, what it needs from the User now and its whole timeline.",
+    useWhen: "Before changing an Application: it gives the version a change can name.",
+  },
+  {
+    name: "list_applications",
+    kind: "read",
+    summary: "List the Applications grouped by Stage, the ones that need the User now first. One Stage or only those that need the User, 50 per page.",
+    useWhen: "You want to know where the job search stands.",
+  },
+  {
     name: "get_asset_url",
     kind: "read",
     summary: "A link to download an Asset's file (an image or PDF), valid for a few minutes. Anyone who has the link can download the file until it expires.",
@@ -68,6 +80,30 @@ export const MCP_TOOLS: McpTool[] = [
     kind: "change",
     summary: "Create a Note, optionally in a Folder and with Tags. Writing [[Exact Title]] links to another Item. Pass an id you make up (a UUID) and a retried call returns the same Note instead of making another.",
     useWhen: "You want something new written down.",
+  },
+  {
+    name: "create_application",
+    kind: "change",
+    summary: "Track a new job as an Application in Saved, from its company and role, with an optional location, link and posting text. Pass an id you make up (a UUID) and a retried call returns the same Application instead of making another.",
+    useWhen: "A job is worth keeping track of.",
+  },
+  {
+    name: "update_application",
+    kind: "change",
+    summary: "Change an Application's company, role, location, posting link or posting text. A version from get_application is optional: with it, a change from an old version is refused.",
+    useWhen: "A detail of the job changed or was wrong.",
+  },
+  {
+    name: "move_application_stage",
+    kind: "change",
+    summary: "Move an Application to a Stage. It writes a line on the timeline, dated today or a past day; Closed needs a reason.",
+    useWhen: "The job moved on: applied, a screen, an interview, an offer, closed.",
+  },
+  {
+    name: "add_application_note",
+    kind: "change",
+    summary: "Add a note to an Application's timeline, dated today or a past day.",
+    useWhen: "Something happened that is worth remembering: a call, an email.",
   },
   {
     name: "update_note",
@@ -132,7 +168,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "move_item",
     kind: "change",
-    summary: "Move a Note or Asset into a Folder, or to the top level.",
+    summary: "Move a Note, Asset or Application into a Folder, or to the top level.",
     useWhen: "Filing an Item.",
   },
   {
