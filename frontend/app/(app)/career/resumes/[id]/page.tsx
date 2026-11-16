@@ -24,7 +24,7 @@ export default async function ResumePage({ params }: PageProps<"/career/resumes/
   return (
     <>
       <RecordOpen id={resume.id} />
-      <ResumeEditor key={resume.id} id={resume.id} initial={{ title: resume.title, document: resume.document, version: resume.version }} />
+      <ResumeEditor key={resume.id} id={resume.id} initial={{ title: resume.title, document: resume.document, version: resume.version, locked: resume.locked }} />
     </>
   );
 }

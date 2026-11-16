@@ -67,8 +67,8 @@ public class ResumeService {
 		var clean = ResumeText.clean(document);
 		var json = checked(clean);
 		if (!resumes.save(ownerId, id, seenVersion, title.strip(), json, ResumeText.plain(clean), ResumeText.markdown(clean))) {
-			// Missing (or someone else's) is 404; otherwise the Resume moved on since the caller read it.
-			get(ownerId, id);
+			// Missing (or someone else's) is 404; otherwise it is locked, or it moved on since the caller read it.
+			throwIfLocked(get(ownerId, id));
 			throw new ApiException(HttpStatus.CONFLICT, "VERSION_CONFLICT",
 					"This Resume was changed somewhere else since you opened it.");
 		}
@@ -77,7 +77,20 @@ public class ResumeService {
 
 	public void rename(UUID ownerId, UUID id, String title) {
 		if (!resumes.rename(ownerId, id, title.strip())) {
+			throwIfLocked(get(ownerId, id));
 			throw notFound();
+		}
+	}
+
+	public void setLocked(UUID ownerId, UUID id, boolean locked) {
+		if (!resumes.setLocked(ownerId, id, locked)) {
+			throw notFound();
+		}
+	}
+
+	private static void throwIfLocked(Resume resume) {
+		if (resume.locked()) {
+			throw new ApiException(HttpStatus.CONFLICT, "RESUME_LOCKED", "This Resume is locked. Unlock it to change it.");
 		}
 	}
 

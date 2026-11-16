@@ -68,6 +68,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/resumes/{id}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["lock"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notes/{id}": {
         parameters: {
             query?: never;
@@ -1341,6 +1357,8 @@ export interface components {
             document: components["schemas"]["ResumeDocument"];
             /** Format: int32 */
             version: number;
+            /** @description A locked Resume cannot be saved or renamed until it is unlocked */
+            locked: boolean;
             /** Format: uuid */
             folderId: string | null;
             /** Format: date-time */
@@ -1350,6 +1368,9 @@ export interface components {
         };
         RenameResumeRequest: {
             title: string;
+        };
+        LockRequest: {
+            locked: boolean;
         };
         SaveNoteRequest: {
             title: string;
@@ -2455,7 +2476,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Code VERSION_CONFLICT */
+            /** @description Code VERSION_CONFLICT, or RESUME_LOCKED when the Resume is locked */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2496,6 +2517,39 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
+            };
+            /** @description Code NOT_FOUND (also for another User's Resume) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    lock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LockRequest"];
+            };
+        };
+        responses: {
+            /** @description Locked or unlocked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Code NOT_FOUND (also for another User's Resume) */
             404: {

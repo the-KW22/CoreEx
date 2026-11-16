@@ -7,9 +7,10 @@ import { mineTitle, type ResumeDocument } from "./store";
 export type SaveResult =
   | { status: "saved"; version: number }
   | { status: "conflict" }
+  | { status: "locked" }
   | { status: "error"; message: string };
 
-export type Loaded = { title: string; doc: ResumeDocument; version: number };
+export type Loaded = { title: string; doc: ResumeDocument; version: number; locked: boolean };
 
 // Saves the whole document with the save counter the editor last saw.
 export async function saveResume(id: string, title: string, doc: ResumeDocument, version: number): Promise<SaveResult> {
@@ -18,7 +19,11 @@ export async function saveResume(id: string, title: string, doc: ResumeDocument,
     .PUT("/api/resumes/{id}", { params: { path: { id } }, body: { title, document: doc, version } })
     .catch(() => null);
   if (!result) return { status: "error", message: "Cannot reach the CoreEx API." };
-  if (result.response.status === 409) return { status: "conflict" };
+  if (result.response.status === 409) {
+    // A locked Resume refuses the save; anything else is another tab having saved first.
+    const code = (result.error as { code?: string } | undefined)?.code;
+    return code === "RESUME_LOCKED" ? { status: "locked" } : { status: "conflict" };
+  }
   if (!result.data) return { status: "error", message: result.error?.message ?? "Could not save the Resume." };
   return { status: "saved", version: result.data.version };
 }
@@ -27,7 +32,9 @@ export async function saveResume(id: string, title: string, doc: ResumeDocument,
 export async function loadResume(id: string): Promise<Loaded | null> {
   const api = await getApi();
   const result = await api.GET("/api/resumes/{id}", { params: { path: { id } } }).catch(() => null);
-  return result?.data ? { title: result.data.title, doc: result.data.document, version: result.data.version } : null;
+  return result?.data
+    ? { title: result.data.title, doc: result.data.document, version: result.data.version, locked: result.data.locked }
+    : null;
 }
 
 // Another tab saved first: keep what this tab typed as a new Resume called "<title> (mine)". False when it was not kept.
@@ -42,4 +49,11 @@ export async function saveCopy(title: string, doc: ResumeDocument): Promise<bool
     })
     .catch(() => null);
   return !!saved?.data;
+}
+
+// Locks or unlocks the Resume. False when it could not be done.
+export async function setLocked(id: string, locked: boolean): Promise<boolean> {
+  const api = await getApi();
+  const result = await api.PUT("/api/resumes/{id}/lock", { params: { path: { id } }, body: { locked } }).catch(() => null);
+  return !!result?.response.ok;
 }

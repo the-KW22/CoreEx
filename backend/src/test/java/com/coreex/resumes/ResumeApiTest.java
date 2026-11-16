@@ -126,6 +126,46 @@ class ResumeApiTest extends ApiTest {
 	}
 
 	@Test
+	void aLockedResumeRefusesSavesAndRenamesUntilUnlocked() throws Exception {
+		var id = made(userA, "{\"title\":\"Final\"}");
+		assertThat(put("/api/resumes/" + id + "/lock", userA, "{\"locked\":true}").statusCode()).isEqualTo(204);
+		assertThat(get("/api/resumes/" + id, userA).body()).contains("\"locked\":true");
+
+		var refused = put("/api/resumes/" + id, userA, save("Final", 1, document("<p>a</p>", "")));
+		assertThat(refused.statusCode()).isEqualTo(409);
+		assertThat(refused.body()).contains("RESUME_LOCKED");
+		var renamed = put("/api/resumes/" + id + "/title", userA, "{\"title\":\"Other\"}");
+		assertThat(renamed.statusCode()).isEqualTo(409);
+		assertThat(renamed.body()).contains("RESUME_LOCKED");
+		assertThat(get("/api/resumes/" + id, userA).body()).contains("\"title\":\"Final\"").contains("\"version\":1");
+		// A copy of a locked Resume is not locked.
+		assertThat(post("/api/resumes/" + id + "/duplicate", userA, null).body()).contains("\"locked\":false");
+
+		assertThat(put("/api/resumes/" + id + "/lock", userA, "{\"locked\":false}").statusCode()).isEqualTo(204);
+		assertThat(put("/api/resumes/" + id, userA, save("Final", 1, document("<p>a</p>", ""))).statusCode()).isEqualTo(200);
+	}
+
+	@Test
+	void anotherUserCannotLockOrUnlock() throws Exception {
+		var id = made(userA, "{}");
+
+		assertThat(put("/api/resumes/" + id + "/lock", userB, "{\"locked\":true}").statusCode()).isEqualTo(404);
+		assertThat(get("/api/resumes/" + id, userA).body()).contains("\"locked\":false");
+	}
+
+	@Test
+	void privateNotesAreKeptButNeverInTheDerivedText() throws Exception {
+		var id = made(userA, "{}");
+		Map<String, Object> doc = Map.of("basics", Map.of("name", "Ada"), "privateNotes", "Sent to Acme on Monday");
+
+		assertThat(put("/api/resumes/" + id, userA, save("CV", 1, doc)).body()).contains("Sent to Acme on Monday");
+
+		var row = jdbc.sql("select plain_text, markdown from resume_contents where item_id = :id").param("id", UUID.fromString(id))
+				.query((rs, n) -> rs.getString(1) + rs.getString(2)).single();
+		assertThat(row).contains("Ada").doesNotContain("Acme");
+	}
+
+	@Test
 	void aStaleSaveCounterIsRefused() throws Exception {
 		var id = made(userA, "{}");
 		assertThat(put("/api/resumes/" + id, userA, save("CV", 1, document("<p>a</p>", "<p>b</p>"))).statusCode()).isEqualTo(200);

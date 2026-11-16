@@ -56,16 +56,20 @@ class ResumeController {
 	record RenameResumeRequest(@NotBlank @Size(max = ResumeService.MAX_TITLE) @Pattern(regexp = NO_NUL) String title) {
 	}
 
+	record LockRequest(@NotNull Boolean locked) {
+	}
+
 	record ResumeResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) ResumeDocument document,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int version,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "A locked Resume cannot be saved or renamed until it is unlocked") boolean locked,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID folderId,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt) {
 
 		static ResumeResponse of(Resume r) {
-			return new ResumeResponse(r.id(), r.title(), r.document(), r.version(), r.folderId(), r.createdAt(),
+			return new ResumeResponse(r.id(), r.title(), r.document(), r.version(), r.locked(), r.folderId(), r.createdAt(),
 					r.updatedAt());
 		}
 
@@ -129,7 +133,7 @@ class ResumeController {
 			schema = @Schema(implementation = ErrorBody.class)))
 	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's Resume)",
 			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
-	@ApiResponse(responseCode = "409", description = "Code VERSION_CONFLICT", content = @Content(mediaType = JSON,
+	@ApiResponse(responseCode = "409", description = "Code VERSION_CONFLICT, or RESUME_LOCKED when the Resume is locked", content = @Content(mediaType = JSON,
 			schema = @Schema(implementation = ErrorBody.class)))
 	ResumeResponse save(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @Valid @RequestBody SaveResumeRequest request) {
@@ -147,6 +151,16 @@ class ResumeController {
 	void rename(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @Valid @RequestBody RenameResumeRequest request) {
 		resumes.rename(user.id(), id, request.title());
+	}
+
+	@PutMapping(value = "/{id}/lock", consumes = JSON)
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@ApiResponse(responseCode = "204", description = "Locked or unlocked")
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's Resume)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	void lock(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id, @Valid @RequestBody LockRequest request) {
+		resumes.setLocked(user.id(), id, request.locked());
 	}
 
 	@PostMapping("/{id}/duplicate")

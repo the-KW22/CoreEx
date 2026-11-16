@@ -3,6 +3,7 @@
 import { Color, TextStyle } from "@tiptap/extension-text-style";
 import TextAlign from "@tiptap/extension-text-align";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
+import { createContext, useContext, useEffect } from "react";
 import StarterKit from "@tiptap/starter-kit";
 import {
   AlignCenterIcon,
@@ -29,6 +30,8 @@ const EXTENSIONS = [
     codeBlock: false,
     horizontalRule: false,
     strike: false,
+    // Undo and Redo are the editor's own, so one history covers every field.
+    undoRedo: false,
     link: { openOnClick: false, autolink: false, protocols: ["http", "https", "mailto"] },
   }),
   TextStyle,
@@ -36,15 +39,23 @@ const EXTENSIONS = [
   TextAlign.configure({ types: ["paragraph"] }),
 ];
 
+// True while the Resume is locked: every rich text field stops accepting changes.
+const LockedContext = createContext(false);
+export const Locked = ({ value, children }: { value: boolean; children: React.ReactNode }) => (
+  <LockedContext.Provider value={value}>{children}</LockedContext.Provider>
+);
+
 const tool =
   "inline-flex size-8 items-center justify-center rounded-md border border-transparent hover:bg-surface aria-pressed:border-border aria-pressed:bg-surface";
 
 // A word-processor style field for the summary and, later, each entry's description. It reports the HTML as the User
 // types; `html` is only read when the field first appears, so the cursor never jumps.
 export function RichText({ label, html, onChange }: { label: string; html: string; onChange: (html: string) => void }) {
+  const locked = useContext(LockedContext);
   const editor = useEditor({
     extensions: EXTENSIONS,
     content: html,
+    editable: !locked,
     immediatelyRender: false,
     editorProps: {
       attributes: {
@@ -56,6 +67,9 @@ export function RichText({ label, html, onChange }: { label: string; html: strin
     },
     onUpdate: ({ editor: e }) => onChange(e.getHTML()),
   });
+  useEffect(() => {
+    editor?.setEditable(!locked);
+  }, [editor, locked]);
   const on = useEditorState({
     editor,
     selector: ({ editor: e }) => ({

@@ -41,9 +41,19 @@ export const blankEntry = (id: string): Entry => ({
 
 export type Status = "saved" | "saving" | "unsaved" | "error";
 
+// What Undo and Redo step between: the text of the Resume, never its save state.
+export type Snapshot = { title: string; doc: ResumeDocument };
+
+// Undo goes back this many steps.
+export const HISTORY_LIMIT = 200;
+
 export type EditorState = {
   title: string;
   doc: ResumeDocument;
+  past: Snapshot[];
+  future: Snapshot[];
+  // The field the last edit typed in, so the next keystroke in it joins the same step; null after any other change.
+  group: string | null;
   // What the server holds, as last sent or loaded, and its save counter.
   saved: { title: string; doc: ResumeDocument };
   version: number;
@@ -51,6 +61,9 @@ export type EditorState = {
 };
 
 export type Action =
+  | { type: "undo" }
+  | { type: "redo" }
+  | { type: "privateNotes"; value: string }
   | { type: "title"; value: string }
   | { type: "basic"; field: Exclude<keyof Basics, "customFields">; value: string }
   | { type: "summary"; html: string }
@@ -83,7 +96,7 @@ export const sameText = (a: { title: string; doc: ResumeDocument }, b: { title: 
   a.title === b.title && JSON.stringify(a.doc) === JSON.stringify(b.doc);
 
 export function init(title: string, doc: ResumeDocument, version: number): EditorState {
-  return { title, doc, saved: { title, doc }, version, status: "saved" };
+  return { title, doc, past: [], future: [], group: null, saved: { title, doc }, version, status: "saved" };
 }
 
 const edited = (s: EditorState, next: Partial<Pick<EditorState, "title" | "doc">>): EditorState => {
@@ -114,9 +127,68 @@ const inEntry = (s: EditorState, section: string, id: string, change: (entry: En
     inSection(all, section, (sec) => ({ ...sec, entries: sec.entries.map((e) => (e.id === id ? change(e) : e)) })),
   );
 
-// The one place the editor's text changes. Later tickets (sections, Undo, design) add actions here.
-export function reduce(s: EditorState, a: Action): EditorState {
+// The field an edit types in. Consecutive edits with the same key are one Undo step; structural changes have none.
+function groupOf(a: Action): string | null {
   switch (a.type) {
+    case "title":
+      return "title";
+    case "basic":
+      return `basic:${a.field}`;
+    case "summary":
+      return "summary";
+    case "privateNotes":
+      return "notes";
+    case "field":
+      return `field:${a.index}:${a.part}`;
+    case "renameSection":
+      return `section:${a.id}`;
+    case "editEntry":
+      return `entry:${a.id}:${Object.keys(a.patch).join(",")}`;
+    case "editRole":
+      return `role:${a.id}:${Object.keys(a.patch).join(",")}`;
+    default:
+      return null;
+  }
+}
+
+const snapshot = (s: EditorState): Snapshot => ({ title: s.title, doc: s.doc });
+
+// Every change of the text goes through here: it records the step for Undo, and a new edit ends what could be redone.
+// Saving, loading and the like change no text and leave the history alone (loading starts it again).
+export function reduce(s: EditorState, a: Action): EditorState {
+  if (a.type === "undo" || a.type === "redo") {
+    const [from, to] = a.type === "undo" ? [s.past, s.future] : [s.future, s.past];
+    if (from.length === 0) return s;
+    const target = from[from.length - 1];
+    const rest = from.slice(0, -1);
+    const stepped = [...to, snapshot(s)].slice(-HISTORY_LIMIT);
+    return {
+      ...edited(s, target),
+      group: null,
+      past: a.type === "undo" ? rest : stepped,
+      future: a.type === "undo" ? stepped : rest,
+    };
+  }
+  const next = apply(s, a);
+  // A load replaces everything, history included.
+  if (a.type === "load" || next === s || sameText(next, s)) return next;
+  const group = groupOf(a);
+  const joins = group !== null && group === s.group;
+  return {
+    ...next,
+    past: joins ? s.past : [...s.past, snapshot(s)].slice(-HISTORY_LIMIT),
+    future: [],
+    group,
+  };
+}
+
+function apply(s: EditorState, a: Action): EditorState {
+  switch (a.type) {
+    case "privateNotes":
+      return edited(s, { doc: { ...s.doc, privateNotes: a.value } });
+    case "undo":
+    case "redo":
+      return s;
     case "title":
       return edited(s, { title: a.value });
     case "basic":
