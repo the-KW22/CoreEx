@@ -3090,3 +3090,79 @@ test("Resumes & Letters lists Resumes, and a Resume is created blank or with sam
     "page",
   );
 });
+
+// A new Resume made through the library, opened in its editor.
+async function openNewResume(page: Page, name: string) {
+  await page.goto("/career/library");
+  await page.getByRole("button", { name: "New Resume" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Resume" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByRole("button", { name: "Create Resume" }).click();
+  await page.getByRole("link", { name }).click();
+  await expect(page.getByRole("textbox", { name: "Resume name" })).toHaveValue(name);
+}
+
+test("the Resume editor saves contact details and the summary as you type, and shows Not saved with Retry when offline", async ({ page }) => {
+  await signIn(page);
+  const name = `Editor ${Date.now()}`;
+  await openNewResume(page, name);
+  const status = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+  await expectNoViolations(page);
+
+  await page.getByLabel("Name", { exact: true }).fill("Ada Lovelace");
+  await page.getByRole("textbox", { name: "Summary" }).fill("Builds engines.");
+  await page.getByRole("button", { name: "Bold" }).click();
+  await expect(status).not.toHaveText("Saved");
+  await expect(status).toHaveText("Saved");
+  await page.reload();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Ada Lovelace");
+  await expect(page.getByRole("textbox", { name: "Summary" })).toContainText("Builds engines.");
+
+  // Offline: the save fails, and Retry saves once the connection is back.
+  await page.context().setOffline(true);
+  await page.getByLabel("Headline").fill("Analyst");
+  await expect(status).toHaveText("Not saved");
+  await page.context().setOffline(false);
+  await page.getByRole("button", { name: "Retry" }).click();
+  await expect(status).toHaveText("Saved");
+  await page.reload();
+  await expect(page.getByLabel("Headline")).toHaveValue("Analyst");
+});
+
+test("a save from another tab makes a (mine) copy and loads the stored Resume", async ({ page, context }) => {
+  await signIn(page);
+  const name = `Conflict ${Date.now()}`;
+  await openNewResume(page, name);
+  const other = await context.newPage();
+  await other.goto(page.url());
+  await other.getByLabel("Name", { exact: true }).fill("Bee");
+  const otherStatus = other.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+  await expect(otherStatus).not.toHaveText("Saved");
+  await expect(otherStatus).toHaveText("Saved");
+  await other.close();
+
+  await page.getByLabel("Headline").fill("Mine");
+  await expect(page.getByText("This Resume was changed in another tab.")).toBeVisible();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Bee");
+  await expect(page.getByLabel("Headline")).toHaveValue("");
+  await expectNoViolations(page);
+
+  await page.goto("/career/library");
+  await expect(page.getByRole("list", { name: "Resumes" }).getByText(`${name} (mine)`, { exact: true })).toBeVisible();
+});
+
+test("text typed but not saved before the tab closed is offered again on reopening", async ({ page, context }) => {
+  await signIn(page);
+  await openNewResume(page, `Recover ${Date.now()}`);
+  const url = page.url();
+  await context.setOffline(true);
+  await page.getByLabel("Headline").fill("Unsaved headline");
+  await expect(page.getByRole("status").filter({ hasText: "Not saved" })).toBeVisible();
+  await page.close();
+  await context.setOffline(false);
+
+  const again = await context.newPage();
+  await again.goto(url);
+  await expect(again.getByText("Unsaved text from your last visit was put back.")).toBeVisible();
+  await expect(again.getByLabel("Headline")).toHaveValue("Unsaved headline");
+});

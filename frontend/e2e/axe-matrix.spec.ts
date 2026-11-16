@@ -16,7 +16,7 @@ const folderName = `Matrix folder ${word}`;
 const tagName = `matrix-${word}`;
 const invited = `matrix-${word}@example.com`;
 
-const seed = { note: "", asset: "", folder: "", tag: "", application: "" };
+const seed = { note: "", asset: "", folder: "", tag: "", application: "", resume: "" };
 let seedPage: Page;
 
 test.beforeAll(async ({ browser }) => {
@@ -67,6 +67,16 @@ test.beforeAll(async ({ browser }) => {
   // An Application cannot go to the Trash yet (#239), so this one stays behind.
   await newApplication(page, `Matrix ${word}`, "Engineer");
   seed.application = new URL(page.url()).pathname;
+
+  // A Resume cannot go to the Trash yet (#255), so this one stays behind.
+  await page.goto("/career/library");
+  await page.getByRole("button", { name: "New Resume" }).click();
+  const made = page.getByRole("dialog", { name: "New Resume" });
+  await made.getByLabel("Name").fill(`Matrix ${word}`);
+  await made.getByRole("button", { name: "Create Resume" }).click();
+  await page.getByRole("link", { name: `Matrix ${word}` }).click();
+  await expect(page).toHaveURL(/\/career\/resumes\//);
+  seed.resume = new URL(page.url()).pathname;
 
   await newNote(page, trashed);
   await page.getByRole("button", { name: "Move to Trash" }).click();
@@ -179,6 +189,9 @@ for (const colorScheme of ["dark", "light"] as const) {
         });
         await screen(page, failures, "application", seed.application, async () => {
           await expect(page.getByRole("heading", { name: `Engineer at Matrix ${word}`, level: 1 })).toBeVisible();
+        });
+        await screen(page, failures, "resume", seed.resume, async () => {
+          await expect(page.getByRole("textbox", { name: "Resume name" })).toHaveValue(`Matrix ${word}`);
         });
         await screen(page, failures, "asset", seed.asset, async () => {
           await expect(page.getByRole("img", { name: `matrix-${word}.png` })).toBeVisible();
