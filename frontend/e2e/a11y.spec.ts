@@ -1,3 +1,4 @@
+import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 
 import { expect, test, type Page } from "@playwright/test";
@@ -2807,7 +2808,7 @@ test("a Note's mention of an Application becomes a Backlink, and Search finds th
   const dialog = page.getByRole("dialog", { name: "New Application" });
   await dialog.getByLabel("Company").fill(company);
   await dialog.getByLabel("Role").fill("Dev");
-  await dialog.getByLabel("Posting").fill(`We need a ${word} who loves spreadsheets`);
+  await dialog.getByLabel("Posting", { exact: true }).fill(`We need a ${word} who loves spreadsheets`);
   await dialog.getByRole("button", { name: "Add Application" }).click();
   await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
 
@@ -2881,6 +2882,58 @@ ${text}
   await expect(docs.getByRole("link", { name: letter })).toBeVisible();
   await page.goto("/assets");
   await expect(page.getByRole("link", { name: file }).first()).toBeVisible();
+});
+
+test("an Application is added from a link: the page is read, typed fields are kept, and the link is stored", async ({ page }) => {
+  test.setTimeout(90_000);
+  const stamp = Date.now();
+  const company = `Oscar ${stamp}`;
+  // A fake posting page on this machine. The API reads it only when it was started with
+  // COREEX_POSTINGS_ALLOW_PRIVATE_HOSTS=true (it refuses every private address otherwise, which its own tests prove).
+  const posting = {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    title: "Staff Engineer",
+    hiringOrganization: { "@type": "Organization", name: company },
+    jobLocation: { address: { addressLocality: "Lisbon", addressCountry: "PT" } },
+    description: "<p>You will run the <b>platform</b>.</p><ul><li>Kubernetes</li></ul>",
+  };
+  const server = createServer((_, response) => {
+    response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    response.end(`<html><head><title>Jobs</title><script type="application/ld+json">${JSON.stringify(posting)}</script></head><body>menu</body></html>`);
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const link = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}/job`;
+  try {
+    await signIn(page);
+    await page.goto("/career/applications");
+    await page.getByRole("button", { name: "New Application" }).click();
+    const dialog = page.getByRole("dialog", { name: "New Application" });
+    await dialog.getByLabel("Role", { exact: true }).fill("My own role");
+    await dialog.getByLabel("Link to the posting").fill(link);
+    await dialog.getByRole("button", { name: "Read link" }).click();
+    const outcome = dialog.getByRole("status").or(dialog.getByRole("alert"));
+    await expect(outcome).toBeVisible();
+    test.skip((await outcome.innerText()).includes("not a public address"), "The API was not started with COREEX_POSTINGS_ALLOW_PRIVATE_HOSTS=true");
+
+    // What was empty is filled; what was typed stays.
+    await expect(outcome).toContainText("Filled in Company, Location, Posting.");
+    await expect(dialog.getByLabel("Company")).toHaveValue(company);
+    await expect(dialog.getByLabel("Role", { exact: true })).toHaveValue("My own role");
+    await expect(dialog.getByLabel("Location")).toHaveValue("Lisbon, PT");
+    // A label that wraps a filled-in textarea takes the text into its name, so this one is found by name instead.
+    await expect(dialog.locator('textarea[name="postingText"]')).toHaveValue(/You will run the platform\.\s+- Kubernetes/);
+    await expectNoViolations(page);
+    await dialog.getByRole("button", { name: "Add Application" }).click();
+
+    await expect(page.getByRole("heading", { name: `My own role at ${company}`, level: 1 })).toBeVisible();
+    await expect(page.getByLabel("Posting link")).toHaveValue(link);
+    await expect(page.getByLabel("Location", { exact: true })).toHaveValue("Lisbon, PT");
+    await expect(page.locator("#posting-text")).toHaveValue(/Kubernetes/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
 
 test("Career opens from the rail with its panel and the Applications list, and New Application lands on the new page", async ({ page }) => {

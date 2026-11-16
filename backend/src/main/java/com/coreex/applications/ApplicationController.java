@@ -228,6 +228,17 @@ class ApplicationController {
 	record DocumentList(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<DocumentResponse> items) {
 	}
 
+	record ReadLinkRequest(@NotBlank @Size(max = MAX_URL) String url) {
+	}
+
+	record ReadLinkResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String company,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String role,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String location,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The address the page was read from, after any redirects") String postingUrl,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String postingText,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "True when the page had JobPosting data; false when only its title and text were read") boolean structured) {
+	}
+
 	record ApplicationTag(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
 			@Schema(nullable = true) TagColour colour) {
@@ -246,8 +257,11 @@ class ApplicationController {
 
 	private final TagService tags;
 
+	private final PostingFetcher postings;
+
 	ApplicationController(ApplicationService applications, ApplicationBulkService bulk, HttpServletRequest request,
-			TagService tags) {
+			TagService tags, PostingFetcher postings) {
+		this.postings = postings;
 		this.applications = applications;
 		this.bulk = bulk;
 		this.request = request;
@@ -279,6 +293,24 @@ class ApplicationController {
 			@Valid @RequestBody CreateApplicationRequest request) {
 		return respond(applications.create(user.id(), request.company(), request.role(),
 				orEmpty(request.location()), orEmpty(request.postingUrl()), orEmpty(request.postingText())));
+	}
+
+	/**
+	 * Reads a posting from a link and says what it found; nothing is stored. The fields are for the User to review
+	 * before saving.
+	 * shortcut: no limit on how often a User may ask; add one before opening CoreEx beyond a few Users.
+	 */
+	@PostMapping(value = "/read-link", consumes = JSON)
+	@ApiResponse(responseCode = "200", description = "What the page said: company, role, location, the posting",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ReadLinkResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST: not a web address, not a public address, too large, too slow, not a web page, or it could not be read",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	ReadLinkResponse readLink(@Valid @RequestBody ReadLinkRequest request) {
+		var page = postings.fetch(request.url());
+		var read = PostingParser.parse(page.html());
+		var url = page.url().contains("#") ? page.url().substring(0, page.url().indexOf('#')) : page.url();
+		return new ReadLinkResponse(read.company(), read.role(), read.location(),
+				url.length() <= MAX_URL ? url : "", read.text(), read.structured());
 	}
 
 	/** The signed-in User's live Applications, grouped by Stage and sorted by Next step within each. */

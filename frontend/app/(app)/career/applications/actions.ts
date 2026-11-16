@@ -27,7 +27,15 @@ export async function createApplication(_previous: CreateState, formData: FormDa
 
   const api = await getApi();
   const result = await api
-    .POST("/api/applications", { body: { company, role, postingText: field("postingText") } })
+    .POST("/api/applications", {
+      body: {
+        company,
+        role,
+        location: field("location").trim(),
+        postingUrl: field("postingUrl").trim(),
+        postingText: field("postingText"),
+      },
+    })
     .catch(() => null);
   if (!result) return { error: "Cannot reach the CoreEx API." };
   if (!result.data) return { error: result.error?.message ?? "Could not create the Application." };
@@ -70,6 +78,19 @@ export async function deleteApplication(formData: FormData) {
   if (!id) return;
   if (!(await trashItem(id, "APPLICATION"))) redirect(`/career/applications/${id}?error=delete`);
   redirect("/career/applications");
+}
+
+// What a link's page said: company, role, location and the posting. Nothing is stored; the dialog shows it for review.
+export type LinkRead = components["schemas"]["ReadLinkResponse"];
+
+export async function readLink(
+  url: string,
+): Promise<{ ok: true; read: LinkRead } | { ok: false; message: string }> {
+  const api = await getApi();
+  const result = await api.POST("/api/applications/read-link", { body: { url } }).catch(() => null);
+  if (!result) return { ok: false, message: "Cannot reach the CoreEx API." };
+  if (!result.data) return { ok: false, message: result.error?.message ?? "The link could not be read." };
+  return { ok: true, read: result.data };
 }
 
 // Every call that answers with the stored Application: a 409 is a stale version, anything else a message to show.
