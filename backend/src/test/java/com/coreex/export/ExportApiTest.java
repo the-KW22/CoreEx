@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -23,10 +24,12 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.coreex.ApiTest;
 import com.coreex.TestJwts;
+import com.coreex.TestResumePdfRenderer;
 import com.coreex.TestStorage;
 import com.coreex.TestSupportConfiguration.TestClock;
 
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Export: everything a User keeps, as one zip. */
@@ -41,6 +44,9 @@ class ExportApiTest extends ApiTest {
 	TestStorage storage;
 
 	@Autowired
+	TestResumePdfRenderer renderer;
+
+	@Autowired
 	TestClock clock;
 
 	private String userA;
@@ -51,6 +57,7 @@ class ExportApiTest extends ApiTest {
 	void cleanDatabase() {
 		jdbc.sql("delete from users").update();
 		storage.clear();
+		renderer.clear();
 		userA = userToken("a@example.com", "USER");
 		userB = userToken("b@example.com", "USER");
 	}
@@ -328,6 +335,96 @@ class ExportApiTest extends ApiTest {
 
 		assertThat(zip.keySet()).containsExactlyInAnyOrder("Fine.md", "manifest.json");
 		assertThat(manifest(zip).path("omitted").get(0).path("reason").asString()).contains("could not be read");
+	}
+
+	private String resume(String token, String title, String folderId) throws Exception {
+		var created = post("/api/resumes", token, "{\"sample\":true,\"title\":" + JSON.writeValueAsString(title) + "}");
+		assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
+		var resume = id(created.body());
+		if (folderId != null) {
+			assertThat(post("/api/items/" + resume + "/move", token, "{\"folderId\":\"" + folderId + "\"}").statusCode() / 100)
+					.isEqualTo(2);
+		}
+		return resume;
+	}
+
+	@Test
+	void aResumeIsWrittenAsJsonMarkdownAndPdfInItsFolderAndListedInTheManifest() throws Exception {
+		var jobs = folder(userA, "Jobs", null);
+		var cv = resume(userA, "CV", jobs);
+		var stored = JSON.readTree(get("/api/resumes/" + cv, userA).body());
+		var markdown = JSON.readTree(get("/api/resumes/" + cv + "/markdown", userA).body()).path("markdown").asString();
+
+		var zip = exported(userA);
+
+		assertThat(zip.keySet()).containsExactlyInAnyOrder("Jobs/CV.json", "Jobs/CV.md", "Jobs/CV.pdf", "manifest.json");
+		// The JSON is the Resume's document, and the Markdown is the same text the Resume's own endpoint gives.
+		assertThat(JSON.readTree(text(zip, "Jobs/CV.json"))).isEqualTo(stored.path("document"));
+		assertThat(text(zip, "Jobs/CV.md")).isEqualTo(markdown).isNotBlank();
+		assertThat(zip.get("Jobs/CV.pdf")).isEqualTo(TestResumePdfRenderer.PDF);
+		assertThat(renderer.requests()).hasSize(1);
+		assertThat(renderer.requests().get(0).photoSrc()).isNull();
+
+		var cvEntry = new LinkedHashMap<String, JsonNode>();
+		manifest(zip).path("items").forEach(item -> cvEntry.put(item.path("id").asString(), item));
+		var entry = cvEntry.get(cv);
+		assertThat(entry.path("type").asString()).isEqualTo("RESUME");
+		assertThat(entry.path("title").asString()).isEqualTo("CV");
+		assertThat(entry.path("folder").asString()).isEqualTo("Jobs");
+		assertThat(entry.path("path").asString()).isEqualTo("Jobs/CV.json");
+		var paths = new java.util.ArrayList<String>();
+		entry.path("paths").forEach(p -> paths.add(p.asString()));
+		assertThat(paths).containsExactly("Jobs/CV.json", "Jobs/CV.md", "Jobs/CV.pdf");
+		assertThat(manifest(zip).path("omitted")).isEmpty();
+	}
+
+	@Test
+	void aResumePdfThatCannotBeMadeIsOmittedWithAReasonAndTheRestOfTheResumeIsWritten() throws Exception {
+		var cv = resume(userA, "CV", null);
+		renderer.setFailing(true);
+
+		var zip = exported(userA);
+
+		assertThat(zip.keySet()).containsExactlyInAnyOrder("CV.json", "CV.md", "manifest.json");
+		var omitted = manifest(zip).path("omitted");
+		assertThat(omitted).hasSize(1);
+		assertThat(omitted.get(0).path("id").asString()).isEqualTo(cv);
+		assertThat(omitted.get(0).path("title").asString()).isEqualTo("CV");
+		assertThat(omitted.get(0).path("reason").asString()).contains("PDF");
+		var paths = new java.util.ArrayList<String>();
+		manifest(zip).path("items").get(0).path("paths").forEach(p -> paths.add(p.asString()));
+		assertThat(paths).containsExactly("CV.json", "CV.md");
+	}
+
+	@Test
+	void anotherUsersAndATrashedResumeAreNeverRenderedOrWritten() throws Exception {
+		resume(userB, "B's CV", null);
+		var trashed = resume(userA, "Old CV", null);
+		assertThat(delete("/api/resumes/" + trashed, userA).statusCode()).isEqualTo(204);
+
+		var zip = exported(userA);
+
+		assertThat(zip.keySet()).containsExactly("manifest.json");
+		assertThat(renderer.requests()).isEmpty();
+		assertThat(new String(zip.get("manifest.json"), StandardCharsets.UTF_8)).doesNotContain("B's CV").doesNotContain("Old CV");
+	}
+
+	@Test
+	void aResumesPhotoGoesToThePdfAsTheEditorShowsIt() throws Exception {
+		var cv = resume(userA, "CV", null);
+		var picture = new byte[] { 1, 2, 3, 4, 5 };
+		var photo = asset(userA, "me.png", picture, null);
+		var saved = JSON.readTree(get("/api/resumes/" + cv, userA).body());
+		var document = (ObjectNode) saved.path("document");
+		((ObjectNode) document.path("basics").path("photo")).put("assetId", photo).put("visible", true);
+		var put = put("/api/resumes/" + cv, userA, "{\"title\":\"CV\",\"document\":" + JSON.writeValueAsString(document)
+				+ ",\"version\":" + saved.path("version").asInt() + "}");
+		assertThat(put.statusCode()).as(put.body()).isEqualTo(200);
+
+		exported(userA);
+
+		assertThat(renderer.requests().get(0).photoSrc())
+				.isEqualTo("data:image/png;base64," + Base64.getEncoder().encodeToString(picture));
 	}
 
 	@Test

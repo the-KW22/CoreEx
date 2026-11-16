@@ -23,7 +23,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.coreex.common.ErrorBody;
 import com.coreex.identity.CurrentUserInterceptor;
 import com.coreex.identity.User;
-import com.coreex.resumes.ResumeRepository.Summary;
 import com.coreex.tags.TagColour;
 import com.coreex.tags.TagService;
 
@@ -50,7 +49,8 @@ class ResumeController {
 
 	record CreateResumeRequest(@Size(max = ResumeService.MAX_TITLE) @Pattern(regexp = NO_NUL) String title,
 			@Schema(description = "Start from made-up sample content instead of a blank Resume") Boolean sample,
-			@Schema(nullable = true, description = "An id you make up. Sending the same request again returns that Resume instead of making a second one; an id already used for anything else is refused with INVALID_REQUEST") UUID id) {
+			@Schema(nullable = true, description = "An id you make up. Sending the same request again returns that Resume instead of making a second one; an id already used for anything else is refused with INVALID_REQUEST") UUID id,
+			@Schema(nullable = true, description = "A Resume to start from, such as one imported from a file. Checked and sanitised like a save; when sent, sample is ignored") @Valid ResumeDocument document) {
 	}
 
 	/** Carries the version the client last saw; a newer stored version means 409 VERSION_CONFLICT. */
@@ -90,7 +90,7 @@ class ResumeController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt) {
 
-		static ResumeSummary of(Summary s) {
+		static ResumeSummary of(ResumeService.Row s) {
 			return new ResumeSummary(s.id(), s.title(), s.folderId(), s.createdAt(), s.updatedAt());
 		}
 
@@ -122,7 +122,8 @@ class ResumeController {
 			schema = @Schema(implementation = ErrorBody.class)))
 	ResumeResponse create(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@Valid @RequestBody CreateResumeRequest request) {
-		return ResumeResponse.of(resumes.create(user.id(), request.id(), request.title(), Boolean.TRUE.equals(request.sample())).resume());
+		return ResumeResponse.of(resumes.create(user.id(), request.id(), request.title(), Boolean.TRUE.equals(request.sample()),
+				request.document()).resume());
 	}
 
 	@GetMapping
@@ -133,7 +134,7 @@ class ResumeController {
 			@Parameter(description = "Only Resumes whose title contains this, in any case") @RequestParam(defaultValue = "") String q,
 			@Parameter(description = "updated (newest change first, the default), name or created (newest first)") @RequestParam(defaultValue = "updated") String sort) {
 		var listed = resumes.list(user.id(), q, sort, Math.max(0, page), Math.min(MAX_PAGE_SIZE, Math.max(1, size)));
-		var tagged = tags.forItems(user.id(), listed.items().stream().map(Summary::id).toList());
+		var tagged = tags.forItems(user.id(), listed.items().stream().map(ResumeService.Row::id).toList());
 		var chips = new LinkedHashMap<UUID, List<ResumeTag>>();
 		tagged.forEach((id, list) -> chips.put(id, list.stream().map(t -> new ResumeTag(t.id(), t.name(), t.colour())).toList()));
 		return new ResumePage(listed.items().stream().map(ResumeSummary::of).toList(), listed.total(), chips);

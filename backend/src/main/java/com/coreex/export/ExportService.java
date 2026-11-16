@@ -6,17 +6,21 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +29,9 @@ import com.coreex.common.ApiException;
 import com.coreex.export.ExportRepository.Row;
 import com.coreex.folders.Folder;
 import com.coreex.folders.FolderService;
+import com.coreex.resumes.Resume;
+import com.coreex.resumes.ResumeDocument;
+import com.coreex.resumes.ResumeService;
 import com.coreex.storage.Storage;
 import com.coreex.tags.Tag;
 import com.coreex.tags.TagService;
@@ -33,14 +40,22 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Writes everything a User keeps as one zip: Notes as Markdown exactly as stored, Assets as their original files,
- * in folders that mirror the Folder tree, and a manifest.json that lists every Item and anything left out. The zip is
- * written as it is made, so a big account is never held in memory whole.
+ * Applications and Resumes as JSON (a Resume also as Markdown and PDF), in folders that mirror the Folder tree, and a
+ * manifest.json that lists every Item and anything left out. The zip is written as it is made, so a big account is
+ * never held in memory whole.
  */
 @Service
 class ExportService {
 
+	private static final Logger log = LoggerFactory.getLogger(ExportService.class);
+
 	// A Note may be 1 MB and its text is held twice (as text and as bytes), so a batch of 25 is at most about 50 MB.
 	private static final int BATCH = 25;
+
+	// The photo limits the editor applies (ResumeCss and the photo picker): PNG or JPEG, and at most 5 MB.
+	private static final Set<String> PHOTO_TYPES = Set.of("image/png", "image/jpeg");
+
+	private static final long MAX_PHOTO = 5_000_000L;
 
 	private static final Dir TOP = new Dir("", null);
 
@@ -56,6 +71,10 @@ class ExportService {
 
 	private final ApplicationService applications;
 
+	private final ResumeService resumes;
+
+	private final ResumePdfRenderer renderer;
+
 	private final Storage storage;
 
 	private final Clock clock;
@@ -69,11 +88,13 @@ class ExportService {
 	private final Map<UUID, Instant> lastExport = new ConcurrentHashMap<>();
 
 	ExportService(ExportRepository repository, FolderService folders, TagService tags, ApplicationService applications,
-			Storage storage, Clock clock, ExportProperties properties) {
+			ResumeService resumes, ResumePdfRenderer renderer, Storage storage, Clock clock, ExportProperties properties) {
 		this.repository = repository;
 		this.folders = folders;
 		this.tags = tags;
 		this.applications = applications;
+		this.resumes = resumes;
+		this.renderer = renderer;
 		this.storage = storage;
 		this.clock = clock;
 		this.properties = properties;
@@ -110,6 +131,10 @@ class ExportService {
 			var tagsByItem = tags.forItems(ownerId, batch.stream().map(Row::id).toList());
 			for (var row : batch) {
 				var dir = directories.getOrDefault(row.folderId(), TOP);
+				if ("RESUME".equals(row.type())) {
+					resume(ownerId, row, dir, names, tagsByItem.getOrDefault(row.id(), List.of()), zip, items, omitted);
+					continue;
+				}
 				byte[] content;
 				String name;
 				if ("NOTE".equals(row.type())) {
@@ -140,6 +165,69 @@ class ExportService {
 		put(zip, "manifest.json", clock.instant(), json.writeValueAsBytes(manifest));
 		zip.finish();
 		zip.flush();
+	}
+
+	/**
+	 * A Resume as three files in its Folder: the document as JSON, its Markdown, and a PDF drawn by the frontend. A PDF
+	 * that cannot be made is listed as omitted and the other two are still written. The Resume's manifest entry names its
+	 * JSON file as "path" and every file written as "paths".
+	 */
+	private void resume(UUID ownerId, Row row, Dir dir, ExportNames names, List<Tag> itemTags, ZipOutputStream zip,
+			List<Map<String, Object>> items, List<Map<String, Object>> omitted) throws IOException {
+		Resume resume;
+		try {
+			resume = resumes.get(ownerId, row.id());
+		}
+		catch (ApiException e) {
+			// Trashed between the list and this read: it is not part of the export.
+			return;
+		}
+		var paths = new ArrayList<String>();
+		var jsonPath = pathIn(dir, names.file(dir.path(), row.title(), ".json"));
+		var markdownPath = pathIn(dir, names.file(dir.path(), row.title(), ".md"));
+		put(zip, jsonPath, row.updatedAt(), json.writeValueAsBytes(resume.document()));
+		put(zip, markdownPath, row.updatedAt(), resumes.markdown(resume.document()).getBytes(StandardCharsets.UTF_8));
+		paths.add(jsonPath);
+		paths.add(markdownPath);
+		// shortcut: each PDF is drawn one after another inside the export's response, up to 60 s each, so a User with many
+		// Resumes waits for every one. Upgrade by drawing them in parallel or in a background job that writes them later.
+		try {
+			var pdf = renderer.render(new ResumePdfRequest(resume.document(), photoSrc(ownerId, resume.document())));
+			var path = pathIn(dir, names.file(dir.path(), row.title(), ".pdf"));
+			put(zip, path, row.updatedAt(), pdf);
+			paths.add(path);
+		}
+		catch (IOException | RuntimeException e) {
+			log.warn("A Resume's PDF was left out of an export: {}", e.getMessage());
+			omitted.add(omission(row, "The PDF could not be made."));
+		}
+		var item = manifestItem(row, dir, jsonPath, itemTags);
+		item.put("paths", paths);
+		items.add(item);
+	}
+
+	/** The photo as the editor shows it: the User's own PNG or JPEG under 5 MB, and only when the photo is visible. */
+	private String photoSrc(UUID ownerId, ResumeDocument document) throws IOException {
+		var photo = document.basics().photo();
+		if (photo == null || photo.assetId() == null || photo.assetId().isEmpty() || !Boolean.TRUE.equals(photo.visible())) {
+			return null;
+		}
+		var file = repository.item(ownerId, UUID.fromString(photo.assetId())).orElse(null);
+		if (file == null || file.storageKey() == null || file.sizeBytes() == null || file.sizeBytes() > MAX_PHOTO
+				|| !PHOTO_TYPES.contains(file.mimeType())) {
+			return null;
+		}
+		var stream = storage.read(file.storageKey());
+		if (stream.isEmpty()) {
+			return null;
+		}
+		try (var in = stream.get()) {
+			return "data:" + file.mimeType() + ";base64," + Base64.getEncoder().encodeToString(in.readAllBytes());
+		}
+	}
+
+	private static String pathIn(Dir dir, String name) {
+		return dir.path().isEmpty() ? name : dir.path() + "/" + name;
 	}
 
 	/** An Application as JSON: every field and its whole timeline, with its Tags by name. */

@@ -370,6 +370,36 @@ class ResumeApiTest extends ApiTest {
 	}
 
 	@Test
+	void anImportedDocumentCreatesTheResumeSanitisedLikeAnySave() throws Exception {
+		var body = JSON.writeValueAsString(Map.of("title", "Imported", "document",
+				document("<p>Engineer<script>alert(1)</script></p>", "<p onclick=\"x()\">Built it</p>")));
+		var created = post("/api/resumes", userA, body);
+		assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
+		var read = get("/api/resumes/" + field(created.body(), "id"), userA).body();
+		assertThat(read).contains("\"title\":\"Imported\"", "Engineer", "Built it", "Ada Lovelace")
+				.doesNotContain("<script", "alert(1)", "onclick");
+	}
+
+	@Test
+	void aBrokenOrOversizedImportCreatesNothing() throws Exception {
+		var broken = post("/api/resumes", userA, "{\"title\":\"Broken\",\"document\":{\"sections\":[{\"kind\":\"NOPE\"}]}}");
+		assertThat(broken.statusCode()).isEqualTo(400);
+		var oversized = post("/api/resumes", userA, JSON.writeValueAsString(Map.of("title", "Big", "document",
+				document("x".repeat(1_000_001), ""))));
+		assertThat(oversized.statusCode()).isEqualTo(400);
+		assertThat(get("/api/resumes", userA).body()).contains("\"total\":0");
+	}
+
+	@Test
+	void anImportedPhotoMustBeTheUsersOwnImage() throws Exception {
+		var theirs = asset(idB, "photo.png", "image/png");
+		var refused = post("/api/resumes", userA, JSON.writeValueAsString(Map.of("title", "Photo", "document",
+				Map.of("basics", Map.of("name", "Ada", "photo", Map.of("assetId", theirs.toString()))))));
+		assertThat(refused.statusCode()).isEqualTo(400);
+		assertThat(get("/api/resumes", userA).body()).contains("\"total\":0");
+	}
+
+	@Test
 	void anotherUserGets404OnEveryEndpoint() throws Exception {
 		var id = made(userA, "{}");
 

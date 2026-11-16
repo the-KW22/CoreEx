@@ -48,6 +48,13 @@ public class TestSupportConfiguration {
 		return new TestAuthAccounts();
 	}
 
+	/** Replaces the Next.js PDF route, so no test needs the frontend running. */
+	@Bean
+	@Primary
+	public TestResumePdfRenderer testResumePdfRenderer() {
+		return new TestResumePdfRenderer();
+	}
+
 	@Bean
 	@Primary
 	public TestClock testClock() {

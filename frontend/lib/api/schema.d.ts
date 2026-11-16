@@ -1736,6 +1736,8 @@ export interface components {
              * @description An id you make up. Sending the same request again returns that Resume instead of making a second one; an id already used for anything else is refused with INVALID_REQUEST
              */
             id?: string | null;
+            /** @description A Resume to start from, such as one imported from a file. Checked and sanitised like a save; when sent, sample is ignored */
+            document?: components["schemas"]["ResumeDocument"];
         };
         NameResumeVersionRequest: {
             name: string;

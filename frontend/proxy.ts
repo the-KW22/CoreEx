@@ -25,8 +25,12 @@ export async function proxy(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const signedIn = Boolean(data?.claims);
   const onLogin = request.nextUrl.pathname === "/login";
-  // The password reset link arrives signed out and signs the person in.
-  const open = onLogin || request.nextUrl.pathname === "/auth/callback";
+  // The password reset link arrives signed out and signs the person in. The Resume PDF route is called by the API, which
+  // proves itself with the shared secret instead of a session.
+  const open =
+    onLogin ||
+    request.nextUrl.pathname === "/auth/callback" ||
+    request.nextUrl.pathname === "/export/resume-pdf";
 
   if (!signedIn && !open) {
     return NextResponse.redirect(new URL("/login", request.url));
