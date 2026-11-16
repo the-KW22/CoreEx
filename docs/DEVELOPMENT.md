@@ -66,6 +66,8 @@ feature/fix branches ──PR (squash)──▶ staging ──release PR (merge 
 
 Every piece of work has a GitHub issue. That's how both humans and agents know what's happening.
 
+**Epics are worked in bundles**: 3–5 related sub-issues share one branch, one plan comment, one review, one CI run, one PR and one session record. Read "Bundles" in `docs/agents/skills-playbook.md` first. The steps below apply to the bundle: read "ticket" as "bundle", and tick each sub-issue's criteria.
+
 1. **Pick.** Choose an open issue with no open blockers (`Blocked by` all closed). Assign yourself. That marks it as in progress.
 2. **Plan.** Before writing code, post a short **implementation plan** as a comment on the issue:
    - the approach in 3–6 bullets, in glossary terms;
@@ -154,8 +156,8 @@ Closes #<issue>
 
 **Rules**
 
-- **Small PRs:** aim for under ~400 changed lines, excluding generated code. A ticket that needs much more was probably too big, so split it.
-- One issue per PR. Unrelated fixes you notice get their own issue.
+- **Small PRs:** aim for under ~400 changed lines per sub-issue and ~1,500 per bundle, excluding generated code. A bundle that needs much more was too big, so split it.
+- **One bundle per PR** (3–5 related sub-issues of one epic, `Closes #a` and `Closes #b` on separate lines). A lone issue is a bundle of one. Unrelated fixes you notice get their own issue.
 - Never merge red CI. Never merge with unresolved "Must fix" findings.
 - Generated files (the OpenAPI TypeScript client) are regenerated, never edited by hand, and committed in the same PR as the API change that caused them.
 
@@ -368,7 +370,7 @@ A ticket is done when **all** of these are true:
 
 `wiki-vault/` is a local-only LLM Wiki (Karpathy's pattern) inside this repo. It is gitignored, so it is never pushed. Its own `wiki-vault/AGENTS.md` is the full schema.
 
-**At the end of every work session**, whether coding, debugging, planning, or studying, an agent must:
+**At the end of every work session** (one per bundle, not one per sub-issue), whether coding, debugging, planning, or studying, an agent must:
 
 1. **Record:** write one new file, `wiki-vault/raw/sessions/YYYY-MM-DD-HHMM-<slug>.md`, using the session template in `wiki-vault/AGENTS.md`. Once written, it is never edited.
 2. **Ingest:** run the vault's ingest operation on that file. That means a source summary, updated concept and entity pages, `index.md`, and a `log.md` entry.
