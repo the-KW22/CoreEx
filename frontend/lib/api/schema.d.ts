@@ -516,6 +516,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/read-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["readLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/bulk/trash": {
         parameters: {
             query?: never;
@@ -1546,6 +1562,19 @@ export interface components {
             assetId: string;
             /** @enum {string} */
             label: "RESUME" | "COVER_LETTER" | "OTHER";
+        };
+        ReadLinkRequest: {
+            url: string;
+        };
+        ReadLinkResponse: {
+            company: string;
+            role: string;
+            location: string;
+            /** @description The address the page was read from, after any redirects */
+            postingUrl: string;
+            postingText: string;
+            /** @description True when the page had JobPosting data; false when only its title and text were read */
+            structured: boolean;
         };
         BulkIds: {
             ids: string[];
@@ -3887,6 +3916,39 @@ export interface operations {
             };
             /** @description Code NOT_FOUND (the Application or the Asset, also another User's) */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    readLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description What the page said: company, role, location, the posting */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadLinkResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST: not a web address, not a public address, too large, too slow, not a web page, or it could not be read */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

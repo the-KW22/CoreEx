@@ -86,7 +86,7 @@ export async function newApplication(page: Page, company: string, role: string) 
   const dialog = page.getByRole("dialog", { name: "New Application" });
   await dialog.getByLabel("Company").fill(company);
   await dialog.getByLabel("Role").fill(role);
-  await dialog.getByLabel("Posting").fill("We are hiring.");
+  await dialog.getByLabel("Posting", { exact: true }).fill("We are hiring.");
   await dialog.getByRole("button", { name: "Add Application" }).click();
   await expect(page).toHaveURL(/\/career\/applications\//);
   await expect(page.getByRole("heading", { name: `${role} at ${company}`, level: 1 })).toBeVisible();

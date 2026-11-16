@@ -210,7 +210,7 @@ If `staging` holds nothing unreleased, use the normal flow and release immediate
 
 **Running the end-to-end tests** (`frontend/e2e/`)
 
-1. Start the local stack as in the README (Supabase and the API). You do not need `npm run dev`: the tests build the frontend and serve that build on port 3100 themselves, fresh every run. The API's `OWNER_EMAIL` must match the test account so it needs no Invite.
+1. Start the local stack as in the README (Supabase and the API). You do not need `npm run dev`: the tests build the frontend and serve that build on port 3100 themselves, fresh every run. The API's `OWNER_EMAIL` must match the test account so it needs no Invite. For the test that adds an Application from a link, also start the API with `COREEX_POSTINGS_ALLOW_PRIVATE_HOSTS=true`: the test serves a fake posting page from this machine, and the API refuses every private address unless told otherwise (the test skips itself without it). Never set it anywhere else.
 2. Once per machine: `npx playwright install chromium`.
 3. `npm run e2e` in `frontend/`. The tests sign in as `E2E_EMAIL` / `E2E_PASSWORD` (default `owner@example.com` / `coreex-e2e-password`, local only) and create that account on a fresh database. `E2E_BASE_URL` skips the build and tests a server you already run (for example `npm run dev` on `http://localhost:3000`).
 4. While working on a ticket, run only its tests: `npx playwright test -g "Tags page"`. Run the whole suite once before opening the PR, because it is the slow part.
