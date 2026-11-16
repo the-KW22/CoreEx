@@ -16,12 +16,14 @@ exports[`what the template draws > lists the sample Resume in reading order 1`] 
   {
     "column": "main",
     "kind": "heading",
+    "page": 1,
     "ref": "summary",
     "text": "Summary",
   },
   {
     "column": "main",
     "kind": "text",
+    "page": 1,
     "rich": [
       {
         "align": undefined,
@@ -44,6 +46,7 @@ exports[`what the template draws > lists the sample Resume in reading order 1`] 
   {
     "column": "main",
     "kind": "heading",
+    "page": 1,
     "ref": "section:experience",
     "text": "Experience",
   },
@@ -58,6 +61,7 @@ exports[`what the template draws > lists the sample Resume in reading order 1`] 
     "kind": "entry",
     "level": "",
     "location": "Remote",
+    "page": 1,
     "rich": [
       {
         "items": [
@@ -89,6 +93,7 @@ exports[`what the template draws > lists the sample Resume in reading order 1`] 
     "kind": "entry",
     "level": "",
     "location": "Berlin, Germany",
+    "page": 1,
     "rich": [
       {
         "align": undefined,
@@ -115,6 +120,7 @@ exports[`what the template draws > lists the sample Resume in reading order 1`] 
   {
     "column": "main",
     "kind": "heading",
+    "page": 1,
     "ref": "section:education",
     "text": "Education",
   },
@@ -126,6 +132,7 @@ exports[`what the template draws > lists the sample Resume in reading order 1`] 
     "kind": "entry",
     "level": "",
     "location": "",
+    "page": 1,
     "rich": [],
     "roles": [],
     "subtitle": "University of Example",
@@ -135,6 +142,7 @@ exports[`what the template draws > lists the sample Resume in reading order 1`] 
   {
     "column": "main",
     "kind": "heading",
+    "page": 1,
     "ref": "section:skills",
     "text": "Skills",
   },
@@ -150,6 +158,7 @@ exports[`what the template draws > lists the sample Resume in reading order 1`] 
     "kind": "entry",
     "level": "",
     "location": "",
+    "page": 1,
     "rich": [],
     "roles": [],
     "subtitle": "",
@@ -167,6 +176,7 @@ exports[`what the template draws > lists the sample Resume in reading order 1`] 
     "kind": "entry",
     "level": "",
     "location": "",
+    "page": 1,
     "rich": [],
     "roles": [],
     "subtitle": "",

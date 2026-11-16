@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { clearUnsaved, recoveryAction, storeUnsaved, takeNewestUnsaved } from "../../../notes/[id]/recovery";
 import { loadResume, saveCopy, saveResume, setLocked as lockResume } from "./actions";
 import { Preview } from "./preview";
+import { Controls } from "./controls";
 import { Design } from "./design";
 import { Locked, RichText } from "./rich-text";
 import { Sections } from "./sections";
@@ -370,6 +371,17 @@ export function ResumeEditor({
                 setCandidate(null);
               }}
             />
+            <fieldset disabled={locked} className="m-0 min-w-0 border-0 p-0">
+              <Controls
+                key={generation}
+                doc={doc}
+                dispatch={dispatch}
+                onReset={() => {
+                  dispatch({ type: "resetDesign" });
+                  setGeneration((g) => g + 1);
+                }}
+              />
+            </fieldset>
           </div>
         )}
 

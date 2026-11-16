@@ -3376,3 +3376,57 @@ test("Design mode shows each template with the Resume's own content, previews on
   await expect(page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Write" })).toHaveAttribute("aria-current", "page");
   await expect(page.locator(":focus")).toHaveAttribute("data-field", /^section:/);
 });
+
+test("the design controls change the page, warn about a hard-to-read accent, move a section to page 2, and reset", async ({ page }) => {
+  await signIn(page);
+  const name = `Design ${Date.now()}`;
+  await page.goto("/career/library");
+  await page.getByRole("button", { name: "New Resume" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Resume" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByLabel("Start with sample content").check();
+  await dialog.getByRole("button", { name: "Create Resume" }).click();
+  await page.getByRole("link", { name }).click();
+  const status = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+  const preview = page.getByRole("region", { name: "Page preview" });
+  await expect(preview.getByRole("img", { name: "Page 1 of 1" })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Design" }).click();
+  await expectNoViolations(page);
+
+  // A different page size changes the page: Letter is wider than a point, not a pixel, away from A4 (794 px at 100%).
+  const width = async () => Math.round((await preview.getByRole("img", { name: /^Page 1 of/ }).boundingBox())!.width);
+  expect(await width()).toBeGreaterThan(790);
+  await page.getByLabel("Page size").selectOption("LETTER");
+  await expect.poll(width, { timeout: 30_000 }).toBeGreaterThan(810);
+
+  // Text size and the two-column entries change the page too (the page count is the same, the layout is not).
+  await page.getByLabel("Text size (pt)").fill("14");
+  await page.getByLabel("Entries in columns").selectOption("2");
+  await page.getByLabel("Heading font").selectOption("Times");
+  await expect(preview.getByRole("status")).toHaveText(/pages?$/, { timeout: 30_000 });
+
+  // A pale accent shows a warning; the default one does not.
+  await expect(page.getByText(/easy to read/)).toBeVisible();
+  await page.getByLabel("Accent colour").fill("#ffe066");
+  await expect(page.getByText(/Hard to read: contrast/)).toBeVisible();
+
+  // A section placed on page 2 makes a second page.
+  await page.getByLabel("Page of Education").selectOption("2");
+  await expect(preview.getByRole("img", { name: "Page 2 of 2" })).toBeVisible({ timeout: 30_000 });
+  await expect(preview.locator('[data-page="2"] [data-ref="section:education"]')).toHaveCount(1);
+  // "Saved" only shows when what is saved is what is on screen.
+  await expect(status).toHaveText("Saved");
+
+  // The settings are saved; Reset brings back the template's look, and it is one Undo step.
+  await page.reload();
+  await page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Design" }).click();
+  await expect(page.getByLabel("Page size")).toHaveValue("LETTER");
+  await expect(page.getByLabel("Text size (pt)")).toHaveValue("14");
+  await page.getByRole("button", { name: "Reset to template defaults" }).click();
+  await expect(page.getByLabel("Page size")).toHaveValue("A4");
+  await expect(page.getByLabel("Text size (pt)")).toHaveValue("10");
+  await expect(page.getByLabel("Page of Education")).toHaveValue("1");
+  await expectNoViolations(page);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(page.getByLabel("Page size")).toHaveValue("LETTER");
+});
