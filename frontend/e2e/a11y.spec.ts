@@ -3209,3 +3209,49 @@ test("the Resume preview shows the page at real size, follows typing, zooms, and
   expect(bytes.subarray(0, 5).toString()).toBe("%PDF-");
   expect(bytes.byteLength).toBeGreaterThan(5000);
 });
+
+test("sections and entries are added, reordered, hidden and printed in one date format, and they survive a reload", async ({ page }) => {
+  await signIn(page);
+  await openNewResume(page, `Sections ${Date.now()}`);
+  const status = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+
+  // A section of a chosen kind starts with that kind's name.
+  await page.getByRole("button", { name: "Add section" }).click();
+  const experience = page.getByRole("region", { name: "Experience", exact: true });
+  await experience.getByRole("button", { name: "Add an entry" }).click();
+  await experience.getByRole("button", { name: "Add an entry" }).click();
+  const rows = experience.getByRole("list", { name: "Entries of Experience" }).getByRole("listitem").filter({ has: page.getByLabel("Title", { exact: true }) });
+  await rows.nth(0).getByLabel("Title", { exact: true }).fill("Engineer");
+  await rows.nth(1).getByLabel("Title", { exact: true }).fill("Designer");
+  await rows.nth(0).getByLabel("Start").fill("2021-03");
+  await rows.nth(0).getByLabel("Present").check();
+  await rows.nth(0).getByRole("button", { name: "Add a role" }).click();
+  await rows.nth(0).getByLabel("Role title").fill("Lead");
+  await expectNoViolations(page);
+
+  // A second section, of another kind, goes below; the date format is one setting for the whole Resume.
+  await page.getByLabel("Kind of section").selectOption("EDUCATION");
+  await page.getByRole("button", { name: "Add section" }).click();
+  await expect(page.getByRole("region", { name: "Education", exact: true })).toBeVisible();
+  await page.getByLabel("Date format").selectOption("MM_YYYY");
+
+  // Reorder an entry with its buttons, hide the other, and move the Education section above Experience.
+  await page.getByRole("button", { name: "Move Designer up" }).click();
+  await expect(rows.nth(0).getByLabel("Title", { exact: true })).toHaveValue("Designer");
+  await page.getByRole("button", { name: "Hide Engineer" }).click();
+  await page.getByRole("button", { name: "Move Education up" }).click();
+  await expect(status).not.toHaveText("Saved");
+  await expect(status).toHaveText("Saved");
+
+  await page.reload();
+  const names = page.getByRole("textbox", { name: "Section name" });
+  await expect(names.nth(0)).toHaveValue("Education");
+  await expect(names.nth(1)).toHaveValue("Experience");
+  const again = page.getByRole("region", { name: "Experience", exact: true }).getByRole("list", { name: "Entries of Experience" }).getByRole("listitem").filter({ has: page.getByLabel("Title", { exact: true }) });
+  await expect(again.nth(0).getByLabel("Title", { exact: true })).toHaveValue("Designer");
+  await expect(again.nth(1).getByLabel("Title", { exact: true })).toHaveValue("Engineer");
+  await expect(page.getByRole("button", { name: "Show Engineer" })).toBeVisible();
+  await expect(again.nth(1).getByLabel("Present").first()).toBeChecked();
+  await expect(page.getByLabel("Date format")).toHaveValue("MM_YYYY");
+  await expectNoViolations(page);
+});

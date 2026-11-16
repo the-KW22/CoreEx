@@ -101,9 +101,9 @@ function BlockView({ block, fonts, accent, size }: { block: Block; fonts: Fonts;
     case "entry": {
       const second = [block.subtitle, block.location].filter(Boolean).join(", ");
       return (
-        <View style={{ marginBottom: 6 }} wrap={false}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <Text style={face(fonts, true)}>{block.title}</Text>
+        <View style={{ marginBottom: 6 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }} wrap={false}>
+            <Text style={face(fonts, true)}>{[block.title, block.level].filter(Boolean).join(" - ")}</Text>
             {block.dates && <Text>{block.dates}</Text>}
           </View>
           {second && <Text style={face(fonts, false, true)}>{second}</Text>}
@@ -113,6 +113,15 @@ function BlockView({ block, fonts, accent, size }: { block: Block; fonts: Fonts;
             </Link>
           )}
           <RichBlocks rich={block.rich} fonts={fonts} accent={accent} />
+          {block.roles.map((role, i) => (
+            <View key={i} style={{ marginTop: 3 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }} wrap={false}>
+                <Text style={face(fonts, true)}>{role.title}</Text>
+                {role.dates && <Text>{role.dates}</Text>}
+              </View>
+              <RichBlocks rich={role.rich} fonts={fonts} accent={accent} />
+            </View>
+          ))}
           {block.keywords.length > 0 && <Text>{block.keywords.join(", ")}</Text>}
         </View>
       );

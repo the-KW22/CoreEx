@@ -98,6 +98,34 @@ class ResumeApiTest extends ApiTest {
 	}
 
 	@Test
+	void aDocumentWithEverySectionKindLevelsAndRolesRoundTrips() throws Exception {
+		var id = made(userA, "{}");
+		var sections = new java.util.ArrayList<Map<String, Object>>();
+		for (var kind : ResumeDocument.Kind.values()) {
+			var role = Map.<String, Object>of("id", "r1", "title", "Lead", "startDate", "2022-01", "endDate", "present",
+					"description", "<p onclick=\"x()\">Led <strong>it</strong></p><script>alert(1)</script>");
+			var entry = Map.<String, Object>of("id", "e-" + kind, "title", "T " + kind, "level", "Fluent",
+					"keywords", List.of("a", "b"), "url", "https://x.example", "roles", List.of(role));
+			sections.add(Map.of("id", "s-" + kind, "kind", kind.name(), "title", "Title " + kind, "entries", List.of(entry)));
+		}
+		Map<String, Object> doc = Map.of("sections", sections, "metadata", Map.of("dateFormat", "MM_YYYY"));
+
+		var saved = put("/api/resumes/" + id, userA, save("CV", 1, doc));
+
+		assertThat(saved.statusCode()).as(saved.body()).isEqualTo(200);
+		var body = get("/api/resumes/" + id, userA).body();
+		for (var kind : ResumeDocument.Kind.values()) {
+			assertThat(body).contains("\"kind\":\"" + kind + "\"").contains("\"title\":\"Title " + kind + "\"");
+		}
+		assertThat(body).contains("\"level\":\"Fluent\"").contains("\"endDate\":\"present\"")
+				.contains("\"dateFormat\":\"MM_YYYY\"").contains("\"description\":\"<p>Led <strong>it</strong></p>\"")
+				.doesNotContain("onclick", "<script");
+		var markdown = jdbc.sql("select markdown from resume_contents where item_id = :id").param("id", UUID.fromString(id))
+				.query(String.class).single();
+		assertThat(markdown).contains("Lead").contains("Led **it**").contains("Fluent");
+	}
+
+	@Test
 	void aStaleSaveCounterIsRefused() throws Exception {
 		var id = made(userA, "{}");
 		assertThat(put("/api/resumes/" + id, userA, save("CV", 1, document("<p>a</p>", "<p>b</p>"))).statusCode()).isEqualTo(200);

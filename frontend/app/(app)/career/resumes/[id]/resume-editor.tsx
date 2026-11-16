@@ -10,6 +10,7 @@ import { clearUnsaved, recoveryAction, storeUnsaved, takeNewestUnsaved } from ".
 import { loadResume, saveCopy, saveResume } from "./actions";
 import { Preview } from "./preview";
 import { RichText } from "./rich-text";
+import { Sections } from "./sections";
 import { init, reduce, type ResumeDocument } from "./store";
 
 const DEBOUNCE_MS = 1000;
@@ -223,6 +224,8 @@ export function ResumeEditor({
             </h2>
             <RichText key={generation} label="Summary" html={doc.summary} onChange={(html) => dispatch({ type: "summary", html })} />
           </section>
+
+          <Sections key={generation} doc={doc} dispatch={dispatch} />
         </div>
 
         <Preview doc={state.doc} title={state.title} />
