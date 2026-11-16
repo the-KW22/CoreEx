@@ -168,6 +168,7 @@ for (const colorScheme of ["dark", "light"] as const) {
           await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(noteA);
         });
         await screen(page, failures, "applications", "/career/applications", heading("Applications"));
+        await screen(page, failures, "resumes library", "/career/library", heading("Resumes & Letters"));
         await screen(page, failures, "applications needs you", "/career/applications?needs=1", heading("Applications"));
         await screen(page, failures, "applications board", "/career/applications?view=board", heading("Applications"));
         await screen(page, failures, "applications calendar", "/career/applications?view=calendar", heading("Applications"));

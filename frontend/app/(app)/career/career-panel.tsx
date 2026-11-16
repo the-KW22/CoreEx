@@ -1,6 +1,6 @@
 "use client";
 
-import { BriefcaseBusinessIcon } from "lucide-react";
+import { BriefcaseBusinessIcon, FileUserIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -10,7 +10,10 @@ import { itemLink } from "../kb-panel";
 
 // The Career entries of docs/DESIGN.md section 3.4. Today, Resumes & Letters, Knowledge and Offers are left out until
 // their epics land, so the panel never links to a page that is not there.
-const ENTRIES = [{ href: "/career/applications", label: "Applications", icon: BriefcaseBusinessIcon }];
+const ENTRIES = [
+  { href: "/career/applications", label: "Applications", icon: BriefcaseBusinessIcon },
+  { href: "/career/library", label: "Resumes & Letters", icon: FileUserIcon },
+];
 
 export function CareerPanel() {
   const pathname = usePathname();
