@@ -2759,6 +2759,42 @@ test("an Application sits in a Folder, takes a Tag shown on its row, and goes to
   await deleteTag(page, tagName);
 });
 
+test("Insights count what was applied to in a range, using back-dated entries", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const company = `Mike ${stamp}`;
+  // A day of its own for each run, so the figures do not include what earlier runs left behind.
+  const iso = (offset: number) => new Date(Date.UTC(1990, 0, 1 + (stamp % 9000) + offset)).toISOString().slice(0, 10);
+  const applied = iso(0);
+  await newApplication(page, company, "Analyst");
+  await expect(page.locator("#posting-text")).toBeVisible();
+  await page.getByLabel("Moved on").fill(applied);
+  await page.getByRole("button", { name: "Applied", exact: true }).click();
+  await expect(page.getByText(/^Applied /)).toBeVisible();
+  await page.getByLabel("Date", { exact: true }).last().fill(iso(3));
+  await page.getByRole("button", { name: "They replied" }).click();
+  await expect(page.getByText("They replied").first()).toBeVisible();
+
+  await page.goto(`/career/applications?view=insights&from=${applied}&to=${applied}`);
+  const tile = (name: string) => page.getByRole("region", { name });
+  await expect(tile("Applied to")).toContainText("1");
+  await expect(tile("Reply rate")).toContainText("100%");
+  await expect(tile("Reply rate")).toContainText("1 of 1 had a reply");
+  await expect(tile("Median time to first reply")).toContainText("3 days");
+  const funnel = page.getByRole("region", { name: "How far they got" });
+  await expect(funnel.getByRole("listitem").filter({ hasText: "Applied" })).toContainText("1");
+  await expect(funnel.getByRole("listitem").filter({ hasText: "Screening" })).toContainText("0");
+  await expectNoViolations(page);
+
+  // A range with nothing in it says so, and Clear dates brings the rest back.
+  await page.getByLabel("From", { exact: true }).fill(iso(10));
+  await page.getByLabel("To", { exact: true }).fill(iso(11));
+  await page.getByRole("button", { name: "Show" }).click();
+  await expect(page.getByText("No Applications were applied to in these dates.")).toBeVisible();
+  await page.getByRole("link", { name: "Clear dates" }).click();
+  await expect(tile("Applied to")).toBeVisible();
+});
+
 test("Career opens from the rail with its panel and the Applications list, and New Application lands on the new page", async ({ page }) => {
   await signIn(page);
   const stamp = Date.now();

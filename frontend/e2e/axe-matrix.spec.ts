@@ -171,6 +171,7 @@ for (const colorScheme of ["dark", "light"] as const) {
         await screen(page, failures, "applications needs you", "/career/applications?needs=1", heading("Applications"));
         await screen(page, failures, "applications board", "/career/applications?view=board", heading("Applications"));
         await screen(page, failures, "applications calendar", "/career/applications?view=calendar", heading("Applications"));
+        await screen(page, failures, "applications insights", "/career/applications?view=insights", heading("Applications"));
         await screen(page, failures, "applications bulk bar", "/career/applications", async () => {
           await page.getByRole("checkbox", { name: /^Select / }).first().click();
           await expect(page.getByRole("region", { name: "Bulk actions" })).toBeVisible();
