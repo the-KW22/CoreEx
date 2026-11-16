@@ -36,6 +36,8 @@ Because the cloud database holds real data, a migration is first exercised on lo
 | `EMBED_URL` | `https://<project ref>.supabase.co/functions/v1/embed-8ba850b7e5aa` (needed for Semantic search, see "The embed Edge Function") |
 | `EMBED_SECRET` | A long random secret, the same value as the function's secret in Supabase |
 | `ANTHROPIC_API_KEY` | The owner's **Shared key** for Claude (ADR 0009). Optional: without it AI is off ("Fill with AI" says so) and nothing is sent anywhere. It costs money, so also set `COREEX_AI_DAILY_BUDGET_USD` (per User per day, 0.50 by default); `COREEX_AI_MODEL` and the two price variables in `backend/.env.example` follow the model. Set a spending limit with the provider as well |
+| `EXPORT_PDF_URL` | `https://<the frontend's Vercel URL>/export/resume-pdf`. The Export zip draws each Resume's PDF there. Empty: Resumes still export as JSON and Markdown, and their PDFs are listed as omitted |
+| `EXPORT_PDF_SECRET` | A long random secret, the same value as `EXPORT_PDF_SECRET` on Vercel. Only the API and that route hold it |
 
 **Frontend (Vercel, under the Production environment).**
 
@@ -44,6 +46,7 @@ Because the cloud database holds real data, a migration is first exercised on lo
 | `API_URL` | The Render URL of the backend |
 | `SUPABASE_URL` | `https://<project ref>.supabase.co` |
 | `SUPABASE_PUBLISHABLE_KEY` | The project's Publishable key (Project Settings > API Keys). Never use the secret key. |
+| `EXPORT_PDF_SECRET` | The same long random value as on Render. The route at `/export/resume-pdf` refuses any call without it |
 
 Local development keeps its own values in `backend/.env` and `frontend/.env.local` (see the README).
 

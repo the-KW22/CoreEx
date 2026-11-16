@@ -64,6 +64,11 @@ public class ResumeService {
 		return resumes.find(ownerId, id).orElseThrow(ResumeService::notFound);
 	}
 
+	/** The Resume's text as Markdown, the same text the Resume's own Markdown endpoint and Export give. */
+	public String markdown(ResumeDocument document) {
+		return ResumeText.markdown(document);
+	}
+
 	/** A page of the User's Resumes whose title contains {@code q} (all when empty), by "updated" (default), "name" or "created". */
 	public Page list(UUID ownerId, String q, String sort, int page, int size) {
 		var text = q == null ? "" : q.strip();

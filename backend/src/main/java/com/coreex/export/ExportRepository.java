@@ -1,10 +1,13 @@
 package com.coreex.export;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -19,6 +22,12 @@ class ExportRepository {
 			String storageKey, String mimeType, Long sizeBytes, String description) {
 	}
 
+	private static final String ROWS = """
+			select i.id, i.type, i.title, i.folder_id, i.created_at, i.updated_at,
+			       a.storage_key, a.mime_type, a.size_bytes, a.description
+			from items i left join asset_files a on a.item_id = i.id
+			where i.owner_id = :owner and i.deleted_at is null""";
+
 	private final JdbcClient jdbc;
 
 	ExportRepository(JdbcClient jdbc) {
@@ -27,17 +36,13 @@ class ExportRepository {
 
 	/** In the order they were made, so the names a repeated title gets do not change between exports. */
 	List<Row> live(UUID ownerId) {
-		return jdbc.sql("""
-				select i.id, i.type, i.title, i.folder_id, i.created_at, i.updated_at,
-				       a.storage_key, a.mime_type, a.size_bytes, a.description
-				from items i left join asset_files a on a.item_id = i.id
-				where i.owner_id = :owner and i.deleted_at is null
-				order by i.created_at, i.id""").param("owner", ownerId)
-				.query((rs, n) -> new Row(rs.getObject("id", UUID.class), rs.getString("type"), rs.getString("title"),
-						rs.getObject("folder_id", UUID.class), rs.getObject("created_at", OffsetDateTime.class).toInstant(),
-						rs.getObject("updated_at", OffsetDateTime.class).toInstant(), rs.getString("storage_key"),
-						rs.getString("mime_type"), rs.getObject("size_bytes", Long.class), rs.getString("description")))
-				.list();
+		return jdbc.sql(ROWS + " order by i.created_at, i.id").param("owner", ownerId).query(ExportRepository::row).list();
+	}
+
+	/** One live Item of the User, or empty: how a Resume's photo is found. */
+	Optional<Row> item(UUID ownerId, UUID id) {
+		return jdbc.sql(ROWS + " and i.id = :id").param("owner", ownerId).param("id", id).query(ExportRepository::row)
+				.optional();
 	}
 
 	/** The text of these Notes, as stored. */
@@ -52,6 +57,13 @@ class ExportRepository {
 				.param("owner", ownerId).param("ids", noteIds)
 				.query((rs, n) -> bodies.put(rs.getObject("item_id", UUID.class), rs.getString("body"))).list();
 		return bodies;
+	}
+
+	private static Row row(ResultSet rs, int n) throws SQLException {
+		return new Row(rs.getObject("id", UUID.class), rs.getString("type"), rs.getString("title"),
+				rs.getObject("folder_id", UUID.class), rs.getObject("created_at", OffsetDateTime.class).toInstant(),
+				rs.getObject("updated_at", OffsetDateTime.class).toInstant(), rs.getString("storage_key"),
+				rs.getString("mime_type"), rs.getObject("size_bytes", Long.class), rs.getString("description"));
 	}
 
 }
