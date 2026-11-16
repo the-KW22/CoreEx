@@ -28,6 +28,11 @@ public class AiService {
 		this.properties = properties;
 	}
 
+	/** Whether AI is switched on (a key or the fake provider is set): screens show a pending state when it is not. */
+	public boolean available() {
+		return properties.on();
+	}
+
 	/** The answer's JSON text. */
 	public String ask(UUID ownerId, String system, String data, Map<String, Object> schema) {
 		if (!properties.on()) {

@@ -21,7 +21,7 @@ const input = "h-9 w-full rounded-lg border border-border bg-surface px-3";
 
 // The Applications list's New Application button: give a link and let CoreEx read the page, or paste the posting
 // and say who the job is with. Reading a link only fills what is still empty, so typed text is never overwritten.
-export function NewApplication() {
+export function NewApplication({ aiOn }: { aiOn: boolean }) {
   const [state, action, pending] = useActionState(createApplication, undefined);
   const [link, setLink] = useState("");
   const [company, setCompany] = useState("");
@@ -68,7 +68,7 @@ export function NewApplication() {
         setPostingFromLink(true);
         filled.push("Posting");
       }
-      setSuggestAi(!found.structured);
+      setSuggestAi(aiOn && !found.structured);
       const says = filled.length ? `Filled in ${filled.join(", ")}.` : "Nothing new to fill in.";
       setNote({
         ok: true,
@@ -203,18 +203,19 @@ export function NewApplication() {
           </label>
           <div className="grid gap-2">
             <p id="ai-disclosure" className="text-sm text-muted-foreground">
-              Fill with AI sends the posting text above to Claude, made by Anthropic, and uses part of your daily AI budget.
-              Nothing else of yours is sent.
+              {aiOn
+                ? "Fill with AI sends the posting text above to Claude, made by Anthropic, and uses part of your daily AI budget. Nothing else of yours is sent."
+                : "Fill with AI is coming soon. It switches on once the owner sets up the AI key, and nothing is sent anywhere until then."}
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
                 variant={suggestAi ? "default" : "outline"}
                 aria-describedby="ai-disclosure"
-                disabled={filling || !posting.trim()}
+                disabled={!aiOn || filling || !posting.trim()}
                 onClick={fill}
               >
-                {filling ? "Filling in…" : "Fill with AI"}
+                {filling ? "Filling in…" : aiOn ? "Fill with AI" : "Fill with AI (pending)"}
               </Button>
               {suggestAi && (
                 <span className="text-sm text-muted-foreground">The page had no job data. The AI can read it.</span>

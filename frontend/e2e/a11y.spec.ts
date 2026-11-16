@@ -2991,6 +2991,9 @@ test("Fill with AI says what it sends, fills only empty fields, and leaves typed
   const dialog = page.getByRole("dialog", { name: "New Application" });
   const button = dialog.getByRole("button", { name: "Fill with AI" });
 
+  // Without an AI key the dialog says the feature is coming soon, with no error; this run needs the fake provider.
+  test.skip(await dialog.getByText("Fill with AI is coming soon").isVisible(), "The API was not started with COREEX_AI_PROVIDER=fake");
+
   // Nothing to read yet, so the button waits; the line above it says where the text goes.
   await expect(button).toBeDisabled();
   await expect(dialog.getByText(/sends the posting text above to Claude, made by Anthropic/)).toBeVisible();
