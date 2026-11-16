@@ -65,6 +65,7 @@ export type Action =
   | { type: "undo" }
   | { type: "redo" }
   | { type: "privateNotes"; value: string }
+  | { type: "ignoreCheck"; id: string; ignored: boolean }
   | { type: "template"; value: string }
   | { type: "photo"; patch: Partial<Photo> }
   | { type: "design"; patch: Partial<Metadata> }
@@ -194,6 +195,8 @@ export function reduce(s: EditorState, a: Action): EditorState {
 
 function apply(s: EditorState, a: Action): EditorState {
   switch (a.type) {
+    case "ignoreCheck":
+      return edited(s, { doc: { ...s.doc, ignoredChecks: a.ignored ? [...new Set([...s.doc.ignoredChecks, a.id])] : s.doc.ignoredChecks.filter((id) => id !== a.id) } });
     case "privateNotes":
       return edited(s, { doc: { ...s.doc, privateNotes: a.value } });
     case "template":
