@@ -6,10 +6,11 @@ export const TYPE_LOOK = {
   ASSET: { Icon: ImageIcon, label: "Asset" },
   APPLICATION: { Icon: BriefcaseBusinessIcon, label: "Application" },
   RESUME: { Icon: FileUserIcon, label: "Resume" },
+  COVER_LETTER: { Icon: FileTextIcon, label: "Cover Letter" },
 };
 
 // Notes, Assets, Applications and Resumes are all Items; each type has its own page.
-const PAGES = { NOTE: "/notes", ASSET: "/assets", APPLICATION: "/career/applications", RESUME: "/career/resumes" };
+const PAGES = { NOTE: "/notes", ASSET: "/assets", APPLICATION: "/career/applications", RESUME: "/career/resumes", COVER_LETTER: "/career/cover-letters" };
 export const itemHref = (item: { id: string; type: keyof typeof PAGES }) => `${PAGES[item.type]}/${item.id}`;
 
 export function formatBytes(bytes: number) {
@@ -23,7 +24,7 @@ export type ItemType = keyof typeof PAGES;
 
 // The ?type= filter on the Items pages; anything but a known type means no filter.
 export const parseType = (raw: string | string[] | undefined): ItemType | undefined =>
-  raw === "NOTE" || raw === "ASSET" || raw === "APPLICATION" || raw === "RESUME" ? raw : undefined;
+  raw === "NOTE" || raw === "ASSET" || raw === "APPLICATION" || raw === "RESUME" || raw === "COVER_LETTER" ? raw : undefined;
 
 // A list page's link with its page number and type filter, which are left out when they are the defaults.
 export function listHref(path: string, page: number, type?: ItemType) {

@@ -525,6 +525,7 @@ function GraphFilters({
           <ToggleGroupItem value="ASSET">Assets</ToggleGroupItem>
           <ToggleGroupItem value="APPLICATION">Applications</ToggleGroupItem>
           <ToggleGroupItem value="RESUME">Resumes</ToggleGroupItem>
+          <ToggleGroupItem value="COVER_LETTER">Cover Letters</ToggleGroupItem>
         </ToggleGroup>
         {mode === "links" && (
           <Toggle variant="outline" pressed={filter.linkedOnly} onPressedChange={(linkedOnly) => onChange({ ...filter, linkedOnly })}>

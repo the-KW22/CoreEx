@@ -47,7 +47,7 @@ export const SIDE_KINDS = ["SKILLS", "LANGUAGES", "INTERESTS", "CERTIFICATIONS",
 
 const clean = (list: string[]) => list.map((s) => s.trim()).filter(Boolean);
 
-export function resumeBlocks(doc: Doc): Block[] {
+export function resumeBlocks(doc: Doc, letter = false): Block[] {
   const { basics } = doc;
   const format = doc.metadata.dateFormat;
   const sidebar = templateOf(doc) === "sidebar";
@@ -73,7 +73,8 @@ export function resumeBlocks(doc: Doc): Block[] {
   };
   const summary = parseRich(doc.summary);
   if (summary.length) {
-    into(1, "main").push({ kind: "heading", text: "Summary", ref: "summary", column: "main", page: 1 }, { kind: "text", rich: summary, column: "main", page: 1 });
+    if (!letter) into(1, "main").push({ kind: "heading", text: "Summary", ref: "summary", column: "main", page: 1 });
+    into(1, "main").push({ kind: "text", rich: summary, column: "main", page: 1 });
   }
   for (const section of doc.sections) {
     const entries = section.entries.filter((e) => !e.hidden);

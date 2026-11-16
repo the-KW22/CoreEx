@@ -8,6 +8,13 @@ export type ResumeResult = { ok: true } | { ok: false; message: string };
 
 const failed = (message?: string): ResumeResult => ({ ok: false, message: message ?? "Something went wrong. Try again." });
 
+export async function createCoverLetter(title: string, resumeId: string): Promise<ResumeResult> {
+  const api = await getApi();
+  const result = await api.POST("/api/cover-letters", { body: { title: title.trim() || "My Cover Letter", resumeId: resumeId || undefined } }).catch(() => null);
+  if (!result) return failed("Cannot reach the CoreEx API.");
+  return done(!!result.data) ? { ok: true } : failed();
+}
+
 // A new Resume, blank, with sample content, or from an imported document (the backend checks and sanitises it like a save).
 // shortcut: an imported document over about 1 MB is refused by Next's server-action body limit, upgrade by raising serverActions.bodySizeLimit in next.config when a real file needs it.
 export async function createResume(

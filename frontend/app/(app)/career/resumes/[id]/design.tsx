@@ -14,10 +14,10 @@ const THUMB_WIDTH = 200;
 
 // The first page of the Resume in one template, small: the same worker and renderer as the main preview, with the
 // User's own content, so a card shows how their Resume would look.
-function Thumbnail({ doc, template, label, photoSrc }: { doc: Doc; template: Template; label: string; photoSrc: string | null }) {
+function Thumbnail({ doc, template, label, photoSrc, letter }: { doc: Doc; template: Template; label: string; photoSrc: string | null; letter: boolean }) {
   // The same object while nothing changed: a new one each render would send the document to the worker again.
   const shown = useMemo(() => ({ ...doc, metadata: { ...doc.metadata, template } }), [doc, template]);
-  const { bytes, error } = useResumePdf(shown, photoSrc);
+  const { bytes, error } = useResumePdf(shown, photoSrc, letter);
   const canvas = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -74,6 +74,7 @@ export function Design({
   photoSrc,
   onCandidate,
   onApply,
+  letter = false,
 }: {
   doc: Doc;
   candidate: Template | null;
@@ -81,6 +82,7 @@ export function Design({
   photoSrc: string | null;
   onCandidate: (template: Template | null) => void;
   onApply: (template: Template) => void;
+  letter?: boolean;
 }) {
   const current = templateOf(doc);
   return (
@@ -94,7 +96,7 @@ export function Design({
           const shown = candidate ?? current;
           return (
             <li key={t.value} className={cn("grid content-start gap-2 rounded-lg border border-border p-3", shown === t.value && "border-link")}>
-              <Thumbnail doc={doc} template={t.value} label={t.label} photoSrc={photoSrc} />
+              <Thumbnail doc={doc} template={t.value} label={t.label} photoSrc={photoSrc} letter={letter} />
               <p className="font-medium">
                 {t.label}
                 {current === t.value && <span className="ml-2 text-sm font-normal text-muted-foreground">In use</span>}

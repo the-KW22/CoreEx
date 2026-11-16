@@ -8,16 +8,18 @@ import { ItemBacklinks } from "../../../items/item-sections";
 
 import { RecordOpen } from "../../../search/record-open";
 import { ResumeEditor } from "./resume-editor";
+import { DocumentApplications } from "../../document-applications";
 
 // The Resume editor (docs/DESIGN.md section 3.4). Write mode now; Design and Check come with their own tickets.
 export default async function ResumePage({ params }: PageProps<"/career/resumes/[id]">) {
   const { id } = await params;
   const api = await getApi();
-  const [result, list, itemTags, allTags] = await Promise.all([
+  const [result, list, itemTags, allTags, linked] = await Promise.all([
     api.GET("/api/resumes/{id}", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/folders").catch(() => null),
     api.GET("/api/items/{id}/tags", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/tags").catch(() => null),
+    api.GET("/api/items/{id}/linked-applications", { params: { path: { id } } }).catch(() => null),
   ]);
 
   if (!result) {
@@ -41,6 +43,7 @@ export default async function ResumePage({ params }: PageProps<"/career/resumes/
         organise={
           <>
             <FolderPicker itemId={resume.id} folderId={resume.folderId} folders={list?.data?.items ?? []} />
+            {linked?.data ? <DocumentApplications id={resume.id} kind="RESUME" initial={linked.data} /> : <p role="alert">Could not load linked Applications.</p>}
             {itemTags?.data ? (
               <TagEditor itemId={resume.id} tags={itemTags.data.items} allTags={allTags?.data?.items ?? []} />
             ) : (

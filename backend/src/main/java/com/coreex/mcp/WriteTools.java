@@ -20,6 +20,7 @@ import com.coreex.items.ItemService;
 import com.coreex.notes.Note;
 import com.coreex.notes.NoteService;
 import com.coreex.resumes.ResumeService;
+import com.coreex.resumes.CoverLetterService;
 import com.coreex.tags.Tag;
 import com.coreex.tags.TagColour;
 import com.coreex.tags.TagService;
@@ -78,10 +79,12 @@ class WriteTools {
 	private final ApplicationService applications;
 
 	private final ResumeService resumes;
+	private final CoverLetterService letters;
 
 	WriteTools(ItemService items, NoteService notes, AssetService assets, FolderService folders, TagService tagService,
-			TrashService trash, ApplicationService applications, ResumeService resumes) {
+			TrashService trash, ApplicationService applications, ResumeService resumes, CoverLetterService letters) {
 		this.resumes = resumes;
+		this.letters = letters;
 		this.applications = applications;
 		this.items = items;
 		this.notes = notes;
@@ -243,6 +246,9 @@ class WriteTools {
 		}
 		else if (item.type() == Item.Type.RESUME) {
 			resumes.trash(user.id(), id);
+		}
+		else if (item.type() == Item.Type.COVER_LETTER) {
+			letters.trash(user.id(), id);
 		}
 		else {
 			assets.delete(user, id);

@@ -32,10 +32,10 @@ function registerFonts() {
   registered = true;
 }
 
-async function draw(doc: Doc, photoSrc: string | null): Promise<Buffer> {
+async function draw(doc: Doc, photoSrc: string | null, letter: boolean): Promise<Buffer> {
   if (!registered) registerFonts();
   const element = (fonts: boolean) =>
-    createElement(ResumePdf, { doc, fonts: { registered: fonts }, photoSrc }) as ReactElement<DocumentProps>;
+    createElement(ResumePdf, { doc, fonts: { registered: fonts }, photoSrc, letter }) as ReactElement<DocumentProps>;
   try {
     return await renderToBuffer(element(true));
   } catch {
@@ -48,14 +48,14 @@ export async function POST(request: Request): Promise<Response> {
   if (!sharedSecretMatches(request.headers.get("x-export-secret"), process.env.EXPORT_PDF_SECRET)) {
     return Response.json({ code: "UNAUTHORIZED", message: "This route is for the CoreEx API only." }, { status: 401 });
   }
-  const body = (await request.json().catch(() => null)) as { document?: unknown; photoSrc?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { document?: unknown; photoSrc?: unknown; letter?: unknown } | null;
   const document = body?.document;
   if (!document || typeof document !== "object" || !("metadata" in document)) {
     return Response.json({ code: "INVALID_REQUEST", message: "Send the Resume's document." }, { status: 400 });
   }
   const photoSrc = typeof body?.photoSrc === "string" ? body.photoSrc : null;
   try {
-    const bytes = await draw(document as Doc, photoSrc);
+    const bytes = await draw(document as Doc, photoSrc, body?.letter === true);
     return new Response(new Uint8Array(bytes), {
       headers: { "Content-Type": "application/pdf", "Cache-Control": "no-store" },
     });

@@ -116,6 +116,15 @@ class ResumeRepository {
 		if (saved == 0) {
 			return false;
 		}
+		jdbc.sql("""
+				update cover_letter_contents c
+				set document = jsonb_set(jsonb_set(c.document, '{sender}', (:doc::jsonb)->'basics'), '{design}', (:doc::jsonb)->'metadata')
+				from items i where c.item_id = i.id and i.owner_id = :owner and c.linked_resume_id = :id
+				""").param("doc", document).param("owner", ownerId).param("id", id).update();
+		jdbc.sql("""
+				update items i set updated_at = now() from cover_letter_contents c
+				where c.item_id = i.id and i.owner_id = :owner and c.linked_resume_id = :id and i.deleted_at is null
+				""").param("owner", ownerId).param("id", id).update();
 		return rename(ownerId, id, title);
 	}
 

@@ -241,7 +241,7 @@ function Blocks({ list, look }: { list: Block[]; look: Look }) {
   return <>{out}</>;
 }
 
-export function ResumePdf({ doc, fonts, photoSrc = null }: { doc: Doc; fonts: Fonts; photoSrc?: string | null }) {
+export function ResumePdf({ doc, fonts, photoSrc = null, letter = false }: { doc: Doc; fonts: Fonts; photoSrc?: string | null; letter?: boolean }) {
   const m = doc.metadata;
   const template = templateOf(doc);
   const density = DENSITIES.find((d) => d.value === m.density) ?? DENSITIES[1];
@@ -258,7 +258,7 @@ export function ResumePdf({ doc, fonts, photoSrc = null }: { doc: Doc; fonts: Fo
     custom: customStyles(m.customCss),
     photoSrc,
   };
-  const [header, ...rest] = resumeBlocks(doc);
+  const [header, ...rest] = resumeBlocks(doc, letter);
   const pages = [...new Set(rest.map((b) => (b.kind === "header" ? 1 : b.page)).concat(1))].sort((a, b) => a - b);
   const size = pageDimensions(m);
   return (
@@ -289,7 +289,7 @@ export function ResumePdf({ doc, fonts, photoSrc = null }: { doc: Doc; fonts: Fo
                   <Blocks list={here} look={look} />
                 </View>
               </>
-            ) : template === "sidebar" ? (
+            ) : template === "sidebar" && !letter ? (
               <>
                 {first && <Blocks list={[header]} look={look} />}
                 <View style={{ flexDirection: m.sidebarSide === "right" ? "row-reverse" : "row" }}>

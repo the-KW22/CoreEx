@@ -89,6 +89,7 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
               <option value="ASSET">Assets</option>
               <option value="APPLICATION">Applications</option>
               <option value="RESUME">Resumes</option>
+              <option value="COVER_LETTER">Cover Letters</option>
             </select>
           </label>
           <div className={field}>

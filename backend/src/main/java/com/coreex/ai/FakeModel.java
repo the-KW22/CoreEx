@@ -15,6 +15,9 @@ class FakeModel implements Model {
 
 	@Override
 	public Reply ask(String system, String data, Map<String, Object> schema, long maxTokens) {
+		if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("body")) {
+			return new Reply(json.writeValueAsString(Map.of("body", "<p>I build reliable web services.</p>")), 100, 100);
+		}
 		var text = data.replaceAll("(?s)^\\s*<posting>\\s*|\\s*</posting>\\s*$", "").trim();
 		var first = text.lines().map(String::trim).filter(l -> !l.isEmpty()).findFirst().orElse("");
 		var answer = new LinkedHashMap<String, String>();

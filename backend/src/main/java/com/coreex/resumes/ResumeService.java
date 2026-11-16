@@ -203,6 +203,18 @@ public class ResumeService {
 		return get(ownerId, insert(ownerId, null, title + " (copy)", document));
 	}
 
+	/** Makes the independent Resume for an Application using a caller-assigned id. */
+	@Transactional
+	public Resume copyForJob(UUID ownerId, UUID sourceId, UUID copyId) {
+		var source = get(ownerId, sourceId);
+		var title = source.title().length() > MAX_TITLE - 7 ? source.title().substring(0, MAX_TITLE - 7) : source.title();
+		var photo = source.document().basics().photo().assetId();
+		var doc = photo.isEmpty() || resumes.isImageAsset(ownerId, UUID.fromString(photo)) ? source.document() : source.document().withoutPhoto();
+		var made = insert(ownerId, copyId, title + " (copy)", doc);
+		if (made == null) throw new ApiException(HttpStatus.CONFLICT, "VERSION_CONFLICT", "That copy id is already used.");
+		return get(ownerId, made);
+	}
+
 	/**
 	 * A photo that is new must be one of the User's own live image Assets; the same refusal for another User's, a PDF and
 	 * an id that is nothing, so it says nothing about whose it is. A photo the Resume already has is not looked at again,

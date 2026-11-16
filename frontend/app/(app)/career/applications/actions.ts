@@ -160,13 +160,15 @@ export async function moveApplicationStage(
   date?: string,
 ): Promise<SaveResult> {
   const api = await getApi();
-  return outcome(
+  const result = await outcome(
     api.POST("/api/applications/{id}/stage", {
       params: { path: { id } },
       body: { stage, version, closeReason, date: date || undefined },
     }),
     "Could not move the Application.",
   );
+  if (result.status === "saved") done(true);
+  return result;
 }
 
 // The Board's move: it names the Stage the card was seen in, not a version, so a note added meanwhile does not refuse it

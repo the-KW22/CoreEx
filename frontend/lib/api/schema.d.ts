@@ -148,7 +148,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/assets/{id}": {
+    "/api/cover-letters/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -156,6 +156,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["get_2"];
+        put: operations["save_2"];
+        post?: never;
+        delete: operations["trash_1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_3"];
         put: operations["update"];
         post?: never;
         delete: operations["delete_3"];
@@ -171,10 +187,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_3"];
-        put: operations["save_2"];
+        get: operations["get_4"];
+        put: operations["save_3"];
         post?: never;
-        delete: operations["trash_1"];
+        delete: operations["trash_2"];
         options?: never;
         head?: never;
         patch?: never;
@@ -205,6 +221,22 @@ export interface paths {
         };
         get?: never;
         put: operations["setReminder"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/linked-documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list"];
+        put: operations["link"];
         post?: never;
         delete?: never;
         options?: never;
@@ -283,7 +315,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list"];
+        get: operations["list_1"];
         put?: never;
         post: operations["create"];
         delete?: never;
@@ -299,7 +331,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_1"];
+        get: operations["list_2"];
         put?: never;
         post: operations["create_1"];
         delete?: never;
@@ -315,7 +347,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_2"];
+        get: operations["list_3"];
         put?: never;
         post: operations["name"];
         delete?: never;
@@ -427,7 +459,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_3"];
+        get: operations["list_4"];
         put?: never;
         post: operations["add"];
         delete?: never;
@@ -445,7 +477,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["link"];
+        post: operations["link_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -493,7 +525,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["link_1"];
+        post: operations["link_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -507,7 +539,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_4"];
+        get: operations["list_5"];
         put?: never;
         post: operations["create_3"];
         delete?: never;
@@ -526,6 +558,102 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["move_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cover-letters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_6"];
+        put?: never;
+        post: operations["create_4"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cover-letters/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["versions"];
+        put?: never;
+        post: operations["nameVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cover-letters/{id}/versions/{versionId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restore_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cover-letters/{id}/unlink": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["unlink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cover-letters/{id}/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["drafts"];
+        put?: never;
+        post: operations["draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cover-letters/{id}/drafts/{draftId}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["acceptDraft"];
         delete?: never;
         options?: never;
         head?: never;
@@ -571,9 +699,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_5"];
+        get: operations["list_7"];
         put?: never;
-        post: operations["create_4"];
+        post: operations["create_5"];
         delete?: never;
         options?: never;
         head?: never;
@@ -638,6 +766,22 @@ export interface paths {
         get: operations["documents"];
         put?: never;
         post: operations["attach"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/copy-resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["copy"];
         delete?: never;
         options?: never;
         head?: never;
@@ -779,9 +923,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_6"];
+        get: operations["list_8"];
         put?: never;
-        post: operations["create_5"];
+        post: operations["create_6"];
         delete?: never;
         options?: never;
         head?: never;
@@ -811,9 +955,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_7"];
+        get: operations["list_9"];
         put?: never;
-        post: operations["create_6"];
+        post: operations["create_7"];
         delete?: never;
         options?: never;
         head?: never;
@@ -827,7 +971,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_8"];
+        get: operations["list_10"];
         put?: never;
         post?: never;
         delete: operations["empty"];
@@ -875,7 +1019,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_4"];
+        get: operations["get_5"];
         put?: never;
         post?: never;
         delete?: never;
@@ -907,7 +1051,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_9"];
+        get: operations["list_11"];
         put?: never;
         post?: never;
         delete?: never;
@@ -923,7 +1067,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_5"];
+        get: operations["get_6"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1019,7 +1163,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_10"];
+        get: operations["list_12"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1035,7 +1179,23 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_11"];
+        get: operations["list_13"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/items/{id}/linked-applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_14"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1124,6 +1284,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cover-letters/{id}/versions/{versionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["version"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cover-letters/{id}/markdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["markdown_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/documents-by-application": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_15"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assets/{id}/url": {
         parameters: {
             query?: never;
@@ -1195,7 +1403,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_12"];
+        get: operations["list_16"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1536,6 +1744,33 @@ export interface components {
              */
             itemCount: number;
         };
+        CoverLetterDocument: {
+            recipient: string;
+            date: string;
+            greeting: string;
+            body: string;
+            signOff: string;
+            sender: components["schemas"]["Basics"];
+            design: components["schemas"]["Metadata"];
+        };
+        SaveCoverLetter: {
+            title: string;
+            /** Format: int32 */
+            version: number;
+            document: components["schemas"]["CoverLetterDocument"];
+        };
+        Letter: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            document: components["schemas"]["CoverLetterDocument"];
+            /** Format: int32 */
+            version: number;
+            /** Format: uuid */
+            linkedResumeId: string | null;
+            /** Format: uuid */
+            folderId: string | null;
+        };
         UpdateAssetRequest: {
             title: string;
             description: string;
@@ -1675,6 +1910,30 @@ export interface components {
             /** Format: int32 */
             version: number;
         };
+        LinkDocument: {
+            /** @enum {string} */
+            kind: "RESUME" | "COVER_LETTER";
+            /** Format: uuid */
+            itemId?: string | null;
+            /** @description Explicitly replace an unsent linked document */
+            replaceExisting?: boolean;
+        };
+        LinkedDocument: {
+            /** @enum {string} */
+            kind: "RESUME" | "COVER_LETTER";
+            /** Format: uuid */
+            itemId: string | null;
+            sentTitle: string | null;
+            sentDocument: {
+                [key: string]: unknown;
+            } | null;
+            /** Format: int32 */
+            sentVersion: number | null;
+            /** Format: int32 */
+            checkScore: number | null;
+            /** Format: date-time */
+            sentAt: string | null;
+        };
         InterviewRequest: {
             /**
              * Format: date-time
@@ -1810,7 +2069,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
             title: string;
             /** @description The Folder path such as "Work / CoreEx", null at the top level */
             folderPath: string | null;
@@ -1836,7 +2095,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
             title: string;
             /** Format: uuid */
             folderId: string | null;
@@ -1877,6 +2136,54 @@ export interface components {
              * @description Null moves the Folder to the top level
              */
             parentId?: string | null;
+        };
+        CreateCoverLetter: {
+            title: string;
+            /** Format: uuid */
+            resumeId?: string;
+            document?: components["schemas"]["CoverLetterDocument"];
+        };
+        NameCoverLetterVersion: {
+            name: string;
+        };
+        CoverLetterVersion: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            name: string | null;
+            document: components["schemas"]["CoverLetterDocument"];
+            /** Format: date-time */
+            savedAt: string;
+        };
+        UnlinkCoverLetter: {
+            /** Format: int32 */
+            version: number;
+        };
+        DraftCoverLetter: {
+            /** Format: uuid */
+            applicationId: string;
+            /** Format: uuid */
+            resumeId: string;
+            /** Format: int32 */
+            version: number;
+            /** @enum {string} */
+            mode: "DRAFT" | "SHORTER" | "PERSONAL";
+            /** Format: uuid */
+            draftId?: string;
+        };
+        CoverLetterDraft: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            mode: "DRAFT" | "SHORTER" | "PERSONAL";
+            body: string;
+            /** Format: int32 */
+            baseVersion: number;
+            stale: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            acceptedAt: string | null;
         };
         UploadIntentRequest: {
             filename: string;
@@ -1944,6 +2251,27 @@ export interface components {
             assetId: string;
             /** @enum {string} */
             label: "RESUME" | "COVER_LETTER" | "OTHER";
+        };
+        CopyResume: {
+            /** Format: uuid */
+            resumeId: string;
+            /** Format: uuid */
+            requestId: string;
+        };
+        Resume: {
+            /** Format: uuid */
+            id?: string;
+            title?: string;
+            document?: components["schemas"]["ResumeDocument"];
+            /** Format: int32 */
+            version?: number;
+            locked?: boolean;
+            /** Format: uuid */
+            folderId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
         };
         ReadLinkRequest: {
             url: string;
@@ -2049,7 +2377,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "FOLDER" | "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
+            kind: "FOLDER" | "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
             /** @description A Folder's name, or an Item's title (may be empty) */
             title: string;
             /** Format: date-time */
@@ -2096,7 +2424,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
             title: string;
             /** @description The Folder path such as "Work / CoreEx", null at the top level */
             folderPath: string | null;
@@ -2121,7 +2449,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
             title: string;
             folderPath: string | null;
         };
@@ -2226,7 +2554,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
             title: string;
             /**
              * Format: uuid
@@ -2321,6 +2649,12 @@ export interface components {
             /** @description Plain text after the mention */
             after: string;
         };
+        LinkedApplication: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            sent: boolean;
+        };
         BacklinkList: {
             items: components["schemas"]["BacklinkResponse"][];
             /** Format: int64 */
@@ -2344,6 +2678,22 @@ export interface components {
             folderCount: number;
             /** Format: int64 */
             itemCount: number;
+        };
+        CoverLetterMarkdown: {
+            markdown: string;
+            /** Format: int32 */
+            version: number;
+        };
+        GroupedDocument: {
+            /** Format: uuid */
+            applicationId: string;
+            applicationTitle: string;
+            /** @enum {string} */
+            kind: "RESUME" | "COVER_LETTER";
+            /** Format: uuid */
+            itemId: string | null;
+            documentTitle: string;
+            sent: boolean;
         };
         AssetUrlResponse: {
             url: string;
@@ -3043,6 +3393,74 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Letter"];
+                };
+            };
+        };
+    };
+    save_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveCoverLetter"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Letter"];
+                };
+            };
+        };
+    };
+    trash_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
             /** @description The Asset */
             200: {
                 headers: {
@@ -3136,7 +3554,7 @@ export interface operations {
             };
         };
     };
-    get_3: {
+    get_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -3176,7 +3594,7 @@ export interface operations {
             };
         };
     };
-    save_2: {
+    save_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -3229,7 +3647,7 @@ export interface operations {
             };
         };
     };
-    trash_1: {
+    trash_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -3426,6 +3844,54 @@ export interface operations {
             };
         };
     };
+    list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LinkedDocument"][];
+                };
+            };
+        };
+    };
+    link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkDocument"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LinkedDocument"][];
+                };
+            };
+        };
+    };
     editInterview: {
         parameters: {
             query?: never;
@@ -3613,7 +4079,7 @@ export interface operations {
             };
         };
     };
-    list: {
+    list_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -3675,7 +4141,7 @@ export interface operations {
             };
         };
     };
-    list_1: {
+    list_2: {
         parameters: {
             query?: {
                 page?: number;
@@ -3735,7 +4201,7 @@ export interface operations {
             };
         };
     };
-    list_2: {
+    list_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -4054,7 +4520,7 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -4129,7 +4595,7 @@ export interface operations {
             };
         };
     };
-    link: {
+    link_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -4232,7 +4698,7 @@ export interface operations {
             };
         };
     };
-    link_1: {
+    link_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -4275,7 +4741,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -4377,6 +4843,226 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_6: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Letter"][];
+                };
+            };
+        };
+    };
+    create_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCoverLetter"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Letter"];
+                };
+            };
+        };
+    };
+    versions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterVersion"][];
+                };
+            };
+        };
+    };
+    nameVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NameCoverLetterVersion"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterVersion"];
+                };
+            };
+        };
+    };
+    restore_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnlinkCoverLetter"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Letter"];
+                };
+            };
+        };
+    };
+    unlink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnlinkCoverLetter"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Letter"];
+                };
+            };
+        };
+    };
+    drafts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterDraft"][];
+                };
+            };
+        };
+    };
+    draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftCoverLetter"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterDraft"];
+                };
+            };
+        };
+    };
+    acceptDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                draftId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnlinkCoverLetter"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Letter"];
                 };
             };
         };
@@ -4526,7 +5212,7 @@ export interface operations {
             };
         };
     };
-    list_5: {
+    list_7: {
         parameters: {
             query?: {
                 page?: number;
@@ -4560,7 +5246,7 @@ export interface operations {
             };
         };
     };
-    create_4: {
+    create_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -4848,6 +5534,32 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+        };
+    };
+    copy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyResume"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Resume"];
                 };
             };
         };
@@ -5202,7 +5914,7 @@ export interface operations {
             };
         };
     };
-    list_6: {
+    list_8: {
         parameters: {
             query?: {
                 page?: number;
@@ -5225,7 +5937,7 @@ export interface operations {
             };
         };
     };
-    create_5: {
+    create_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -5307,7 +6019,7 @@ export interface operations {
             };
         };
     };
-    list_7: {
+    list_9: {
         parameters: {
             query?: never;
             header?: never;
@@ -5327,7 +6039,7 @@ export interface operations {
             };
         };
     };
-    create_6: {
+    create_7: {
         parameters: {
             query?: never;
             header?: never;
@@ -5369,7 +6081,7 @@ export interface operations {
             };
         };
     };
-    list_8: {
+    list_10: {
         parameters: {
             query?: {
                 page?: number;
@@ -5423,7 +6135,7 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string;
-                type?: "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
+                type?: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
                 tagId?: string;
                 folderId?: string;
                 page?: number;
@@ -5477,7 +6189,7 @@ export interface operations {
             };
         };
     };
-    get_4: {
+    get_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -5540,7 +6252,7 @@ export interface operations {
             };
         };
     };
-    list_9: {
+    list_11: {
         parameters: {
             query?: never;
             header?: never;
@@ -5571,7 +6283,7 @@ export interface operations {
             };
         };
     };
-    get_5: {
+    get_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -5747,12 +6459,12 @@ export interface operations {
             };
         };
     };
-    list_10: {
+    list_12: {
         parameters: {
             query?: {
                 folderId?: string;
                 tagId?: string;
-                type?: "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
+                type?: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
                 page?: number;
                 size?: number;
             };
@@ -5782,7 +6494,7 @@ export interface operations {
             };
         };
     };
-    list_11: {
+    list_13: {
         parameters: {
             query?: {
                 size?: number;
@@ -5811,6 +6523,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_14: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LinkedApplication"][];
                 };
             };
         };
@@ -5968,6 +6702,71 @@ export interface operations {
             };
         };
     };
+    version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterVersion"];
+                };
+            };
+        };
+    };
+    markdown_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterMarkdown"];
+                };
+            };
+        };
+    };
+    list_15: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GroupedDocument"][];
+                };
+            };
+        };
+    };
     url: {
         parameters: {
             query?: {
@@ -6083,7 +6882,7 @@ export interface operations {
             };
         };
     };
-    list_12: {
+    list_16: {
         parameters: {
             query?: {
                 page?: number;

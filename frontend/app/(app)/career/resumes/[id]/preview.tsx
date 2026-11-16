@@ -40,6 +40,7 @@ export function Preview({
   markdownAvailable,
   pins,
   checkMode,
+  letterDocument,
 }: {
   doc: Doc;
   title: string;
@@ -52,8 +53,10 @@ export function Preview({
   markdownAvailable: boolean;
   pins: CheckIssue[];
   checkMode: boolean;
+  letterDocument?: components["schemas"]["CoverLetterDocument"];
 }) {
-  const { bytes, doc: rendered, error, busy } = useResumePdf(doc, photoSrc);
+  const isLetter = !!letterDocument;
+  const { bytes, doc: rendered, error, busy } = useResumePdf(doc, photoSrc, isLetter);
   const [zoom, setZoom] = useState(1);
   const [sizes, setSizes] = useState<{ width: number; height: number }[]>([]);
   const [boxes, setBoxes] = useState<Box[]>([]);
@@ -84,7 +87,7 @@ export function Preview({
           void task.destroy();
           return;
         }
-        setBoxes(buildPageMap(segmentsOf(resumeBlocks(rendered)), text));
+        setBoxes(buildPageMap(segmentsOf(resumeBlocks(rendered, isLetter)), text));
         setExtracted(extractedText(text));
         setParsedDoc(rendered);
         setPdfWarnings(null);
@@ -98,7 +101,7 @@ export function Preview({
     return () => {
       stale = true;
     };
-  }, [bytes, rendered]);
+  }, [bytes, rendered, isLetter]);
 
   // Draws every page, again when the PDF or the zoom changes. Each page is drawn off screen and then copied, so the old
   // page stays in view until the new one is ready.
@@ -165,8 +168,8 @@ export function Preview({
     try {
       setDownloadError(null);
       let blob: Blob;
-      if (format === "docx") blob = await (await import("@/lib/resume/word")).resumeWord(doc);
-      else if (format === "json") blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
+      if (format === "docx") blob = await (await import("@/lib/resume/word")).resumeWord(doc, !!letterDocument);
+      else if (format === "json") blob = new Blob([JSON.stringify(letterDocument ?? doc, null, 2)], { type: "application/json" });
       else {
         const markdown = await onMarkdown();
         if (markdown === null) throw new Error("Markdown unavailable");
@@ -179,7 +182,7 @@ export function Preview({
       link.click();
       URL.revokeObjectURL(url);
     } catch {
-      setDownloadError("Could not download the Resume. Save changes or reload if it changed elsewhere, then try again.");
+      setDownloadError(`Could not download the ${isLetter ? "Cover Letter" : "Resume"}. Save changes or reload if it changed elsewhere, then try again.`);
     }
   }
 
@@ -234,7 +237,7 @@ export function Preview({
         <Button type="button" variant="outline" size="sm" disabled={!markdownAvailable} onClick={() => void downloadFormat("md")}>Download Markdown</Button>
         <Button type="button" variant="outline" size="sm" onClick={() => void downloadFormat("json")}>Download JSON</Button>
       </div>
-      <p className="text-sm text-muted-foreground">The JSON backup includes private notes.</p>
+      {!letterDocument && <p className="text-sm text-muted-foreground">The JSON backup includes private notes.</p>}
       {checkMode && <div className="flex flex-wrap gap-2">
         <Button type="button" variant="outline" size="sm" disabled={!loaded || busy || rendered !== parsedDoc} onClick={() => setParser(!parser)}>{parser ? "Hide parser text" : "See what a parser reads"}</Button>
         <Button type="button" variant="outline" size="sm" disabled={!rendered || busy || !loaded || rendered !== parsedDoc} onClick={() => setPdfWarnings(comparePdfText(segmentsOf(resumeBlocks(rendered!)).map((s) => s.text), extracted))}>Check exported PDF</Button>
@@ -247,7 +250,7 @@ export function Preview({
       {overflow && rendered && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
           <p role="status" className="mr-auto">
-            This Resume runs onto page {intendedPages(rendered) + 1}.
+            This {isLetter ? "Cover Letter" : "Resume"} runs onto page {intendedPages(rendered) + 1}.
           </p>
           <Button type="button" variant="outline" size="sm" disabled={fitting} onClick={onFit}>
             {fitting ? "Fitting…" : "Fit to page"}
