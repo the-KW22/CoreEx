@@ -4,6 +4,7 @@ import { getApi } from "@/lib/api/server";
 
 import { FolderPicker } from "../../../items/folder-picker";
 import { TagEditor } from "../../../items/tag-editor";
+import { ItemBacklinks } from "../../../items/item-sections";
 
 import { RecordOpen } from "../../../search/record-open";
 import { ResumeEditor } from "./resume-editor";
@@ -36,6 +37,7 @@ export default async function ResumePage({ params }: PageProps<"/career/resumes/
         key={resume.id}
         id={resume.id}
         initial={{ title: resume.title, document: resume.document, version: resume.version, locked: resume.locked }}
+        backlinks={<ItemBacklinks itemId={resume.id} />}
         organise={
           <>
             <FolderPicker itemId={resume.id} folderId={resume.folderId} folders={list?.data?.items ?? []} />

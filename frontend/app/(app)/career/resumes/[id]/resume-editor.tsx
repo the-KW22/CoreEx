@@ -51,11 +51,13 @@ export function ResumeEditor({
   id,
   initial,
   organise,
+  backlinks,
 }: {
   id: string;
   initial: { title: string; document: ResumeDocument; version: number; locked: boolean };
   // The Folder picker and Tag editor, made on the server. They organise the Resume rather than edit it, so they work on a locked one.
   organise: React.ReactNode;
+  backlinks: React.ReactNode;
 }) {
   const [state, dispatch] = useReducer(reduce, undefined, () => init(initial.title, initial.document, initial.version));
   // Bumped when the stored Resume replaces the text, so the rich text field starts again from it.
@@ -388,6 +390,7 @@ export function ResumeEditor({
         <section aria-label="Folder and Tags" className="flex flex-wrap items-start gap-x-8 gap-y-3 text-sm">
           {organise}
         </section>
+        {backlinks}
         <nav aria-label="Mode" className="flex gap-2 text-sm">
           {(["write", "design", "history"] as const).map((m) => (
             <button
