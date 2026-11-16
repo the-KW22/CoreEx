@@ -24,6 +24,12 @@ test("writes a Cover Letter linked to a Resume and keeps sender details on unlin
   await page.getByRole("link", { name: letter, exact: true }).click();
   await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Alex Morgan");
   await expect(page.getByLabel("Name", { exact: true })).toBeDisabled();
+  const body = page.getByRole("textbox", { name: "Body", exact: true });
+  await body.fill("Experience writing reliable software.");
+  await body.press("Control+z");
+  await expect(body).not.toContainText("Experience writing reliable software.");
+  await body.press("Control+Shift+z");
+  await expect(body).toContainText("Experience writing reliable software.");
   await expect(page.getByRole("img", { name: /Page 1 of/ })).toBeVisible({ timeout: 30_000 });
   const resumePage = await page.context().newPage();
   await resumePage.goto(resumeHref!);

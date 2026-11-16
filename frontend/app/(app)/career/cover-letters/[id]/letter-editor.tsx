@@ -181,7 +181,7 @@ export function LetterEditor({ initial, organise, backlinks }: { initial: Letter
           {(["name", "headline", "email", "phone", "location", "website"] as const).map((field) => <label key={field} className="grid gap-1 text-sm font-medium">{field === "name" ? "Name" : field === "headline" ? "Headline" : field === "email" ? "Email" : field === "phone" ? "Phone" : field === "location" ? "Location" : "Website"}<input data-field={`basics.${field}`} value={doc.sender[field]} onChange={(e) => set({ sender: { ...doc.sender, [field]: e.target.value } })} className={input} /></label>)}
         </fieldset>
         {(["recipient", "date", "greeting"] as const).map((field) => <label key={field} className="grid gap-1 text-sm font-medium">{field === "recipient" ? "Recipient" : field === "date" ? "Date" : "Greeting"}<input value={doc[field]} onChange={(e) => set({ [field]: e.target.value })} className={input} /></label>)}
-        <RichText key={generation} label="Body" field="summary" html={doc.body} onChange={(body) => set({ body })} />
+        <RichText key={generation} label="Body" field="summary" html={doc.body} onChange={(body) => set({ body })} ownHistory />
         <label className="grid gap-1 text-sm font-medium">Sign-off<input value={doc.signOff} onChange={(event) => set({ signOff: event.target.value })} className={input} /></label>
         <p role="status" className="text-sm text-muted-foreground">{wordCount} words · suggested range 180–320</p>
         <DraftPanel id={initial.id} version={version} ready={status === "saved"} linkedResume={linked} onAccept={(letter) => {
