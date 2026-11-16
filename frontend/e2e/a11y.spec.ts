@@ -2795,6 +2795,54 @@ test("Insights count what was applied to in a range, using back-dated entries", 
   await expect(tile("Applied to")).toBeVisible();
 });
 
+test("a Note's mention of an Application becomes a Backlink, and Search finds the Application by its posting", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page);
+  const stamp = Date.now();
+  const company = `Nova${stamp}`;
+  const title = `Dev at ${company}`;
+  const word = `zebrawrangler${stamp}`;
+  await page.goto("/career/applications");
+  await page.getByRole("button", { name: "New Application" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Application" });
+  await dialog.getByLabel("Company").fill(company);
+  await dialog.getByLabel("Role").fill("Dev");
+  await dialog.getByLabel("Posting").fill(`We need a ${word} who loves spreadsheets`);
+  await dialog.getByRole("button", { name: "Add Application" }).click();
+  await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
+
+  // A Note that only names the Application, then Link it from the Application's page.
+  const noteTitle = `Nova note ${stamp}`;
+  await newNote(page, noteTitle);
+  await page.getByRole("textbox", { name: "Note content" }).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(`Phone screen for ${title} went well`);
+  await expectSaved(page);
+  await page.goto("/career/applications");
+  await page.getByRole("link", { name: new RegExp(title) }).click();
+  const section = page.getByRole("region", { name: /Mentioned without a Link/ });
+  await expect(section.getByRole("link", { name: noteTitle })).toBeVisible();
+  await section.getByRole("button", { name: `Link it in ${noteTitle}` }).click();
+  await expect(page.getByRole("region", { name: "Backlinks" }).getByRole("link", { name: noteTitle })).toBeVisible();
+  await expectNoViolations(page);
+
+  // Search finds it by a word of the posting, and the type filter narrows to Applications.
+  await page.goto(`/search?q=${word}`);
+  await expect(page.getByRole("link", { name: new RegExp(title) })).toBeVisible();
+  await page.goto(`/search?q=${word}&type=NOTE`);
+  await expect(page.getByRole("link", { name: new RegExp(title) })).toHaveCount(0);
+  await page.goto(`/search?q=${word}&type=APPLICATION`);
+  await expect(page.getByRole("link", { name: new RegExp(title) })).toBeVisible();
+  await expectNoViolations(page);
+
+  // The Graph has it as a node.
+  await page.goto("/graph?type=APPLICATION");
+  await expect(page.getByRole("link", { name: new RegExp(`^${title}, Application`) })).toBeVisible();
+
+  await page.goto("/items");
+  await trashRows(page, [noteTitle]);
+});
+
 test("Career opens from the rail with its panel and the Applications list, and New Application lands on the new page", async ({ page }) => {
   await signIn(page);
   const stamp = Date.now();

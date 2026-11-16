@@ -7,6 +7,8 @@ import { pathTo } from "@/lib/folders";
 
 import { FolderPicker } from "../../../items/folder-picker";
 import { ItemFrame } from "../../../items/item-frame";
+import { ItemBacklinks, parseDepth } from "../../../items/item-sections";
+import { ItemMentions, parseMentions } from "../../../items/mentions";
 import { TagEditor } from "../../../items/tag-editor";
 import { RecordOpen } from "../../../search/record-open";
 import { deleteApplication } from "../actions";
@@ -16,7 +18,7 @@ import { ApplicationView } from "./application-view";
 // around its fields edited in place, the Stage stepper, the timeline and the posting.
 export default async function ApplicationPage({ params, searchParams }: PageProps<"/career/applications/[id]">) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, depth: rawDepth, mentions } = await searchParams;
   const api = await getApi();
   const [result, list, itemTags, allTags, jar] = await Promise.all([
     api.GET("/api/applications/{id}", { params: { path: { id } } }).catch(() => null),
@@ -68,6 +70,8 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
                 </p>
               )}
             </section>
+            <ItemBacklinks itemId={application.id} />
+            <ItemMentions itemId={application.id} size={parseMentions(mentions)} depth={parseDepth(rawDepth)} />
           </div>
         }
       >

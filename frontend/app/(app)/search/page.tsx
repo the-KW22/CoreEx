@@ -5,7 +5,7 @@ import { Alert } from "@/components/alert";
 import { PageGone, Pager } from "@/components/pager";
 import { Button } from "@/components/ui/button";
 import { getApi } from "@/lib/api/server";
-import { itemHref, TYPE_LOOK } from "@/lib/items";
+import { itemHref, parseType, TYPE_LOOK } from "@/lib/items";
 import { pageInfo } from "@/lib/pages";
 import { relativeTime } from "@/lib/time";
 
@@ -30,7 +30,7 @@ const field =
 export default async function SearchPage({ searchParams }: PageProps<"/search">) {
   const params = await searchParams;
   const q = one(params.q).trim();
-  const type = one(params.type) === "NOTE" ? "NOTE" : one(params.type) === "ASSET" ? "ASSET" : undefined;
+  const type = parseType(one(params.type));
   const tagId = one(params.tagId) || undefined;
   const folderId = one(params.folderId) || undefined;
   const page = pageInfo(0, params.page, PAGE_SIZE).page;
@@ -87,6 +87,7 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
               <option value="">All types</option>
               <option value="NOTE">Notes</option>
               <option value="ASSET">Assets</option>
+              <option value="APPLICATION">Applications</option>
             </select>
           </label>
           <div className={field}>
