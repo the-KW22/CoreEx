@@ -4,7 +4,7 @@ import { type ReactElement, createElement } from "react";
 
 import type { components } from "@/lib/api/schema";
 
-import { ResumePdf } from "./template-classic";
+import { ResumePdf } from "./templates";
 
 // The PDF is made here, off the page's main thread, so typing never waits for a render (ADR 0012).
 type Doc = components["schemas"]["ResumeDocument"];

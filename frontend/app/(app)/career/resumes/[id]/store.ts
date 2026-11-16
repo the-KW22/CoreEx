@@ -64,6 +64,7 @@ export type Action =
   | { type: "undo" }
   | { type: "redo" }
   | { type: "privateNotes"; value: string }
+  | { type: "template"; value: string }
   | { type: "title"; value: string }
   | { type: "basic"; field: Exclude<keyof Basics, "customFields">; value: string }
   | { type: "summary"; html: string }
@@ -186,6 +187,8 @@ function apply(s: EditorState, a: Action): EditorState {
   switch (a.type) {
     case "privateNotes":
       return edited(s, { doc: { ...s.doc, privateNotes: a.value } });
+    case "template":
+      return edited(s, { doc: { ...s.doc, metadata: { ...s.doc.metadata, template: a.value } } });
     case "undo":
     case "redo":
       return s;

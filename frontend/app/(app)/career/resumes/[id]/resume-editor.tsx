@@ -2,14 +2,17 @@
 
 import { ChevronLeftIcon, LockIcon, LockOpenIcon, PlusIcon, Redo2Icon, Undo2Icon, XIcon } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import type { Template } from "@/lib/resume/blocks";
+import { cn } from "@/lib/utils";
 
 import { clearUnsaved, recoveryAction, storeUnsaved, takeNewestUnsaved } from "../../../notes/[id]/recovery";
 import { loadResume, saveCopy, saveResume, setLocked as lockResume } from "./actions";
 import { Preview } from "./preview";
+import { Design } from "./design";
 import { Locked, RichText } from "./rich-text";
 import { Sections } from "./sections";
 import { type Action, init, reduce, type ResumeDocument } from "./store";
@@ -41,6 +44,9 @@ export function ResumeEditor({
   const [generation, setGeneration] = useState(0);
   const [notice, setNotice] = useState("");
   const [locked, setLocked] = useState(initial.locked);
+  const [mode, setMode] = useState<"write" | "design">("write");
+  // A template being looked at in the page preview, not yet applied.
+  const [candidate, setCandidate] = useState<Template | null>(null);
   const [session] = useState(() => Math.random().toString(36).slice(2));
   const latest = useRef(state);
   const saving = useRef(false);
@@ -111,12 +117,20 @@ export function ResumeEditor({
     }
   }
 
-  // A click on the page: jump to the field it came from, and put the cursor in it.
-  function select(ref: string) {
+  // Puts the cursor in the field the reference names, once the form is on screen.
+  function focusField(ref: string) {
     const field = document.querySelector<HTMLElement>(`[data-field="${CSS.escape(ref)}"]`);
     if (!field) return;
     field.scrollIntoView({ block: "center" });
     (field.querySelector<HTMLElement>("[contenteditable=true]") ?? field).focus();
+  }
+
+  // A click on the page: jump to the field it came from. From Design mode the form comes back first.
+  function select(ref: string) {
+    if (mode === "write") return focusField(ref);
+    setMode("write");
+    setCandidate(null);
+    requestAnimationFrame(() => focusField(ref));
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -189,6 +203,11 @@ export function ResumeEditor({
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const { doc } = state;
+  // What the page preview draws: the Resume, or a template being looked at. The same object while neither changes.
+  const shown = useMemo(
+    () => (candidate ? { ...doc, metadata: { ...doc.metadata, template: candidate } } : doc),
+    [doc, candidate],
+  );
   const unsavedLabel = state.status === "error" ? "Not saved" : state.status === "saving" ? "Saving…" : state.status === "unsaved" ? "Unsaved changes" : "Saved";
 
   return (
@@ -234,9 +253,20 @@ export function ResumeEditor({
           </p>
         )}
         <nav aria-label="Mode" className="flex gap-2 text-sm">
-          <span aria-current="page" className="rounded-lg border border-border bg-surface px-3 py-1.5 font-medium">
-            Write
-          </span>
+          {(["write", "design"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              aria-current={mode === m ? "page" : undefined}
+              onClick={() => {
+                setMode(m);
+                if (m === "write") setCandidate(null);
+              }}
+              className={cn("rounded-lg border border-border px-3 py-1.5 hover:bg-surface", mode === m && "bg-surface font-medium")}
+            >
+              {m === "write" ? "Write" : "Design"}
+            </button>
+          ))}
         </nav>
         {notice && (
           <p role="status" className="rounded-lg border border-border bg-surface px-3 py-2 text-sm">
@@ -245,9 +275,9 @@ export function ResumeEditor({
         )}
       </header>
 
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Locked value={locked}>
-        <fieldset disabled={locked} className="m-0 grid min-w-0 content-start gap-6 border-0 p-0">
+        <fieldset disabled={locked} className={cn("m-0 grid min-w-0 content-start gap-6 border-0 p-0", mode !== "write" && "hidden")}>
           <section aria-labelledby="contact" className="grid gap-3">
             <h2 id="contact" className="text-lg font-semibold">
               Contact details
@@ -328,8 +358,22 @@ export function ResumeEditor({
           </section>
         </fieldset>
         </Locked>
+        {mode === "design" && (
+          <div className="grid min-w-0 content-start gap-6">
+            <Design
+              doc={doc}
+              candidate={candidate}
+              locked={locked}
+              onCandidate={setCandidate}
+              onApply={(template) => {
+                dispatch({ type: "template", value: template });
+                setCandidate(null);
+              }}
+            />
+          </div>
+        )}
 
-        <Preview doc={state.doc} title={state.title} onSelect={select} />
+        <Preview doc={shown} title={state.title} onSelect={select} />
       </div>
     </div>
   );

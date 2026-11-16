@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { resumeBlocks } from "./blocks";
 import { parseRich } from "./html";
 import { SAMPLE } from "./sample";
-import { ResumePdf } from "./template-classic";
+import { ResumePdf } from "./templates";
 
 describe("reading the editor's HTML", () => {
   it("keeps bold, italic, underline, links, colour and alignment", () => {

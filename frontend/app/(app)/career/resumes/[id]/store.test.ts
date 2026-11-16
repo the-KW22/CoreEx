@@ -105,6 +105,12 @@ describe("Undo and Redo", () => {
     expect(reduce(saved, { type: "load", title: "T", doc, version: 3 }).past).toEqual([]);
   });
 
+  it("choosing a template is one undoable step", () => {
+    const s = reduce(init("CV", doc, 1), { type: "template", value: "sidebar" });
+    expect(s.doc.metadata.template).toBe("sidebar");
+    expect(reduce(s, { type: "undo" }).doc.metadata.template).toBe("classic");
+  });
+
   it("private notes are an ordinary edit", () => {
     expect(reduce(init("CV", doc, 1), { type: "privateNotes", value: "sent to Acme" }).doc.privateNotes).toBe("sent to Acme");
   });
