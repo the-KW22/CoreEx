@@ -49,10 +49,10 @@ class ResumeRepository {
 	}
 
 	Optional<Resume> find(UUID ownerId, UUID id) {
-		return jdbc.sql("select i.id, i.title, c.document::text as document, c.version, i.folder_id, i.created_at, i.updated_at "
+		return jdbc.sql("select i.id, i.title, c.document::text as document, c.version, c.locked, i.folder_id, i.created_at, i.updated_at "
 				+ FROM + " and i.id = :id").param("owner", ownerId).param("id", id)
 				.query((rs, n) -> new Resume(rs.getObject("id", UUID.class), rs.getString("title"),
-						json.readValue(rs.getString("document"), ResumeDocument.class), rs.getInt("version"),
+						json.readValue(rs.getString("document"), ResumeDocument.class), rs.getInt("version"), rs.getBoolean("locked"),
 						rs.getObject("folder_id", UUID.class), rs.getObject("created_at", OffsetDateTime.class).toInstant(),
 						rs.getObject("updated_at", OffsetDateTime.class).toInstant()))
 				.optional();
@@ -77,7 +77,7 @@ class ResumeRepository {
 				update resume_contents c set document = :doc::jsonb, plain_text = :plain, markdown = :md, version = c.version + 1
 				from items i
 				where c.item_id = i.id and i.id = :id and i.owner_id = :owner and i.type = 'RESUME'
-				  and i.deleted_at is null and c.version = :version""").param("doc", document).param("plain", plain)
+				  and i.deleted_at is null and c.version = :version and not c.locked""").param("doc", document).param("plain", plain)
 				.param("md", markdown).param("id", id).param("owner", ownerId).param("version", seenVersion).update();
 		if (saved == 0) {
 			return false;
@@ -85,12 +85,23 @@ class ResumeRepository {
 		return rename(ownerId, id, title);
 	}
 
-	/** False when the Resume is missing or not the User's. */
+	/** False when the Resume is missing, not the User's or locked. */
 	boolean rename(UUID ownerId, UUID id, String title) {
 		return jdbc.sql("""
-				update items set title = :title, edited_by = null, updated_at = now()
-				where id = :id and owner_id = :owner and type = 'RESUME' and deleted_at is null""")
+				update items i set title = :title, edited_by = null, updated_at = now()
+				from resume_contents c
+				where c.item_id = i.id and i.id = :id and i.owner_id = :owner and i.type = 'RESUME'
+				  and i.deleted_at is null and not c.locked""")
 				.param("title", title).param("id", id).param("owner", ownerId).update() > 0;
+	}
+
+	/** False when the Resume is missing or not the User's. */
+	boolean setLocked(UUID ownerId, UUID id, boolean locked) {
+		return jdbc.sql("""
+				update resume_contents c set locked = :locked
+				from items i
+				where c.item_id = i.id and i.id = :id and i.owner_id = :owner and i.type = 'RESUME' and i.deleted_at is null""")
+				.param("locked", locked).param("id", id).param("owner", ownerId).update() > 0;
 	}
 
 }

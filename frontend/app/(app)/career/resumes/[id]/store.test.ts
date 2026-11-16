@@ -57,6 +57,59 @@ describe("the editor store", () => {
   });
 });
 
+describe("Undo and Redo", () => {
+  const type = (s: EditorState, text: string, field: "name" | "headline" = "name") =>
+    [...text].reduce((acc, _, i) => reduce(acc, { type: "basic", field, value: text.slice(0, i + 1) }), s);
+
+  it("typing a sentence in one field is one step", () => {
+    const typed = type(init("CV", doc, 1), "Ada Lovelace");
+    expect(typed.past).toHaveLength(1);
+    const undone = reduce(typed, { type: "undo" });
+    expect(undone.doc.basics.name).toBe("Ada");
+    expect(undone.status).toBe("saved");
+    expect(reduce(undone, { type: "redo" }).doc.basics.name).toBe("Ada Lovelace");
+  });
+
+  it("another field, or another kind of change, starts a new step", () => {
+    let s = type(init("CV", doc, 1), "Ada");
+    s = type(s, "Analyst", "headline");
+    s = reduce(s, { type: "addSection", id: "a", kind: "SKILLS" });
+    expect(s.past).toHaveLength(3);
+    s = reduce(s, { type: "undo" });
+    expect(s.doc.sections).toEqual([]);
+    expect(s.doc.basics.headline).toBe("Analyst");
+  });
+
+  it("a new edit clears what could be redone", () => {
+    let s = reduce(type(init("CV", doc, 1), "Ada"), { type: "undo" });
+    expect(s.future).toHaveLength(1);
+    s = reduce(s, { type: "basic", field: "name", value: "Bee" });
+    expect(s.future).toEqual([]);
+  });
+
+  it("keeps the newest 200 steps", () => {
+    let s = init("CV", doc, 1);
+    for (let i = 0; i < 250; i++) s = reduce(s, { type: "addSection", id: `s${i}`, kind: "SKILLS" });
+    expect(s.past).toHaveLength(200);
+    for (let i = 0; i < 200; i++) s = reduce(s, { type: "undo" });
+    expect(s.doc.sections).toHaveLength(50);
+    expect(reduce(s, { type: "undo" })).toBe(s);
+  });
+
+  it("saving does not touch the history, and loading starts it again", () => {
+    const typed = type(init("CV", doc, 1), "Grace");
+    const saved = reduce(typed, { type: "savedAs", sent: { title: typed.title, doc: typed.doc }, version: 2 });
+    expect(saved.past).toHaveLength(1);
+    // Undoing past a save leaves the text unsaved again.
+    expect(reduce(saved, { type: "undo" }).status).toBe("unsaved");
+    expect(reduce(saved, { type: "load", title: "T", doc, version: 3 }).past).toEqual([]);
+  });
+
+  it("private notes are an ordinary edit", () => {
+    expect(reduce(init("CV", doc, 1), { type: "privateNotes", value: "sent to Acme" }).doc.privateNotes).toBe("sent to Acme");
+  });
+});
+
 describe("sections and entries", () => {
   const run = (s: EditorState, ...actions: Parameters<typeof reduce>[1][]) => actions.reduce(reduce, s);
   const start = () =>

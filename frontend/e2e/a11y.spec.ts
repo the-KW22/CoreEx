@@ -3255,3 +3255,51 @@ test("sections and entries are added, reordered, hidden and printed in one date 
   await expect(page.getByLabel("Date format")).toHaveValue("MM_YYYY");
   await expectNoViolations(page);
 });
+
+test("Undo takes back a whole typed sentence in one step, and Redo puts it back; a delete offers Undo", async ({ page }) => {
+  await signIn(page);
+  await openNewResume(page, `Undo ${Date.now()}`);
+  const headline = page.getByLabel("Headline");
+  await headline.pressSequentially("Staff engineer");
+  await expect(headline).toHaveValue("Staff engineer");
+
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(headline).toHaveValue("");
+  await page.getByRole("button", { name: "Redo" }).click();
+  await expect(headline).toHaveValue("Staff engineer");
+  // The keys do the same.
+  await headline.press("Control+z");
+  await expect(headline).toHaveValue("");
+
+  // A deleted section can be brought back from the toast.
+  await page.getByRole("button", { name: "Add section" }).click();
+  await page.getByRole("button", { name: "Remove Experience" }).click();
+  await expect(page.getByRole("region", { name: "Experience", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Undo", exact: true }).last().click();
+  await expect(page.getByRole("region", { name: "Experience", exact: true })).toBeVisible();
+});
+
+test("a locked Resume cannot be edited until unlocked, and private notes are kept", async ({ page }) => {
+  await signIn(page);
+  await openNewResume(page, `Lock ${Date.now()}`);
+  const status = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+
+  await page.getByLabel("Only you see these").fill("Sent to Acme on Monday");
+  await page.getByLabel("Headline").fill("Analyst");
+  await expect(status).not.toHaveText("Saved");
+  await expect(status).toHaveText("Saved");
+
+  await page.getByRole("button", { name: "Lock" }).click();
+  await expect(page.getByText("This Resume is locked.")).toBeVisible();
+  await expect(page.getByLabel("Headline")).toBeDisabled();
+  await expectNoViolations(page);
+  await page.reload();
+  await expect(page.getByLabel("Headline")).toBeDisabled();
+  await expect(page.getByLabel("Only you see these")).toHaveValue("Sent to Acme on Monday");
+
+  await page.getByRole("button", { name: "Unlock" }).click();
+  await expect(page.getByLabel("Headline")).toBeEnabled();
+  await page.getByLabel("Headline").fill("Senior analyst");
+  await expect(status).not.toHaveText("Saved");
+  await expect(status).toHaveText("Saved");
+});
