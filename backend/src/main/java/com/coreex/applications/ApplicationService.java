@@ -88,6 +88,25 @@ public class ApplicationService {
 		return create(ownerId, company, role, location, postingUrl, postingText, null).application();
 	}
 
+	/** An Application named by id and title, for a pointer to it. */
+	public record Found(UUID id, String title) {
+	}
+
+	/** Refuses a posting link another live Application of the User's already holds; a link that is not one never clashes. */
+	private void requireNewPosting(UUID ownerId, String postingUrl, UUID except) {
+		var canonical = CanonicalUrl.of(postingUrl);
+		if (!canonical.isEmpty()) {
+			applications.duplicateOf(ownerId, canonical, except).ifPresent(found -> {
+				throw new DuplicatePostingException(found.id(), found.title());
+			});
+		}
+	}
+
+	/** The User's earlier Applications at this company that were closed with no response (never the one in {@code except}). */
+	public List<Found> neverAnswered(UUID ownerId, String company, UUID except) {
+		return company == null || company.isBlank() ? List.of() : applications.neverAnswered(ownerId, company, except);
+	}
+
 	/** An Application and whether this call made it. */
 	public record Created(Application application, boolean isNew) {
 	}
@@ -106,6 +125,7 @@ public class ApplicationService {
 				return new Created(existing.get(), false);
 			}
 		}
+		requireNewPosting(ownerId, postingUrl, null);
 		var made = applications.insert(ownerId, id, titleOf(role, company), company, role, location, postingUrl,
 				postingText, Stage.SAVED, null, append(List.of(), "STAGE", Stage.SAVED, day(null), null, null));
 		if (made.isEmpty()) {
@@ -161,6 +181,9 @@ public class ApplicationService {
 	public Application save(UUID ownerId, UUID id, String title, String company, String role, String location,
 			String postingUrl, String postingText, int seenVersion) {
 		var current = get(ownerId, id);
+		if (!CanonicalUrl.of(postingUrl).equals(CanonicalUrl.of(current.postingUrl()))) {
+			requireNewPosting(ownerId, postingUrl, id);
+		}
 		var auto = current.titleAuto() && title.equals(current.title());
 		if (!applications.saveFields(ownerId, id, seenVersion, auto ? titleOf(role, company) : title, auto, company, role,
 				location, postingUrl, postingText)) {
@@ -189,7 +212,7 @@ public class ApplicationService {
 			return current;
 		}
 		return store(ownerId, id, from != null ? current.version() : seenVersion, stage, closeReason,
-				append(current.timeline(), "STAGE", stage, day(date), null, null));
+				append(current.timeline(), "STAGE", stage, day(date), stage == Stage.CLOSED ? closeReason.name() : null, null));
 	}
 
 	/** The rules of a move that do not depend on the Application, so a bulk move can refuse them once. */

@@ -12,6 +12,7 @@ import { ItemMentions, parseMentions } from "../../../items/mentions";
 import { TagEditor } from "../../../items/tag-editor";
 import { RecordOpen } from "../../../search/record-open";
 import { deleteApplication } from "../actions";
+import { EarlierNotice } from "../earlier-notice";
 import { ApplicationView } from "./application-view";
 import { Documents } from "./documents";
 
@@ -40,6 +41,9 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
     return <p role="alert">Could not load the Application. Try again.</p>;
   }
 
+  const earlier = await api
+    .GET("/api/applications/applied-before", { params: { query: { company: application.company, excludeId: application.id } } })
+    .catch(() => null);
   const folders = list?.data?.items ?? [];
   const remembered = jar.get("details")?.value;
 
@@ -79,6 +83,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
       >
         <div className="grid flex-1 content-start gap-4 p-4 md:p-8">
           {error === "delete" && <Alert>Could not move the Application to the Trash. Try again.</Alert>}
+          <EarlierNotice className="mx-auto w-full max-w-3xl" company={application.company} items={earlier?.data?.items ?? []} />
           <ApplicationView initial={application} />
           <div className="mx-auto w-full max-w-3xl">
             {docs?.data ? (

@@ -68,10 +68,10 @@ class ApplicationRepository {
 		}
 		var id = made.get();
 		jdbc.sql("""
-				insert into application_contents (item_id, company, role, location, posting_url, posting_text, stage,
-				applied_on, timeline)
-				values (:id, :company, :role, :location, :url, :text, :stage, :applied, :timeline::jsonb)""")
-				.param("id", id).param("company", company).param("role", role).param("location", location)
+				insert into application_contents (item_id, company, role, location, posting_url, canonical_url, posting_text,
+				stage, applied_on, timeline)
+				values (:id, :company, :role, :location, :url, :canonical, :text, :stage, :applied, :timeline::jsonb)""")
+				.param("id", id).param("canonical", CanonicalUrl.of(postingUrl)).param("company", company).param("role", role).param("location", location)
 				.param("url", postingUrl).param("text", postingText).param("stage", stage.name())
 				.param("applied", appliedOn == null ? null : Timestamp.from(appliedOn))
 				.param("timeline", json.writeValueAsString(timeline)).update();
@@ -85,6 +85,37 @@ class ApplicationRepository {
 
 	List<Application> findAll(UUID ownerId) {
 		return jdbc.sql(COLUMNS + " " + FROM + " order by i.updated_at desc, i.id").param("owner", ownerId).query(mapper)
+				.list();
+	}
+
+	/** Another live Application of the User's with this canonical address, if any. */
+	Optional<ApplicationService.Found> duplicateOf(UUID ownerId, String canonical, UUID except) {
+		return jdbc.sql("""
+				select i.id, i.title from items i join application_contents c on c.item_id = i.id
+				where i.owner_id = :owner and i.type = 'APPLICATION' and i.deleted_at is null
+				  and c.canonical_url = :canonical and (cast(:except as uuid) is null or i.id <> :except)
+				order by i.created_at, i.id limit 1""").param("owner", ownerId).param("canonical", canonical)
+				.param("except", except)
+				.query((rs, n) -> new ApplicationService.Found(rs.getObject("id", UUID.class), rs.getString("title")))
+				.optional();
+	}
+
+	/**
+	 * The User's live Applications at this company (case and spacing ignored) that were closed with "no response",
+	 * now or earlier: the Stage entry of that close keeps the reason in its text.
+	 */
+	List<ApplicationService.Found> neverAnswered(UUID ownerId, String company, UUID except) {
+		return jdbc.sql("""
+				select i.id, i.title from items i join application_contents c on c.item_id = i.id
+				where i.owner_id = :owner and i.type = 'APPLICATION' and i.deleted_at is null
+				  and lower(regexp_replace(btrim(c.company), '\\s+', ' ', 'g')) = lower(regexp_replace(btrim(:company), '\\s+', ' ', 'g'))
+				  and (c.close_reason = 'NO_RESPONSE'
+				       or exists (select 1 from jsonb_array_elements(c.timeline) e
+				                  where e ->> 'type' = 'STAGE' and e ->> 'stage' = 'CLOSED' and e ->> 'text' = 'NO_RESPONSE'))
+				  and (cast(:except as uuid) is null or i.id <> :except)
+				order by i.updated_at desc, i.id limit 5""").param("owner", ownerId).param("company", company)
+				.param("except", except)
+				.query((rs, n) -> new ApplicationService.Found(rs.getObject("id", UUID.class), rs.getString("title")))
 				.list();
 	}
 
@@ -129,11 +160,12 @@ class ApplicationRepository {
 			String role, String location, String postingUrl, String postingText) {
 		var saved = jdbc.sql("""
 				update application_contents c set company = :company, role = :role, location = :location,
-				posting_url = :url, posting_text = :text, title_auto = :auto, version = c.version + 1
+				posting_url = :url, canonical_url = :canonical, posting_text = :text, title_auto = :auto, version = c.version + 1
 				from items i
 				where c.item_id = i.id and i.id = :id and i.owner_id = :owner and i.type = 'APPLICATION'
 				  and i.deleted_at is null and c.version = :version""").param("company", company).param("role", role)
-				.param("location", location).param("url", postingUrl).param("text", postingText)
+				.param("location", location).param("url", postingUrl).param("canonical", CanonicalUrl.of(postingUrl))
+				.param("text", postingText)
 				.param("auto", titleAuto).param("id", id).param("owner", ownerId).param("version", seenVersion).update();
 		if (saved == 0) {
 			return false;

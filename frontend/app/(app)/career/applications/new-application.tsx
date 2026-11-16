@@ -1,6 +1,7 @@
 "use client";
 
 import { BriefcaseBusinessIcon } from "lucide-react";
+import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-import { createApplication, readLink } from "./actions";
+import { appliedBefore, createApplication, readLink } from "./actions";
+import { EarlierNotice } from "./earlier-notice";
 
 const input = "h-9 w-full rounded-lg border border-border bg-surface px-3";
 
@@ -28,6 +30,13 @@ export function NewApplication() {
   const [posting, setPosting] = useState("");
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [reading, startReading] = useTransition();
+  const [earlier, setEarlier] = useState<{ company: string; items: { id: string; title: string }[] }>({ company: "", items: [] });
+
+  // Asked when the company is left, so typing is never slowed.
+  const lookUp = () => {
+    const name = company;
+    void appliedBefore(name).then((items) => setEarlier({ company: name, items }));
+  };
 
   function read() {
     startReading(async () => {
@@ -111,9 +120,11 @@ export function NewApplication() {
               autoComplete="off"
               value={company}
               onChange={(e) => setCompany(e.target.value)}
+              onBlur={lookUp}
               className={input}
             />
           </label>
+          {company.trim() === earlier.company.trim() && <EarlierNotice company={earlier.company} items={earlier.items} />}
           <label className="grid gap-1 text-sm font-medium">
             Role
             <input
@@ -151,6 +162,16 @@ export function NewApplication() {
           {state?.error && (
             <p role="alert" className="text-sm text-destructive">
               {state.error}
+              {state.existing && (
+                <>
+                  {" "}
+                  It is{" "}
+                  <Link href={`/career/applications/${state.existing.id}`} className="underline underline-offset-2">
+                    {state.existing.title}
+                  </Link>
+                  .
+                </>
+              )}
             </p>
           )}
           <Button type="submit" disabled={pending}>
