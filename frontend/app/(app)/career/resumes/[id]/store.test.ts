@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { DEFAULT_DESIGN } from "../../../../../lib/resume/design";
+
 import { init, mineTitle, moved, reduce, type EditorState, type ResumeDocument } from "./store";
 
 const doc: ResumeDocument = {
@@ -7,7 +9,7 @@ const doc: ResumeDocument = {
   basics: { name: "Ada", headline: "", email: "", phone: "", location: "", website: "", customFields: [] },
   summary: "<p></p>",
   sections: [],
-  metadata: { template: "classic", accent: "#1d4ed8", font: "Inter", fontSize: 10, pageSize: "A4", dateFormat: "MMM_YYYY" },
+  metadata: { ...DEFAULT_DESIGN, template: "classic", dateFormat: "MMM_YYYY" },
   privateNotes: "",
   ignoredChecks: [],
 };
@@ -109,6 +111,24 @@ describe("Undo and Redo", () => {
     const s = reduce(init("CV", doc, 1), { type: "template", value: "sidebar" });
     expect(s.doc.metadata.template).toBe("sidebar");
     expect(reduce(s, { type: "undo" }).doc.metadata.template).toBe("classic");
+  });
+
+  it("design settings are edited, grouped per setting, and reset to the template's defaults", () => {
+    let s = reduce(init("CV", { ...doc, metadata: { ...doc.metadata, template: "sidebar" } }, 1), { type: "design", patch: { fontSize: 1 } });
+    s = reduce(s, { type: "design", patch: { fontSize: 12 } });
+    expect(s.past).toHaveLength(1);
+    s = reduce(s, { type: "design", patch: { margin: 10, accent: "#ff0000" } });
+    expect(s.doc.metadata).toMatchObject({ fontSize: 12, margin: 10, accent: "#ff0000", template: "sidebar" });
+    const reset = reduce(s, { type: "resetDesign" });
+    expect(reset.doc.metadata).toMatchObject({ fontSize: 10, margin: 40, accent: "#1d4ed8", template: "sidebar", dateFormat: "MMM_YYYY" });
+  });
+
+  it("a section is placed on a page and in a column, and a placement that says nothing is dropped", () => {
+    let s = reduce(init("CV", doc, 1), { type: "placeSection", section: "a", page: 2 });
+    s = reduce(s, { type: "placeSection", section: "a", column: "side" });
+    expect(s.doc.metadata.placements).toEqual([{ section: "a", column: "side", page: 2 }]);
+    s = reduce(s, { type: "placeSection", section: "a", column: "", page: 1 });
+    expect(s.doc.metadata.placements).toEqual([]);
   });
 
   it("private notes are an ordinary edit", () => {

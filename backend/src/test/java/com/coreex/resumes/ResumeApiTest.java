@@ -126,6 +126,33 @@ class ResumeApiTest extends ApiTest {
 	}
 
 	@Test
+	void designSettingsRoundTripAndOutOfRangeOnesAreBroughtBack() throws Exception {
+		var id = made(userA, "{}");
+		var placements = List.of(Map.of("section", "s1", "column", "side", "page", 2));
+		Map<String, Object> metadata = new java.util.HashMap<>(Map.of("font", "Times", "headingFont", "Courier", "fontSize", 12,
+				"density", "relaxed", "pageSize", "FREE", "pageWidth", 500, "pageHeight", 700, "margin", 24, "sidebarSide", "right"));
+		metadata.putAll(Map.of("sidebarWidth", 200, "entryColumns", 2, "entryHeader", "stacked", "placements", placements));
+
+		put("/api/resumes/" + id, userA, save("CV", 1, Map.of("metadata", metadata)));
+		var body = get("/api/resumes/" + id, userA).body();
+		assertThat(body).contains("\"font\":\"Times\"").contains("\"headingFont\":\"Courier\"").contains("\"density\":\"relaxed\"")
+				.contains("\"pageSize\":\"FREE\"").contains("\"pageWidth\":500").contains("\"margin\":24")
+				.contains("\"sidebarSide\":\"right\"").contains("\"sidebarWidth\":200").contains("\"entryColumns\":2")
+				.contains("\"entryHeader\":\"stacked\"").contains("\"placements\":[{\"section\":\"s1\",\"column\":\"side\",\"page\":2}]");
+
+		// A value outside what the renderer can draw comes back as something it can.
+		Map<String, Object> wild = Map.of("fontSize", 500, "density", "huge", "pageSize", "A0", "pageWidth", 5, "margin", -9,
+				"sidebarSide", "up", "sidebarWidth", 9000, "entryColumns", 7, "entryHeader", "zigzag",
+				"placements", List.of(Map.of("section", "s1", "column", "diagonal", "page", 99)));
+		put("/api/resumes/" + id, userA, save("CV", 2, Map.of("metadata", wild)));
+		var fixed = get("/api/resumes/" + id, userA).body();
+		assertThat(fixed).contains("\"fontSize\":20").contains("\"density\":\"comfortable\"").contains("\"pageSize\":\"A4\"")
+				.contains("\"pageWidth\":200").contains("\"margin\":0").contains("\"sidebarSide\":\"left\"")
+				.contains("\"sidebarWidth\":400").contains("\"entryColumns\":1").contains("\"entryHeader\":\"inline\"")
+				.contains("\"placements\":[{\"section\":\"s1\",\"column\":\"\",\"page\":9}]");
+	}
+
+	@Test
 	void aLockedResumeRefusesSavesAndRenamesUntilUnlocked() throws Exception {
 		var id = made(userA, "{\"title\":\"Final\"}");
 		assertThat(put("/api/resumes/" + id + "/lock", userA, "{\"locked\":true}").statusCode()).isEqualTo(204);

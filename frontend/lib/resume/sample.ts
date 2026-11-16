@@ -1,5 +1,7 @@
 import type { components } from "@/lib/api/schema";
 
+import { DEFAULT_DESIGN } from "./design";
+
 // The same made-up person as the backend's sample Resume (ResumeSample.java), for tests that need a full document.
 export const SAMPLE: components["schemas"]["ResumeDocument"] = {
   locale: "en",
@@ -85,7 +87,7 @@ export const SAMPLE: components["schemas"]["ResumeDocument"] = {
       ],
     },
   ],
-  metadata: { template: "classic", accent: "#1d4ed8", font: "Inter", fontSize: 10, pageSize: "A4", dateFormat: "MMM_YYYY" },
+  metadata: { ...DEFAULT_DESIGN, template: "classic", dateFormat: "MMM_YYYY" },
   privateNotes: "",
   ignoredChecks: [],
 };

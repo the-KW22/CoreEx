@@ -1315,10 +1315,31 @@ export interface components {
             template: string;
             accent: string;
             font: string;
+            headingFont: string;
             /** Format: int32 */
             fontSize: number;
+            density: string;
             pageSize: string;
+            /** Format: int32 */
+            pageWidth: number;
+            /** Format: int32 */
+            pageHeight: number;
+            /** Format: int32 */
+            margin: number;
             dateFormat: string;
+            sidebarSide: string;
+            /** Format: int32 */
+            sidebarWidth: number;
+            /** Format: int32 */
+            entryColumns: number;
+            entryHeader: string;
+            placements: components["schemas"]["Placement"][];
+        };
+        Placement: {
+            section: string;
+            column: string;
+            /** Format: int32 */
+            page: number;
         };
         ResumeDocument: {
             locale: string;

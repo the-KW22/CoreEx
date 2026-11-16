@@ -1,4 +1,5 @@
 import type { components } from "@/lib/api/schema";
+import { type Metadata, resetDesign } from "../../../../../lib/resume/design";
 
 export type ResumeDocument = components["schemas"]["ResumeDocument"];
 type Basics = components["schemas"]["Basics"];
@@ -65,6 +66,9 @@ export type Action =
   | { type: "redo" }
   | { type: "privateNotes"; value: string }
   | { type: "template"; value: string }
+  | { type: "design"; patch: Partial<Metadata> }
+  | { type: "placeSection"; section: string; column?: string; page?: number }
+  | { type: "resetDesign" }
   | { type: "title"; value: string }
   | { type: "basic"; field: Exclude<keyof Basics, "customFields">; value: string }
   | { type: "summary"; html: string }
@@ -139,6 +143,8 @@ function groupOf(a: Action): string | null {
       return "summary";
     case "privateNotes":
       return "notes";
+    case "design":
+      return `design:${Object.keys(a.patch).join(",")}`;
     case "field":
       return `field:${a.index}:${a.part}`;
     case "renameSection":
@@ -189,6 +195,18 @@ function apply(s: EditorState, a: Action): EditorState {
       return edited(s, { doc: { ...s.doc, privateNotes: a.value } });
     case "template":
       return edited(s, { doc: { ...s.doc, metadata: { ...s.doc.metadata, template: a.value } } });
+    case "design":
+      return edited(s, { doc: { ...s.doc, metadata: { ...s.doc.metadata, ...a.patch } } });
+    case "resetDesign":
+      return edited(s, { doc: { ...s.doc, metadata: resetDesign(s.doc.metadata) } });
+    case "placeSection": {
+      // A placement that says nothing (the template's column, page 1) is not kept.
+      const old = s.doc.metadata.placements.find((p) => p.section === a.section);
+      const next = { section: a.section, column: a.column ?? old?.column ?? "", page: a.page ?? old?.page ?? 1 };
+      const rest = s.doc.metadata.placements.filter((p) => p.section !== a.section);
+      const placements = next.column === "" && next.page === 1 ? rest : [...rest, next];
+      return edited(s, { doc: { ...s.doc, metadata: { ...s.doc.metadata, placements } } });
+    }
     case "undo":
     case "redo":
       return s;

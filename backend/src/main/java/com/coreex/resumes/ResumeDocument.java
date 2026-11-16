@@ -18,7 +18,7 @@ public record ResumeDocument(@NotNull String locale, @NotNull Basics basics, @No
 		basics = basics == null ? new Basics(null, null, null, null, null, null, null) : basics;
 		summary = summary == null ? "" : summary;
 		sections = sections == null ? List.of() : List.copyOf(sections);
-		metadata = metadata == null ? new Metadata(null, null, null, null, null, null) : metadata;
+		metadata = metadata == null ? new Metadata(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null) : metadata;
 		privateNotes = privateNotes == null ? "" : privateNotes;
 		ignoredChecks = ignoredChecks == null ? List.of() : List.copyOf(ignoredChecks);
 	}
@@ -114,17 +114,54 @@ public record ResumeDocument(@NotNull String locale, @NotNull Basics basics, @No
 
 	}
 
-	/** The look: template, accent colour, font, text size in points, page size and how dates print (MMM_YYYY, MM_YYYY, YYYY_MM or YYYY). */
-	public record Metadata(@NotNull String template, @NotNull String accent, @NotNull String font, @NotNull Integer fontSize,
-			@NotNull String pageSize, @NotNull String dateFormat) {
+	/**
+	 * The look: template, accent colour, fonts (body and headings), text size in points, density, page size (A4, LETTER or
+	 * FREE with its own width and height in points), margin, how dates print (MMM_YYYY, MM_YYYY, YYYY_MM or YYYY), the
+	 * sidebar's side and width, entries in one or two columns, the entry header and where sections go. A value the
+	 * renderer cannot draw is brought back into range when it is saved, so an import or an Agent cannot break the page.
+	 */
+	public record Metadata(@NotNull String template, @NotNull String accent, @NotNull String font, @NotNull String headingFont,
+			@NotNull Integer fontSize, @NotNull String density, @NotNull String pageSize, @NotNull Integer pageWidth,
+			@NotNull Integer pageHeight, @NotNull Integer margin, @NotNull String dateFormat, @NotNull String sidebarSide,
+			@NotNull Integer sidebarWidth, @NotNull Integer entryColumns, @NotNull String entryHeader,
+			@NotNull List<Placement> placements) {
 
 		public Metadata {
 			template = template == null || template.isBlank() ? "classic" : template;
-			accent = accent == null || accent.isBlank() ? "#1d4ed8" : accent;
+			accent = accent == null || !accent.matches("#[0-9a-fA-F]{6}") ? "#1d4ed8" : accent;
 			font = font == null || font.isBlank() ? "Inter" : font;
-			fontSize = fontSize == null || fontSize <= 0 ? 10 : fontSize;
-			pageSize = pageSize == null || pageSize.isBlank() ? "A4" : pageSize;
+			headingFont = headingFont == null ? "" : headingFont;
+			fontSize = within(fontSize, 6, 20, 10);
+			density = oneOf(density, "comfortable", "compact", "comfortable", "relaxed");
+			pageSize = oneOf(pageSize, "A4", "A4", "LETTER", "FREE");
+			pageWidth = within(pageWidth, 200, 2000, 595);
+			pageHeight = within(pageHeight, 200, 2000, 842);
+			margin = within(margin, 0, 120, 40);
 			dateFormat = dateFormat == null || dateFormat.isBlank() ? "MMM_YYYY" : dateFormat;
+			sidebarSide = oneOf(sidebarSide, "left", "left", "right");
+			sidebarWidth = within(sidebarWidth, 80, 400, 170);
+			entryColumns = entryColumns != null && entryColumns == 2 ? 2 : 1;
+			entryHeader = oneOf(entryHeader, "inline", "inline", "stacked");
+			placements = placements == null ? List.of() : List.copyOf(placements);
+		}
+
+		private static int within(Integer value, int low, int high, int fallback) {
+			return value == null || value == 0 && low > 0 && fallback != 0 ? fallback : Math.min(high, Math.max(low, value));
+		}
+
+		private static String oneOf(String value, String fallback, String... allowed) {
+			return value != null && java.util.Arrays.asList(allowed).contains(value) ? value : fallback;
+		}
+
+	}
+
+	/** Where one section goes: "side" or "main" ("" is the template's own choice) and the page it is drawn on (1 to 9). */
+	public record Placement(@NotNull String section, @NotNull String column, @NotNull Integer page) {
+
+		public Placement {
+			section = section == null ? "" : section;
+			column = column != null && (column.equals("side") || column.equals("main")) ? column : "";
+			page = page == null ? 1 : Math.min(9, Math.max(1, page));
 		}
 
 	}
