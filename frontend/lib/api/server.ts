@@ -14,6 +14,11 @@ export async function getApi() {
   const supabase = await createSupabase();
   const { data } = await supabase.auth.getSession();
   if (!data.session) redirect("/login");
+  return apiClient(data.session.access_token, await timezoneCookie());
+}
+
+// The zone the browser reported, or nothing before the cookie exists.
+export async function timezoneCookie() {
   const zone = (await cookies()).get("tz")?.value;
-  return apiClient(data.session.access_token, zone && ZONE.test(zone) ? zone : undefined);
+  return zone && ZONE.test(zone) ? zone : undefined;
 }

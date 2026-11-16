@@ -1,14 +1,17 @@
 import Link from "next/link";
 
 import { PageGone, Pager } from "@/components/pager";
-import { getApi } from "@/lib/api/server";
+import type { components } from "@/lib/api/schema";
+import { getApi, timezoneCookie } from "@/lib/api/server";
 import { STAGES, stageLabel } from "@/lib/applications";
+import { dayIn, safeZone } from "@/lib/calendar";
 import { pageInfo } from "@/lib/pages";
 import { relativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 import { ApplicationsList, type Group } from "./applications-list";
 import { Board } from "./board";
+import { Calendar } from "./calendar";
 import { NewApplication } from "./new-application";
 
 const PAGE_SIZE = 50;
@@ -16,10 +19,71 @@ const PAGE_SIZE = 50;
 const BOARD_SIZE = 100;
 const BASE = "/career/applications";
 
+type View = "list" | "board" | "calendar";
+
+// The title, New Application and the two toggles. Show (All, Needs you) only means something to the list and the board.
+function Chrome({ view, needsYou }: { view: View; needsYou: boolean }) {
+  const board = view === "board";
+  const suffix = board ? "view=board" : "";
+  const toggles = [
+    ...(view === "calendar"
+      ? []
+      : [
+          {
+            name: "Show",
+            links: [
+              { label: "All", to: `${BASE}${board ? `?${suffix}` : ""}`, current: !needsYou },
+              { label: "Needs you", to: `${BASE}?needs=1${board ? `&${suffix}` : ""}`, current: needsYou },
+            ],
+          },
+        ]),
+    {
+      name: "View",
+      links: [
+        { label: "List", to: `${BASE}${needsYou ? "?needs=1" : ""}`, current: view === "list" },
+        { label: "Board", to: `${BASE}?${needsYou ? "needs=1&" : ""}view=board`, current: board },
+        { label: "Calendar", to: `${BASE}?view=calendar`, current: view === "calendar" },
+      ],
+    },
+  ];
+  return (
+    <>
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Applications</h1>
+        <NewApplication />
+      </header>
+
+      <div className="flex flex-wrap gap-x-6 gap-y-2">
+        {toggles.map(({ name, links }) => (
+          <nav key={name} aria-label={name} className="flex gap-2 text-sm">
+            {links.map(({ label, to, current }) => (
+              <Link
+                key={label}
+                href={to}
+                aria-current={current ? "page" : undefined}
+                className={cn(
+                  "rounded-lg border border-border px-3 py-1.5 hover:bg-surface",
+                  current && "bg-surface font-medium",
+                )}
+              >
+                {label}
+              </Link>
+            ))}
+          </nav>
+        ))}
+      </div>
+    </>
+  );
+}
+
 // The Applications screen (docs/DESIGN.md section 6.4a): the User's Applications grouped by Stage, each group sorted by
 // Next step, with a Needs you filter (?needs=1) that keeps only those due now. Bulk actions are a later ticket.
 export default async function ApplicationsPage({ searchParams }: PageProps<"/career/applications">) {
-  const { page: raw, needs, view } = await searchParams;
+  const { page: raw, needs, view: rawView, month, week } = await searchParams;
+  const view: View = rawView === "board" ? "board" : rawView === "calendar" ? "calendar" : "list";
+  if (view === "calendar") {
+    return <CalendarPage month={typeof month === "string" ? month : undefined} week={typeof week === "string" ? week : undefined} />;
+  }
   const needsYou = needs === "1";
   const board = view === "board";
   const size = board ? BOARD_SIZE : PAGE_SIZE;
@@ -65,45 +129,7 @@ export default async function ApplicationsPage({ searchParams }: PageProps<"/car
 
   return (
     <div className={cn("mx-auto grid gap-8", board ? "max-w-7xl" : "max-w-5xl")}>
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Applications</h1>
-        <NewApplication />
-      </header>
-
-      <div className="flex flex-wrap gap-x-6 gap-y-2">
-        {[
-          {
-            name: "Show",
-            links: [
-              { label: "All", to: `${BASE}${board ? "?view=board" : ""}`, current: !needsYou },
-              { label: "Needs you", to: `${BASE}?needs=1${board ? "&view=board" : ""}`, current: needsYou },
-            ],
-          },
-          {
-            name: "View",
-            links: [
-              { label: "List", to: `${BASE}${needsYou ? "?needs=1" : ""}`, current: !board },
-              { label: "Board", to: `${BASE}?${needsYou ? "needs=1&" : ""}view=board`, current: board },
-            ],
-          },
-        ].map(({ name, links }) => (
-          <nav key={name} aria-label={name} className="flex gap-2 text-sm">
-            {links.map(({ label, to, current }) => (
-              <Link
-                key={label}
-                href={to}
-                aria-current={current ? "page" : undefined}
-                className={cn(
-                  "rounded-lg border border-border px-3 py-1.5 hover:bg-surface",
-                  current && "bg-surface font-medium",
-                )}
-              >
-                {label}
-              </Link>
-            ))}
-          </nav>
-        ))}
-      </div>
+      <Chrome view={view} needsYou={needsYou} />
 
       {total === 0 && !needsYou ? (
         <p className="text-muted-foreground">No Applications yet. Add the first job you are interested in.</p>
@@ -117,6 +143,31 @@ export default async function ApplicationsPage({ searchParams }: PageProps<"/car
         <ApplicationsList groups={groups} tags={(tags?.data?.items ?? []).map((t) => ({ id: t.id, name: t.name }))} />
       )}
       <Pager page={page} href={href} />
+    </div>
+  );
+}
+
+// shortcut: reads every page of Applications to find their interviews and reminders, upgrade to a ranged API call when
+// someone has hundreds.
+async function CalendarPage({ month, week }: { month?: string; week?: string }) {
+  const api = await getApi();
+  const zone = safeZone(await timezoneCookie());
+  const applications: components["schemas"]["ApplicationResponse"][] = [];
+  let now = NaN;
+  for (let page = 0; ; page++) {
+    const result = await api.GET("/api/applications", { params: { query: { page, size: 100 } } }).catch(() => null);
+    if (!result) return <p role="alert">Cannot reach the CoreEx API. Is the backend running?</p>;
+    if (!result.data) return <p role="alert">Could not load your Applications. Try again.</p>;
+    if (page === 0) now = Date.parse(result.response.headers.get("date") ?? "");
+    applications.push(...result.data.items);
+    if (applications.length >= result.data.total || result.data.items.length === 0) break;
+  }
+  // The API's clock, as Home does: a page render must not read the time itself.
+  const today = dayIn(zone, Number.isNaN(now) ? new Date(0) : new Date(now));
+  return (
+    <div className="mx-auto grid max-w-7xl gap-8">
+      <Chrome view="calendar" needsYou={false} />
+      <Calendar applications={applications} zone={zone} today={today} month={month} week={week} />
     </div>
   );
 }

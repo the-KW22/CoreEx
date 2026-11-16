@@ -2486,6 +2486,55 @@ test.describe("a User away from UTC", () => {
     await page.getByRole("button", { name: /^Remove interview/ }).click();
     await expect(page.getByText("Interview (Video)")).toHaveCount(0);
   });
+
+  test("the Calendar shows an interview on the User's own day, even near midnight, and a reminder on its day", async ({ page }) => {
+    await signIn(page);
+    const stamp = Date.now();
+    const company = `Kilo ${stamp}`;
+    await newApplication(page, company, "Tester");
+    await expect(page.locator("#posting-text")).toBeVisible();
+    // 23:30 in Los Angeles on 5 March is already 6 March in UTC.
+    await page.getByRole("button", { name: "Add interview" }).click();
+    await page.getByLabel("Interview time").fill("2030-03-05T23:30");
+    await page.getByLabel("Type").selectOption("VIDEO");
+    await page.getByRole("button", { name: "Save interview" }).click();
+    await expect(page.getByText("Mar 5, 2030, 11:30 PM").first()).toBeVisible();
+    await page.getByLabel("Reminder date").fill("2030-03-10");
+    await page.getByLabel("Time", { exact: true }).fill("14:30");
+    await page.getByRole("button", { name: "Set reminder" }).click();
+    await expect(page.getByText("Follow up on Mar 10, 2030 at 14:30.")).toBeVisible();
+
+    await page.goto("/career/applications?view=calendar&month=2030-03");
+    const day = (date: string) => page.locator(`time[datetime="${date}"]`).locator("xpath=ancestor::li[1]");
+    await expect(page.getByRole("heading", { name: "March 2030", level: 2 })).toBeVisible();
+    await expect(day("2030-03-05")).toContainText("23:30 Video interview");
+    await expect(day("2030-03-05")).toContainText(`Tester at ${company}`);
+    await expect(day("2030-03-06")).not.toContainText("Video interview");
+    await expect(day("2030-03-10")).toContainText("14:30 Follow up");
+    await expectNoViolations(page);
+
+    // The month is in the address, and Previous, Next and Today move it.
+    await page.getByRole("navigation", { name: "Month" }).getByRole("link", { name: "Next month" }).click();
+    await expect(page).toHaveURL(/month=2030-04/);
+    await expect(page.getByRole("heading", { name: "April 2030", level: 2 })).toBeVisible();
+    await page.getByRole("navigation", { name: "Month" }).getByRole("link", { name: "Today" }).click();
+    await expect(page.getByRole("heading", { name: "March 2030", level: 2 })).toHaveCount(0);
+
+    // An entry opens its Application.
+    await page.goto("/career/applications?view=calendar&month=2030-03");
+    await day("2030-03-05").getByRole("link", { name: /Video interview/ }).click();
+    await expect(page.getByRole("heading", { name: `Tester at ${company}`, level: 1 })).toBeVisible();
+
+    // On a phone it is one week at a time.
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/career/applications?view=calendar&week=2030-03-04");
+    await expect(page.getByRole("heading", { name: /Mar 4 to Mar 10, 2030/ })).toBeVisible();
+    await expect(day("2030-03-05")).toContainText("23:30 Video interview");
+    await expect(day("2030-03-12")).toBeHidden();
+    await expectNoViolations(page);
+    await page.getByRole("navigation", { name: "Week" }).getByRole("link", { name: "Next week" }).click();
+    await expect(page.getByRole("heading", { name: /Mar 11 to Mar 17, 2030/ })).toBeVisible();
+  });
 });
 
 test("the Applications list is grouped by Stage with a Needs you filter, and the page shows its Next step", async ({ page }) => {
