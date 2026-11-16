@@ -169,8 +169,8 @@ public class ApplicationService {
 	}
 
 	/**
-	 * Moves the Application to the Trash, where Restore brings it back with its timeline unchanged.
-	 * shortcut: the Trash page, delete forever and Folders for Applications are #239; they work on the Item row this sets.
+	 * Moves the Application to the Trash, where Restore brings it back with its timeline unchanged. The Trash, Restore
+	 * and delete forever work on the Item row this sets, as for every Item.
 	 */
 	@Transactional
 	public void trash(UUID ownerId, UUID id) {

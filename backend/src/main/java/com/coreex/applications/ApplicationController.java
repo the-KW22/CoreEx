@@ -5,7 +5,9 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.DateTimeException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -29,6 +31,8 @@ import com.coreex.applications.Application.Stage;
 import com.coreex.common.ErrorBody;
 import com.coreex.identity.CurrentUserInterceptor;
 import com.coreex.identity.User;
+import com.coreex.tags.TagColour;
+import com.coreex.tags.TagService;
 
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -206,8 +210,14 @@ class ApplicationController {
 
 	}
 
+	record ApplicationTag(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+			@Schema(nullable = true) TagColour colour) {
+	}
+
 	record ApplicationPage(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ApplicationResponse> items,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) long total) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) long total,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Tags of each listed Application, by its id; one without Tags is left out") Map<UUID, List<ApplicationTag>> tags) {
 	}
 
 	private final ApplicationService applications;
@@ -216,10 +226,14 @@ class ApplicationController {
 
 	private final HttpServletRequest request;
 
-	ApplicationController(ApplicationService applications, ApplicationBulkService bulk, HttpServletRequest request) {
+	private final TagService tags;
+
+	ApplicationController(ApplicationService applications, ApplicationBulkService bulk, HttpServletRequest request,
+			TagService tags) {
 		this.applications = applications;
 		this.bulk = bulk;
 		this.request = request;
+		this.tags = tags;
 	}
 
 	/** The User's timezone as the page sent it; UTC when it is missing or not a zone. */
@@ -258,7 +272,10 @@ class ApplicationController {
 			@Parameter(description = "Only Applications whose Next step is due now") @RequestParam(defaultValue = "false") boolean needsYou) {
 		var safeSize = Math.min(MAX_PAGE_SIZE, Math.max(1, size));
 		var listed = applications.list(user.id(), Math.max(0, page), safeSize, needsYou, zone());
-		return new ApplicationPage(listed.items().stream().map(this::respond).toList(), listed.total());
+		var tagged = tags.forItems(user.id(), listed.items().stream().map(Application::id).toList());
+		var chips = new LinkedHashMap<UUID, List<ApplicationTag>>();
+		tagged.forEach((id, list) -> chips.put(id, list.stream().map(t -> new ApplicationTag(t.id(), t.name(), t.colour())).toList()));
+		return new ApplicationPage(listed.items().stream().map(this::respond).toList(), listed.total(), chips);
 	}
 
 	@GetMapping("/{id}")
@@ -299,6 +316,17 @@ class ApplicationController {
 			@PathVariable UUID id, @Valid @RequestBody MoveStageRequest request) {
 		return respond(applications.moveStage(user.id(), id, request.stage(), request.closeReason(),
 				request.date(), request.fromStage(), request.version()));
+	}
+
+	/** Moves the Application to the Trash, where Restore brings it back with its timeline unchanged. */
+	@DeleteMapping("/{id}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@ApiResponse(responseCode = "204", description = "Moved to the Trash")
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's Application)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	void trash(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id) {
+		applications.trash(user.id(), id);
 	}
 
 	@PostMapping(value = "/{id}/timeline", consumes = JSON)

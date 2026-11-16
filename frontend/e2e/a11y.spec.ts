@@ -2522,7 +2522,7 @@ test.describe("a User away from UTC", () => {
 
     // An entry opens its Application.
     await page.goto("/career/applications?view=calendar&month=2030-03");
-    await day("2030-03-05").getByRole("link", { name: /Video interview/ }).click();
+    await day("2030-03-05").getByRole("link", { name: new RegExp(`Video interview.*${company}`) }).click();
     await expect(page.getByRole("heading", { name: `Tester at ${company}`, level: 1 })).toBeVisible();
 
     // On a phone it is one week at a time.
@@ -2696,6 +2696,67 @@ test("the Board moves a card by drag or menu, Undo sends nothing, and a move mad
   await expect(page.getByText(/was moved somewhere else/)).toBeVisible({ timeout: 15000 });
   await expect(card(0, "Interview")).toBeVisible();
   await expect(card(0, "Screening")).toHaveCount(0);
+});
+
+test("an Application sits in a Folder, takes a Tag shown on its row, and goes to the Trash and back", async ({ page }) => {
+  test.slow();
+  await signIn(page);
+  const stamp = Date.now();
+  const company = `Lima ${stamp}`;
+  const title = `Dev at ${company}`;
+  const tagName = `app-probe-${stamp}`;
+  const folderName = `App folder ${stamp}`;
+  await page.goto("/items");
+  await page.getByRole("button", { name: "New Folder" }).click();
+  await page.getByLabel("Folder name").fill(folderName);
+  await page.getByRole("button", { name: "Create Folder" }).click();
+  await newApplication(page, company, "Dev");
+  await expect(page.locator("#posting-text")).toBeVisible();
+
+  // The Details panel moves it into a Folder and tags it; the breadcrumb follows.
+  const details = page.getByRole("complementary", { name: "Details" });
+  await chooseFolder(page, details, "Folder", folderName);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: folderName })).toBeVisible();
+  await page.getByRole("button", { name: "Tag", exact: true }).click();
+  await page.getByPlaceholder("Find or create a Tag").fill(tagName);
+  await page.getByRole("option", { name: `Create “${tagName}”` }).click();
+  await expect(page.getByRole("list", { name: "Tags" }).getByRole("link", { name: tagName })).toBeVisible();
+  await expectNoViolations(page);
+
+  // The Folder lists it and opens its Career page; the Applications list shows the Tag on its row.
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: folderName }).click();
+  await page.getByRole("main").getByRole("link", { name: title }).click();
+  await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
+  await page.goto("/career/applications");
+  await expect(page.getByRole("link", { name: new RegExp(title) })).toContainText(tagName);
+
+  // Move to Trash from its page; the Trash lists it and Restore brings it back with its Folder.
+  await page.getByRole("link", { name: new RegExp(title) }).click();
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page).toHaveURL(/\/career\/applications$/);
+  await expect(page.getByRole("link", { name: new RegExp(title) })).toHaveCount(0);
+  await page.goto("/trash");
+  const row = page.getByRole("row").filter({ hasText: title });
+  await expect(row).toContainText("Application");
+  await expectNoViolations(page);
+  await row.getByRole("button", { name: `Restore ${title}` }).click();
+  await expect(page.getByText(`Restored "${title}"`)).toBeVisible();
+  await page.goto("/career/applications");
+  await expect(page.getByRole("link", { name: new RegExp(title) })).toBeVisible();
+
+  // Tidy up: trash it for good, then the Folder and the Tag.
+  await page.getByRole("link", { name: new RegExp(title) }).click();
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.goto("/trash");
+  await row.getByRole("button", { name: `Delete forever: ${title}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete forever" }).click();
+  await expect(page.getByText(`Deleted "${title}" for good`)).toBeVisible();
+  await page.goto("/items");
+  await page.getByRole("main").getByRole("link", { name: folderName }).click();
+  await trashFolder(page, folderName);
+  await page.goto("/tags");
+  await page.getByRole("main").getByRole("link", { name: tagName }).click();
+  await deleteTag(page, tagName);
 });
 
 test("Career opens from the rail with its panel and the Applications list, and New Application lands on the new page", async ({ page }) => {

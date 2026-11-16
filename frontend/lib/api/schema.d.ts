@@ -110,7 +110,7 @@ export interface paths {
         get: operations["get_2"];
         put: operations["save_1"];
         post?: never;
-        delete?: never;
+        delete: operations["trash"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1590,7 +1590,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "FOLDER" | "NOTE" | "ASSET";
+            kind: "FOLDER" | "NOTE" | "ASSET" | "APPLICATION";
             /** @description A Folder's name, or an Item's title (may be empty) */
             title: string;
             /** Format: date-time */
@@ -1859,6 +1859,17 @@ export interface components {
             items: components["schemas"]["ApplicationResponse"][];
             /** Format: int64 */
             total: number;
+            /** @description The Tags of each listed Application, by its id; one without Tags is left out */
+            tags: {
+                [key: string]: components["schemas"]["ApplicationTag"][];
+            };
+        };
+        ApplicationTag: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string|null} */
+            colour?: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
         };
         UserPage: {
             items: components["schemas"]["UserResponse"][];
@@ -2448,6 +2459,35 @@ export interface operations {
             };
             /** @description Code VERSION_CONFLICT */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    trash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Moved to the Trash */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND (also for another User's Application) */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

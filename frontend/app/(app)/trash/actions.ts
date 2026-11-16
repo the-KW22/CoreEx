@@ -5,7 +5,7 @@ import { done } from "@/lib/refresh";
 
 // The Trash actions answer whether they worked, so the list stays where it is and a toast says what happened.
 // Restoring brings Folders back into the sidebar tree and deleting changes the storage used, so both refresh everything.
-type Kind = "FOLDER" | "NOTE" | "ASSET";
+type Kind = "FOLDER" | "NOTE" | "ASSET" | "APPLICATION";
 export type Removal = "ok" | "storage" | "error";
 
 const removal = (result: { error?: { code?: string } } | null): Removal =>

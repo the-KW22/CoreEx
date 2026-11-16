@@ -33,13 +33,13 @@ export async function untagItem(id: string, tagId: string): Promise<boolean> {
   return done(!!result && !result.error);
 }
 
-// shortcut: an Application cannot go to the Trash yet (it answers false), until #239 adds it.
 export async function trashItem(id: string, type: ItemType): Promise<boolean> {
-  if (type === "APPLICATION") return false;
   const api = await getApi();
   const result = await (type === "NOTE"
     ? api.DELETE("/api/notes/{id}", { params: { path: { id } } })
-    : api.DELETE("/api/assets/{id}", { params: { path: { id } } })
+    : type === "ASSET"
+      ? api.DELETE("/api/assets/{id}", { params: { path: { id } } })
+      : api.DELETE("/api/applications/{id}", { params: { path: { id } } })
   ).catch(() => null);
   return done(!!result && !result.error);
 }
