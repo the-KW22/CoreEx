@@ -7,7 +7,7 @@ import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } fro
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { centreOn, clampZoom, fit, isArrow, labelOpacity, linkMaps, nodeLabel, nodeRadius, pinchView, step, visibleLabels, where, type GraphEdge, type Point, type View } from "@/lib/graph";
+import { centreOn, clampZoom, fit, isArrow, labelOpacity, linkMaps, nodeLabel, nodeRadius, pinchView, step, typeName, visibleLabels, where, type GraphEdge, type Point, type View } from "@/lib/graph";
 import { treeLabel, type CanvasNode } from "@/lib/graph-tree";
 import { itemHref } from "@/lib/items";
 import type { TagColour } from "@/lib/tag-colour";
@@ -468,6 +468,8 @@ export function GraphCanvas({
                     <polygon points={hexagon(r)} {...shapeProps} />
                   ) : n.type === "NOTE" ? (
                     <circle r={r} {...shapeProps} />
+                  ) : n.type === "APPLICATION" ? (
+                    <polygon points={`0,${-r} ${r},0 0,${r} ${-r},0`} {...shapeProps} />
                   ) : (
                     <rect x={-r} y={-r} width={2 * r} height={2 * r} rx={r / 3} {...shapeProps} />
                   )}
@@ -507,12 +509,12 @@ export function GraphCanvas({
             <p className="text-muted-foreground">Folder · {card.children} inside</p>
           ) : tree ? (
             <p className="text-muted-foreground">
-              {card.type === "NOTE" ? "Note" : "Asset"} · {where(card)}
+              {typeName(card.type)} · {where(card)}
             </p>
           ) : (
             <>
               <p className="text-muted-foreground">
-                {card.type === "NOTE" ? "Note" : "Asset"} · {out.get(card.id)?.length ?? 0} Links ·{" "}
+                {typeName(card.type)} · {out.get(card.id)?.length ?? 0} Links ·{" "}
                 {into.get(card.id)?.length ?? 0} Backlinks
               </p>
               {(card.stub || colours) && <p className="text-muted-foreground">{where(card)}</p>}

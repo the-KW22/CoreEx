@@ -1,5 +1,5 @@
 import { childrenByParent, type Folder } from "./folders";
-import { where, writeFilter, type GraphEdge, type GraphFilter, type GraphNode, type Point } from "./graph";
+import { typeName, where, writeFilter, type GraphEdge, type GraphFilter, type GraphNode, type Point } from "./graph";
 
 export type GraphMode = "links" | "tree";
 
@@ -78,7 +78,7 @@ export const startCollapsed = (folders: Folder[], folderId: string | null) =>
 
 /** What a screen reader says for a node in Tree mode, such as "Work, Folder, 2 inside, collapsed". */
 export function treeLabel(node: CanvasNode) {
-  if (node.type !== "FOLDER") return `${node.title}, ${node.type === "NOTE" ? "Note" : "Asset"}, ${where(node)}`;
+  if (node.type !== "FOLDER") return `${node.title}, ${typeName(node.type)}, ${where(node)}`;
   if (node.children === 0) return `${node.title}, Folder, empty`;
   return `${node.title}, Folder, ${node.children} inside, ${node.collapsed ? "collapsed" : "expanded"}`;
 }

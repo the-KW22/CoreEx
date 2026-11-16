@@ -39,26 +39,33 @@ class ChunkRepository {
 	}
 
 	/**
-	 * Live Notes that have not changed for {@code settle} and whose Chunks are not current: never embedded, edited
-	 * since, or holding a Chunk of another model. Oldest edit first, so none waits forever.
+	 * Live Notes and Applications that have not changed for {@code settle} and whose Chunks are not current: never
+	 * embedded, edited since, or holding a Chunk of another model. Oldest edit first, so none waits forever.
 	 */
 	List<UUID> due(Duration settle, String model, int limit) {
 		return jdbc.sql("""
-				select i.id from items i join note_contents c on c.item_id = i.id
-				where i.type = 'NOTE' and i.deleted_at is null
+				select i.id from items i
+				left join note_contents c on c.item_id = i.id
+				left join application_contents a on a.item_id = i.id
+				where i.type in ('NOTE', 'APPLICATION') and i.deleted_at is null
 				  and i.updated_at <= now() - make_interval(secs => :seconds)
-				  and (c.embedded_updated_at is distinct from i.updated_at
+				  and (coalesce(c.embedded_updated_at, a.embedded_updated_at) is distinct from i.updated_at
 				       or exists (select 1 from note_chunks k where k.note_id = i.id and k.model <> :model))
 				order by i.updated_at, i.id limit :limit""").param("seconds", settle.toMillis() / 1000.0)
 				.param("model", model).param("limit", limit).query(UUID.class).list();
 	}
 
-	/** The Note's title, body and updated_at from one statement, so they belong together; empty if it is gone. */
+	/**
+	 * The Note's title, body and updated_at from one statement, so they belong together; empty if it is gone. An
+	 * Application's body is its plain text (company, role, location, posting and notes).
+	 */
 	Optional<Snapshot> snapshot(UUID noteId) {
 		return jdbc.sql("""
-				select i.id, i.owner_id, i.title, c.body, i.updated_at
-				from items i join note_contents c on c.item_id = i.id
-				where i.id = :id and i.type = 'NOTE' and i.deleted_at is null""").param("id", noteId)
+				select i.id, i.owner_id, i.title, coalesce(c.body, a.plain_text) as body, i.updated_at
+				from items i
+				left join note_contents c on c.item_id = i.id
+				left join application_contents a on a.item_id = i.id
+				where i.id = :id and i.type in ('NOTE', 'APPLICATION') and i.deleted_at is null""").param("id", noteId)
 				.query((rs, n) -> new Snapshot(rs.getObject("id", UUID.class), rs.getObject("owner_id", UUID.class),
 						rs.getString("title"), rs.getString("body"), rs.getObject("updated_at", OffsetDateTime.class)))
 				.optional();
@@ -99,6 +106,8 @@ class ChunkRepository {
 		}
 		if (complete) {
 			jdbc.sql("update note_contents set embedded_updated_at = :at where item_id = :note")
+					.param("at", note.updatedAt()).param("note", note.noteId()).update();
+			jdbc.sql("update application_contents set embedded_updated_at = :at where item_id = :note")
 					.param("at", note.updatedAt()).param("note", note.noteId()).update();
 		}
 	}

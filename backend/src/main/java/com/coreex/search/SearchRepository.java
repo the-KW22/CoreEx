@@ -37,21 +37,23 @@ class SearchRepository {
 	/** The query text as a tsquery, written once so every part of the statement shares it. */
 	private static final String QUERY = "with query as (select websearch_to_tsquery('simple', search_text(:q)) as tsq) ";
 
-	// An Item matches by its title, Note body, Asset description, or the name of one of its Tags.
+	// An Item matches by its title, Note body, Asset description, Application text, or the name of one of its Tags.
 	private static final String FROM_WHERE = """
 			from items i
 			left join note_contents c on c.item_id = i.id
 			left join asset_files a on a.item_id = i.id
+			left join application_contents p on p.item_id = i.id
 			cross join query
 			where i.owner_id = :owner and i.deleted_at is null
 			  and (i.title_tsv @@ query.tsq or c.body_tsv @@ query.tsq or a.description_tsv @@ query.tsq
+			       or p.plain_tsv @@ query.tsq
 			       or exists (select 1 from item_tags it join tags t on t.id = it.tag_id
 			                  where it.item_id = i.id and to_tsvector('simple', search_text(t.name)) @@ query.tsq))""";
 
-	// A title match counts most, then the Note body, then an Asset description.
+	// A title match counts most, then the Note body or Application text, then an Asset description.
 	private static final String RANK = """
 			coalesce(ts_rank(i.title_tsv, query.tsq), 0) * 4 + coalesce(ts_rank(c.body_tsv, query.tsq), 0)
-			      + coalesce(ts_rank(a.description_tsv, query.tsq), 0) * 2""";
+			      + coalesce(ts_rank(p.plain_tsv, query.tsq), 0) + coalesce(ts_rank(a.description_tsv, query.tsq), 0) * 2""";
 
 	private static final RowMapper<Quick> QUICK = (rs, n) -> new Quick(rs.getObject("id", UUID.class),
 			Item.Type.valueOf(rs.getString("type")), rs.getString("title"), rs.getObject("folder_id", UUID.class));
@@ -90,6 +92,7 @@ class SearchRepository {
 				  select i.id, i.type, i.title, i.folder_id, i.updated_at,
 				    %s as rank,
 				    case when c.body_tsv @@ query.tsq then left(c.body, 200000)
+				         when p.plain_tsv @@ query.tsq then left(p.plain_text, 200000)
 				         when a.description_tsv @@ query.tsq then a.description
 				         when i.title_tsv @@ query.tsq then i.title
 				         else (select string_agg(t.name, ', ') from item_tags it join tags t on t.id = it.tag_id
