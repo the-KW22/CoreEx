@@ -34,6 +34,8 @@ export function Preview({
   onAddPage,
   fitting,
   photoSrc,
+  onMarkdown,
+  markdownAvailable,
 }: {
   doc: Doc;
   title: string;
@@ -42,6 +44,8 @@ export function Preview({
   onAddPage: () => void;
   fitting: boolean;
   photoSrc: string | null;
+  onMarkdown: () => Promise<string | null>;
+  markdownAvailable: boolean;
 }) {
   const { bytes, doc: rendered, error, busy } = useResumePdf(doc, photoSrc);
   const [zoom, setZoom] = useState(1);
@@ -49,6 +53,7 @@ export function Preview({
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [loaded, setLoaded] = useState<Open | null>(null);
   const [drawError, setDrawError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const canvases = useRef<(HTMLCanvasElement | null)[]>([]);
   const pages = sizes.length;
 
@@ -135,6 +140,28 @@ export function Preview({
     URL.revokeObjectURL(url);
   }
 
+  async function downloadFormat(format: "docx" | "md" | "json") {
+    try {
+      setDownloadError(null);
+      let blob: Blob;
+      if (format === "docx") blob = await (await import("@/lib/resume/word")).resumeWord(doc);
+      else if (format === "json") blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
+      else {
+        const markdown = await onMarkdown();
+        if (markdown === null) throw new Error("Markdown unavailable");
+        blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName(title).replace(/\.pdf$/, `.${format}`);
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setDownloadError("Could not download the Resume. Save changes or reload if it changed elsewhere, then try again.");
+    }
+  }
+
   function print() {
     if (!bytes) return;
     const url = URL.createObjectURL(new Blob([bytes.slice()], { type: "application/pdf" }));
@@ -181,6 +208,13 @@ export function Preview({
           </Button>
         </div>
       </div>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={() => void downloadFormat("docx")}>Download Word</Button>
+        <Button type="button" variant="outline" size="sm" disabled={!markdownAvailable} onClick={() => void downloadFormat("md")}>Download Markdown</Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => void downloadFormat("json")}>Download JSON</Button>
+      </div>
+      <p className="text-sm text-muted-foreground">The JSON backup includes private notes.</p>
+      {downloadError && <p role="alert" className="text-sm text-destructive">{downloadError}</p>}
       <p role="status" className="text-sm text-muted-foreground">
         {error || drawError ? "" : busy ? "Updating the page…" : pages > 0 ? `${pages} ${pages === 1 ? "page" : "pages"}` : ""}
       </p>

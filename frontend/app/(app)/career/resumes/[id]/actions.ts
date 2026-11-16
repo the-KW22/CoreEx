@@ -13,6 +13,12 @@ export type SaveResult =
 
 export type Loaded = { title: string; doc: ResumeDocument; version: number; locked: boolean };
 
+export async function resumeMarkdown(id: string): Promise<{ markdown: string; version: number } | null> {
+  const api = await getApi();
+  const result = await api.GET("/api/resumes/{id}/markdown", { params: { path: { id } } }).catch(() => null);
+  return result?.data ?? null;
+}
+
 // Saves the whole document with the save counter the editor last saw.
 export async function saveResume(id: string, title: string, doc: ResumeDocument, version: number): Promise<SaveResult> {
   const api = await getApi();

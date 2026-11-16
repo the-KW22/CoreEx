@@ -884,6 +884,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/resumes/{id}/markdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["markdown"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notes/{id}/versions": {
         parameters: {
             query?: never;
@@ -2149,6 +2165,11 @@ export interface components {
             editedBy: string | null;
             /** Format: date-time */
             savedAt: string;
+        };
+        ResumeMarkdown: {
+            markdown: string;
+            /** Format: int32 */
+            version: number;
         };
         VersionList: {
             items: components["schemas"]["VersionSummary"][];
@@ -5476,6 +5497,37 @@ export interface operations {
                 };
             };
             /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    markdown: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Resume as Markdown and the version it was made from */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeMarkdown"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Resume) */
             404: {
                 headers: {
                     [name: string]: unknown;

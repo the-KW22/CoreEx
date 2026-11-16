@@ -40,6 +40,12 @@ class ResumeTextTest {
 	}
 
 	@Test
+	void sampleResumeConvertsToMarkdown() {
+		assertThat(ResumeText.markdown(ResumeSample.document()))
+				.contains("# Alex Morgan", "**seven years**", "## Experience", "- Led a team");
+	}
+
+	@Test
 	void markdownKeepsBoldItalicLinksAndLists() {
 		var md = ResumeText.markdown("<p><strong>Led</strong> a <em>team</em> of <a href=\"https://x.example\">five</a></p>"
 				+ "<ul><li><p>one</p></li><li><p>two</p></li></ul><ol><li><p>first</p></li></ol>");

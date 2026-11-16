@@ -64,6 +64,10 @@ class ResumeController {
 	record LockRequest(@NotNull Boolean locked) {
 	}
 
+	record ResumeMarkdown(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String markdown,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int version) {
+	}
+
 	record ResumeResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) ResumeDocument document,
@@ -153,6 +157,16 @@ class ResumeController {
 	ResumeResponse get(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id) {
 		return ResumeResponse.of(resumes.get(user.id(), id));
+	}
+
+	@GetMapping("/{id}/markdown")
+	@ApiResponse(responseCode = "200", description = "The Resume as Markdown and the version it was made from")
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's Resume)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	ResumeMarkdown markdown(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id) {
+		var resume = resumes.get(user.id(), id);
+		return new ResumeMarkdown(ResumeText.markdown(resume.document()), resume.version());
 	}
 
 	@PutMapping(value = "/{id}", consumes = JSON)

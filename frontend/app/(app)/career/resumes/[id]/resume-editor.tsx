@@ -19,6 +19,7 @@ import {
   openVersion,
   photoData,
   restoreVersion,
+  resumeMarkdown,
   saveCopy,
   saveResume,
   setLocked as lockResume,
@@ -488,7 +489,7 @@ export function ResumeEditor({
               Private notes
             </h2>
             <label className="grid gap-1 text-sm">
-              <span className="text-muted-foreground">Only you see these. They are never printed or downloaded.</span>
+              <span className="text-muted-foreground">Only you see these. They are excluded from PDF, Word and Markdown; the JSON backup includes them.</span>
               <textarea
                 value={doc.privateNotes}
                 rows={4}
@@ -545,7 +546,11 @@ export function ResumeEditor({
           </div>
         )}
 
-        <Preview doc={shown} photoSrc={photoSrc} title={state.title} onSelect={select} fitting={fitting} onFit={() => void fit()} onAddPage={() => dispatch({ type: "design", patch: { pageCount: intendedPages(doc) + 1 } })} />
+        <Preview doc={shown} photoSrc={photoSrc} title={state.title} markdownAvailable={!viewing && !candidate && state.status === "saved"} onMarkdown={async () => {
+          const version = latest.current.version;
+          const result = await resumeMarkdown(id);
+          return result && result.version === version && latest.current.version === version && latest.current.status === "saved" ? result.markdown : null;
+        }} onSelect={select} fitting={fitting} onFit={() => void fit()} onAddPage={() => dispatch({ type: "design", patch: { pageCount: intendedPages(doc) + 1 } })} />
       </div>
     </div>
   );
