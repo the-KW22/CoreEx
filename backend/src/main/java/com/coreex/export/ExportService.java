@@ -20,6 +20,7 @@ import java.util.zip.ZipOutputStream;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import com.coreex.applications.ApplicationService;
 import com.coreex.common.ApiException;
 import com.coreex.export.ExportRepository.Row;
 import com.coreex.folders.Folder;
@@ -53,6 +54,8 @@ class ExportService {
 
 	private final TagService tags;
 
+	private final ApplicationService applications;
+
 	private final Storage storage;
 
 	private final Clock clock;
@@ -65,11 +68,12 @@ class ExportService {
 	// database if the API is ever run on more than one.
 	private final Map<UUID, Instant> lastExport = new ConcurrentHashMap<>();
 
-	ExportService(ExportRepository repository, FolderService folders, TagService tags, Storage storage, Clock clock,
-			ExportProperties properties) {
+	ExportService(ExportRepository repository, FolderService folders, TagService tags, ApplicationService applications,
+			Storage storage, Clock clock, ExportProperties properties) {
 		this.repository = repository;
 		this.folders = folders;
 		this.tags = tags;
+		this.applications = applications;
 		this.storage = storage;
 		this.clock = clock;
 		this.properties = properties;
@@ -113,9 +117,8 @@ class ExportService {
 					name = names.file(dir.path(), row.title(), ".md");
 				}
 				else if ("APPLICATION".equals(row.type())) {
-					// shortcut: Applications are listed as omitted, not exported, until #241 adds their JSON.
-					omitted.add(omission(row, "Applications are not in the Export yet."));
-					continue;
+					content = applicationJson(ownerId, row, tagsByItem.getOrDefault(row.id(), List.of()));
+					name = names.file(dir.path(), row.title(), ".json");
 				}
 				else {
 					content = readFile(row, omitted);
@@ -137,6 +140,38 @@ class ExportService {
 		put(zip, "manifest.json", clock.instant(), json.writeValueAsBytes(manifest));
 		zip.finish();
 		zip.flush();
+	}
+
+	/** An Application as JSON: every field and its whole timeline, with its Tags by name. */
+	private byte[] applicationJson(UUID ownerId, Row row, List<Tag> itemTags) {
+		var a = applications.get(ownerId, row.id());
+		var out = new LinkedHashMap<String, Object>();
+		out.put("id", a.id().toString());
+		out.put("title", a.title());
+		out.put("company", a.company());
+		out.put("role", a.role());
+		out.put("location", a.location());
+		out.put("postingUrl", a.postingUrl());
+		out.put("postingText", a.postingText());
+		out.put("stage", a.stage().name());
+		out.put("closeReason", a.closeReason() == null ? null : a.closeReason().name());
+		out.put("appliedOn", a.appliedOn() == null ? null : a.appliedOn().toString());
+		out.put("reminderOn", a.reminderOn() == null ? null : a.reminderOn().toString());
+		out.put("reminderTime", a.reminderTime() == null ? null : a.reminderTime().toString());
+		out.put("tags", itemTags.stream().map(Tag::name).toList());
+		out.put("timeline", a.timeline().stream().map(e -> {
+			var entry = new LinkedHashMap<String, Object>();
+			entry.put("type", e.type());
+			entry.put("stage", e.stage() == null ? null : e.stage().name());
+			entry.put("at", e.at().toString());
+			entry.put("seq", e.seq());
+			entry.put("text", e.text());
+			entry.put("kind", e.kind());
+			return entry;
+		}).toList());
+		out.put("createdAt", a.createdAt().toString());
+		out.put("updatedAt", a.updatedAt().toString());
+		return json.writeValueAsBytes(out);
 	}
 
 	/** Every live Folder's directory in the zip and its Folder path, shallow before deep, names made unique. */

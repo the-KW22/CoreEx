@@ -288,7 +288,7 @@ The Knowledge Graph of one Folder and its subfolders (`?folderId=`), or of All I
 
 ### 6.13 Export (`/settings/export`)
 
-- Reached from **Export** in the account menu. A narrow page (max 672px): the heading, one line of purpose, **What is in the zip** (Notes as Markdown with Links as written, Assets as their files, Folders as folders, `manifest.json`; the Trash and Chats are not included; one export a minute) and a primary **Download everything** button with a download icon.
+- Reached from **Export** in the account menu. A narrow page (max 672px): the heading, one line of purpose, **What is in the zip** (Notes as Markdown with Links as written, Assets as their files, Applications as one JSON file each with their timeline, Folders as folders, `manifest.json`; the Trash and Chats are not included; one export a minute) and a primary **Download everything** button with a download icon.
 - The button is a plain link to `/settings/export/download`, a route that passes the API's zip through with the User's session. The browser saves it as `coreex-export-<date>.zip` and the page stays. A refusal or failure comes back to the page as an Alert: "You can export once a minute. Try again shortly." (`?error=wait`) or "The export could not be made. Try again." (`?error=failed`).
 - No loading state of its own: the page has no data to wait for. Works in both themes and at phone width.
 

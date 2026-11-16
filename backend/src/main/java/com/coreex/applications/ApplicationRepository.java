@@ -55,10 +55,18 @@ class ApplicationRepository {
 		return time == null ? null : time.toInstant();
 	}
 
-	UUID insert(UUID ownerId, String title, String company, String role, String location, String postingUrl,
-			String postingText, Stage stage, Instant appliedOn, List<TimelineEntry> timeline) {
-		var id = jdbc.sql("insert into items (owner_id, type, title) values (:owner, 'APPLICATION', :title) returning id")
-				.param("owner", ownerId).param("title", title).query(UUID.class).single();
+	/** A null {@code wanted} id means a new one; an id that is already used by any Item makes this return empty. */
+	Optional<UUID> insert(UUID ownerId, UUID wanted, String title, String company, String role, String location,
+			String postingUrl, String postingText, Stage stage, Instant appliedOn, List<TimelineEntry> timeline) {
+		var made = jdbc.sql("""
+				insert into items (id, owner_id, type, title)
+				values (coalesce(:wanted, gen_random_uuid()), :owner, 'APPLICATION', :title)
+				on conflict (id) do nothing returning id""").param("wanted", wanted).param("owner", ownerId)
+				.param("title", title).query(UUID.class).optional();
+		if (made.isEmpty()) {
+			return made;
+		}
+		var id = made.get();
 		jdbc.sql("""
 				insert into application_contents (item_id, company, role, location, posting_url, posting_text, stage,
 				applied_on, timeline)
@@ -67,7 +75,7 @@ class ApplicationRepository {
 				.param("url", postingUrl).param("text", postingText).param("stage", stage.name())
 				.param("applied", appliedOn == null ? null : Timestamp.from(appliedOn))
 				.param("timeline", json.writeValueAsString(timeline)).update();
-		return id;
+		return made;
 	}
 
 	Optional<Application> find(UUID ownerId, UUID id) {

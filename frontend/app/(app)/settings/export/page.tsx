@@ -31,6 +31,7 @@ export default async function ExportPage({ searchParams }: PageProps<"/settings/
         <ul className="grid list-disc gap-1 pl-5 text-sm">
           <li>Your Notes as Markdown files, exactly as written, with their Links as written.</li>
           <li>Your Assets as the files you uploaded.</li>
+          <li>Your Applications as one JSON file each, with every field and the whole timeline.</li>
           <li>Folders as folders, so everything sits where it does in CoreEx.</li>
           <li>
             A <code className="font-mono">manifest.json</code> that lists every Item with its Folder, Tags and

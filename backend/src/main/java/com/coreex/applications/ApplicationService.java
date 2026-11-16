@@ -85,9 +85,36 @@ public class ApplicationService {
 	@Transactional
 	public Application create(UUID ownerId, String company, String role, String location, String postingUrl,
 			String postingText) {
-		var id = applications.insert(ownerId, titleOf(role, company), company, role, location, postingUrl, postingText,
-				Stage.SAVED, null, append(List.of(), "STAGE", Stage.SAVED, day(null), null, null));
-		return get(ownerId, id);
+		return create(ownerId, company, role, location, postingUrl, postingText, null).application();
+	}
+
+	/** An Application and whether this call made it. */
+	public record Created(Application application, boolean isNew) {
+	}
+
+	/**
+	 * With an {@code id} the caller made up, a repeated request returns the Application instead of making a second
+	 * one: a live Application of this User with that id comes back exactly as stored, and nothing in the request is
+	 * applied. Any other use of the id is refused with one answer, so it does not say whose it is.
+	 */
+	@Transactional
+	public Created create(UUID ownerId, String company, String role, String location, String postingUrl,
+			String postingText, UUID id) {
+		if (id != null) {
+			var existing = applications.find(ownerId, id);
+			if (existing.isPresent()) {
+				return new Created(existing.get(), false);
+			}
+		}
+		var made = applications.insert(ownerId, id, titleOf(role, company), company, role, location, postingUrl,
+				postingText, Stage.SAVED, null, append(List.of(), "STAGE", Stage.SAVED, day(null), null, null));
+		if (made.isEmpty()) {
+			// Taken since the look-up above, by a request racing this one (ours to return) or by someone else's Item.
+			var raced = applications.find(ownerId, id)
+					.orElseThrow(() -> invalid("That id cannot be used for a new Application."));
+			return new Created(raced, false);
+		}
+		return new Created(get(ownerId, made.get()), true);
 	}
 
 	public Application get(UUID ownerId, UUID id) {
@@ -110,8 +137,13 @@ public class ApplicationService {
 	 * when anyone has thousands.
 	 */
 	public Listed list(UUID ownerId, int page, int size, boolean needsYou, ZoneId zone) {
+		return list(ownerId, page, size, needsYou, zone, null);
+	}
+
+	/** The same, narrowed to one Stage when {@code stage} is given. */
+	public Listed list(UUID ownerId, int page, int size, boolean needsYou, ZoneId zone, Stage stage) {
 		var now = clock.instant();
-		var sorted = applications.findAll(ownerId).stream()
+		var sorted = applications.findAll(ownerId).stream().filter(a -> stage == null || a.stage() == stage)
 				.map(a -> Map.entry(a, NextStep.of(a, now, zone)))
 				.filter(e -> !needsYou || e.getValue().due())
 				.sorted(Comparator.<Map.Entry<Application, NextStep>>comparingInt(e -> e.getKey().stage().ordinal())
