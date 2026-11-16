@@ -4,7 +4,7 @@ export type Metadata = components["schemas"]["Metadata"];
 
 // What the design controls start at, and what Reset brings back. The backend keeps every value in range (ResumeDocument
 // .Metadata), so these are also its defaults.
-export const DEFAULT_DESIGN: Omit<Metadata, "template" | "dateFormat"> = {
+export const DEFAULT_DESIGN: Omit<Metadata, "template" | "dateFormat" | "customCss"> = {
   accent: "#1d4ed8",
   font: "Inter",
   headingFont: "",
@@ -13,6 +13,7 @@ export const DEFAULT_DESIGN: Omit<Metadata, "template" | "dateFormat"> = {
   pageSize: "A4",
   pageWidth: 595,
   pageHeight: 842,
+  pageCount: 1,
   margin: 40,
   sidebarSide: "left",
   sidebarWidth: 170,
@@ -50,5 +51,12 @@ export function pageDimensions(m: Metadata): [number, number] {
   return [595.28, 841.89];
 }
 
-// Back to the template's own look: every design setting, but not the template or the date format.
-export const resetDesign = (m: Metadata): Metadata => ({ ...DEFAULT_DESIGN, template: m.template, dateFormat: m.dateFormat });
+// Back to the template's own look: every design setting, but not the template, the date format, the pages the Resume
+// means to have or the custom rules (those have their own controls).
+export const resetDesign = (m: Metadata): Metadata => ({
+  ...DEFAULT_DESIGN,
+  template: m.template,
+  dateFormat: m.dateFormat,
+  pageCount: m.pageCount,
+  customCss: m.customCss,
+});

@@ -3430,3 +3430,87 @@ test("the design controls change the page, warn about a hard-to-read accent, mov
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(page.getByLabel("Page size")).toHaveValue("LETTER");
 });
+
+test("an overflowing Resume is fitted back onto its page in one Undo step, a hopeless one is left alone, and Add a page accepts it", async ({ page }) => {
+  await signIn(page);
+  const name = `Fit ${Date.now()}`;
+  await page.goto("/career/library");
+  await page.getByRole("button", { name: "New Resume" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Resume" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByLabel("Start with sample content").check();
+  await dialog.getByRole("button", { name: "Create Resume" }).click();
+  await page.getByRole("link", { name }).click();
+  const preview = page.getByRole("region", { name: "Page preview" });
+  await expect(preview.getByRole("img", { name: "Page 1 of 1" })).toBeVisible({ timeout: 30_000 });
+  const overflow = preview.getByText("This Resume runs onto page 2.");
+  await expect(overflow).toHaveCount(0);
+
+  // A little too long: Fit to page squeezes it back onto one page, and names what it changed.
+  const experience = page.getByRole("region", { name: "Experience", exact: true });
+  for (let i = 0; i < 8; i++) await experience.getByRole("button", { name: "Duplicate Senior Software Engineer" }).first().click();
+  await expect(overflow).toBeVisible({ timeout: 30_000 });
+  await expectNoViolations(page);
+  await preview.getByRole("button", { name: "Fit to page" }).click();
+  await expect(page.getByText(/^Fitted to one page: /)).toBeVisible({ timeout: 60_000 });
+  await expect(preview.getByRole("status").filter({ hasText: /pages?$/ })).toHaveText("1 page", { timeout: 30_000 });
+  await expect(overflow).toHaveCount(0);
+
+  // One Undo brings the settings (and the overflow) back.
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(overflow).toBeVisible({ timeout: 30_000 });
+
+  // Far too long: Fit to page says it cannot, and the settings are as they were.
+  for (let i = 0; i < 30; i++) await experience.getByRole("button", { name: "Duplicate Senior Software Engineer" }).first().click();
+  await preview.getByRole("button", { name: "Fit to page" }).click();
+  await expect(page.getByText(/does not fit on one page/)).toBeVisible({ timeout: 90_000 });
+  await page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Design" }).click();
+  await expect(page.getByLabel("Text size (pt)")).toHaveValue("10");
+  await expect(page.getByLabel("Density")).toHaveValue("comfortable");
+
+  // Add a page accepts the overflow: the message goes.
+  await preview.getByRole("button", { name: "Add a page" }).click();
+  await expect(overflow).toHaveCount(0, { timeout: 30_000 });
+});
+
+test("custom style rules change the page, bad ones are explained and not saved, and a part is picked on the page", async ({ page }) => {
+  await signIn(page);
+  const name = `Style ${Date.now()}`;
+  await page.goto("/career/library");
+  await page.getByRole("button", { name: "New Resume" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Resume" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByLabel("Start with sample content").check();
+  await dialog.getByRole("button", { name: "Create Resume" }).click();
+  await page.getByRole("link", { name }).click();
+  const status = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+  const preview = page.getByRole("region", { name: "Page preview" });
+  await expect(preview.getByRole("img", { name: "Page 1 of 1" })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Design" }).click();
+  const rules = page.getByLabel("Custom style rules");
+  const heading = preview.locator('[data-page="1"] [data-ref^="section:"]').first();
+  const height = async () => (await heading.boundingBox())!.height;
+  const before = await height();
+
+  // A rule changes the page: the heading is bigger.
+  await rules.fill("heading { font-size: 20 }");
+  await expect.poll(height, { timeout: 30_000 }).toBeGreaterThan(before * 1.3);
+  await expect(status).toHaveText("Saved");
+  await expectNoViolations(page);
+
+  // A rule that cannot be drawn is explained, and the page keeps the last good one.
+  await rules.fill("heading { position: fixed }");
+  await expect(page.getByRole("alert", { name: "Problems with the custom style" })).toContainText('"position" is not a property you can set.');
+  await page.reload();
+  await page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Design" }).click();
+  await expect(page.getByLabel("Custom style rules")).toHaveValue("heading { font-size: 20 }");
+
+  // Picking a part on the page starts a rule for it, with the cursor in the rules.
+  await page.getByRole("button", { name: "Pick a part on the page" }).click();
+  await expect(page.getByRole("button", { name: "Click a part on the page…" })).toHaveAttribute("aria-pressed", "true");
+  await expect(preview.getByRole("img", { name: "Page 1 of 1" })).toBeVisible({ timeout: 30_000 });
+  await preview.locator('[data-page="1"] [data-ref="basics.name"]').click();
+  await expect(page.getByLabel("Custom style rules")).toHaveValue(/name \{\s*\}/);
+  await expect(page.getByLabel("Custom style rules")).toBeFocused();
+  await expect(page.getByRole("button", { name: "Pick a part on the page" })).toHaveAttribute("aria-pressed", "false");
+});

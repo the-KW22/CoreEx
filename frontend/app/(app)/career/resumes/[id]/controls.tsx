@@ -4,6 +4,7 @@ import { useState, type Dispatch } from "react";
 
 import { Button } from "@/components/ui/button";
 import { accentContrast, MIN_CONTRAST } from "@/lib/resume/contrast";
+import { MAX_LENGTH, PARTS, parseCss, PROPERTY_NAMES } from "@/lib/resume/custom-css";
 import { DENSITIES, FONTS, type Metadata, PAGE_SIZES } from "@/lib/resume/design";
 import { templateOf } from "@/lib/resume/blocks";
 
@@ -59,8 +60,25 @@ const group = (title: string, children: React.ReactNode) => (
 
 // Design mode below the templates: fonts, size, colour, page, margins, and the layout (sidebar, entry columns, entry
 // header, and which column and page each section goes on). Every control is one field of the document's metadata.
-export function Controls({ doc, dispatch, onReset }: { doc: ResumeDocument; dispatch: Dispatch<Action>; onReset: () => void }) {
+export function Controls({
+  doc,
+  dispatch,
+  onReset,
+  css,
+  onCss,
+  picking,
+  onPicking,
+}: {
+  doc: ResumeDocument;
+  dispatch: Dispatch<Action>;
+  onReset: () => void;
+  css: string;
+  onCss: (text: string) => void;
+  picking: boolean;
+  onPicking: () => void;
+}) {
   const m = doc.metadata;
+  const problems = parseCss(css).problems;
   const set = (patch: Partial<Metadata>) => dispatch({ type: "design", patch });
   const template = templateOf(doc);
   const contrast = accentContrast(m.accent, template);
@@ -207,6 +225,43 @@ export function Controls({ doc, dispatch, onReset }: { doc: ResumeDocument; disp
           </ul>
         </fieldset>
       )}
+
+      <fieldset className="grid gap-2 rounded-lg border border-border p-3">
+        <legend className="px-1 text-sm font-semibold">Custom style</legend>
+        <p className="text-sm text-muted-foreground">
+          Rules like <code>heading {"{ color: #b91c1c; font-size: 13 }"}</code>. Parts: {PARTS.join(", ")}. Properties: {PROPERTY_NAMES.join(", ")}.
+        </p>
+        <label className="grid gap-1 text-sm font-medium">
+          Custom style rules
+          <textarea
+            data-field="custom-css"
+            value={css}
+            rows={6}
+            maxLength={MAX_LENGTH}
+            spellCheck={false}
+            onChange={(e) => onCss(e.target.value)}
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 font-mono text-sm"
+          />
+        </label>
+        {problems.length > 0 && (
+          <ul role="alert" aria-label="Problems with the custom style" className="list-disc pl-5 text-sm text-destructive">
+            {problems.map((p, i) => (
+              <li key={i}>{p}</li>
+            ))}
+          </ul>
+        )}
+        {problems.length > 0 && (
+          <p className="text-sm text-muted-foreground">The Resume keeps the last rules that were fine until these are fixed.</p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" size="sm" aria-pressed={picking} onClick={onPicking}>
+            {picking ? "Click a part on the page…" : "Pick a part on the page"}
+          </Button>
+          <Button type="button" variant="outline" size="sm" disabled={css === ""} onClick={() => onCss("")}>
+            Clear rules
+          </Button>
+        </div>
+      </fieldset>
     </section>
   );
 }

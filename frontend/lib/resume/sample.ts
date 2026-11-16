@@ -87,7 +87,7 @@ export const SAMPLE: components["schemas"]["ResumeDocument"] = {
       ],
     },
   ],
-  metadata: { ...DEFAULT_DESIGN, template: "classic", dateFormat: "MMM_YYYY" },
+  metadata: { ...DEFAULT_DESIGN, template: "classic", dateFormat: "MMM_YYYY", customCss: "" },
   privateNotes: "",
   ignoredChecks: [],
 };
