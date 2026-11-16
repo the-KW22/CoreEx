@@ -11,6 +11,7 @@ import { fitToPage, intendedPages, LIMITS } from "@/lib/resume/fit";
 import { createMeasurer } from "@/lib/resume/measure";
 import type { Template } from "@/lib/resume/blocks";
 import { cn } from "@/lib/utils";
+import { checkResume } from "@/lib/resume/check";
 
 import { clearUnsaved, recoveryAction, storeUnsaved, takeNewestUnsaved } from "../../../notes/[id]/recovery";
 import {
@@ -27,6 +28,8 @@ import {
 import { Preview } from "./preview";
 import { Controls } from "./controls";
 import { Design } from "./design";
+import { Check } from "./check";
+import { JobMatch } from "./job-match";
 import { History } from "./history";
 import { PhotoSection } from "./photo";
 import { Locked, RichText } from "./rich-text";
@@ -65,7 +68,7 @@ export function ResumeEditor({
   const [generation, setGeneration] = useState(0);
   const [notice, setNotice] = useState("");
   const [locked, setLocked] = useState(initial.locked);
-  const [mode, setMode] = useState<"write" | "design" | "history">("write");
+  const [mode, setMode] = useState<"write" | "design" | "check" | "history">("write");
   // An earlier version looked at in the page preview (the Resume itself is not changed), and a counter that tells History
   // to read its list again.
   const [viewing, setViewing] = useState<{ id: string; doc: ResumeDocument } | null>(null);
@@ -262,6 +265,7 @@ export function ResumeEditor({
   // A click on the page: jump to the field it came from. From Design mode the form comes back first.
   function select(ref: string) {
     if (picking) return pick(ref);
+    if (ref === "design") { setMode("design"); return; }
     if (mode === "write") return focusField(ref);
     setMode("write");
     setCandidate(null);
@@ -339,6 +343,7 @@ export function ResumeEditor({
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const { doc } = state;
+  const checks = useMemo(() => checkResume(doc), [doc]);
   // What the page preview draws: the Resume, or a template being looked at. The same object while neither changes.
   const shown = useMemo(
     () => (viewing ? viewing.doc : candidate ? { ...doc, metadata: { ...doc.metadata, template: candidate } } : doc),
@@ -393,19 +398,19 @@ export function ResumeEditor({
         </section>
         {backlinks}
         <nav aria-label="Mode" className="flex gap-2 text-sm">
-          {(["write", "design", "history"] as const).map((m) => (
+          {(["write", "design", "check", "history"] as const).map((m) => (
             <button
               key={m}
               type="button"
               aria-current={mode === m ? "page" : undefined}
               onClick={() => {
                 setMode(m);
-                if (m === "write") setCandidate(null);
+                if (m !== "design") setCandidate(null);
                 if (m !== "history") setViewing(null);
               }}
               className={cn("rounded-lg border border-border px-3 py-1.5 hover:bg-surface", mode === m && "bg-surface font-medium")}
             >
-              {m === "write" ? "Write" : m === "design" ? "Design" : "History"}
+              {m === "write" ? "Write" : m === "design" ? "Design" : m === "check" ? "Check" : "History"}
             </button>
           ))}
         </nav>
@@ -501,6 +506,9 @@ export function ResumeEditor({
           </section>
         </fieldset>
         </Locked>
+        {mode === "check" && <div className="grid min-w-0 content-start gap-6"><Check score={checks.score} issues={checks.issues} locked={locked} select={select}
+          ignore={(id, ignored) => dispatch({ type: "ignoreCheck", id, ignored })}
+          fix={(issue) => { if (issue.fix === "font") dispatch({ type: "design", patch: { fontSize: 9 } }); }} /><JobMatch doc={doc} locked={locked} ignore={(id, ignored) => dispatch({ type: "ignoreCheck", id, ignored })} /></div>}
         {mode === "history" && (
           <div className="grid min-w-0 content-start gap-6">
             <History
@@ -546,7 +554,7 @@ export function ResumeEditor({
           </div>
         )}
 
-        <Preview doc={shown} photoSrc={photoSrc} title={state.title} markdownAvailable={!viewing && !candidate && state.status === "saved"} onMarkdown={async () => {
+        <Preview checkMode={mode === "check"} pins={mode === "check" ? checks.issues.filter((i) => !i.ignored) : []} doc={shown} photoSrc={photoSrc} title={state.title} markdownAvailable={!viewing && !candidate && state.status === "saved"} onMarkdown={async () => {
           const version = latest.current.version;
           const result = await resumeMarkdown(id);
           return result && result.version === version && latest.current.version === version && latest.current.status === "saved" ? result.markdown : null;

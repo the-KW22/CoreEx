@@ -13,6 +13,17 @@ export type SaveResult =
 
 export type Loaded = { title: string; doc: ResumeDocument; version: number; locked: boolean };
 
+export async function applicationsForMatch() {
+  const api = await getApi();
+  const applications: { id: string; title: string; company: string; postingText: string }[] = [];
+  for (let page = 0; ; page++) {
+    const result = await api.GET("/api/applications", { params: { query: { page, size: 100 } } }).catch(() => null);
+    if (!result?.data) return null;
+    applications.push(...result.data.items.map(({ id, title, company, postingText }) => ({ id, title, company, postingText })));
+    if (applications.length >= result.data.total || result.data.items.length === 0) return applications;
+  }
+}
+
 export async function resumeMarkdown(id: string): Promise<{ markdown: string; version: number } | null> {
   const api = await getApi();
   const result = await api.GET("/api/resumes/{id}/markdown", { params: { path: { id } } }).catch(() => null);

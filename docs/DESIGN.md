@@ -79,6 +79,8 @@ Agreed 2026-11-14 ([ADR 0010](adr/0010-career-items-are-applications-resumes-and
 | `/career/library`, `/career/resumes/[id]`, `/career/cover-letters/[id]` | Resumes & Letters library; the editors |
 
 The Resume preview offers PDF, Word, Markdown and JSON downloads alongside Print. JSON is a full backup and explicitly says that it includes private notes; Word and Markdown omit them. Markdown is unavailable until changes are saved and while previewing a different version or an unapplied template.
+
+In Resume Check, the form panel lists categorized findings and a score, with actions to edit, ignore or apply an available fix. The preview can show the PDF's extracted text beside the page and compare it with the Resume. A selected Application's posting can also be compared locally with the Resume; keywords are suggestions, not a fit score.
 | `/career/knowledge`, `/career/offers` | Knowledge; Offers |
 
 ## 4. Design tokens

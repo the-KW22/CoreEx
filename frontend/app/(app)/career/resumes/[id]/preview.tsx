@@ -9,6 +9,8 @@ import { resumeBlocks } from "@/lib/resume/blocks";
 import { intendedPages, overflows } from "@/lib/resume/fit";
 import { type Box, buildPageMap, readPages, segmentsOf } from "@/lib/resume/page-map";
 import { useResumePdf } from "@/lib/resume/use-resume-pdf";
+import type { CheckIssue } from "@/lib/resume/check";
+import { comparePdfText, extractedText } from "@/lib/resume/parser";
 
 type Doc = components["schemas"]["ResumeDocument"];
 
@@ -36,6 +38,8 @@ export function Preview({
   photoSrc,
   onMarkdown,
   markdownAvailable,
+  pins,
+  checkMode,
 }: {
   doc: Doc;
   title: string;
@@ -46,6 +50,8 @@ export function Preview({
   photoSrc: string | null;
   onMarkdown: () => Promise<string | null>;
   markdownAvailable: boolean;
+  pins: CheckIssue[];
+  checkMode: boolean;
 }) {
   const { bytes, doc: rendered, error, busy } = useResumePdf(doc, photoSrc);
   const [zoom, setZoom] = useState(1);
@@ -54,6 +60,10 @@ export function Preview({
   const [loaded, setLoaded] = useState<Open | null>(null);
   const [drawError, setDrawError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [parser, setParser] = useState(false);
+  const [extracted, setExtracted] = useState("");
+  const [parsedDoc, setParsedDoc] = useState<Doc | null>(null);
+  const [pdfWarnings, setPdfWarnings] = useState<string[] | null>(null);
   const canvases = useRef<(HTMLCanvasElement | null)[]>([]);
   const pages = sizes.length;
 
@@ -75,6 +85,9 @@ export function Preview({
           return;
         }
         setBoxes(buildPageMap(segmentsOf(resumeBlocks(rendered)), text));
+        setExtracted(extractedText(text));
+        setParsedDoc(rendered);
+        setPdfWarnings(null);
         setSizes(text.map((p) => ({ width: p.width, height: p.height })));
         setLoaded({ pdf, task });
         setDrawError(null);
@@ -129,6 +142,14 @@ export function Preview({
   const overflow = !busy && rendered !== null && pages > 0 && overflows(pages, rendered);
 
   const byPage = useMemo(() => Object.groupBy(boxes, (b) => b.page), [boxes]);
+  const pinFor = (issue: CheckIssue): Box | undefined => {
+    const exact = boxes.find((box) => box.ref === issue.ref);
+    if (exact) return exact;
+    const entryId = /^entry:([^:]+):/.exec(issue.ref)?.[1];
+    const section = entryId && doc.sections.find((item) => item.entries.some((entry) => entry.id === entryId));
+    return boxes.find((box) => box.ref === (section ? `section:${section.id}` : "basics.name")) ??
+      (sizes.length ? { ref: issue.ref, page: 1, x: 8, y: 8, width: 0, height: 0 } : undefined);
+  };
 
   function download() {
     if (!bytes) return;
@@ -214,6 +235,11 @@ export function Preview({
         <Button type="button" variant="outline" size="sm" onClick={() => void downloadFormat("json")}>Download JSON</Button>
       </div>
       <p className="text-sm text-muted-foreground">The JSON backup includes private notes.</p>
+      {checkMode && <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" size="sm" disabled={!loaded || busy || rendered !== parsedDoc} onClick={() => setParser(!parser)}>{parser ? "Hide parser text" : "See what a parser reads"}</Button>
+        <Button type="button" variant="outline" size="sm" disabled={!rendered || busy || !loaded || rendered !== parsedDoc} onClick={() => setPdfWarnings(comparePdfText(segmentsOf(resumeBlocks(rendered!)).map((s) => s.text), extracted))}>Check exported PDF</Button>
+      </div>}
+      {checkMode && !busy && rendered === parsedDoc && pdfWarnings && <p role="status" className="text-sm">{pdfWarnings.length ? `PDF check: ${pdfWarnings.map((w) => w.replaceAll("-", " ")).join(", ")}.` : "PDF text matches the Resume."}</p>}
       {downloadError && <p role="alert" className="text-sm text-destructive">{downloadError}</p>}
       <p role="status" className="text-sm text-muted-foreground">
         {error || drawError ? "" : busy ? "Updating the page…" : pages > 0 ? `${pages} ${pages === 1 ? "page" : "pages"}` : ""}
@@ -236,6 +262,7 @@ export function Preview({
           {error ?? drawError}
         </p>
       )}
+      <div className={checkMode && parser ? "grid gap-4 lg:grid-cols-2" : ""}>
       <div role="region" aria-label="Pages" tabIndex={0} className="flex max-h-[80vh] flex-col gap-4 overflow-auto rounded-lg border border-border bg-muted p-4">
         {sizes.map((size, i) => (
           <div key={i} data-page={i + 1} className="relative mx-auto shrink-0 bg-white shadow-sm" style={{ width: size.width * scale, height: size.height * scale }}>
@@ -247,6 +274,12 @@ export function Preview({
               aria-label={`Page ${i + 1} of ${pages}`}
               style={{ width: size.width * scale, height: size.height * scale }}
             />
+            {pins.flatMap((issue, index) => { const box = pinFor(issue); return box?.page === i + 1 ? [(
+              <button key={issue.id} type="button" aria-label={`Issue ${index + 1}: ${issue.message}`} onClick={() => onSelect(issue.ref)}
+                className="absolute z-10 rounded-full bg-primary px-2 text-sm font-semibold text-primary-foreground" style={{ left: Math.min(box.x * scale + (index % 5) * 24, size.width * scale - 32), top: Math.min(box.y * scale + Math.floor(index / 5) * 24, size.height * scale - 24) }}>
+                {index + 1}
+              </button>
+            )] : []; })}
             {/* Mouse only: the form beside the page is the keyboard route to every field. */}
             <div aria-hidden>
               {(byPage[i + 1] ?? []).map((box, n) => (
@@ -261,6 +294,8 @@ export function Preview({
             </div>
           </div>
         ))}
+      </div>
+      {checkMode && parser && <section aria-label="Text read from PDF" className="max-h-[80vh] overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-surface p-4">{extracted || "No selectable text was found."}</section>}
       </div>
     </section>
   );
