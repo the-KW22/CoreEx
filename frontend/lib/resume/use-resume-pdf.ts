@@ -13,7 +13,7 @@ const DEBOUNCE_MS = 300;
 // The PDF of the document as it is now, made in a Web Worker a moment after the last change. An answer for an older
 // document is ignored, so the newest always wins. `busy` is true from a change until its PDF is back, and `doc` is the
 // document the PDF was made from (it can be a moment behind the editor's).
-export function useResumePdf(doc: Doc) {
+export function useResumePdf(doc: Doc, photoSrc: string | null = null) {
   const [result, setResult] = useState<{ bytes: Uint8Array | null; doc: Doc | null; error: string | null; busy: boolean }>({
     bytes: null,
     doc: null,
@@ -45,11 +45,11 @@ export function useResumePdf(doc: Doc) {
       latest.current += 1;
       sent.current.set(latest.current, doc);
       setResult((r) => ({ ...r, busy: true }));
-      const request: Request = { id: latest.current, doc };
+      const request: Request = { id: latest.current, doc, photoSrc };
       worker.current?.postMessage(request);
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [doc]);
+  }, [doc, photoSrc]);
 
   return result;
 }

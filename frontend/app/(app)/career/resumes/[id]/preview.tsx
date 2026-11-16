@@ -33,6 +33,7 @@ export function Preview({
   onFit,
   onAddPage,
   fitting,
+  photoSrc,
 }: {
   doc: Doc;
   title: string;
@@ -40,8 +41,9 @@ export function Preview({
   onFit: () => void;
   onAddPage: () => void;
   fitting: boolean;
+  photoSrc: string | null;
 }) {
-  const { bytes, doc: rendered, error, busy } = useResumePdf(doc);
+  const { bytes, doc: rendered, error, busy } = useResumePdf(doc, photoSrc);
   const [zoom, setZoom] = useState(1);
   const [sizes, setSizes] = useState<{ width: number; height: number }[]>([]);
   const [boxes, setBoxes] = useState<Box[]>([]);

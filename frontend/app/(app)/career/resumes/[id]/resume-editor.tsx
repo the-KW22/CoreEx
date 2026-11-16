@@ -13,10 +13,11 @@ import type { Template } from "@/lib/resume/blocks";
 import { cn } from "@/lib/utils";
 
 import { clearUnsaved, recoveryAction, storeUnsaved, takeNewestUnsaved } from "../../../notes/[id]/recovery";
-import { loadResume, saveCopy, saveResume, setLocked as lockResume } from "./actions";
+import { loadResume, photoData, saveCopy, saveResume, setLocked as lockResume } from "./actions";
 import { Preview } from "./preview";
 import { Controls } from "./controls";
 import { Design } from "./design";
+import { PhotoSection } from "./photo";
 import { Locked, RichText } from "./rich-text";
 import { Sections } from "./sections";
 import { type Action, init, reduce, type ResumeDocument } from "./store";
@@ -50,6 +51,8 @@ export function ResumeEditor({
   const [locked, setLocked] = useState(initial.locked);
   const [mode, setMode] = useState<"write" | "design">("write");
   const [fitting, setFitting] = useState(false);
+  // The photo picture for an Asset id, once it has been fetched (null: it cannot be shown).
+  const [loadedPhoto, setLoadedPhoto] = useState<{ id: string; src: string | null } | null>(null);
   // Custom style text that has problems stays here, not in the document, until it is fixed. Null: the document's own.
   const [draft, setDraft] = useState<string | null>(null);
   // The next click on the page picks a part for a custom rule instead of jumping to its field.
@@ -137,11 +140,23 @@ export function ResumeEditor({
     (field.querySelector<HTMLElement>("[contenteditable=true]") ?? field).focus();
   }
 
+  // The picture of the photo, fetched whenever another Asset is chosen. It is shown only for the Asset it was fetched for.
+  const photoId = state.doc.basics.photo.assetId;
+  useEffect(() => {
+    if (!photoId) return;
+    let current = true;
+    void photoData(photoId).then((src) => current && setLoadedPhoto({ id: photoId, src }));
+    return () => {
+      current = false;
+    };
+  }, [photoId]);
+  const photoSrc = photoId && loadedPhoto?.id === photoId ? loadedPhoto.src : null;
+
   // Squeezes the Resume back onto the pages it means to have, within limits, or says it cannot and changes nothing.
   async function fit() {
     setFitting(true);
     setNotice("");
-    const measurer = createMeasurer();
+    const measurer = createMeasurer(photoSrc);
     try {
       const pages = intendedPages(doc);
       const result = await fitToPage(doc, measurer.pagesFor);
@@ -393,6 +408,8 @@ export function ResumeEditor({
             </div>
           </section>
 
+          <PhotoSection photo={doc.basics.photo} photoSrc={photoSrc} dispatch={dispatch} />
+
           <section aria-labelledby="summary" className="grid gap-2">
             <h2 id="summary" className="text-lg font-semibold">
               Summary
@@ -425,6 +442,7 @@ export function ResumeEditor({
               doc={doc}
               candidate={candidate}
               locked={locked}
+              photoSrc={photoSrc}
               onCandidate={setCandidate}
               onApply={(template) => {
                 dispatch({ type: "template", value: template });
@@ -449,7 +467,7 @@ export function ResumeEditor({
           </div>
         )}
 
-        <Preview doc={shown} title={state.title} onSelect={select} fitting={fitting} onFit={() => void fit()} onAddPage={() => dispatch({ type: "design", patch: { pageCount: intendedPages(doc) + 1 } })} />
+        <Preview doc={shown} photoSrc={photoSrc} title={state.title} onSelect={select} fitting={fitting} onFit={() => void fit()} onAddPage={() => dispatch({ type: "design", patch: { pageCount: intendedPages(doc) + 1 } })} />
       </div>
     </div>
   );

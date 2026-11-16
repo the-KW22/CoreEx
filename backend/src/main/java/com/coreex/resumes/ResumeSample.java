@@ -28,7 +28,7 @@ final class ResumeSample {
 				new Entry("skill-2", false, "Frontend", "", "", "", "", "", "", List.of("TypeScript", "React"))));
 		return new ResumeDocument("en",
 				new Basics("Alex Morgan", "Senior Software Engineer", "alex.morgan@example.com", "+1 555 0100",
-						"Austin, TX", "https://alexmorgan.example", List.of()),
+						"Austin, TX", "https://alexmorgan.example", List.of(), null),
 				"<p>Engineer with <strong>seven years</strong> of experience building reliable web services and the teams that run them.</p>",
 				List.of(experience, education, skills), null, "", List.of());
 	}

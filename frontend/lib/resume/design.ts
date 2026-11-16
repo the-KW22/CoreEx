@@ -1,6 +1,10 @@
 import type { components } from "@/lib/api/schema";
 
 export type Metadata = components["schemas"]["Metadata"];
+export type Photo = components["schemas"]["Photo"];
+
+// No photo, in the frame a new one starts in: a circle of 80 pt, centred, not zoomed.
+export const DEFAULT_PHOTO: Photo = { assetId: "", visible: true, size: 80, shape: "circle", cropX: 50, cropY: 50, zoom: 100 };
 
 // What the design controls start at, and what Reset brings back. The backend keeps every value in range (ResumeDocument
 // .Metadata), so these are also its defaults.

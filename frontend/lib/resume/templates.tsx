@@ -1,9 +1,9 @@
-import { Document, Link, Page, Text, View } from "@react-pdf/renderer";
+import { Document, Image, Link, Page, Text, View } from "@react-pdf/renderer";
 import type { Style } from "@react-pdf/types";
 
 import type { components } from "@/lib/api/schema";
 
-import { type Block, resumeBlocks, templateOf } from "./blocks";
+import { type Block, type PhotoFrame, resumeBlocks, templateOf } from "./blocks";
 import { type Custom, type Part, customStyles } from "./custom-css";
 import { DENSITIES, pageDimensions } from "./design";
 import type { Rich, Run } from "./html";
@@ -32,6 +32,8 @@ type Look = {
   stacked: boolean;
   modern: boolean;
   custom: Custom;
+  // The photo picture as a data URL, or null when there is none (or its Asset is gone).
+  photoSrc: string | null;
 };
 
 // The PDF's built-in families; Inter is the one embedded font.
@@ -117,10 +119,36 @@ function Head({ title, dates, look }: { title: string; dates: string; look: Look
   );
 }
 
+// The photo in its frame: a square, rounded or round window onto the picture, which is zoomed and slid by the crop.
+function PhotoView({ frame, src }: { frame: PhotoFrame; src: string }) {
+  const big = (frame.size * frame.zoom) / 100;
+  const spare = big - frame.size;
+  const radius = frame.shape === "circle" ? frame.size / 2 : frame.shape === "rounded" ? frame.size / 6 : 0;
+  return (
+    <View style={{ width: frame.size, height: frame.size, borderRadius: radius, overflow: "hidden", marginLeft: 12 }}>
+      {/* react-pdf's Image draws into the PDF; it is not an HTML img, so it has no alt text to give. */}
+      {/* eslint-disable-next-line jsx-a11y/alt-text */}
+      <Image
+        src={src}
+        style={{
+          width: big,
+          height: big,
+          objectFit: "cover",
+          objectPositionX: `${frame.cropX}%`,
+          objectPositionY: `${frame.cropY}%`,
+          marginLeft: (-spare * frame.cropX) / 100,
+          marginTop: (-spare * frame.cropY) / 100,
+        }}
+      />
+    </View>
+  );
+}
+
 function HeaderView({ block, look }: { block: Extract<Block, { kind: "header" }>; look: Look }) {
   const color = look.modern ? { color: "#ffffff" } : {};
   return (
-    <View style={{ marginBottom: look.modern ? 0 : 8 * look.gap }}>
+    <View style={{ marginBottom: look.modern ? 0 : 8 * look.gap, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <View style={{ flex: 1 }}>
       {block.name && (
         <Text style={{ ...heading(look), ...color, fontSize: look.size * 2.2, ...custom(look, "name", { bold: true, heading: true }) }}>
           {block.name}
@@ -132,6 +160,8 @@ function HeaderView({ block, look }: { block: Extract<Block, { kind: "header" }>
       {block.contact.length > 0 && (
         <Text style={{ ...color, marginTop: 4, ...custom(look, "contact") }}>{block.contact.join("  |  ")}</Text>
       )}
+      </View>
+      {block.photo && look.photoSrc && <PhotoView frame={block.photo} src={look.photoSrc} />}
     </View>
   );
 }
@@ -211,7 +241,7 @@ function Blocks({ list, look }: { list: Block[]; look: Look }) {
   return <>{out}</>;
 }
 
-export function ResumePdf({ doc, fonts }: { doc: Doc; fonts: Fonts }) {
+export function ResumePdf({ doc, fonts, photoSrc = null }: { doc: Doc; fonts: Fonts; photoSrc?: string | null }) {
   const m = doc.metadata;
   const template = templateOf(doc);
   const density = DENSITIES.find((d) => d.value === m.density) ?? DENSITIES[1];
@@ -226,6 +256,7 @@ export function ResumePdf({ doc, fonts }: { doc: Doc; fonts: Fonts }) {
     stacked: m.entryHeader === "stacked",
     modern: template === "modern",
     custom: customStyles(m.customCss),
+    photoSrc,
   };
   const [header, ...rest] = resumeBlocks(doc);
   const pages = [...new Set(rest.map((b) => (b.kind === "header" ? 1 : b.page)).concat(1))].sort((a, b) => a - b);

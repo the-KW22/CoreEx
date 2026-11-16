@@ -67,6 +67,14 @@ class ResumeRepository {
 				.list();
 	}
 
+	/** True when the Asset is a live image of this User's. */
+	boolean isImageAsset(UUID ownerId, UUID assetId) {
+		return jdbc.sql("""
+				select count(*) from asset_files f join items i on i.id = f.item_id
+				where f.item_id = :asset and i.owner_id = :owner and i.type = 'ASSET' and i.deleted_at is null
+				  and f.mime_type like 'image/%'""").param("asset", assetId).param("owner", ownerId).query(Long.class).single() > 0;
+	}
+
 	long count(UUID ownerId) {
 		return jdbc.sql("select count(*) " + FROM).param("owner", ownerId).query(Long.class).single();
 	}
