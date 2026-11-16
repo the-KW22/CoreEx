@@ -1,6 +1,7 @@
 package com.coreex.resumes;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -9,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.coreex.common.ApiException;
-import com.coreex.resumes.ResumeRepository.Summary;
 
 @Service
 public class ResumeService {
@@ -35,7 +35,11 @@ public class ResumeService {
 	public record Created(Resume resume, boolean isNew) {
 	}
 
-	public record Page(List<Summary> items, long total) {
+	/** A Resume in a list, without its document. */
+	public record Row(UUID id, String title, UUID folderId, Instant createdAt, Instant updatedAt) {
+	}
+
+	public record Page(List<Row> items, long total) {
 	}
 
 	/**
@@ -72,7 +76,9 @@ public class ResumeService {
 	/** A page of the User's Resumes whose title contains {@code q} (all when empty), by "updated" (default), "name" or "created". */
 	public Page list(UUID ownerId, String q, String sort, int page, int size) {
 		var text = q == null ? "" : q.strip();
-		return new Page(resumes.list(ownerId, text, sort == null ? "" : sort, size, (long) page * size), resumes.count(ownerId, text));
+		var rows = resumes.list(ownerId, text, sort == null ? "" : sort, size, (long) page * size).stream()
+				.map(s -> new Row(s.id(), s.title(), s.folderId(), s.createdAt(), s.updatedAt())).toList();
+		return new Page(rows, resumes.count(ownerId, text));
 	}
 
 	/** Moves the Resume to the Trash, where Restore brings it back unchanged; its versions leave with it for good. */
@@ -84,15 +90,23 @@ public class ResumeService {
 
 	@Transactional
 	public Resume save(UUID ownerId, UUID id, String title, ResumeDocument document, int seenVersion) {
-		return save(ownerId, id, title, document, seenVersion, false);
+		return save(ownerId, id, title, document, seenVersion, false, false);
+	}
+
+	/** An Agent's save: the same checks as any save, and the document it replaces is always kept as a version. */
+	@Transactional
+	public Resume saveByAgent(UUID ownerId, UUID id, String title, ResumeDocument document, int seenVersion) {
+		return save(ownerId, id, title, document, seenVersion, true, false);
 	}
 
 	/**
 	 * A save keeps the document it replaces as a version first (in the same transaction, so a refused save keeps
-	 * nothing), and with {@code restoring} always keeps it and does not look at the photo again: a restore brings back
-	 * something the User once had, even a photo whose Asset has gone since.
+	 * nothing). With {@code keepOld} it always keeps it (an Agent's edit, a restore). With {@code restoring} it also does
+	 * not look at the photo again: a restore brings back something the User once had, even a photo whose Asset has gone
+	 * since.
 	 */
-	private Resume save(UUID ownerId, UUID id, String title, ResumeDocument document, int seenVersion, boolean restoring) {
+	private Resume save(UUID ownerId, UUID id, String title, ResumeDocument document, int seenVersion, boolean keepOld,
+			boolean restoring) {
 		// Missing, or someone else's, is 404 before anything else is looked at.
 		var stored = get(ownerId, id);
 		if (!restoring) {
@@ -100,7 +114,7 @@ public class ResumeService {
 		}
 		var clean = ResumeText.clean(document);
 		var json = checked(clean);
-		if (versions.keep(ownerId, id, seenVersion, restoring)) {
+		if (versions.keep(ownerId, id, seenVersion, keepOld || restoring)) {
 			versions.prune(ownerId, id);
 		}
 		if (!resumes.save(ownerId, id, seenVersion, title.strip(), json, ResumeText.plain(clean), ResumeText.markdown(clean))) {
@@ -141,7 +155,7 @@ public class ResumeService {
 	@Transactional
 	public Resume restore(UUID ownerId, UUID id, UUID versionId, int seenVersion) {
 		var old = version(ownerId, id, versionId);
-		return save(ownerId, id, old.title(), old.document(), seenVersion, true);
+		return save(ownerId, id, old.title(), old.document(), seenVersion, true, true);
 	}
 
 	private static ApiException versionNotFound() {

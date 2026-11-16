@@ -23,7 +23,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.coreex.common.ErrorBody;
 import com.coreex.identity.CurrentUserInterceptor;
 import com.coreex.identity.User;
-import com.coreex.resumes.ResumeRepository.Summary;
 import com.coreex.tags.TagColour;
 import com.coreex.tags.TagService;
 
@@ -90,7 +89,7 @@ class ResumeController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt) {
 
-		static ResumeSummary of(Summary s) {
+		static ResumeSummary of(ResumeService.Row s) {
 			return new ResumeSummary(s.id(), s.title(), s.folderId(), s.createdAt(), s.updatedAt());
 		}
 
@@ -133,7 +132,7 @@ class ResumeController {
 			@Parameter(description = "Only Resumes whose title contains this, in any case") @RequestParam(defaultValue = "") String q,
 			@Parameter(description = "updated (newest change first, the default), name or created (newest first)") @RequestParam(defaultValue = "updated") String sort) {
 		var listed = resumes.list(user.id(), q, sort, Math.max(0, page), Math.min(MAX_PAGE_SIZE, Math.max(1, size)));
-		var tagged = tags.forItems(user.id(), listed.items().stream().map(Summary::id).toList());
+		var tagged = tags.forItems(user.id(), listed.items().stream().map(ResumeService.Row::id).toList());
 		var chips = new LinkedHashMap<UUID, List<ResumeTag>>();
 		tagged.forEach((id, list) -> chips.put(id, list.stream().map(t -> new ResumeTag(t.id(), t.name(), t.colour())).toList()));
 		return new ResumePage(listed.items().stream().map(ResumeSummary::of).toList(), listed.total(), chips);

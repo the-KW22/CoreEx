@@ -64,6 +64,24 @@ export const MCP_TOOLS: McpTool[] = [
     useWhen: "You want to know where the job search stands.",
   },
   {
+    name: "list_resumes",
+    kind: "read",
+    summary: "List the Resumes, most recently changed first, 50 per page.",
+    useWhen: "You want to find a Resume before reading or editing it.",
+  },
+  {
+    name: "get_resume",
+    kind: "read",
+    summary: "Read one Resume: its Markdown view, its JSON document (contents and design) and its version, the save counter a patch needs.",
+    useWhen: "Before editing a Resume: it gives the version patch_resume needs.",
+  },
+  {
+    name: "patch_resume",
+    kind: "change",
+    summary: "Change a Resume with a JSON Patch (add, replace, remove or test) on its document. The result is cleaned like any save (HTML is sanitised) and checked; an invalid patch, a stale version or a locked Resume changes nothing. A change keeps the previous version.",
+    useWhen: "Editing a Resume's contents or design. Send the version from get_resume.",
+  },
+  {
     name: "get_asset_url",
     kind: "read",
     summary: "A link to download an Asset's file (an image or PDF), valid for a few minutes. Anyone who has the link can download the file until it expires.",
@@ -168,7 +186,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "move_item",
     kind: "change",
-    summary: "Move a Note, Asset or Application into a Folder, or to the top level.",
+    summary: "Move a Note, Asset, Application or Resume into a Folder, or to the top level.",
     useWhen: "Filing an Item.",
   },
   {
