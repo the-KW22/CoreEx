@@ -134,6 +134,24 @@ class ApplicationApiTest extends ApiTest {
 	}
 
 	@Test
+	void aMoveThatNamesTheStageTheClientSawIsRefusedWhenItMovedElsewhereButNotWhenOnlyEdited() throws Exception {
+		var id = field(create(userA, "{\"company\":\"Acme\",\"role\":\"Engineer\"}"), "id");
+		saveFields(userA, id, "Engineer at Acme", "Beta", "Engineer", 1); // an edit bumps the version, not the Stage
+
+		var moved = post("/api/applications/" + id + "/stage", userA, "{\"stage\":\"APPLIED\",\"fromStage\":\"SAVED\"}");
+		assertThat(moved.statusCode()).as(moved.body()).isEqualTo(200);
+		assertThat(field(moved.body(), "stage")).isEqualTo("APPLIED");
+
+		var stale = post("/api/applications/" + id + "/stage", userA, "{\"stage\":\"SCREENING\",\"fromStage\":\"SAVED\"}");
+		assertThat(stale.statusCode()).isEqualTo(409);
+		assertThat(stale.body()).contains("VERSION_CONFLICT");
+		assertThat(field(get("/api/applications/" + id, userA).body(), "stage")).isEqualTo("APPLIED");
+
+		var neither = post("/api/applications/" + id + "/stage", userA, "{\"stage\":\"SCREENING\"}");
+		assertThat(neither.statusCode()).isEqualTo(400);
+	}
+
+	@Test
 	void aSaveFromAnOldVersionIsRefusedWithAConflict() throws Exception {
 		var id = field(create(userA, "{\"company\":\"Acme\",\"role\":\"Engineer\"}"), "id");
 		saveFields(userA, id, "Engineer at Acme", "Beta", "Engineer", 1);

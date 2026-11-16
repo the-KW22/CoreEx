@@ -2580,6 +2580,75 @@ test("several Applications are selected with a range and moved, tagged and trash
   await expect(box(3)).toBeVisible();
 });
 
+test("the Board moves a card by drag or menu, Undo sends nothing, and a move made elsewhere wins", async ({ page }) => {
+  test.setTimeout(120_000); // five waits for an Undo toast to close
+  await signIn(page);
+  const stamp = Date.now();
+  const names = ["Hotel", "India", "Juliet"].map((n) => `${n} ${stamp}`);
+  for (const company of names) await newApplication(page, company, "Dev");
+  await page.goto("/career/applications?view=board");
+  const column = (stage: string) => page.getByRole("region", { name: new RegExp(`^${stage}`) });
+  const card = (n: number, stage: string) =>
+    column(stage).locator("li[draggable=true]").filter({ hasText: `Dev at ${names[n]}` });
+  const toast = (n: number, stage: string) => page.getByText(`Moved Dev at ${names[n]} to ${stage}`);
+  const grab = { sourcePosition: { x: 4, y: 4 } }; // the card's padding, not its link or menu
+  await expect(card(0, "Saved")).toBeVisible();
+  await expectNoViolations(page);
+
+  // Drag shows the move at once; Undo before the toast closes means nothing is ever sent.
+  await card(0, "Saved").dragTo(column("Applied"), grab);
+  await expect(card(0, "Applied")).toBeVisible();
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(card(0, "Saved")).toBeVisible();
+  await expect(toast(0, "Applied")).toBeHidden();
+  await page.waitForTimeout(6000);
+  await page.reload();
+  await expect(card(0, "Saved")).toBeVisible();
+
+  // Left alone, the write goes when the toast closes.
+  await card(0, "Saved").dragTo(column("Applied"), grab);
+  await expect(toast(0, "Applied")).toBeHidden({ timeout: 15000 });
+  await page.reload();
+  await expect(card(0, "Applied")).toBeVisible();
+  await expect(card(0, "Applied")).toContainText("Waiting");
+
+  // The keyboard moves a card with its Move to menu.
+  await page.getByLabel(`Move Dev at ${names[1]} to`).selectOption("SCREENING");
+  await expect(card(1, "Screening")).toBeVisible();
+  await expect(toast(1, "Screening")).toBeHidden({ timeout: 15000 });
+  await page.reload();
+  await expect(card(1, "Screening")).toBeVisible();
+
+  // Dropping on Closed asks why first.
+  // Closed sits off the right edge of a narrow window, so the drag is replayed as its two events.
+  const transfer = await page.evaluateHandle(() => new DataTransfer());
+  await card(2, "Saved").dispatchEvent("dragstart", { dataTransfer: transfer });
+  await column("Closed").dispatchEvent("drop", { dataTransfer: transfer });
+  await expect(card(2, "Saved")).toBeVisible();
+  await page.getByLabel(`Why did Dev at ${names[2]} close?`).selectOption("WITHDREW");
+  await expectNoViolations(page);
+  await page.getByRole("button", { name: "Close Application" }).click();
+  await expect(card(2, "Closed")).toBeVisible();
+  await expect(toast(2, "Closed")).toBeHidden({ timeout: 15000 });
+  await page.reload();
+  await expect(card(2, "Closed")).toBeVisible();
+
+  // Moved elsewhere meanwhile: that move wins, the card snaps to where it is and a message says so.
+  const href = await card(0, "Applied").getByRole("link").getAttribute("href");
+  const other = await page.context().newPage();
+  await other.goto(href!);
+  await other.getByRole("button", { name: "Interview", exact: true }).click();
+  await expect(other.getByRole("button", { name: "Interview", exact: true })).toHaveAttribute("aria-current", "step");
+  await other.close();
+  const again = await page.evaluateHandle(() => new DataTransfer());
+  await card(0, "Applied").dispatchEvent("dragstart", { dataTransfer: again });
+  await column("Screening").dispatchEvent("drop", { dataTransfer: again });
+  await expect(card(0, "Screening")).toBeVisible();
+  await expect(page.getByText(/was moved somewhere else/)).toBeVisible({ timeout: 15000 });
+  await expect(card(0, "Interview")).toBeVisible();
+  await expect(card(0, "Screening")).toHaveCount(0);
+});
+
 test("Career opens from the rail with its panel and the Applications list, and New Application lands on the new page", async ({ page }) => {
   await signIn(page);
   const stamp = Date.now();

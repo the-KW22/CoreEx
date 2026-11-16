@@ -216,7 +216,8 @@ A Career screen (#227), opened from the Applications list below.
 - Empty: "No Applications yet. Add the first job you are interested in." Empty under Needs you: "Nothing needs you right now."
 - The Application page starts with a **Next step** card: the label, and "Needs you now." when it is due.
 - Next step kinds, tried in this order: Closed; Offer ("Decide on the offer"); an upcoming interview ("Interview Mar 5, 17:30", due from 24 hours before it starts); interview feedback (an interview ended an hour after it started, with no later timeline entry); follow-up due (the reminder's moment has passed); not applied yet ("Apply"); no reply for 10 days since applied or the last follow-up; otherwise Waiting. Times in labels are in the User's timezone, which the browser reports in a `tz` cookie (UTC until it does).
-- The Board, Calendar and Insights come in later tickets.
+- **Board** (#233, `?view=board`, beside a **View** toggle of List and Board; it keeps Needs you): six columns in Stage order, each headed with its Stage and count, cards in Next step order (a card is the title, the Next step and a **Move to** menu). Drag a card to another column, or pick a Stage in its menu: it shows there at once and a toast says "Moved ... to ..." with **Undo**. The move is sent only when the toast closes, naming the Stage the card was seen in. If the Application was moved elsewhere meanwhile, the server refuses, the card snaps to where it now is and a message says so; a note added meanwhile does not refuse it. Dropping on Closed first asks "Why did ... close?". A page of up to 100 Applications; on a narrow window the columns scroll sideways.
+- The Calendar and Insights come in later tickets.
 
 ### 6.5 Uploading
 

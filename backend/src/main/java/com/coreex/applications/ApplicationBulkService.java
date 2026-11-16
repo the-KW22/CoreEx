@@ -41,7 +41,7 @@ public class ApplicationBulkService {
 	/** Moves each to the Stage, writing a timeline entry on each; Closed takes one reason for all. */
 	public Result moveStage(UUID ownerId, List<UUID> ids, Stage stage, CloseReason closeReason, LocalDate date) {
 		applications.checkMove(stage, closeReason, date);
-		return each(ids, id -> applications.moveStage(ownerId, id, stage, closeReason, date,
+		return each(ids, id -> applications.moveStage(ownerId, id, stage, closeReason, date, null,
 				applications.get(ownerId, id).version()));
 	}
 

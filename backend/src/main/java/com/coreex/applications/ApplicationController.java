@@ -91,7 +91,8 @@ class ApplicationController {
 	record MoveStageRequest(@NotNull Stage stage,
 			@Schema(nullable = true, description = "Required for Closed, refused for every other Stage") CloseReason closeReason,
 			@Schema(nullable = true, description = "The day it happened, never a future one. Empty means today") LocalDate date,
-			@NotNull Integer version) {
+			@Schema(nullable = true, description = "The Stage the client saw. A move from any other Stage is a 409, but an edit that left the Stage alone does not refuse it") Stage fromStage,
+			@Schema(nullable = true, description = "The version the client saw. Send this or fromStage") Integer version) {
 	}
 
 	record AddEntryRequest(@NotNull EntryType type,
@@ -297,7 +298,7 @@ class ApplicationController {
 	ApplicationResponse moveStage(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @Valid @RequestBody MoveStageRequest request) {
 		return respond(applications.moveStage(user.id(), id, request.stage(), request.closeReason(),
-				request.date(), request.version()));
+				request.date(), request.fromStage(), request.version()));
 	}
 
 	@PostMapping(value = "/{id}/timeline", consumes = JSON)
