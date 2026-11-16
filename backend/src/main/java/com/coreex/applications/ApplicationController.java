@@ -210,6 +210,24 @@ class ApplicationController {
 
 	}
 
+	record AttachRequest(@NotNull UUID assetId, @NotNull ApplicationDocument.Label label) {
+	}
+
+	record DocumentResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID assetId,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) ApplicationDocument.Label label,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) long sizeBytes,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant attachedAt) {
+
+		static DocumentResponse of(ApplicationDocument d) {
+			return new DocumentResponse(d.assetId(), d.title(), d.label(), d.sizeBytes(), d.attachedAt());
+		}
+
+	}
+
+	record DocumentList(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<DocumentResponse> items) {
+	}
+
 	record ApplicationTag(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
 			@Schema(nullable = true) TagColour colour) {
@@ -327,6 +345,38 @@ class ApplicationController {
 	void trash(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id) {
 		applications.trash(user.id(), id);
+	}
+
+	@GetMapping("/{id}/documents")
+	@ApiResponse(responseCode = "200", description = "The PDFs sent for the Application, oldest first", content = @Content(
+			mediaType = JSON, schema = @Schema(implementation = DocumentList.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's Application)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	DocumentList documents(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id) {
+		return new DocumentList(applications.documents(user.id(), id).stream().map(DocumentResponse::of).toList());
+	}
+
+	@PostMapping(value = "/{id}/documents", consumes = JSON)
+	@ResponseStatus(HttpStatus.CREATED)
+	@ApiResponse(responseCode = "201", description = "Attached; an Asset attached again has its label changed")
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST (not a PDF, or not a label)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (the Application or the Asset, also another User's)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	void attach(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id, @Valid @RequestBody AttachRequest request) {
+		applications.attach(user.id(), id, request.assetId(), request.label());
+	}
+
+	@DeleteMapping("/{id}/documents/{assetId}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@ApiResponse(responseCode = "204", description = "Detached; the Asset stays")
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND", content = @Content(mediaType = JSON,
+			schema = @Schema(implementation = ErrorBody.class)))
+	void detach(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id, @PathVariable UUID assetId) {
+		applications.detach(user.id(), id, assetId);
 	}
 
 	@PostMapping(value = "/{id}/timeline", consumes = JSON)

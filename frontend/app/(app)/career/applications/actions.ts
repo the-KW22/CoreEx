@@ -34,6 +34,36 @@ export async function createApplication(_previous: CreateState, formData: FormDa
   redirect(`/career/applications/${result.data.id}`);
 }
 
+// The PDFs sent for an Application: attach an uploaded Asset with a label, take one off (the Asset stays), and get a
+// link to download one.
+export async function attachDocument(
+  id: string,
+  assetId: string,
+  label: "RESUME" | "COVER_LETTER" | "OTHER",
+): Promise<boolean> {
+  const api = await getApi();
+  const result = await api
+    .POST("/api/applications/{id}/documents", { params: { path: { id } }, body: { assetId, label } })
+    .catch(() => null);
+  return done(!!result && !result.error);
+}
+
+export async function detachDocument(id: string, assetId: string): Promise<boolean> {
+  const api = await getApi();
+  const result = await api
+    .DELETE("/api/applications/{id}/documents/{assetId}", { params: { path: { id, assetId } } })
+    .catch(() => null);
+  return done(!!result && !result.error);
+}
+
+export async function documentUrl(assetId: string): Promise<string | null> {
+  const api = await getApi();
+  const result = await api
+    .GET("/api/assets/{id}/url", { params: { path: { id: assetId }, query: { download: true } } })
+    .catch(() => null);
+  return result?.data?.url ?? null;
+}
+
 // Move to Trash from the Application's own page.
 export async function deleteApplication(formData: FormData) {
   const id = String(formData.get("id") ?? "");

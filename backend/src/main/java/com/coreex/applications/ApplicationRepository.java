@@ -88,6 +88,42 @@ class ApplicationRepository {
 				.list();
 	}
 
+	/** The attached PDFs whose Asset is live, in the order they were attached. */
+	List<ApplicationDocument> documents(UUID ownerId, UUID applicationId) {
+		return jdbc.sql("""
+				select d.asset_id, i.title, d.label, f.size_bytes, d.attached_at
+				from application_documents d
+				join items i on i.id = d.asset_id and i.owner_id = :owner and i.deleted_at is null
+				join asset_files f on f.item_id = d.asset_id
+				where d.application_id = :app order by d.attached_at, d.asset_id""").param("owner", ownerId)
+				.param("app", applicationId)
+				.query((rs, n) -> new ApplicationDocument(rs.getObject("asset_id", UUID.class), rs.getString("title"),
+						ApplicationDocument.Label.valueOf(rs.getString("label")), rs.getLong("size_bytes"),
+						rs.getObject("attached_at", java.time.OffsetDateTime.class).toInstant()))
+				.list();
+	}
+
+	/** The MIME type of the User's live Asset, empty when there is none. */
+	Optional<String> assetMimeType(UUID ownerId, UUID assetId) {
+		return jdbc.sql("""
+				select f.mime_type from asset_files f join items i on i.id = f.item_id
+				where f.item_id = :asset and i.owner_id = :owner and i.deleted_at is null""").param("asset", assetId)
+				.param("owner", ownerId).query(String.class).optional();
+	}
+
+	/** Attaches the Asset, or changes its label when it is attached already. */
+	void attach(UUID applicationId, UUID assetId, ApplicationDocument.Label label) {
+		jdbc.sql("""
+				insert into application_documents (application_id, asset_id, label) values (:app, :asset, :label)
+				on conflict (application_id, asset_id) do update set label = excluded.label""")
+				.param("app", applicationId).param("asset", assetId).param("label", label.name()).update();
+	}
+
+	boolean detach(UUID applicationId, UUID assetId) {
+		return jdbc.sql("delete from application_documents where application_id = :app and asset_id = :asset")
+				.param("app", applicationId).param("asset", assetId).update() > 0;
+	}
+
 	/** False when the Application is missing or its stored version is not the one the caller saw. */
 	boolean saveFields(UUID ownerId, UUID id, int seenVersion, String title, boolean titleAuto, String company,
 			String role, String location, String postingUrl, String postingText) {
