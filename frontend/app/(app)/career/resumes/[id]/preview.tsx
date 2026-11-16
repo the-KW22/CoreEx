@@ -1,10 +1,12 @@
 "use client";
 
 import { DownloadIcon, PrinterIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/schema";
+import { resumeBlocks } from "@/lib/resume/blocks";
+import { type Box, buildPageMap, readPages, segmentsOf } from "@/lib/resume/page-map";
 import { useResumePdf } from "@/lib/resume/use-resume-pdf";
 
 type Doc = components["schemas"]["ResumeDocument"];
@@ -13,50 +15,46 @@ type Doc = components["schemas"]["ResumeDocument"];
 const POINT = 96 / 72;
 const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
+// An open PDF and the task that holds it open (pdfjs frees it through the task).
+type Open = { pdf: import("pdfjs-dist").PDFDocumentProxy; task: import("pdfjs-dist").PDFDocumentLoadingTask };
+
 function fileName(title: string) {
   return `${title.replace(/[^\p{L}\p{N} _.-]+/gu, "").trim() || "Resume"}.pdf`;
 }
 
 // The page as it will print: the PDF the worker made, drawn at real size with pdfjs. Download and Print use those very
-// bytes, so what is shown is what is saved.
-export function Preview({ doc, title }: { doc: Doc; title: string }) {
-  const { bytes, error, busy } = useResumePdf(doc);
+// bytes, so what is shown is what is saved. Over each page lie the boxes of the page map: hover outlines a field and a
+// click calls `onSelect` with its reference, so the editor can jump to it.
+export function Preview({ doc, title, onSelect }: { doc: Doc; title: string; onSelect: (ref: string) => void }) {
+  const { bytes, doc: rendered, error, busy } = useResumePdf(doc);
   const [zoom, setZoom] = useState(1);
-  const [pages, setPages] = useState(0);
+  const [sizes, setSizes] = useState<{ width: number; height: number }[]>([]);
+  const [boxes, setBoxes] = useState<Box[]>([]);
+  const [loaded, setLoaded] = useState<Open | null>(null);
   const [drawError, setDrawError] = useState<string | null>(null);
-  const host = useRef<HTMLDivElement>(null);
+  const canvases = useRef<(HTMLCanvasElement | null)[]>([]);
+  const pages = sizes.length;
 
-  // Draws every page onto its own canvas whenever the PDF or the zoom changes. pdfjs is loaded here, not at the top,
-  // because it needs the browser.
+  // A new PDF: read its pages and, from its text, the page map. pdfjs is loaded here, not at the top, because it needs
+  // the browser.
   useEffect(() => {
-    if (!bytes || !host.current) return;
-    const container = host.current;
+    if (!bytes || !rendered) return;
     let stale = false;
     void (async () => {
       try {
         const pdfjs = await import("pdfjs-dist");
         pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
         // pdfjs takes the buffer it is given, so it gets a copy: the original is still needed to download.
-        const loaded = await pdfjs.getDocument({ data: bytes.slice() }).promise;
-        const canvases: HTMLCanvasElement[] = [];
-        const ratio = window.devicePixelRatio || 1;
-        for (let n = 1; n <= loaded.numPages; n++) {
-          const page = await loaded.getPage(n);
-          const viewport = page.getViewport({ scale: POINT * zoom * ratio });
-          const canvas = document.createElement("canvas");
-          canvas.width = Math.floor(viewport.width);
-          canvas.height = Math.floor(viewport.height);
-          canvas.style.width = `${viewport.width / ratio}px`;
-          canvas.style.height = `${viewport.height / ratio}px`;
-          canvas.className = "bg-white shadow-sm";
-          canvas.setAttribute("role", "img");
-          canvas.setAttribute("aria-label", `Page ${n} of ${loaded.numPages}`);
-          await page.render({ canvas, viewport }).promise;
-          canvases.push(canvas);
+        const task = pdfjs.getDocument({ data: bytes.slice() });
+        const pdf = await task.promise;
+        const text = await readPages(pdf);
+        if (stale) {
+          void task.destroy();
+          return;
         }
-        if (stale) return;
-        container.replaceChildren(...canvases);
-        setPages(loaded.numPages);
+        setBoxes(buildPageMap(segmentsOf(resumeBlocks(rendered)), text));
+        setSizes(text.map((p) => ({ width: p.width, height: p.height })));
+        setLoaded({ pdf, task });
         setDrawError(null);
       } catch {
         if (!stale) setDrawError("Could not show the page.");
@@ -65,7 +63,47 @@ export function Preview({ doc, title }: { doc: Doc; title: string }) {
     return () => {
       stale = true;
     };
-  }, [bytes, zoom]);
+  }, [bytes, rendered]);
+
+  // Draws every page, again when the PDF or the zoom changes. Each page is drawn off screen and then copied, so the old
+  // page stays in view until the new one is ready.
+  useEffect(() => {
+    if (!loaded) return;
+    let stale = false;
+    void (async () => {
+      try {
+        const ratio = window.devicePixelRatio || 1;
+        for (let n = 1; n <= loaded.pdf.numPages; n++) {
+          const page = await loaded.pdf.getPage(n);
+          const viewport = page.getViewport({ scale: POINT * zoom * ratio });
+          const off = document.createElement("canvas");
+          off.width = Math.floor(viewport.width);
+          off.height = Math.floor(viewport.height);
+          await page.render({ canvas: off, viewport }).promise;
+          const canvas = canvases.current[n - 1];
+          if (stale || !canvas) return;
+          if (canvas.width !== off.width) canvas.width = off.width;
+          if (canvas.height !== off.height) canvas.height = off.height;
+          canvas.getContext("2d")?.drawImage(off, 0, 0);
+        }
+      } catch {
+        if (!stale) setDrawError("Could not show the page.");
+      }
+    })();
+    return () => {
+      stale = true;
+    };
+  }, [loaded, zoom, sizes]);
+
+  // A PDF that a newer one has replaced is let go (after its drawing was marked stale above).
+  useEffect(
+    () => () => {
+      void loaded?.task.destroy();
+    },
+    [loaded],
+  );
+
+  const byPage = useMemo(() => Object.groupBy(boxes, (b) => b.page), [boxes]);
 
   function download() {
     if (!bytes) return;
@@ -99,6 +137,7 @@ export function Preview({ doc, title }: { doc: Doc; title: string }) {
     setZoom(ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, at + direction))]);
   };
 
+  const scale = POINT * zoom;
   return (
     <section aria-label="Page preview" className="grid content-start gap-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -130,7 +169,32 @@ export function Preview({ doc, title }: { doc: Doc; title: string }) {
           {error ?? drawError}
         </p>
       )}
-      <div ref={host} role="region" aria-label="Pages" tabIndex={0} className="grid max-h-[80vh] justify-center gap-4 overflow-auto rounded-lg border border-border bg-muted p-4" />
+      <div role="region" aria-label="Pages" tabIndex={0} className="flex max-h-[80vh] flex-col gap-4 overflow-auto rounded-lg border border-border bg-muted p-4">
+        {sizes.map((size, i) => (
+          <div key={i} data-page={i + 1} className="relative mx-auto shrink-0 bg-white shadow-sm" style={{ width: size.width * scale, height: size.height * scale }}>
+            <canvas
+              ref={(el) => {
+                canvases.current[i] = el;
+              }}
+              role="img"
+              aria-label={`Page ${i + 1} of ${pages}`}
+              style={{ width: size.width * scale, height: size.height * scale }}
+            />
+            {/* Mouse only: the form beside the page is the keyboard route to every field. */}
+            <div aria-hidden>
+              {(byPage[i + 1] ?? []).map((box, n) => (
+                <div
+                  key={n}
+                  data-ref={box.ref}
+                  onClick={() => onSelect(box.ref)}
+                  className="absolute cursor-pointer rounded-sm outline outline-1 outline-transparent hover:bg-link/10 hover:outline-link"
+                  style={{ left: box.x * scale - 2, top: box.y * scale - 2, width: box.width * scale + 4, height: box.height * scale + 4 }}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

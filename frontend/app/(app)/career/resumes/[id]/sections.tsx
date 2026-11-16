@@ -34,7 +34,19 @@ function IconButton({ label, onClick, disabled, children }: { label: string; onC
 }
 
 // A date as the editor stores it (YYYY-MM), with "Present" for an end that is still going.
-function DateField({ label, value, onChange, canBePresent }: { label: string; value: string; onChange: (v: string) => void; canBePresent?: boolean }) {
+function DateField({
+  label,
+  value,
+  onChange,
+  canBePresent,
+  field,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  canBePresent?: boolean;
+  field?: string;
+}) {
   const present = value === "present";
   return (
     <div className="grid gap-1 text-sm font-medium">
@@ -42,6 +54,7 @@ function DateField({ label, value, onChange, canBePresent }: { label: string; va
         {label}
         <input
           type="month"
+          data-field={field}
           value={present ? "" : value}
           disabled={present}
           onChange={(e) => onChange(e.target.value)}
@@ -65,14 +78,14 @@ function RoleForm({ section, entry, role, dispatch }: { section: string; entry: 
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="grid gap-1 text-sm font-medium sm:col-span-3">
           Role title
-          <input value={role.title} maxLength={200} onChange={(e) => edit({ title: e.target.value })} className={input} />
+          <input data-field={`role:${role.id}:title`} value={role.title} maxLength={200} onChange={(e) => edit({ title: e.target.value })} className={input} />
         </label>
-        <DateField label="Role start" value={role.startDate} onChange={(v) => edit({ startDate: v })} />
+        <DateField label="Role start" field={`role:${role.id}:dates`} value={role.startDate} onChange={(v) => edit({ startDate: v })} />
         <DateField label="Role end" value={role.endDate} onChange={(v) => edit({ endDate: v })} canBePresent />
       </div>
       <div className="grid gap-1 text-sm font-medium">
         Role description
-        <RichText label="Role description" html={role.description} onChange={(html) => edit({ description: html })} />
+        <RichText label="Role description" field={`role:${role.id}:description`} html={role.description} onChange={(html) => edit({ description: html })} />
       </div>
       <div>
         <Button type="button" variant="outline" size="sm" onClick={() => dispatch({ type: "removeRole", section, entry, id: role.id })}>
@@ -148,11 +161,11 @@ function EntryForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="grid gap-1 text-sm font-medium">
           Title
-          <input value={entry.title} maxLength={200} onChange={(e) => edit({ title: e.target.value })} className={input} />
+          <input data-field={`entry:${entry.id}:title`} value={entry.title} maxLength={200} onChange={(e) => edit({ title: e.target.value })} className={input} />
         </label>
         <label className="grid gap-1 text-sm font-medium">
           Subtitle
-          <input value={entry.subtitle} maxLength={200} onChange={(e) => edit({ subtitle: e.target.value })} className={input} />
+          <input data-field={`entry:${entry.id}:subtitle`} value={entry.subtitle} maxLength={200} onChange={(e) => edit({ subtitle: e.target.value })} className={input} />
         </label>
         <label className="grid gap-1 text-sm font-medium">
           Location
@@ -160,9 +173,9 @@ function EntryForm({
         </label>
         <label className="grid gap-1 text-sm font-medium">
           Link
-          <input type="url" value={entry.url} maxLength={500} onChange={(e) => edit({ url: e.target.value })} className={input} />
+          <input type="url" data-field={`entry:${entry.id}:url`} value={entry.url} maxLength={500} onChange={(e) => edit({ url: e.target.value })} className={input} />
         </label>
-        <DateField label="Start" value={entry.startDate} onChange={(v) => edit({ startDate: v })} />
+        <DateField label="Start" field={`entry:${entry.id}:dates`} value={entry.startDate} onChange={(v) => edit({ startDate: v })} />
         <DateField label="End" value={entry.endDate} onChange={(v) => edit({ endDate: v })} canBePresent />
         {WITH_LEVEL.includes(section.kind) && (
           <label className="grid gap-1 text-sm font-medium">
@@ -173,6 +186,7 @@ function EntryForm({
         <label className="grid gap-1 text-sm font-medium">
           Keywords, separated by commas
           <input
+            data-field={`entry:${entry.id}:keywords`}
             value={keywords}
             onChange={(e) => {
               setKeywords(e.target.value);
@@ -185,7 +199,7 @@ function EntryForm({
 
       <div className="grid gap-1 text-sm font-medium">
         Description
-        <RichText label={`${label} description`} html={entry.description} onChange={(html) => edit({ description: html })} />
+        <RichText label={`${label} description`} field={`entry:${entry.id}:description`} html={entry.description} onChange={(html) => edit({ description: html })} />
       </div>
 
       {section.kind === "EXPERIENCE" && (
@@ -302,6 +316,7 @@ export function Sections({ doc, dispatch }: { doc: ResumeDocument; dispatch: Dis
               <label className="min-w-0 flex-1">
                 <span className="sr-only">Section name</span>
                 <input
+                  data-field={`section:${section.id}`}
                   value={section.title}
                   maxLength={200}
                   onChange={(e) => dispatch({ type: "renameSection", id: section.id, title: e.target.value })}

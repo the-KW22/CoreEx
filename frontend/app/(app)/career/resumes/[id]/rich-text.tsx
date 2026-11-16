@@ -50,7 +50,17 @@ const tool =
 
 // A word-processor style field for the summary and, later, each entry's description. It reports the HTML as the User
 // types; `html` is only read when the field first appears, so the cursor never jumps.
-export function RichText({ label, html, onChange }: { label: string; html: string; onChange: (html: string) => void }) {
+export function RichText({
+  label,
+  html,
+  onChange,
+  field,
+}: {
+  label: string;
+  html: string;
+  onChange: (html: string) => void;
+  field?: string;
+}) {
   const locked = useContext(LockedContext);
   const editor = useEditor({
     extensions: EXTENSIONS,
@@ -112,7 +122,7 @@ export function RichText({ label, html, onChange }: { label: string; html: strin
   ];
 
   return (
-    <div className="rounded-lg border border-border bg-surface focus-within:border-link">
+    <div data-field={field} className="rounded-lg border border-border bg-surface focus-within:border-link">
       <div role="toolbar" aria-label={`${label} formatting`} className="flex flex-wrap items-center gap-0.5 border-b border-border p-1">
         {buttons.map(({ name, Icon, pressed, click }) => (
           <button key={name} type="button" aria-label={name} aria-pressed={pressed} onClick={click} className={cn(tool)}>
