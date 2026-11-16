@@ -1,5 +1,6 @@
 package com.coreex.resumes;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,9 +23,12 @@ public class ResumeService {
 
 	private final ResumeVersionRepository versions;
 
-	ResumeService(ResumeRepository resumes, ResumeVersionRepository versions) {
+	private final Clock clock;
+
+	ResumeService(ResumeRepository resumes, ResumeVersionRepository versions, Clock clock) {
 		this.resumes = resumes;
 		this.versions = versions;
+		this.clock = clock;
 	}
 
 	/** A Resume, and whether this call made it (false: it was already there, see the id form of {@code create}). */
@@ -60,9 +64,17 @@ public class ResumeService {
 		return resumes.find(ownerId, id).orElseThrow(ResumeService::notFound);
 	}
 
-	// shortcut: a plain page of titles, no search or sort here, the library ticket (#255) adds them.
-	public Page list(UUID ownerId, int page, int size) {
-		return new Page(resumes.list(ownerId, size, (long) page * size), resumes.count(ownerId));
+	/** A page of the User's Resumes whose title contains {@code q} (all when empty), by "updated" (default), "name" or "created". */
+	public Page list(UUID ownerId, String q, String sort, int page, int size) {
+		var text = q == null ? "" : q.strip();
+		return new Page(resumes.list(ownerId, text, sort == null ? "" : sort, size, (long) page * size), resumes.count(ownerId, text));
+	}
+
+	/** Moves the Resume to the Trash, where Restore brings it back unchanged; its versions leave with it for good. */
+	public void trash(UUID ownerId, UUID id) {
+		if (!resumes.softDelete(ownerId, id, clock.instant())) {
+			throw notFound();
+		}
 	}
 
 	@Transactional

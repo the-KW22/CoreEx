@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
 
+import { FolderPicker } from "../../../items/folder-picker";
+import { TagEditor } from "../../../items/tag-editor";
+
 import { RecordOpen } from "../../../search/record-open";
 import { ResumeEditor } from "./resume-editor";
 
@@ -9,7 +12,12 @@ import { ResumeEditor } from "./resume-editor";
 export default async function ResumePage({ params }: PageProps<"/career/resumes/[id]">) {
   const { id } = await params;
   const api = await getApi();
-  const result = await api.GET("/api/resumes/{id}", { params: { path: { id } } }).catch(() => null);
+  const [result, list, itemTags, allTags] = await Promise.all([
+    api.GET("/api/resumes/{id}", { params: { path: { id } } }).catch(() => null),
+    api.GET("/api/folders").catch(() => null),
+    api.GET("/api/items/{id}/tags", { params: { path: { id } } }).catch(() => null),
+    api.GET("/api/tags").catch(() => null),
+  ]);
 
   if (!result) {
     return <p role="alert">Cannot reach the CoreEx API. Is the backend running?</p>;
@@ -24,7 +32,23 @@ export default async function ResumePage({ params }: PageProps<"/career/resumes/
   return (
     <>
       <RecordOpen id={resume.id} />
-      <ResumeEditor key={resume.id} id={resume.id} initial={{ title: resume.title, document: resume.document, version: resume.version, locked: resume.locked }} />
+      <ResumeEditor
+        key={resume.id}
+        id={resume.id}
+        initial={{ title: resume.title, document: resume.document, version: resume.version, locked: resume.locked }}
+        organise={
+          <>
+            <FolderPicker itemId={resume.id} folderId={resume.folderId} folders={list?.data?.items ?? []} />
+            {itemTags?.data ? (
+              <TagEditor itemId={resume.id} tags={itemTags.data.items} allTags={allTags?.data?.items ?? []} />
+            ) : (
+              <p role="alert" className="text-sm">
+                Could not load the Tags.
+              </p>
+            )}
+          </>
+        }
+      />
     </>
   );
 }
