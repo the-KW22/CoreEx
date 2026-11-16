@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -43,7 +44,9 @@ export function ResumeRow({ id, title, updated }: { id: string; title: string; u
   return (
     <li className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-4 py-3">
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{title}</p>
+        <Link href={`/career/resumes/${id}`} className="block truncate font-medium hover:underline">
+          {title}
+        </Link>
         {updated && <p className="text-sm text-muted-foreground">Changed {updated}</p>}
         {error && !open && (
           <p role="alert" className="text-sm text-destructive">
