@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jsonresume/resume-schema/v1.0.0/schema.json",
+  "basics": {
+    "name": "Linus Torvalds",
+    "label": "Programmer",
+    "email": "linus@example.com",
+    "phone": "",
+    "url": "https://linus.example",
+    "summary": "Writes kernels & <b>tools</b>.",
+    "location": { "city": "Portland", "region": "OR", "countryCode": "US" },
+    "profiles": [{ "network": "GitHub", "username": "torvalds", "url": "https://github.example/torvalds" }]
+  },
+  "work": [
+    {
+      "name": "Linux Foundation",
+      "position": "Maintainer",
+      "url": "",
+      "startDate": "1991-08",
+      "endDate": "",
+      "summary": "Maintains <the> kernel",
+      "highlights": ["Merged patches"]
+    }
+  ],
+  "volunteer": [],
+  "education": [
+    { "institution": "University of Helsinki", "url": "", "area": "Computer Science", "studyType": "MSc", "startDate": "1988", "endDate": "1996", "score": "", "courses": [] }
+  ],
+  "awards": [],
+  "certificates": [],
+  "publications": [],
+  "skills": [{ "name": "C", "level": "Expert", "keywords": ["Kernel", "Git"] }],
+  "languages": [{ "language": "Finnish", "fluency": "Native speaker" }],
+  "interests": [],
+  "references": [],
+  "projects": [{ "name": "Git", "description": "Version control", "startDate": "2005-04-07", "url": "", "keywords": [] }]
+}

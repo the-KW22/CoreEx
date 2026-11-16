@@ -11,7 +11,7 @@ type Doc = components["schemas"]["ResumeDocument"];
 
 // Called by the API while it builds an Export, never by a browser: it draws a Resume's PDF with the same templates as the
 // editor. Only the API holds EXPORT_PDF_SECRET; without it set, every call is refused. Nothing here logs the secret.
-export const runtime = "nodejs";
+// Route handlers run on Node by default; the runtime segment config is not allowed with cacheComponents, so it is not set.
 
 let registered = false;
 

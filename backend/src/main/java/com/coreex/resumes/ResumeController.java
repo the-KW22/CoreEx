@@ -49,7 +49,8 @@ class ResumeController {
 
 	record CreateResumeRequest(@Size(max = ResumeService.MAX_TITLE) @Pattern(regexp = NO_NUL) String title,
 			@Schema(description = "Start from made-up sample content instead of a blank Resume") Boolean sample,
-			@Schema(nullable = true, description = "An id you make up. Sending the same request again returns that Resume instead of making a second one; an id already used for anything else is refused with INVALID_REQUEST") UUID id) {
+			@Schema(nullable = true, description = "An id you make up. Sending the same request again returns that Resume instead of making a second one; an id already used for anything else is refused with INVALID_REQUEST") UUID id,
+			@Schema(nullable = true, description = "A Resume to start from, such as one imported from a file. Checked and sanitised like a save; when sent, sample is ignored") @Valid ResumeDocument document) {
 	}
 
 	/** Carries the version the client last saw; a newer stored version means 409 VERSION_CONFLICT. */
@@ -121,7 +122,8 @@ class ResumeController {
 			schema = @Schema(implementation = ErrorBody.class)))
 	ResumeResponse create(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@Valid @RequestBody CreateResumeRequest request) {
-		return ResumeResponse.of(resumes.create(user.id(), request.id(), request.title(), Boolean.TRUE.equals(request.sample())).resume());
+		return ResumeResponse.of(resumes.create(user.id(), request.id(), request.title(), Boolean.TRUE.equals(request.sample()),
+				request.document()).resume());
 	}
 
 	@GetMapping

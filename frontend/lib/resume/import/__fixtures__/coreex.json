@@ -1,0 +1,82 @@
+{
+  "locale": "en",
+  "basics": {
+    "name": "Ada Lovelace",
+    "headline": "Engineer",
+    "email": "ada@example.com",
+    "phone": "",
+    "location": "London",
+    "website": "",
+    "customFields": [],
+    "photo": { "assetId": "", "visible": true, "size": 80, "shape": "circle", "cropX": 50, "cropY": 50, "zoom": 100 }
+  },
+  "summary": "<p>Built <strong>engines</strong>.</p>",
+  "sections": [
+    {
+      "id": "experience",
+      "kind": "EXPERIENCE",
+      "title": "Experience",
+      "hidden": false,
+      "entries": [
+        {
+          "id": "exp-1",
+          "hidden": false,
+          "title": "Analyst",
+          "subtitle": "Babbage Ltd",
+          "location": "London",
+          "startDate": "2019-04",
+          "endDate": "present",
+          "url": "",
+          "level": "",
+          "roles": [],
+          "description": "<ul><li><p>Wrote notes.</p></li></ul>",
+          "keywords": ["Maths"]
+        }
+      ]
+    },
+    {
+      "id": "education",
+      "kind": "EDUCATION",
+      "title": "Education",
+      "hidden": false,
+      "entries": [
+        {
+          "id": "edu-1",
+          "hidden": false,
+          "title": "BSc Maths",
+          "subtitle": "UCL",
+          "location": "",
+          "startDate": "2010",
+          "endDate": "2013",
+          "url": "",
+          "level": "",
+          "roles": [],
+          "description": "",
+          "keywords": []
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "template": "classic",
+    "accent": "#1d4ed8",
+    "font": "Inter",
+    "headingFont": "",
+    "fontSize": 10,
+    "density": "comfortable",
+    "pageSize": "A4",
+    "pageWidth": 595,
+    "pageHeight": 842,
+    "pageCount": 1,
+    "margin": 40,
+    "dateFormat": "MMM_YYYY",
+    "sidebarSide": "left",
+    "sidebarWidth": 170,
+    "entryColumns": 1,
+    "entryHeader": "inline",
+    "placements": [],
+    "customCss": ""
+  },
+  "privateNotes": "",
+  "ignoredChecks": []
+}

@@ -48,14 +48,26 @@ public class ResumeService {
 	 */
 	@Transactional
 	public Created create(UUID ownerId, UUID id, String title, boolean sample) {
+		return create(ownerId, id, title, sample, null);
+	}
+
+	/**
+	 * With an {@code imported} document (a file the User brought in) the Resume starts from it, checked and sanitised
+	 * exactly like a save; a refused one makes nothing. It wins over {@code sample}.
+	 */
+	@Transactional
+	public Created create(UUID ownerId, UUID id, String title, boolean sample, ResumeDocument imported) {
 		if (id != null) {
 			var existing = resumes.find(ownerId, id);
 			if (existing.isPresent()) {
 				return new Created(existing.get(), false);
 			}
 		}
-		var made = insert(ownerId, id, title == null || title.isBlank() ? "My Resume" : title.strip(),
-				sample ? ResumeSample.document() : ResumeDocument.blank());
+		if (imported != null) {
+			requirePhoto(ownerId, "", imported.basics().photo().assetId());
+		}
+		var document = imported != null ? imported : sample ? ResumeSample.document() : ResumeDocument.blank();
+		var made = insert(ownerId, id, title == null || title.isBlank() ? "My Resume" : title.strip(), document);
 		if (made == null) {
 			var raced = resumes.find(ownerId, id).orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST,
 					"INVALID_REQUEST", "That id cannot be used for a new Resume."));
