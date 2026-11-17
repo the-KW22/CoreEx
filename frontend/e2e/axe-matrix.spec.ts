@@ -198,6 +198,14 @@ for (const colorScheme of ["dark", "light"] as const) {
           await page.getByRole("tab", { name: "Fit" }).click();
           await expect(page.getByRole("heading", { name: "Fit check", level: 2 })).toBeVisible();
         });
+        await screen(page, failures, "application emails", seed.application, async () => {
+          await page.getByRole("tab", { name: "Emails" }).click();
+          await expect(page.getByRole("heading", { name: "Emails", level: 2 })).toBeVisible();
+        });
+        await screen(page, failures, "application messages", seed.application, async () => {
+          await page.getByRole("tab", { name: "Messages" }).click();
+          await expect(page.getByRole("heading", { name: "Messages", level: 2 })).toBeVisible();
+        });
         await screen(page, failures, "application interview prep", seed.application, async () => {
           await page.getByRole("tab", { name: "Interview prep" }).click();
           await expect(page.getByRole("heading", { name: "Interview prep", level: 2 })).toBeVisible();

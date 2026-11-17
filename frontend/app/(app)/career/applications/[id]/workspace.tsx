@@ -13,7 +13,9 @@ import { ApplyPanel } from "./apply";
 import { OutOfDate } from "./apply-question";
 import { runFit } from "./career-actions";
 import { DebriefPanel } from "./debrief";
+import { EmailsPanel } from "./emails";
 import { InterviewPrep } from "./interview-prep";
+import { MessagesPanel } from "./messages";
 import { PracticePanel } from "./practice";
 
 type Library = components["schemas"]["Library"];
@@ -21,8 +23,10 @@ type Result = components["schemas"]["ResultResponse"];
 type Apply = components["schemas"]["ApplyResponse"];
 type Timeline = components["schemas"]["TimelineEntryResponse"][];
 type Debrief = components["schemas"]["DebriefResponse"];
+type Linked = components["schemas"]["LinkedDocument"];
+type NextStep = components["schemas"]["NextStepResponse"];
 
-const TABS = ["Details", "Fit", "Apply", "Interview prep", "Practice", "Debrief", "Library"] as const;
+const TABS = ["Details", "Fit", "Apply", "Emails", "Messages", "Interview prep", "Practice", "Debrief", "Library"] as const;
 type Tab = (typeof TABS)[number];
 
 // Ids cannot hold spaces, so "Interview prep" becomes "Interview-prep" in its tab and panel ids.
@@ -38,6 +42,9 @@ export function Workspace({
   apply,
   timeline,
   debriefs,
+  linked,
+  nextStep,
+  appliedOn,
   initialTab,
   initialInterview,
   details,
@@ -48,6 +55,9 @@ export function Workspace({
   apply: Apply | null;
   timeline: Timeline;
   debriefs: Debrief[] | null;
+  linked: Linked[] | null;
+  nextStep: NextStep;
+  appliedOn: string | null;
   // From the address (?tab=, ?interview=, as Today links to them): an unknown tab name is ignored.
   initialTab?: string;
   initialInterview?: number;
@@ -58,7 +68,7 @@ export function Workspace({
   // The interview tabs read the interviews added in Details, which that tab keeps in its own state: refresh the page data on opening one.
   const setTab = (next: Tab) => {
     setTabState(next);
-    if (next === "Interview prep" || next === "Practice" || next === "Debrief") router.refresh();
+    if (next === "Interview prep" || next === "Practice" || next === "Debrief" || next === "Emails") router.refresh();
   };
   // Held here so the Interview prep tab can fill the Practice tab's question before it opens.
   const [practiceQuestion, setPracticeQuestion] = useState("");
@@ -113,6 +123,28 @@ export function Workspace({
               ) : (
                 <Alert>Could not load the questions. Reload to try again.</Alert>
               )}
+            </div>
+          )}
+          {name === "Emails" && (
+            <div className="mx-auto w-full max-w-3xl">
+              {library && debriefs ? (
+                <EmailsPanel
+                  applicationId={applicationId}
+                  library={library}
+                  timeline={timeline}
+                  debriefs={debriefs}
+                  linked={linked}
+                  nextStep={nextStep}
+                  applied={appliedOn !== null}
+                />
+              ) : (
+                <Alert>Could not load the results. Reload to try again.</Alert>
+              )}
+            </div>
+          )}
+          {name === "Messages" && (
+            <div className="mx-auto w-full max-w-3xl">
+              {library ? <MessagesPanel applicationId={applicationId} library={library} /> : <Alert>Could not load the results. Reload to try again.</Alert>}
             </div>
           )}
           {name === "Interview prep" && (

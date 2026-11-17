@@ -217,6 +217,25 @@ class ApplicationRepository {
 		return true;
 	}
 
+	/** Writes an earlier state back; false when the Application is missing or its stored version is not the one the caller saw. */
+	boolean restoreState(UUID ownerId, UUID id, int seenVersion, ApplicationService.Snapshot s) {
+		var saved = jdbc.sql("""
+				update application_contents c set stage = :stage, close_reason = :reason, applied_on = :applied,
+				timeline = :timeline::jsonb, reminder_on = :on, reminder_time = :time, version = c.version + 1
+				from items i
+				where c.item_id = i.id and i.id = :id and i.owner_id = :owner and i.type = 'APPLICATION'
+				  and i.deleted_at is null and c.version = :version""").param("stage", s.stage().name())
+				.param("reason", s.closeReason() == null ? null : s.closeReason().name())
+				.param("applied", s.appliedOn() == null ? null : Timestamp.from(s.appliedOn()))
+				.param("timeline", json.writeValueAsString(s.timeline())).param("on", s.reminderOn()).param("time", s.reminderTime())
+				.param("id", id).param("owner", ownerId).param("version", seenVersion).update();
+		if (saved == 0) {
+			return false;
+		}
+		touch(id, null);
+		return true;
+	}
+
 	/** False when the Application is missing, not the User's or already in the Trash. */
 	boolean softDelete(UUID ownerId, UUID id, Instant at) {
 		return jdbc.sql("""

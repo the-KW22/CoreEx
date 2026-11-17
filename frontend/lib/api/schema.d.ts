@@ -340,6 +340,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/career/results/{resultId}/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["edit"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/{id}/career/questions/{questionId}": {
         parameters: {
             query?: never;
@@ -1076,6 +1092,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/career/results/{resultId}/changes/{index}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["undo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/results/{resultId}/changes/{index}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/{id}/career/results/{resultId}/accept": {
         parameters: {
             query?: never;
@@ -1086,6 +1134,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["accept_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reply"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1246,6 +1310,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["fit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/emails": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["draft_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2686,6 +2766,156 @@ export interface components {
             /** Format: int32 */
             version: number;
         };
+        EditEmailRequest: {
+            subject: string;
+            body: string;
+        };
+        AnswerResponse: {
+            /** Format: uuid */
+            questionId: string;
+            text: string;
+            /** @description What a Draft cites; empty for a Tighten */
+            evidence: components["schemas"]["EvidenceResponse"][];
+        };
+        Change: {
+            type?: string;
+            why?: string;
+            stage?: string;
+            closeReason?: string;
+            date?: string;
+            time?: string;
+            offer?: {
+                [key: string]: unknown;
+            };
+        };
+        ChangeResponse: {
+            /**
+             * Format: int32
+             * @description Its place in the reply's changes; apply and undo name it
+             */
+            index: number;
+            change: components["schemas"]["Change"];
+            /** @description PROPOSED, APPLIED or UNDONE */
+            state: string;
+            /** @description True when this applied change can be undone now */
+            canUndo: boolean;
+        };
+        EmailResponse: {
+            subject: string;
+            body: string;
+            /** @description RESUME and/or COVER_LETTER, only those linked on the Application */
+            attach: string[];
+            /**
+             * Format: int32
+             * @description The interview's seq; set for a THANK_YOU
+             */
+            interviewSeq: number | null;
+            /** @description What the email relies on; a forgotten or switched-off Fact is left out */
+            evidence: components["schemas"]["EvidenceResponse"][];
+        };
+        EvidenceResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @description FACT, STORY or RESUME */
+            kind: string;
+            label: string;
+        };
+        FitResponse: {
+            /**
+             * Format: int32
+             * @description An estimate from 0 to 100, never a measurement
+             */
+            score: number;
+            question: string;
+            requirements: components["schemas"]["RequirementResponse"][];
+        };
+        PointResponse: {
+            point: string;
+            /** @description What shows it; a forgotten or switched-off Fact is left out */
+            evidence: components["schemas"]["EvidenceResponse"][];
+        };
+        PracticeResponse: {
+            question: string;
+            answer: string;
+            /** @description What works; every quote is from the answer */
+            works: components["schemas"]["QuoteResponse"][];
+            strengthen: string;
+        };
+        PrepResponse: {
+            /**
+             * Format: int32
+             * @description The interview's seq in the timeline
+             */
+            interviewSeq: number;
+            plan: string[];
+            /** @description What the posting says about the company and role */
+            about: string;
+            stress: components["schemas"]["PointResponse"][];
+            /** @description Questions to ask the interviewer */
+            ask: string[];
+            /** @description Questions to practise */
+            practice: string[];
+        };
+        QuoteResponse: {
+            /** @description Words found in the answer */
+            quote: string;
+            why: string;
+        };
+        ReplyResponse: {
+            /** @description The employer's email, with its quoted history removed */
+            message: string;
+            /** @description What the email asks */
+            asks: string[];
+            /** @description What the email leaves unconfirmed */
+            unconfirmed: string[];
+            /** @description The reply's subject, which the User may edit */
+            subject: string;
+            /** @description The reply's body, which the User may edit */
+            body: string;
+            /** @description What the reply relies on; a forgotten or switched-off Fact is left out */
+            evidence: components["schemas"]["EvidenceResponse"][];
+            /** @description The changes the email proposes; each is applied or undone on its own */
+            changes: components["schemas"]["ChangeResponse"][];
+        };
+        RequirementResponse: {
+            requirement: string;
+            /** @enum {string} */
+            verdict: "SUPPORTED" | "PARTLY" | "MISSING";
+            note: string;
+            /** @description What shows it; a forgotten or switched-off Fact is left out */
+            evidence: components["schemas"]["EvidenceResponse"][];
+        };
+        ResultResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @description FIT, DRAFT, TIGHTEN, PREP, PRACTICE, DEBRIEF, EMAIL, FOLLOW_UP or THANK_YOU */
+            kind: string;
+            /** @description The posting, Knowledge or documents changed since it was made */
+            outOfDate: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description Set for a FIT result */
+            fit: components["schemas"]["FitResponse"];
+            /** @description Set for a DRAFT or TIGHTEN result */
+            answer: components["schemas"]["AnswerResponse"];
+            /** @description ACCEPTED or REJECTED; empty while it waits for the User */
+            resolution: string | null;
+            /** @description Set for a PREP result */
+            prep: components["schemas"]["PrepResponse"];
+            /** @description Set for a PRACTICE result */
+            practice: components["schemas"]["PracticeResponse"];
+            /** @description Set for a DEBRIEF result */
+            summary: components["schemas"]["SummaryResponse"];
+            /** @description Set for an EMAIL, FOLLOW_UP or THANK_YOU result */
+            email: components["schemas"]["EmailResponse"];
+            /** @description Set for a REPLY result */
+            reply: components["schemas"]["ReplyResponse"];
+        };
+        SummaryResponse: {
+            /** Format: int32 */
+            interviewSeq: number;
+            improve: string[];
+        };
         SaveQuestionRequest: {
             question: string;
             limitUnit?: string | null;
@@ -3135,101 +3365,15 @@ export interface components {
              */
             version: number;
         };
+        ReplyRequest: {
+            /** @description The employer's email as pasted; its quoted history is removed */
+            message: string;
+        };
         AddQuestionRequest: {
             question: string;
             limitUnit?: string | null;
             /** Format: int32 */
             limitValue?: number | null;
-        };
-        AnswerResponse: {
-            /** Format: uuid */
-            questionId: string;
-            text: string;
-            /** @description What a Draft cites; empty for a Tighten */
-            evidence: components["schemas"]["EvidenceResponse"][];
-        };
-        EvidenceResponse: {
-            /** Format: uuid */
-            id: string;
-            /** @description FACT, STORY or RESUME */
-            kind: string;
-            label: string;
-        };
-        FitResponse: {
-            /**
-             * Format: int32
-             * @description An estimate from 0 to 100, never a measurement
-             */
-            score: number;
-            question: string;
-            requirements: components["schemas"]["RequirementResponse"][];
-        };
-        PointResponse: {
-            point: string;
-            /** @description What shows it; a forgotten or switched-off Fact is left out */
-            evidence: components["schemas"]["EvidenceResponse"][];
-        };
-        PracticeResponse: {
-            question: string;
-            answer: string;
-            /** @description What works; every quote is from the answer */
-            works: components["schemas"]["QuoteResponse"][];
-            strengthen: string;
-        };
-        PrepResponse: {
-            /**
-             * Format: int32
-             * @description The interview's seq in the timeline
-             */
-            interviewSeq: number;
-            plan: string[];
-            /** @description What the posting says about the company and role */
-            about: string;
-            stress: components["schemas"]["PointResponse"][];
-            /** @description Questions to ask the interviewer */
-            ask: string[];
-            /** @description Questions to practise */
-            practice: string[];
-        };
-        QuoteResponse: {
-            /** @description Words found in the answer */
-            quote: string;
-            why: string;
-        };
-        RequirementResponse: {
-            requirement: string;
-            /** @enum {string} */
-            verdict: "SUPPORTED" | "PARTLY" | "MISSING";
-            note: string;
-            /** @description What shows it; a forgotten or switched-off Fact is left out */
-            evidence: components["schemas"]["EvidenceResponse"][];
-        };
-        ResultResponse: {
-            /** Format: uuid */
-            id: string;
-            /** @description FIT, DRAFT, TIGHTEN, PREP, PRACTICE or DEBRIEF */
-            kind: string;
-            /** @description The posting, Knowledge or documents changed since it was made */
-            outOfDate: boolean;
-            /** Format: date-time */
-            createdAt: string;
-            /** @description Set for a FIT result */
-            fit: components["schemas"]["FitResponse"];
-            /** @description Set for a DRAFT or TIGHTEN result */
-            answer: components["schemas"]["AnswerResponse"];
-            /** @description ACCEPTED or REJECTED; empty while it waits for the User */
-            resolution: string | null;
-            /** @description Set for a PREP result */
-            prep: components["schemas"]["PrepResponse"];
-            /** @description Set for a PRACTICE result */
-            practice: components["schemas"]["PracticeResponse"];
-            /** @description Set for a DEBRIEF result */
-            summary: components["schemas"]["SummaryResponse"];
-        };
-        SummaryResponse: {
-            /** Format: int32 */
-            interviewSeq: number;
-            improve: string[];
         };
         ReuseRequest: {
             /** Format: uuid */
@@ -3262,6 +3406,18 @@ export interface components {
             /** Format: date-time */
             sentAt: string;
             answers: components["schemas"]["SentAnswerResponse"][];
+        };
+        EmailRequest: {
+            /**
+             * @description APPLICATION (the email that sends the Resume and Cover Letter), FOLLOW_UP or THANK_YOU
+             * @enum {string}
+             */
+            kind: "APPLICATION" | "FOLLOW_UP" | "THANK_YOU";
+            /**
+             * Format: int32
+             * @description The interview's seq; required for THANK_YOU
+             */
+            interviewSeq?: number | null;
         };
         ReadLinkRequest: {
             url: string;
@@ -5202,6 +5358,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    edit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                resultId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditEmailRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
                 };
             };
         };
@@ -7258,6 +7441,54 @@ export interface operations {
             };
         };
     };
+    undo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                resultId: string;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
+    apply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                resultId: string;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
     accept_2: {
         parameters: {
             query?: never;
@@ -7280,6 +7511,32 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    reply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
             };
         };
     };
@@ -7513,6 +7770,32 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
+    draft_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailRequest"];
+            };
+        };
         responses: {
             /** @description Created */
             201: {
