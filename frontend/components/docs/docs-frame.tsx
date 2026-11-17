@@ -54,8 +54,15 @@ function CopyPageButton() {
     const article = document.getElementById("docs-content");
     if (!article) return;
     const skipped = Array.from(article.querySelectorAll<HTMLElement>("[data-copy-skip]"));
+    // Tab panels that are not showing (Connect a client) are hidden, so they would be left out of innerText: show them for the read.
+    const hidden = Array.from(article.querySelectorAll<HTMLElement>("[hidden]"));
+    const closed = Array.from(article.querySelectorAll<HTMLDetailsElement>("details:not([open])"));
     skipped.forEach((el) => (el.style.display = "none"));
+    hidden.forEach((el) => (el.hidden = false));
+    closed.forEach((el) => (el.open = true));
     const text = article.innerText;
+    closed.forEach((el) => (el.open = false));
+    hidden.forEach((el) => (el.hidden = true));
     skipped.forEach((el) => (el.style.display = ""));
     navigator.clipboard.writeText(text).then(
       () => toast.success("Copied this page"),
