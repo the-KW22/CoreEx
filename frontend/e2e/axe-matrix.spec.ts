@@ -192,6 +192,14 @@ for (const colorScheme of ["dark", "light"] as const) {
         await screen(page, failures, "application", seed.application, async () => {
           await expect(page.getByRole("heading", { name: `Engineer at Matrix ${word}`, level: 1 })).toBeVisible();
         });
+        await screen(page, failures, "application fit", seed.application, async () => {
+          await page.getByRole("tab", { name: "Fit" }).click();
+          await expect(page.getByRole("heading", { name: "Fit check", level: 2 })).toBeVisible();
+        });
+        await screen(page, failures, "application library", seed.application, async () => {
+          await page.getByRole("tab", { name: "Library" }).click();
+          await expect(page.getByRole("heading", { name: "Library", level: 2 })).toBeVisible();
+        });
         await screen(page, failures, "resume", seed.resume, async () => {
           await expect(page.getByRole("textbox", { name: "Resume name" })).toHaveValue(`Matrix ${word}`);
         });

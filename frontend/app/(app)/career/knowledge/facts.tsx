@@ -26,14 +26,14 @@ const field = "h-9 rounded-lg border border-border bg-surface px-3";
 
 // Facts (Career decisions C2, C13): what the User has said is true about their experience. Switched-off Facts stay
 // but are never sent to a model; forgetting one removes its text for good.
-export function Facts({ facts, sources }: { facts: Fact[]; sources: { resumes: { id: string; title: string }[]; notes: { id: string; title: string }[] } }) {
+export function Facts({ facts, sources, forRequirement }: { facts: Fact[]; forRequirement?: string; sources: { resumes: { id: string; title: string }[]; notes: { id: string; title: string }[] } }) {
   const [status, setStatus] = useState<"ALL" | "ACTIVE" | "OFF">("ALL");
   const [category, setCategory] = useState<"ALL" | Category>("ALL");
   const shown = facts.filter((f) => (status === "ALL" || f.status === status) && (category === "ALL" || f.category === category));
   return (
     <section aria-labelledby="facts-heading" className="grid gap-4">
       <h2 id="facts-heading" className="text-lg font-semibold">Facts</h2>
-      <AddFact />
+      <AddFact forRequirement={forRequirement} />
       <PullFacts sources={sources} />
       <div className="flex flex-wrap gap-3">
         <label className="grid gap-1 text-sm font-medium">Status
@@ -55,7 +55,8 @@ export function Facts({ facts, sources }: { facts: Fact[]; sources: { resumes: {
   );
 }
 
-function AddFact() {
+// forRequirement: opened from a Fit check's "Add evidence"; the box is focused and the requirement shown, never filled in.
+function AddFact({ forRequirement }: { forRequirement?: string }) {
   const [text, setText] = useState("");
   const [category, setCategory] = useState<Category>("EXPERIENCE");
   const [error, setError] = useState("");
@@ -68,8 +69,9 @@ function AddFact() {
         if (result.ok) { setText(""); setError(""); } else setError(result.message);
       });
     }}>
+      {forRequirement && <p className="text-sm">Adding evidence for: <q>{forRequirement}</q>. Only add it if it is true.</p>}
       <label className="grid gap-1 text-sm font-medium">Fact
-        <textarea value={text} maxLength={2000} required onChange={(e) => setText(e.target.value)} className="min-h-16 rounded-lg border border-border bg-surface p-3" />
+        <textarea autoFocus={!!forRequirement} value={text} maxLength={2000} required onChange={(e) => setText(e.target.value)} className="min-h-16 rounded-lg border border-border bg-surface p-3" />
       </label>
       <label className="grid gap-1 text-sm font-medium">Category
         <select value={category} onChange={(e) => setCategory(e.target.value as Category)} className={field}>

@@ -35,6 +35,11 @@ public class AiService {
 
 	/** The answer's JSON text. */
 	public String ask(UUID ownerId, String system, String data, Map<String, Object> schema) {
+		return askWithUse(ownerId, system, data, schema).text();
+	}
+
+	/** The answer's JSON text with the tokens the provider reported, for results that record their model use. */
+	public Model.Reply askWithUse(UUID ownerId, String system, String data, Map<String, Object> schema) {
 		if (!properties.on()) {
 			throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "AI_OFF",
 					"AI is not switched on for this CoreEx. You can fill the fields in by hand.");
@@ -50,7 +55,7 @@ public class AiService {
 		}
 		budget.record(ownerId, Math.round(reply.inputTokens() * properties.inputUsdPerMillion()
 				+ reply.outputTokens() * properties.outputUsdPerMillion()));
-		return reply.text();
+		return reply;
 	}
 
 }
