@@ -23,10 +23,18 @@ export function OnThisPage({ className }: { className?: string }) {
   const [headings, setHeadings] = useState<{ id: string; text: string; level: 2 | 3 }[]>([]);
   const [current, setCurrent] = useState<string | null>(null);
 
-  // A new page has new headings: read them after the page has been drawn.
+  // A new page has new headings: read them after the page has been drawn, and again whenever the page's content
+  // changes (a filter can take a group's heading away).
   useEffect(() => {
-    const frame = requestAnimationFrame(() => setHeadings(readHeadings()));
-    return () => cancelAnimationFrame(frame);
+    const article = document.getElementById("docs-content");
+    const refresh = () => setHeadings(readHeadings());
+    const frame = requestAnimationFrame(refresh);
+    const watcher = article ? new MutationObserver(refresh) : null;
+    if (article) watcher?.observe(article, { childList: true, subtree: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      watcher?.disconnect();
+    };
   }, [pathname]);
 
   // A heading counts as read once it is in the top 30% of the screen; the last one to get there stays marked.

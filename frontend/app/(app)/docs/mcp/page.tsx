@@ -4,7 +4,9 @@ import Link from "next/link";
 import { CodeBlock } from "@/components/code-block";
 import { DocsHeading } from "@/components/docs/docs-heading";
 import { Button } from "@/components/ui/button";
-import { MCP_TOOLS, type McpTool } from "@/lib/mcp-tools";
+import { MCP_TOOLS } from "@/lib/mcp-tools";
+
+import { ToolsReference } from "./tools-reference";
 
 const PROMPTS = [
   "Find the Notes that mention my orphans by name, and link them.",
@@ -14,6 +16,9 @@ const PROMPTS = [
   "Find Notes that have no Tag and suggest Tags for them. Apply them once I agree.",
   "Move every Note about the garden into a new Folder called Garden.",
   "What is in my Trash? Restore the Note about recipes.",
+  "Read my Career Facts, then make a Resume for the Engineer role at Acme from only the ones I have confirmed.",
+  "Show the Applications that need me now, and add a timeline note for today’s call with Acme.",
+  "Write a Cover Letter for my Acme application, linked to my latest Resume, and fill in its greeting and body.",
 ];
 
 const TROUBLESHOOTING = [
@@ -50,22 +55,6 @@ const TROUBLESHOOTING = [
       "Claude Desktop reaches servers from Anthropic’s cloud, so the address must be reachable from the internet. An installation running only on your own computer cannot be used from Claude Desktop; use Claude Code or Codex instead.",
   },
 ];
-
-function ToolList({ tools }: { tools: McpTool[] }) {
-  return (
-    <dl className="divide-y divide-border-subtle rounded-[14px] border border-border bg-surface">
-      {tools.map((tool) => (
-        <div key={tool.name} className="grid gap-1 p-4 sm:grid-cols-[11rem_1fr] sm:gap-4">
-          <dt className="font-mono text-sm font-medium">{tool.name}</dt>
-          <dd className="grid gap-1 text-sm">
-            <span>{tool.summary}</span>
-            <span className="text-muted-foreground">Use it when: {tool.useWhen}</span>
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
 
 // The MCP guide (docs/DESIGN.md section 6.11): what an Agent can do and how to connect one. It shows this
 // installation's own address, read on the server like the API client does, and never a real token.
@@ -220,10 +209,7 @@ export default function McpHelpPage() {
             The Agent chooses the tools itself. Your tool may ask you to approve each call; leaving that on lets you see what
             an Agent is about to do.
           </p>
-          <DocsHeading level={3} id="read">Read</DocsHeading>
-          <ToolList tools={MCP_TOOLS.filter((t) => t.kind === "read")} />
-          <DocsHeading level={3} id="change">Change</DocsHeading>
-          <ToolList tools={MCP_TOOLS.filter((t) => t.kind === "change")} />
+          <ToolsReference tools={MCP_TOOLS} />
           <p className="text-sm text-muted-foreground">
             There is no tool to delete for good, empty the Trash, delete a Tag, import files or use Admin. Files move only
             through short-lived links: the Agent sends or fetches them itself, and anyone who has a link can use it until

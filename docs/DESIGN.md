@@ -277,6 +277,8 @@ The documentation for the MCP server, written for Users, in the shape SaaS produ
 - An **On this page** list of anchors sits beside the text from the `lg` breakpoint (sticky) and above it on narrower screens.
 - Links inside a sentence are always underlined; the section list is not.
 - The tool list comes from `frontend/lib/mcp-tools.ts`. `McpDocsTest` fails when it differs from the tools the server has.
+- **Tools** (the reference in the same section): one table per group (Notes, Items, Folders and Tags, Search and Graph, Assets and uploads, Trash, Applications, Resumes, Cover Letters, Career Facts). Each row has the tool's name, a **Read** or **Change** label (text, not colour alone), what it does and "Use it when". A filter box narrows the tables by name (spaces count as underscores); with nothing matching, it says so and offers to show every tool. The grouping and filter logic is `frontend/lib/mcp-tool-groups.ts`. On a phone each row becomes a stacked block.
+- Summaries follow the server's own tool descriptions (`backend/.../mcp/*Tools.java`), so when a tool changes, its summary changes in the same PR.
 
 ### 6.12 Graph (`/graph`)
 
