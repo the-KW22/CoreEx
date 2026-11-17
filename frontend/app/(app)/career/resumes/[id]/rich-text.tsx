@@ -20,7 +20,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { parseRich } from "@/lib/resume/html";
-import { acceptResumeImprovement, improveResumeText, type Loaded } from "./actions";
+import { acceptResumeImprovement, improveResumeText, rejectResumeImprovement, type Loaded } from "./actions";
 
 // Only the marks the backend keeps (ADR 0011): bold, italic, underline, lists, links, colour and alignment. Anything
 // else Tiptap could make is switched off here, and the backend strips it anyway.
@@ -54,25 +54,28 @@ export const Locked = ({ value, children }: { value: boolean; children: React.Re
 const tool =
   "inline-flex size-8 items-center justify-center rounded-md border border-transparent hover:bg-surface aria-pressed:border-border aria-pressed:bg-surface";
 
-function ImproveText({ field }: { field: string }) {
+function ImproveText({ field, html }: { field: string; html: string }) {
   const settings = useContext(ImproveContext);
-  const [value, setValue] = useState<{ original: string; suggestion: string } | null>(null);
+  const [value, setValue] = useState<{ id: string; original: string; suggestion: string } | null>(null);
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   if (!settings) return null;
   const plain = (html: string) => parseRich(html).map((block) => block.kind === "paragraph" ? block.runs.map((r) => r.text).join("") : block.items.map((item) => item.map((r) => r.text).join("")).join("\n")).join("\n");
   return <div className="grid gap-2 border-t border-border p-2 text-sm">
-    <p className="text-muted-foreground">Sends: this field&apos;s text to the configured AI model, using your daily AI budget.</p>
+    <p className="text-muted-foreground">Sends: this field&apos;s text to Claude, made by Anthropic, using your daily AI budget.</p>
     <button type="button" className="w-fit underline underline-offset-2" disabled={!settings.ready || pending} onClick={() => start(async () => {
       const result = await improveResumeText(settings.id, field, settings.version);
       setValue(result.suggestion); setError(result.error ?? "");
     })}>Improve with AI</button>
     {error && <p role="alert">{error}</p>}
     {value && <div className="grid gap-2"><p>Original: {plain(value.original)}</p><p>Suggestion: {plain(value.suggestion)}</p>
-      <div className="flex gap-3"><button type="button" className="underline underline-offset-2" disabled={!settings.ready || pending} onClick={() => start(async () => {
-        const result = await acceptResumeImprovement(settings.id, field, settings.version, value.original, value.suggestion);
+      {value.original !== html && <p role="status">This suggestion is out of date; the text has changed.</p>}
+      <div className="flex gap-3"><button type="button" className="underline underline-offset-2" disabled={!settings.ready || pending || value.original !== html} onClick={() => start(async () => {
+        const result = await acceptResumeImprovement(settings.id, value.id, settings.version);
         if (result) { settings.applied(result); setValue(null); } else setError("The Resume changed or could not be saved. Reload and try again.");
-      })}>Accept</button><button type="button" className="underline underline-offset-2" onClick={() => setValue(null)}>Reject</button></div>
+      })}>Accept</button><button type="button" className="underline underline-offset-2" disabled={pending} onClick={() => start(async () => {
+        if (await rejectResumeImprovement(settings.id, value.id)) setValue(null); else setError("Could not reject the suggestion. Try again.");
+      })}>Reject</button></div>
     </div>}
   </div>;
 }
@@ -169,7 +172,7 @@ export function RichText({
         />
       </div>
       <EditorContent editor={editor} />
-      {field && <ImproveText field={field} />}
+      {field && <ImproveText field={field} html={html} />}
     </div>
   );
 }

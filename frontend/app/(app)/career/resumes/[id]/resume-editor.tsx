@@ -24,7 +24,9 @@ import {
   saveCopy,
   saveResume,
   setLocked as lockResume,
+  type Review,
 } from "./actions";
+import { AiReview, matchingReview } from "./ai-review";
 import { Preview } from "./preview";
 import { Controls } from "./controls";
 import { Design } from "./design";
@@ -67,6 +69,7 @@ export function ResumeEditor({
   // Bumped when the stored Resume replaces the text, so the rich text field starts again from it.
   const [generation, setGeneration] = useState(0);
   const [notice, setNotice] = useState("");
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [locked, setLocked] = useState(initial.locked);
   const [mode, setMode] = useState<"write" | "design" | "check" | "history">("write");
   // An earlier version looked at in the page preview (the Resume itself is not changed), and a counter that tells History
@@ -344,6 +347,9 @@ export function ResumeEditor({
 
   const { doc } = state;
   const checks = useMemo(() => checkResume(doc, new Date().getUTCFullYear()), [doc]);
+  const reviewPins = useMemo(() => reviews.flatMap((review) => matchingReview(review, doc).suggestions.map((item) => ({
+    id: item.id, category: "Writing", severity: "warning" as const, message: "AI writing suggestion", ref: item.field, ignored: false,
+  }))), [reviews, doc]);
   // What the page preview draws: the Resume, or a template being looked at. The same object while neither changes.
   const shown = useMemo(
     () => (viewing ? viewing.doc : candidate ? { ...doc, metadata: { ...doc.metadata, template: candidate } } : doc),
@@ -515,7 +521,12 @@ export function ResumeEditor({
         </Locked></ImproveProvider>
         {mode === "check" && <div className="grid min-w-0 content-start gap-6"><Check score={checks.score} issues={checks.issues} locked={locked} select={select}
           ignore={(id, ignored) => dispatch({ type: "ignoreCheck", id, ignored })}
-          fix={(issue) => { if (issue.fix === "font") dispatch({ type: "design", patch: { fontSize: 9 } }); }} /><JobMatch doc={doc} locked={locked} ignore={(id, ignored) => dispatch({ type: "ignoreCheck", id, ignored })} /></div>}
+          fix={(issue) => { if (issue.fix === "font") dispatch({ type: "design", patch: { fontSize: 9 } }); }} /><JobMatch doc={doc} locked={locked} ignore={(id, ignored) => dispatch({ type: "ignoreCheck", id, ignored })} />
+          <AiReview id={id} version={state.version} ready={state.status === "saved" && !locked} doc={doc} reviews={reviews} setReviews={setReviews} applied={(value) => {
+            if (latest.current.status !== "saved" || latest.current.version !== value.version - 1) { void keepMineAndReload(); return; }
+            dispatch({ type: "load", title: value.title, doc: value.doc, version: value.version });
+            setGeneration((g) => g + 1); setHistoryRefresh((n) => n + 1); clearUnsaved(id, session);
+          }} /></div>}
         {mode === "history" && (
           <div className="grid min-w-0 content-start gap-6">
             <History
@@ -561,7 +572,7 @@ export function ResumeEditor({
           </div>
         )}
 
-        <Preview checkMode={mode === "check"} pins={mode === "check" ? checks.issues.filter((i) => !i.ignored) : []} doc={shown} photoSrc={photoSrc} title={state.title} markdownAvailable={!viewing && !candidate && state.status === "saved"} onMarkdown={async () => {
+        <Preview checkMode={mode === "check"} pins={mode === "check" ? [...checks.issues.filter((i) => !i.ignored), ...reviewPins] : []} doc={shown} photoSrc={photoSrc} title={state.title} markdownAvailable={!viewing && !candidate && state.status === "saved"} onMarkdown={async () => {
           const version = latest.current.version;
           const result = await resumeMarkdown(id);
           return result && result.version === version && latest.current.version === version && latest.current.status === "saved" ? result.markdown : null;

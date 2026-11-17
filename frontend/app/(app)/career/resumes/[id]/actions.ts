@@ -12,6 +12,29 @@ export type SaveResult =
   | { status: "error"; message: string };
 
 export type Loaded = { title: string; doc: ResumeDocument; version: number; locked: boolean };
+export type Review = components["schemas"]["Review"];
+
+export async function resumeReviews(id: string): Promise<Review[] | null> {
+  const api = await getApi();
+  const result = await api.GET("/api/resumes/{id}/reviews", { params: { path: { id } } }).catch(() => null);
+  return result?.data ?? null;
+}
+
+export async function reviewResume(id: string, version: number) {
+  const api = await getApi();
+  const result = await api.POST("/api/resumes/{id}/reviews", { params: { path: { id } }, body: { version } }).catch(() => null);
+  return result?.data ? { review: result.data, error: null } : { review: null, error: result?.response.status === 429
+    ? "You have used today's AI budget. It starts again at midnight UTC." : "Could not review this Resume. Save changes and try again." };
+}
+
+export async function decideReview(id: string, reviewId: string, ids: string[], accept: boolean): Promise<Loaded | null> {
+  const api = await getApi();
+  const params = { path: { id, reviewId } };
+  const result = await (accept ? api.POST("/api/resumes/{id}/reviews/{reviewId}/accept", { params, body: { ids } })
+    : api.POST("/api/resumes/{id}/reviews/{reviewId}/reject", { params, body: { ids } })).catch(() => null);
+  const value = result?.data;
+  return value ? { title: value.title, doc: value.document, version: value.version, locked: value.locked } : null;
+}
 
 export async function improveResumeText(id: string, field: string, version: number) {
   const api = await getApi();
@@ -21,12 +44,18 @@ export async function improveResumeText(id: string, field: string, version: numb
       ? "The Resume changed. Reload and try again." : "Could not improve this text. Try again." };
 }
 
-export async function acceptResumeImprovement(id: string, field: string, version: number, original: string, suggestion: string): Promise<Loaded | null> {
+export async function acceptResumeImprovement(id: string, suggestionId: string, version: number): Promise<Loaded | null> {
   const api = await getApi();
-  const result = await api.POST("/api/resumes/{id}/improve/accept", { params: { path: { id } }, body: { field, version, original, suggestion } }).catch(() => null);
+  const result = await api.POST("/api/resumes/{id}/improve/accept", { params: { path: { id } }, body: { suggestionId, version } }).catch(() => null);
   const value = result?.data;
   return value?.title && value.document && value.version !== undefined && value.locked !== undefined
     ? { title: value.title, doc: value.document, version: value.version, locked: value.locked } : null;
+}
+
+export async function rejectResumeImprovement(id: string, suggestionId: string): Promise<boolean> {
+  const api = await getApi();
+  const result = await api.POST("/api/resumes/{id}/improve/{suggestionId}/reject", { params: { path: { id, suggestionId } } }).catch(() => null);
+  return !!result?.response.ok;
 }
 
 export async function applicationsForMatch() {

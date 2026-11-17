@@ -32,7 +32,7 @@ class ResumeAiImproveApiTest extends ApiTest {
 		var made = post("/api/resumes/" + resume + "/improve", owner, "{\"field\":\"summary\",\"version\":1}");
 		assertThat(made.statusCode()).as(made.body()).isEqualTo(200);
 		assertThat(get("/api/resumes/" + resume, owner).body()).doesNotContain("Experienced software engineer.");
-		var body = json.writeValueAsString(java.util.Map.of("field", "summary", "version", 1, "original", original, "suggestion", "<p>Experienced software engineer.</p>"));
+		var body = json.writeValueAsString(java.util.Map.of("suggestionId", json.readTree(made.body()).path("id").asText(), "version", 1));
 		var accepted = post("/api/resumes/" + resume + "/improve/accept", owner, body);
 		assertThat(accepted.statusCode()).as(accepted.body()).isEqualTo(200);
 		assertThat(accepted.body()).contains("Experienced software engineer.");

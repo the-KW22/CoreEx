@@ -62,13 +62,14 @@ class ResumeAiImportController {
 					var description = evidence(entry.path("description"), request.text());
 					entries.add(new ResumeDocument.Entry(UUID.randomUUID().toString(), false, evidence(entry.path("title"), request.text()),
 							evidence(entry.path("subtitle"), request.text()), optional(entry, "location", request.text()), optional(entry, "startDate", request.text()),
-							optional(entry, "endDate", request.text()), optional(entry, "url", request.text()), org.jsoup.nodes.Entities.escape(description), List.of()));
+							optional(entry, "endDate", request.text()), optional(entry, "url", request.text()), paragraph(description), List.of()));
 				}
 				sections.add(new ResumeDocument.Section(UUID.randomUUID().toString(), kind, title, false, entries));
 			}
+			if (name.isBlank() && sections.stream().allMatch(section -> section.entries().isEmpty()) && optional(root, "summary", request.text()).isBlank()) throw new IllegalArgumentException();
 			return new ResumeDocument("en", new ResumeDocument.Basics(name, optional(root, "headline", request.text()), optional(root, "email", request.text()),
 					optional(root, "phone", request.text()), optional(root, "location", request.text()), optional(root, "website", request.text()), List.of(), null),
-					org.jsoup.nodes.Entities.escape(optional(root, "summary", request.text())), sections, null, "", List.of());
+					paragraph(optional(root, "summary", request.text())), sections, null, "", List.of());
 		} catch (RuntimeException e) {
 			throw new ApiException(HttpStatus.BAD_GATEWAY, "AI_BAD_ANSWER", "The AI answer could not be used. Nothing was imported.");
 		}
@@ -82,6 +83,9 @@ class ResumeAiImportController {
 	}
 
 	private String optional(JsonNode value, String field, String text) {
-		return value.has(field) ? evidence(value.path(field), text) : "";
+		return evidence(value.path(field), text);
+	}
+	private String paragraph(String text) {
+		return text.isBlank() ? "" : "<p>" + org.jsoup.nodes.Entities.escape(text).replace("\n", "<br>") + "</p>";
 	}
 }

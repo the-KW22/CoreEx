@@ -5,11 +5,14 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import com.coreex.ai.AiService;
 import com.coreex.common.ApiException;
@@ -32,12 +35,13 @@ class ResumeAiImproveController {
 	private static final Pattern NUMBER = Pattern.compile("\\d+(?:[.,]\\d+)*");
 	private final AiService ai;
 	private final ResumeService resumes;
+	private final JdbcClient jdbc;
 	private final JsonMapper json = JsonMapper.builder().build();
-	ResumeAiImproveController(AiService ai, ResumeService resumes) { this.ai = ai; this.resumes = resumes; }
+	ResumeAiImproveController(AiService ai, ResumeService resumes, JdbcClient jdbc) { this.ai = ai; this.resumes = resumes; this.jdbc = jdbc; }
 	record Improve(@NotBlank @Size(max = 200) String field, @NotNull Integer version) { }
-	record AcceptImprovement(@NotBlank @Size(max = 200) String field, @NotNull Integer version,
-			@NotNull @Size(max = 200000) String original, @NotNull @Size(max = 200000) String suggestion) { }
-	record Suggestion(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String original,
+	record AcceptImprovement(@NotNull UUID suggestionId, @NotNull Integer version) { }
+	record Suggestion(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String original,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String suggestion) { }
 
 	@PostMapping
@@ -58,24 +62,48 @@ class ResumeAiImproveController {
 			var allowed = NUMBER.matcher(ResumeText.plain(original)).results().map(m -> m.group()).collect(java.util.stream.Collectors.toSet());
 			if (NUMBER.matcher(ResumeText.plain(suggestion)).results().anyMatch(m -> !allowed.contains(m.group()))) throw new IllegalArgumentException();
 		} catch (RuntimeException e) { throw new ApiException(HttpStatus.BAD_GATEWAY, "AI_BAD_ANSWER", "The suggestion could not be used."); }
-		if (resumes.get(user.id(), id).version() != request.version()) throw conflict();
-		return new Suggestion(original, suggestion);
+		String hash;
+		try { hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(original.getBytes(java.nio.charset.StandardCharsets.UTF_8))); }
+		catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
+		var suggestionId = jdbc.sql("""
+				insert into resume_ai_improvements(owner_id, item_id, field, original, suggestion, source_hash)
+				select :owner, i.id, :field, :original, :suggestion, :hash from items i join resume_contents c on c.item_id = i.id
+				where i.id = :id and i.owner_id = :owner and i.deleted_at is null and c.version = :version returning resume_ai_improvements.id
+				""").param("owner", user.id()).param("id", id).param("field", request.field()).param("original", original).param("suggestion", suggestion)
+				.param("hash", hash).param("version", request.version()).query(UUID.class).optional().orElseThrow(ResumeAiImproveController::conflict);
+		return new Suggestion(suggestionId, original, suggestion);
 	}
 
 	@PostMapping("/accept")
+	@Transactional
 	ResumeController.ResumeResponse accept(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @Valid @RequestBody AcceptImprovement request) {
 		var current = resumes.get(user.id(), id);
 		if (current.version() != request.version()) throw conflict();
+		var proposal = jdbc.sql("select field, original, suggestion from resume_ai_improvements where id = :proposal and owner_id = :owner and item_id = :id for update")
+				.param("proposal", request.suggestionId()).param("owner", user.id()).param("id", id)
+				.query((rs, n) -> new String[] { rs.getString("field"), rs.getString("original"), rs.getString("suggestion") })
+				.optional().orElseThrow(ResumeAiImproveController::conflict);
 		ObjectNode document = json.valueToTree(current.document());
-		var target = field(document, request.field());
-		var key = request.field().equals("summary") ? "summary" : "description";
-		if (!target.path(key).asText().equals(request.original())) throw conflict();
-		target.put(key, request.suggestion());
-		return ResumeController.ResumeResponse.of(resumes.saveByAgent(user.id(), id, current.title(), json.treeToValue(document, ResumeDocument.class), request.version()));
+		var target = field(document, proposal[0]);
+		var key = proposal[0].equals("summary") ? "summary" : "description";
+		if (!target.path(key).asText().equals(proposal[1])) throw conflict();
+		target.put(key, proposal[2]);
+		var saved = resumes.saveByAgent(user.id(), id, current.title(), json.treeToValue(document, ResumeDocument.class), request.version());
+		jdbc.sql("delete from resume_ai_improvements where id = :proposal and owner_id = :owner").param("proposal", request.suggestionId()).param("owner", user.id()).update();
+		return ResumeController.ResumeResponse.of(saved);
 	}
 
-	private ObjectNode field(ObjectNode doc, String ref) {
+	@PostMapping("/{suggestionId}/reject")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void reject(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id, @PathVariable UUID suggestionId) {
+		resumes.get(user.id(), id);
+		if (jdbc.sql("delete from resume_ai_improvements where id = :proposal and owner_id = :owner and item_id = :id")
+				.param("proposal", suggestionId).param("owner", user.id()).param("id", id).update() == 0) throw conflict();
+	}
+
+	static ObjectNode field(ObjectNode doc, String ref) {
 		if (ref.equals("summary")) return doc;
 		var parts = ref.split(":", -1);
 		if (parts.length != 3 || !parts[2].equals("description") || !(parts[0].equals("entry") || parts[0].equals("role"))) throw invalid();

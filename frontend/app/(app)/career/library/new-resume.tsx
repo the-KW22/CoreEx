@@ -170,7 +170,7 @@ export function NewResume() {
                 <input type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" disabled={reading}
                   onChange={(event) => setAiFile(event.target.files?.[0] ?? null)} className="text-sm font-normal" />
               </label>
-              <p className="text-xs text-muted-foreground">Sends: the text extracted from this file to the configured AI model, using your daily AI budget. Review the result before creating a Resume.</p>
+              <p className="text-xs text-muted-foreground">Sends: the text extracted from this file to Claude, made by Anthropic, using your daily AI budget. Review the result before creating a Resume.</p>
               <Button type="button" variant="outline" disabled={!aiFile || reading} onClick={() => void importWithAi()}>Read with AI</Button>
               <label className="grid gap-1 border-t border-border pt-3 text-sm font-medium">
                 Import a file

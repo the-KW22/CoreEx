@@ -31,10 +31,11 @@ class ResumeAiImportApiTest extends ApiTest {
 	@Test
 	void mapsOnlyEvidenceAndCreatesNothingUntilConfirmed() throws Exception {
 		model.tokens(1, 1);
-		model.answer("{\"name\":\"Alex Morgan\",\"sections\":[{\"kind\":\"EXPERIENCE\",\"title\":\"Experience\",\"entries\":[{\"title\":\"Engineer\",\"subtitle\":\"Example\",\"description\":\"Built services\"}]}]}");
+		model.answer("{\"name\":\"Alex Morgan\",\"headline\":\"\",\"email\":\"\",\"phone\":\"\",\"location\":\"\",\"website\":\"\",\"summary\":\"\",\"sections\":[{\"kind\":\"EXPERIENCE\",\"title\":\"Experience\",\"entries\":[{\"title\":\"Engineer\",\"subtitle\":\"Example\",\"description\":\"Built services\",\"location\":\"\",\"startDate\":\"\",\"endDate\":\"\",\"url\":\"\"}]}]}");
 		var result = post("/api/resumes/ai-import", owner, "{\"text\":\"Alex Morgan\\nExperience\\nEngineer\\nExample\\nBuilt services\"}");
 		assertThat(result.statusCode()).as(result.body()).isEqualTo(200);
 		assertThat(result.body()).contains("Alex Morgan", "EXPERIENCE", "Engineer", "Built services");
+		assertThat(result.body()).contains("<p>Built services</p>");
 		assertThat(jdbc.sql("select count(*) from items").query(Long.class).single()).isZero();
 		assertThat(model.asked().getFirst().system()).contains("untrusted", "never");
 	}
@@ -42,7 +43,8 @@ class ResumeAiImportApiTest extends ApiTest {
 	@Test
 	void invalidOrInventedOutputCreatesNothing() throws Exception {
 		model.tokens(1, 1);
-		for (var answer : new String[] { "not json", "{\"name\":\"Invented Person\",\"sections\":[]}" }) {
+		for (var answer : new String[] { "not json", "{\"name\":\"Alex Morgan\",\"sections\":[]}",
+				"{\"name\":\"Invented Person\",\"headline\":\"\",\"email\":\"\",\"phone\":\"\",\"location\":\"\",\"website\":\"\",\"summary\":\"\",\"sections\":[]}" }) {
 			model.answer(answer);
 			assertThat(post("/api/resumes/ai-import", owner, "{\"text\":\"Alex Morgan\"}").statusCode()).isEqualTo(502);
 		}
@@ -51,7 +53,7 @@ class ResumeAiImportApiTest extends ApiTest {
 
 	@Test
 	void spentBudgetUsesTheSharedError() throws Exception {
-		model.answer("{\"name\":\"Alex Morgan\",\"sections\":[]}");
+		model.answer("{\"name\":\"Alex Morgan\",\"headline\":\"\",\"email\":\"\",\"phone\":\"\",\"location\":\"\",\"website\":\"\",\"summary\":\"\",\"sections\":[]}");
 		assertThat(post("/api/resumes/ai-import", owner, "{\"text\":\"Alex Morgan\"}").statusCode()).isEqualTo(200);
 		assertThat(post("/api/resumes/ai-import", owner, "{\"text\":\"Alex Morgan\"}").statusCode()).isEqualTo(200);
 		var result = post("/api/resumes/ai-import", owner, "{\"text\":\"Alex Morgan\"}");
