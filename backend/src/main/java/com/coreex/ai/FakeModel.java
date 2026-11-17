@@ -45,7 +45,8 @@ class FakeModel implements Model {
 					: java.util.List.of(Map.of("point", "Stress your web services work", "evidence", evidence));
 			return new Reply(json.writeValueAsString(Map.of("plan", java.util.List.of("Reread the posting", "Pick two stories", "Rehearse out loud"),
 					"about", "A fake company hiring an engineer.", "stress", stress, "ask", java.util.List.of("What does a first month look like?"),
-					"practice", java.util.List.of("Tell me about yourself.", "Why do you want this role?"))), 100, 100);
+					"practice", java.util.List.of("Tell me about yourself.", "Why do you want this role?",
+					"Describe a project you are proud of.", "Tell me about a hard bug you fixed."))), 100, 100);
 		}
 		if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("works")) {
 			// Practice feedback: quotes the first four words of the answer it was given.

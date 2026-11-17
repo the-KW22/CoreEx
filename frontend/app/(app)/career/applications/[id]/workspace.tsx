@@ -38,6 +38,8 @@ export function Workspace({
   apply,
   timeline,
   debriefs,
+  initialTab,
+  initialInterview,
   details,
 }: {
   applicationId: string;
@@ -46,10 +48,13 @@ export function Workspace({
   apply: Apply | null;
   timeline: Timeline;
   debriefs: Debrief[] | null;
+  // From the address (?tab=, ?interview=, as Today links to them): an unknown tab name is ignored.
+  initialTab?: string;
+  initialInterview?: number;
   details: ReactNode;
 }) {
   const router = useRouter();
-  const [tab, setTabState] = useState<Tab>("Details");
+  const [tab, setTabState] = useState<Tab>(() => TABS.find((t) => t === initialTab) ?? "Details");
   // The interview tabs read the interviews added in Details, which that tab keeps in its own state: refresh the page data on opening one.
   const setTab = (next: Tab) => {
     setTabState(next);
@@ -122,7 +127,13 @@ export function Workspace({
           {name === "Practice" && (
             <div className="mx-auto w-full max-w-3xl">
               {library ? (
-                <PracticePanel applicationId={applicationId} library={library} question={practiceQuestion} onQuestion={setPracticeQuestion} />
+                <PracticePanel
+                  applicationId={applicationId}
+                  library={library}
+                  question={practiceQuestion}
+                  onQuestion={setPracticeQuestion}
+                  interview={initialInterview}
+                />
               ) : (
                 <Alert>Could not load the results. Reload to try again.</Alert>
               )}

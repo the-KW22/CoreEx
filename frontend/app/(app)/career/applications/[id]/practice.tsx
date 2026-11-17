@@ -24,11 +24,14 @@ export function PracticePanel({
   library,
   question,
   onQuestion,
+  interview,
 }: {
   applicationId: string;
   library: Library;
   question: string;
   onQuestion: (question: string) => void;
+  // Set when opened from Today: the first three questions of that interview's prep are offered as buttons.
+  interview?: number;
 }) {
   const id = useId();
   const [answer, setAnswer] = useState("");
@@ -37,6 +40,7 @@ export function PracticePanel({
   const attempts = library.results.filter((r) => r.kind === "PRACTICE" && r.practice);
   const [latest, ...earlier] = attempts;
   const suggestions = library.results.find((r) => r.kind === "PREP")?.prep.practice ?? [];
+  const offered = interview === undefined ? [] : (library.results.find((r) => r.kind === "PREP" && r.prep.interviewSeq === interview)?.prep.practice ?? []).slice(0, 3);
   const ready = question.trim() !== "" && answer.trim() !== "";
 
   const submit = (e: FormEvent) => {
@@ -72,6 +76,15 @@ export function PracticePanel({
             ))}
           </datalist>
         </div>
+        {offered.length > 0 && (
+          <div role="group" aria-label="Suggested questions" className="grid gap-2">
+            {offered.map((q, index) => (
+              <Button key={index} type="button" variant="outline" className="h-auto justify-start whitespace-normal text-left" onClick={() => onQuestion(q)}>
+                {q}
+              </Button>
+            ))}
+          </div>
+        )}
         <div className="grid gap-1">
           <label htmlFor={`${id}-answer`} className="text-sm font-medium">Your answer</label>
           <textarea

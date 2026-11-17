@@ -21,7 +21,7 @@ import com.coreex.notes.Note;
 import com.coreex.notes.NoteService;
 
 @Service
-class KnowledgeService {
+public class KnowledgeService {
 
 	/** The five headings every new Story starts with (decision C5). */
 	static final String STORY_BODY = """

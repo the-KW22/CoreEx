@@ -27,13 +27,13 @@ public record NextStep(Kind kind, String label, Instant dueAt, boolean due, long
 	static final Duration INTERVIEW_LENGTH = Duration.ofHours(1);
 
 	/** An upcoming interview needs the User (to prepare) from this long before it starts. */
-	static final Duration PREPARE_WINDOW = Duration.ofHours(24);
+	public static final Duration PREPARE_WINDOW = Duration.ofHours(24);
 
 	/** An Applied Application with no reply this long needs a follow-up. */
 	static final Duration NO_REPLY_AFTER = Duration.ofDays(10);
 
 	/** A reminder with no time counts at this time in the User's timezone. */
-	static final LocalTime DEFAULT_REMINDER_TIME = LocalTime.of(9, 0);
+	public static final LocalTime DEFAULT_REMINDER_TIME = LocalTime.of(9, 0);
 
 	private static final DateTimeFormatter WHEN = DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.US);
 

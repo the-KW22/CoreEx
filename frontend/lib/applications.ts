@@ -53,8 +53,9 @@ export function toLocalInput(iso: string) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export const formatLocal = (iso: string) =>
-  new Date(iso).toLocaleString("en", { dateStyle: "medium", timeStyle: "short" });
+// The browser's zone unless a zone name is given (the Today page renders on the server, so it passes the User's).
+export const formatLocal = (iso: string, zone?: string) =>
+  new Date(iso).toLocaleString("en", { dateStyle: "medium", timeStyle: "short", timeZone: zone });
 
 // A reminder's day has no zone: "2026-11-20" is that calendar day wherever the User is.
 export const formatDate = (day: string) =>

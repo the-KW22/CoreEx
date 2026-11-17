@@ -22,7 +22,7 @@ import { Workspace } from "./workspace";
 // around its fields edited in place, the Stage stepper, the timeline and the posting.
 export default async function ApplicationPage({ params, searchParams }: PageProps<"/career/applications/[id]">) {
   const { id } = await params;
-  const { error, depth: rawDepth, mentions } = await searchParams;
+  const { error, depth: rawDepth, mentions, tab, interview } = await searchParams;
   const api = await getApi();
   const [result, list, itemTags, allTags, docs, linked, library, apply, debriefs, jar] = await Promise.all([
     api.GET("/api/applications/{id}", { params: { path: { id } } }).catch(() => null),
@@ -96,6 +96,8 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
             apply={apply?.data ?? null}
             timeline={application.timeline}
             debriefs={debriefs?.data?.items ?? null}
+            initialTab={typeof tab === "string" ? tab : undefined}
+            initialInterview={typeof interview === "string" && /^\d{1,6}$/.test(interview) ? Number(interview) : undefined}
             details={
               <>
                 <EarlierNotice className="mx-auto w-full max-w-3xl" company={application.company} items={earlier?.data?.items ?? []} />

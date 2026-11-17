@@ -100,6 +100,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/offers/{offerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notes/{id}": {
         parameters: {
             query?: never;
@@ -236,7 +252,7 @@ export interface paths {
             cookie?: never;
         };
         get: operations["get_3"];
-        put: operations["update"];
+        put: operations["update_1"];
         post?: never;
         delete: operations["delete_3"];
         options?: never;
@@ -980,6 +996,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_9"];
+        put?: never;
+        post: operations["create_7"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/{id}/interviews": {
         parameters: {
             query?: never;
@@ -1355,9 +1387,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_9"];
+        get: operations["list_10"];
         put?: never;
-        post: operations["create_7"];
+        post: operations["create_8"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1387,9 +1419,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_10"];
+        get: operations["list_11"];
         put?: never;
-        post: operations["create_8"];
+        post: operations["create_9"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1403,7 +1435,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_11"];
+        get: operations["list_12"];
         put?: never;
         post?: never;
         delete: operations["empty"];
@@ -1476,6 +1508,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["all"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/offers/{offerId}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["versions_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/offers/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["compare"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notes/{id}/versions": {
         parameters: {
             query?: never;
@@ -1483,7 +1563,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_12"];
+        get: operations["list_13"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1611,7 +1691,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_13"];
+        get: operations["list_14"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1627,7 +1707,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_14"];
+        get: operations["list_15"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1643,7 +1723,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_15"];
+        get: operations["list_16"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1764,6 +1844,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/career/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["today"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/career/documents-by-application": {
         parameters: {
             query?: never;
@@ -1771,7 +1867,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_16"];
+        get: operations["list_17"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1851,7 +1947,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_17"];
+        get: operations["list_18"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1915,7 +2011,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_18"];
+        get: operations["list_19"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2228,6 +2324,70 @@ export interface components {
         };
         LockRequest: {
             locked: boolean;
+        };
+        OfferRequest: {
+            /** @description Base pay per pay period */
+            basePay?: number | null;
+            /** @description Three letters, such as GBP */
+            currency?: string | null;
+            /** @description YEAR, MONTH or HOUR */
+            payPeriod?: string | null;
+            bonus?: string | null;
+            equity?: string | null;
+            benefits?: string | null;
+            /**
+             * Format: date
+             * @description yyyy-mm-dd
+             */
+            startDate?: string | null;
+            place?: string | null;
+            /**
+             * Format: int32
+             * @description Office days a week, 0 to 5
+             */
+            officeDays?: number | null;
+            /**
+             * Format: date
+             * @description yyyy-mm-dd
+             */
+            respondBy?: string | null;
+            /**
+             * Format: int32
+             * @description The version you saw; required to edit, left out to create
+             */
+            version?: number | null;
+        };
+        Check: {
+            code?: string;
+            message?: string;
+        };
+        OfferResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            applicationId: string;
+            terms: components["schemas"]["TermsResponse"];
+            /** Format: int32 */
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Flags against the User's Preferences; empty when none are saved */
+            checks: components["schemas"]["Check"][];
+        };
+        TermsResponse: {
+            basePay?: number | null;
+            currency?: string | null;
+            payPeriod?: string | null;
+            bonus?: string | null;
+            equity?: string | null;
+            benefits?: string | null;
+            /** Format: date */
+            startDate?: string | null;
+            place?: string | null;
+            /** Format: int32 */
+            officeDays?: number | null;
+            /** Format: date */
+            respondBy?: string | null;
         };
         SaveNoteRequest: {
             title: string;
@@ -3331,6 +3491,36 @@ export interface components {
             /** Format: int32 */
             version: number;
         };
+        AllOffers: {
+            /** @description Newest first */
+            items: components["schemas"]["OfferItem"][];
+        };
+        OfferItem: {
+            /** Format: uuid */
+            applicationId: string;
+            applicationTitle: string;
+            company: string;
+            role: string;
+            offer: components["schemas"]["OfferResponse"];
+        };
+        OfferVersion: {
+            /**
+             * Format: int32
+             * @description The version these terms were
+             */
+            version: number;
+            /** Format: date-time */
+            savedAt: string;
+            terms: components["schemas"]["TermsResponse"];
+        };
+        OfferVersionList: {
+            /** @description Newest first */
+            items: components["schemas"]["OfferVersion"][];
+        };
+        Comparison: {
+            a: components["schemas"]["OfferResponse"];
+            b: components["schemas"]["OfferResponse"];
+        };
         VersionList: {
             items: components["schemas"]["VersionSummary"][];
             /** Format: int32 */
@@ -3527,6 +3717,28 @@ export interface components {
             /** Format: int32 */
             version: number;
         };
+        EntryResponse: {
+            /** Format: uuid */
+            applicationId: string;
+            title: string;
+            /** @enum {string} */
+            kind: "NEXT_STEP" | "INTERVIEW" | "FOLLOW_UP" | "OFFER_DEADLINE";
+            /** @description Ready to show, with any time in the User's timezone */
+            label: string;
+            /** Format: date-time */
+            at: string | null;
+            /**
+             * Format: int32
+             * @description Set for an interview
+             */
+            interviewSeq: number | null;
+            /** @description An interview starting within 24 hours: Today offers the briefing and Practice */
+            withinDay: boolean;
+        };
+        TodayResponse: {
+            needsYou: components["schemas"]["EntryResponse"][];
+            comingUp: components["schemas"]["EntryResponse"][];
+        };
         GroupedDocument: {
             /** Format: uuid */
             applicationId: string;
@@ -3571,6 +3783,10 @@ export interface components {
             name: string;
             /** @enum {string|null} */
             colour?: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
+        };
+        OfferList: {
+            /** @description Newest first */
+            items: components["schemas"]["OfferResponse"][];
         };
         DocumentList: {
             items: components["schemas"]["DocumentResponse"][];
@@ -4026,6 +4242,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                offerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferResponse"];
                 };
             };
         };
@@ -4499,7 +4741,7 @@ export interface operations {
             };
         };
     };
-    update: {
+    update_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -6777,6 +7019,54 @@ export interface operations {
             };
         };
     };
+    list_9: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferList"];
+                };
+            };
+        };
+    };
+    create_7: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferResponse"];
+                };
+            };
+        };
+    };
     addInterview: {
         parameters: {
             query?: never;
@@ -7585,7 +7875,7 @@ export interface operations {
             };
         };
     };
-    list_9: {
+    list_10: {
         parameters: {
             query?: {
                 page?: number;
@@ -7608,7 +7898,7 @@ export interface operations {
             };
         };
     };
-    create_7: {
+    create_8: {
         parameters: {
             query?: never;
             header?: never;
@@ -7690,7 +7980,7 @@ export interface operations {
             };
         };
     };
-    list_10: {
+    list_11: {
         parameters: {
             query?: never;
             header?: never;
@@ -7710,7 +8000,7 @@ export interface operations {
             };
         };
     };
-    create_8: {
+    create_9: {
         parameters: {
             query?: never;
             header?: never;
@@ -7752,7 +8042,7 @@ export interface operations {
             };
         };
     };
-    list_11: {
+    list_12: {
         parameters: {
             query?: {
                 page?: number;
@@ -7923,7 +8213,72 @@ export interface operations {
             };
         };
     };
-    list_12: {
+    all: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllOffers"];
+                };
+            };
+        };
+    };
+    versions_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                offerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferVersionList"];
+                };
+            };
+        };
+    };
+    compare: {
+        parameters: {
+            query: {
+                a: string;
+                b: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comparison"];
+                };
+            };
+        };
+    };
+    list_13: {
         parameters: {
             query?: never;
             header?: never;
@@ -8153,7 +8508,7 @@ export interface operations {
             };
         };
     };
-    list_13: {
+    list_14: {
         parameters: {
             query?: {
                 folderId?: string;
@@ -8188,7 +8543,7 @@ export interface operations {
             };
         };
     };
-    list_14: {
+    list_15: {
         parameters: {
             query?: {
                 size?: number;
@@ -8221,7 +8576,7 @@ export interface operations {
             };
         };
     };
-    list_15: {
+    list_16: {
         parameters: {
             query?: never;
             header?: never;
@@ -8441,7 +8796,27 @@ export interface operations {
             };
         };
     };
-    list_16: {
+    today: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TodayResponse"];
+                };
+            };
+        };
+    };
+    list_17: {
         parameters: {
             query?: never;
             header?: never;
@@ -8568,7 +8943,7 @@ export interface operations {
             };
         };
     };
-    list_17: {
+    list_18: {
         parameters: {
             query?: never;
             header?: never;
@@ -8665,7 +9040,7 @@ export interface operations {
             };
         };
     };
-    list_18: {
+    list_19: {
         parameters: {
             query?: {
                 page?: number;
