@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Imported } from "@/lib/resume/import";
 
-import { createResume } from "./actions";
+import { createResume, mapResumeText } from "./actions";
 
 const input = "h-9 w-full rounded-lg border border-border bg-surface px-3";
 
@@ -28,6 +28,7 @@ export function NewResume() {
   const [imported, setImported] = useState<Imported | null>(null);
   const [reading, setReading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [aiFile, setAiFile] = useState<File | null>(null);
   const [pending, start] = useTransition();
 
   function reset() {
@@ -36,6 +37,24 @@ export function NewResume() {
     setError(null);
     setImported(null);
     setImportError(null);
+    setAiFile(null);
+  }
+
+  async function importWithAi() {
+    if (!aiFile) return;
+    setReading(true);
+    setImportError(null);
+    try {
+      const { readAiText } = await import("@/lib/resume/import/ai-text");
+      const result = await mapResumeText(await readAiText(aiFile));
+      if (!result.document) throw new Error(result.error ?? "Could not read this document.");
+      const document = result.document;
+      setTitle(document.basics.name || "Imported Resume");
+      setImported({ format: "PDF or Word", name: document.basics.name || "Imported Resume", document,
+        sections: document.sections.filter((section) => section.entries.length).map((section) => ({ title: section.title, count: section.entries.length })), skipped: [] });
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "This file could not be read, so nothing was imported.");
+    } finally { setReading(false); }
   }
 
   function close(next: boolean) {
@@ -146,6 +165,13 @@ export function NewResume() {
                 <input type="checkbox" checked={sample} onChange={(e) => setSample(e.target.checked)} />
                 Start with sample content
               </label>
+              <label className="grid gap-1 border-t border-border pt-3 text-sm font-medium">
+                Import PDF or Word with AI
+                <input type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" disabled={reading}
+                  onChange={(event) => setAiFile(event.target.files?.[0] ?? null)} className="text-sm font-normal" />
+              </label>
+              <p className="text-xs text-muted-foreground">Sends: the text extracted from this file to the configured AI model, using your daily AI budget. Review the result before creating a Resume.</p>
+              <Button type="button" variant="outline" disabled={!aiFile || reading} onClick={() => void importWithAi()}>Read with AI</Button>
               <label className="grid gap-1 border-t border-border pt-3 text-sm font-medium">
                 Import a file
                 <input

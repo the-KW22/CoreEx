@@ -15,6 +15,11 @@ class FakeModel implements Model {
 
 	@Override
 	public Reply ask(String system, String data, Map<String, Object> schema, long maxTokens) {
+		if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("sections")) {
+			var source = json.readTree(data).path("text").asText();
+			var first = source.lines().map(String::trim).filter(s -> !s.isEmpty()).findFirst().orElse("");
+			return new Reply(json.writeValueAsString(Map.of("name", first, "sections", java.util.List.of())), 100, 100);
+		}
 		if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("body")) {
 			return new Reply(json.writeValueAsString(Map.of("body", "<p>I build reliable web services.</p>")), 100, 100);
 		}
