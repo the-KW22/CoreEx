@@ -128,6 +128,7 @@ export default async function ApplicationsPage({ searchParams }: PageProps<"/car
       due: application.nextStep.due,
       updated: Number.isNaN(now) ? null : relativeTime(application.updatedAt, now),
       tags: result.data.tags[application.id] ?? [],
+      score: result.data.matchScores[application.id] ?? null,
     };
     const last = all.at(-1);
     if (last?.stage === application.stage) last.items.push(row);
