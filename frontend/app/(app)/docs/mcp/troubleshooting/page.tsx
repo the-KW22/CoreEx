@@ -4,7 +4,7 @@ const TROUBLESHOOTING = [
   {
     problem: "The tool says 401, or “Failed to connect”",
     answer:
-      "The Access token is wrong, expired or revoked. Create a new one under Access tokens and put it in your tool again. Check that the address ends in /mcp.",
+      "The token is wrong, expired or revoked. Create a new one and update your tool. Check that the address ends in /mcp.",
   },
   {
     problem: "403 USER_DISABLED",
@@ -17,7 +17,7 @@ const TROUBLESHOOTING = [
   {
     problem: "“This Note was changed somewhere else”",
     answer:
-      "The Note changed after the Agent read it, for example because you edited it. Nothing was lost. The Agent should read the Note again with get_item and redo its change.",
+      "The Note changed after the Agent read it. Nothing was lost: the Agent should read it again with get_item and redo its change.",
   },
   {
     problem: "The first request is slow or times out",
@@ -26,12 +26,12 @@ const TROUBLESHOOTING = [
   {
     problem: "A plain GET to the address answers 405 (or 401 without a token)",
     answer:
-      "That is normal. The server is stateless and answers only POST requests, which is what MCP tools send. Without a token you get 401 first.",
+      "Normal: the server answers only POST requests, and 401 comes first without a token.",
   },
   {
     problem: "Claude Desktop cannot connect",
     answer:
-      "Claude Desktop reaches servers from Anthropic’s cloud, so the address must be reachable from the internet. An installation running only on your own computer cannot be used from Claude Desktop; use Claude Code or Codex instead.",
+      "Claude Desktop connects from Anthropic’s cloud, so the address must be public. A CoreEx running only on your computer needs Claude Code or Codex instead.",
   },
 ];
 
