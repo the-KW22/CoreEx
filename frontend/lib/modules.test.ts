@@ -17,8 +17,9 @@ describe("activeModule", () => {
     expect(activeModule("/settings/tokens")).toBe("settings");
   });
 
-  it("keeps Help out of the Knowledge Base, so it has no panel", () => {
-    expect(activeModule("/help/mcp")).toBe("help");
+  it("marks Docs on the Docs pages and below, so they have no panel", () => {
+    expect(activeModule("/docs")).toBe("docs");
+    expect(activeModule("/docs/mcp")).toBe("docs");
   });
 
   it("marks Assets on the Assets page and each Asset", () => {
@@ -44,5 +45,6 @@ describe("activeModule", () => {
 
   it("does not mistake a longer name for a module", () => {
     expect(activeModule("/trashy")).toBe("kb");
+    expect(activeModule("/docsy")).toBe("kb");
   });
 });

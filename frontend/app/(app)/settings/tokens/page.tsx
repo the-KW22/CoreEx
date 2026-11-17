@@ -25,7 +25,7 @@ export default async function TokensPage() {
           <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Access tokens</h1>
           <p className="text-sm text-muted-foreground">
             An Access token lets an Agent such as Claude Code or Codex work with your knowledge base as you.{" "}
-            <Link href="/help/mcp" className="text-link underline underline-offset-4">
+            <Link href="/docs/mcp" className="text-link underline underline-offset-4">
               How to connect an Agent
             </Link>
           </p>
