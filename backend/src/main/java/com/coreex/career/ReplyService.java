@@ -194,24 +194,24 @@ public class ReplyService {
 			}
 			default -> throw new IllegalStateException("Unknown change kind " + row.kind());
 		}
-		jdbc.sql("update career_changes set undone_at = now() where result_id = :result and idx = :idx")
-				.param("result", resultId).param("idx", index).update();
+		jdbc.sql("update career_changes set undone_at = now() where result_id = :result and idx = :idx and owner_id = :owner")
+				.param("result", resultId).param("idx", index).param("owner", owner).update();
 		// Undo runs in reverse order, so the change applied last before this one now leaves the Application (or the Offer) as it
 		// was after that change: its recorded version becomes the current one, and the next undo still matches.
 		if (row.kind().equals("OFFER")) {
 			offers.list(owner, applicationId).stream().filter(o -> o.id().equals(row.offerId())).findFirst()
 					.ifPresent(o -> jdbc.sql("""
-							update career_changes set resulting_version = :version where result_id = :result and undone_at is null
+							update career_changes set resulting_version = :version where result_id = :result and owner_id = :owner and undone_at is null
 							and idx = (select idx from career_changes where result_id = :result and undone_at is null and kind = 'OFFER'
 							  and offer_id = :offer order by applied_at desc, idx desc limit 1)""")
-							.param("version", o.version()).param("result", resultId).param("offer", row.offerId()).update());
+							.param("version", o.version()).param("result", resultId).param("owner", owner).param("offer", row.offerId()).update());
 		}
 		else {
 			jdbc.sql("""
-					update career_changes set resulting_version = :version where result_id = :result and undone_at is null
+					update career_changes set resulting_version = :version where result_id = :result and owner_id = :owner and undone_at is null
 					and idx = (select idx from career_changes where result_id = :result and undone_at is null
 					  and kind in ('STAGE', 'FOLLOW_UP') order by applied_at desc, idx desc limit 1)""")
-					.param("version", applications.get(owner, applicationId).version()).param("result", resultId).update();
+					.param("version", applications.get(owner, applicationId).version()).param("result", resultId).param("owner", owner).update();
 		}
 	}
 
