@@ -583,6 +583,17 @@ class CareerApplyApiTest extends ApiTest {
 	}
 
 	@Test
+	void anApplicationMovedBackToSavedCannotBeMarkedAppliedTwice() throws Exception {
+		assertThat(link(application, owner, "RESUME", resume(owner)).statusCode()).isEqualTo(200);
+		assertThat(post(path(application) + "/mark-applied", owner, "").statusCode()).isEqualTo(200);
+		assertThat(post("/api/applications/" + application + "/stage", owner, "{\"stage\":\"SAVED\",\"fromStage\":\"APPLIED\"}").statusCode())
+				.isEqualTo(200);
+		var again = post(path(application) + "/mark-applied", owner, "");
+		assertThat(again.statusCode()).as(again.body()).isEqualTo(409);
+		assertThat(again.body()).contains("already marked as applied");
+	}
+
+	@Test
 	void aTrashedCoverLetterBlocksMarkingApplied() throws Exception {
 		assertThat(link(application, owner, "RESUME", resume(owner)).statusCode()).isEqualTo(200);
 		var letter = id(post("/api/cover-letters", owner, "{\"title\":\"Letter\"}").body());

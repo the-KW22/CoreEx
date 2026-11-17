@@ -116,7 +116,7 @@ export function QuestionCard({ applicationId, question: q, library }: { applicat
           <Button
             type="button"
             variant="outline"
-            disabled={pending || dirty}
+            disabled={pending || dirty || proposed !== undefined}
             aria-describedby={`${id}-draft-sends${unsaved}`}
             onClick={() => run(() => draftAnswer(applicationId, q.id))}
           >
@@ -128,7 +128,7 @@ export function QuestionCard({ applicationId, question: q, library }: { applicat
           <Button
             type="button"
             variant="outline"
-            disabled={pending || dirty || blank}
+            disabled={pending || dirty || blank || proposed !== undefined}
             aria-describedby={`${id}-tighten-sends${unsaved}`}
             onClick={() => run(() => tightenAnswer(applicationId, q.id))}
           >
@@ -137,6 +137,7 @@ export function QuestionCard({ applicationId, question: q, library }: { applicat
           <p id={`${id}-tighten-sends`} className="text-sm text-muted-foreground">{library.sends.TIGHTEN}</p>
         </div>
         {dirty && <p id={`${id}-unsaved`} className="text-sm">Save your answer first.</p>}
+        {proposed && <p className="text-sm">Accept or reject the proposed answer first.</p>}
       </div>
       {proposed && (
         <ProposedAnswer
@@ -166,7 +167,7 @@ export function QuestionCard({ applicationId, question: q, library }: { applicat
               ))}
             </select>
           </label>
-          <Button type="button" variant="outline" disabled={pending || blank} onClick={() => run(() => keepAnswer(applicationId, q.id, keepAs), () => setKept(true))}>
+          <Button type="button" variant="outline" disabled={pending || blank || dirty} onClick={() => run(() => keepAnswer(applicationId, q.id, keepAs), () => setKept(true))}>
             Keep answer
           </Button>
         </div>

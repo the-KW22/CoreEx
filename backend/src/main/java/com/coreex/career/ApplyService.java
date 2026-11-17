@@ -228,6 +228,9 @@ class ApplyService {
 		if (application.stage() != Stage.SAVED) {
 			throw new ApiException(HttpStatus.CONFLICT, "CONFLICT", "Only a Saved Application can be marked as applied.");
 		}
+		var receipts = jdbc.sql("select count(*) from application_submissions where item_id = :app and owner_id = :owner")
+				.param("app", applicationId).param("owner", owner).query(Long.class).single();
+		if (receipts > 0) throw new ApiException(HttpStatus.CONFLICT, "CONFLICT", "This Application was already marked as applied.");
 		var questions = questions(owner, applicationId);
 		var blockers = blockers(owner, applicationId, questions);
 		if (!blockers.isEmpty()) {
