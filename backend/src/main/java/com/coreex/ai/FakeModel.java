@@ -72,6 +72,14 @@ class FakeModel implements Model {
 			var first = source.lines().map(String::trim).filter(s -> !s.isEmpty()).findFirst().orElse("");
 			return new Reply(json.writeValueAsString(Map.of("name", first, "headline", "", "email", "", "phone", "", "location", "", "website", "", "summary", "", "sections", java.util.List.of())), 100, 100);
 		}
+		if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("subject") && properties.containsKey("attach")) {
+			// An Application email: cites the first Fact it was given, and attaches the documents its data lists.
+			var fact = java.util.regex.Pattern.compile("<fact id=\"([0-9a-f-]{36})\"").matcher(data);
+			var evidence = fact.find() ? java.util.List.of(fact.group(1)) : java.util.List.<String>of();
+			var attach = java.util.List.of("RESUME", "COVER_LETTER").stream().filter(k -> data.contains("<file kind=\"" + k + "\">")).toList();
+			return new Reply(json.writeValueAsString(Map.of("subject", "Application for the role", "body", "I would like to apply for this role.",
+					"attach", attach, "evidence", evidence)), 100, 100);
+		}
 		if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("body")) {
 			return new Reply(json.writeValueAsString(Map.of("body", "<p>I build reliable web services.</p>")), 100, 100);
 		}

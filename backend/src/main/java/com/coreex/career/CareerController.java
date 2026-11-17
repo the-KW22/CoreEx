@@ -50,7 +50,7 @@ class CareerController {
 	}
 
 	record ResultResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "FIT, DRAFT, TIGHTEN, PREP, PRACTICE or DEBRIEF") String kind,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "FIT, DRAFT, TIGHTEN, PREP, PRACTICE, DEBRIEF, EMAIL, FOLLOW_UP or THANK_YOU") String kind,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The posting, Knowledge or documents changed since it was made") boolean outOfDate,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "Set for a FIT result") FitResponse fit,
@@ -58,7 +58,8 @@ class CareerController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "ACCEPTED or REJECTED; empty while it waits for the User") String resolution,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "Set for a PREP result") PrepResponse prep,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "Set for a PRACTICE result") PracticeResponse practice,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "Set for a DEBRIEF result") SummaryResponse summary) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "Set for a DEBRIEF result") SummaryResponse summary,
+				@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "Set for an EMAIL, FOLLOW_UP or THANK_YOU result") EmailResponse email) {
 	}
 
 	record PointResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String point,
@@ -81,6 +82,13 @@ class CareerController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String answer,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "What works; every quote is from the answer") List<QuoteResponse> works,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String strengthen) {
+	}
+
+	record EmailResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String subject,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String body,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "RESUME and/or COVER_LETTER, only those linked on the Application") List<String> attach,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "The interview's seq; set for a THANK_YOU") Integer interviewSeq,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "What the email relies on; a forgotten or switched-off Fact is left out") List<EvidenceResponse> evidence) {
 	}
 
 	record SummaryResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int interviewSeq,
@@ -124,20 +132,23 @@ class CareerController {
 		var practice = stored.practice() == null ? null : new PracticeResponse(stored.practice().question(), stored.practice().answer(),
 				stored.practice().works().stream().map(q -> new QuoteResponse(q.quote(), q.why())).toList(), stored.practice().strengthen());
 		var summary = stored.summary() == null ? null : new SummaryResponse(stored.summary().interviewSeq(), stored.summary().improve());
+		var email = stored.email() == null ? null : new EmailResponse(stored.email().subject(), stored.email().body(), stored.email().attach(),
+				stored.email().interviewSeq(), evidence(stored.email().evidence(), evidence));
 		return new ResultResponse(stored.id(), stored.kind(), stored.outOfDate(), stored.createdAt(), fit, answer, stored.resolution(), prep,
-				practice, summary);
+				practice, summary, email);
 	}
 
 	private static List<EvidenceResponse> evidence(List<UUID> ids, Map<UUID, CareerService.Evidence> known) {
 		return ids.stream().filter(known::containsKey).map(id -> new EvidenceResponse(id, known.get(id).kind(), known.get(id).label())).toList();
 	}
 
-	private List<ResultResponse> respond(UUID owner, List<Stored> stored) {
+	List<ResultResponse> respond(UUID owner, List<Stored> stored) {
 		var ids = new LinkedHashSet<UUID>();
 		stored.forEach(s -> {
 			if (s.fit() != null) s.fit().requirements().forEach(r -> ids.addAll(r.evidence()));
 			if (s.answer() != null) ids.addAll(s.answer().evidence());
 			if (s.prep() != null) s.prep().stress().forEach(p -> ids.addAll(p.evidence()));
+			if (s.email() != null) ids.addAll(s.email().evidence());
 		});
 		var evidence = career.evidence(owner, ids);
 		return stored.stream().map(s -> respond(s, evidence)).toList();

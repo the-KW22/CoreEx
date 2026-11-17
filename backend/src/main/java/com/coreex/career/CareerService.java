@@ -83,13 +83,28 @@ public class CareerService {
 	}
 
 	/**
-	 * What a task made: a {@link Fit}, {@link Answer}, {@link Prep}, {@link Practice} or {@link Summary}.
+	 * An Application email: the text the User copies or opens in their own mail app, the documents it names to attach, and
+	 * the evidence it relied on. {@code interviewSeq} is set for a thank-you. The text is editable; the inputs are not.
+	 */
+	public record Email(String subject, String body, List<String> attach, List<UUID> evidence, Integer interviewSeq) {
+	}
+
+	/** A document linked to the Application, as the prompt names it: its kind and the title it was sent under (or its live title). */
+	record Attachment(String kind, String title) {
+	}
+
+	/**
+	 * What a task made: a {@link Fit}, {@link Answer}, {@link Prep}, {@link Practice}, {@link Summary} or {@link Email}.
 	 * {@code resolution} is null while an answer is waiting for Accept or Reject.
 	 */
 	public record Stored(UUID id, String kind, Object result, String resolution, boolean outOfDate, Instant createdAt) {
 
 		public Fit fit() {
 			return result instanceof Fit f ? f : null;
+		}
+
+		public Email email() {
+			return result instanceof Email e ? e : null;
 		}
 
 		public Answer answer() {
@@ -203,6 +218,23 @@ public class CareerService {
 									.append("\n</story>\n");
 							return id;
 						}).list();
+				case APPLICATION -> {
+					data.append("<application company=\"").append(esc(application.company())).append("\" role=\"").append(esc(application.role()))
+							.append("\" stage=\"").append(application.stage()).append("\" appliedOn=\"")
+							.append(application.appliedOn() == null ? "" : application.appliedOn().toString()).append("\">\n");
+					for (var e : application.timeline()) {
+						data.append("<entry type=\"").append(e.type()).append("\" at=\"").append(e.at()).append("\">").append(esc(e.text()))
+								.append("</entry>\n");
+					}
+					data.append("</application>\n");
+				}
+				case ATTACHMENTS -> {
+					data.append("<attachments>");
+					for (var d : attachments(owner, applicationId)) {
+						data.append("<file kind=\"").append(d.kind()).append("\">").append(esc(d.title())).append("</file>");
+					}
+					data.append("</attachments>\n");
+				}
 				case QUESTION -> {
 					var q = question(owner, applicationId, questionId);
 					data.append("<question limit=\"").append(q.limitValue() == null ? "none" : q.limitValue() + " " + q.limitUnit().toLowerCase())
@@ -248,6 +280,17 @@ public class CareerService {
 		return new Gathered(text, ids, fingerprint(text));
 	}
 
+	/** The documents linked to the Application: a sent one under the title it was sent with, otherwise its live title; trashed ones are left out. */
+	List<Attachment> attachments(UUID owner, UUID applicationId) {
+		return jdbc.sql("""
+				select d.kind, case when d.sent_at is not null then d.sent_title else i.title end as title
+				from application_linked_documents d left join items i on i.id = d.item_id
+				where d.owner_id = :owner and d.application_id = :app and (d.sent_at is not null or i.deleted_at is null)
+				order by d.kind""")
+				.param("owner", owner).param("app", applicationId)
+				.query((rs, n) -> new Attachment(rs.getString("kind"), rs.getString("title"))).list();
+	}
+
 	/** The INTERVIEW entry of the timeline with this seq; 404 when there is none. */
 	static TimelineEntry interview(Application application, Integer seq) {
 		return application.timeline().stream().filter(e -> e.type().equals("INTERVIEW") && seq != null && e.seq() == seq).findFirst()
@@ -279,7 +322,9 @@ public class CareerService {
 	public Map<String, String> sends() {
 		return Map.of(CareerTask.FIT.kind(), CareerTask.FIT.sends(), CareerTask.DRAFT.kind(), CareerTask.DRAFT.sends(),
 				CareerTask.TIGHTEN.kind(), CareerTask.TIGHTEN.sends(), CareerTask.PREP.kind(), CareerTask.PREP.sends(),
-				CareerTask.PRACTICE.kind(), CareerTask.PRACTICE.sends(), CareerTask.DEBRIEF.kind(), CareerTask.DEBRIEF.sends());
+				CareerTask.PRACTICE.kind(), CareerTask.PRACTICE.sends(), CareerTask.DEBRIEF.kind(), CareerTask.DEBRIEF.sends(),
+				CareerTask.EMAIL.kind(), CareerTask.EMAIL.sends(), CareerTask.FOLLOW_UP.kind(), CareerTask.FOLLOW_UP.sends(),
+				CareerTask.THANK_YOU.kind(), CareerTask.THANK_YOU.sends());
 	}
 
 	/** Runs the Fit check and stores its result. */
@@ -319,6 +364,7 @@ public class CareerService {
 		Set<UUID> evidence = switch (result) {
 			case Fit fit -> fit.requirements().stream().flatMap(r -> r.evidence().stream()).collect(Collectors.toCollection(LinkedHashSet::new));
 			case Answer answer -> new LinkedHashSet<>(answer.evidence());
+			case Email email -> new LinkedHashSet<>(email.evidence());
 			case Prep prep -> prep.stress().stream().flatMap(p -> p.evidence().stream()).collect(Collectors.toCollection(LinkedHashSet::new));
 			default -> Set.of();
 		};
@@ -366,6 +412,60 @@ public class CareerService {
 	public Stored debriefSummary(UUID owner, UUID applicationId, int interviewSeq) {
 		return run(owner, applicationId, CareerTask.DEBRIEF, Subject.interview(interviewSeq), (answer, given) -> parseSummary(interviewSeq, answer),
 				"Your Debrief changed while the AI was working. Summarise again.");
+	}
+
+	/** Drafts the email that sends the Resume and Cover Letter; kept as an editable result. */
+	public Stored applicationEmail(UUID owner, UUID applicationId) {
+		return run(owner, applicationId, CareerTask.EMAIL, Subject.NONE,
+				(answer, given) -> parseEmail(answer, given, linkedKinds(owner, applicationId), null),
+				"Your posting, Knowledge, Stories or documents changed while the AI was working. Draft the email again.");
+	}
+
+	/** Drafts a follow-up to an employer that has not replied; refused until the Application is marked applied. */
+	public Stored followUp(UUID owner, UUID applicationId) {
+		if (applications.get(owner, applicationId).appliedOn() == null) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Mark this Application as applied first.");
+		}
+		return run(owner, applicationId, CareerTask.FOLLOW_UP, Subject.NONE, (answer, given) -> parseEmail(answer, given, Set.of(), null),
+				"Your posting or Application changed while the AI was working. Draft the follow-up again.");
+	}
+
+	/** Drafts a thank-you after one interview, from its Debrief; 404 without a Debrief. */
+	public Stored thankYou(UUID owner, UUID applicationId, int interviewSeq) {
+		return run(owner, applicationId, CareerTask.THANK_YOU, Subject.interview(interviewSeq),
+				(answer, given) -> parseEmail(answer, given, Set.of(), interviewSeq),
+				"Your Debrief, Knowledge or Stories changed while the AI was working. Draft the thank-you again.");
+	}
+
+	/** The kinds of document linked to the Application, as the prompt lists them: an attachment is limited to these. */
+	private Set<String> linkedKinds(UUID owner, UUID applicationId) {
+		return attachments(owner, applicationId).stream().map(Attachment::kind).collect(Collectors.toSet());
+	}
+
+	/**
+	 * Saves the User's edit of an email result: the subject and body only. The inputs it was made from stay the same, so
+	 * its out-of-date mark does not change.
+	 */
+	public Stored editEmail(UUID owner, UUID applicationId, UUID resultId, String subject, String body) {
+		var text = subject.strip();
+		if (text.isEmpty() || text.contains("\n") || text.contains("\r")) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "The subject must be one line.");
+		}
+		applications.get(owner, applicationId);
+		tx.executeWithoutResult(status -> {
+			var row = jdbc.sql("""
+					select data::text as data from career_results
+					where id = :id and owner_id = :owner and item_id = :app and kind in ('EMAIL', 'FOLLOW_UP', 'THANK_YOU') for update""")
+					.param("id", resultId).param("owner", owner).param("app", applicationId)
+					.query((rs, n) -> rs.getString("data")).optional()
+					.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Result not found."));
+			var email = json.readValue(row, Email.class);
+			var edited = new Email(text, body.strip(), email.attach(), email.evidence(), email.interviewSeq());
+			jdbc.sql("update career_results set data = :data::jsonb where id = :id and owner_id = :owner")
+					.param("data", json.writeValueAsString(edited)).param("id", resultId).param("owner", owner).update();
+		});
+		// shortcut: reads every result to return this one, upgrade to a single-row read when the Library grows long.
+		return results(owner, applicationId).stream().filter(s -> s.id().equals(resultId)).findFirst().orElseThrow();
 	}
 
 	/**
@@ -437,6 +537,45 @@ public class CareerService {
 			throw badAnswer();
 		}
 		return new Answer(question.id(), text, List.of());
+	}
+
+	/**
+	 * An email: a one-line subject and a body within the limits, or the answer is refused. The documents it attaches are
+	 * limited to the kinds linked on the Application, and evidence to the ids that were given; anything else is dropped.
+	 */
+	static Email parseEmail(String answer, Set<UUID> given, Set<String> linked, Integer interviewSeq) {
+		try {
+			var root = JsonMapper.builder().build().readTree(answer);
+			var subject = root.path("subject");
+			var body = root.path("body");
+			if (!subject.isString() || !body.isString() || !root.path("attach").isArray() || !root.path("evidence").isArray()) {
+				throw new IllegalArgumentException();
+			}
+			var text = subject.asString().strip();
+			var bodyText = body.asString().strip();
+			if (text.isEmpty() || text.length() > 200 || text.contains("\n") || text.contains("\r")) throw new IllegalArgumentException();
+			if (bodyText.isEmpty() || bodyText.length() > 5_000) throw new IllegalArgumentException();
+			var attach = new LinkedHashSet<String>();
+			for (JsonNode a : root.path("attach")) {
+				var kind = a.asString("");
+				if (!kind.equals("RESUME") && !kind.equals("COVER_LETTER")) throw new IllegalArgumentException();
+				if (linked.contains(kind)) attach.add(kind);
+			}
+			var cited = new LinkedHashSet<UUID>();
+			for (JsonNode e : root.path("evidence")) {
+				try {
+					var id = UUID.fromString(e.asString(""));
+					if (given.contains(id)) cited.add(id);
+				}
+				catch (IllegalArgumentException ignored) {
+					// Not an id at all: dropped like one that was not given.
+				}
+			}
+			return new Email(text, bodyText, List.copyOf(attach), List.copyOf(cited), interviewSeq);
+		}
+		catch (RuntimeException e) {
+			throw badAnswer();
+		}
 	}
 
 	private static ApiException badAnswer() {
@@ -593,6 +732,16 @@ public class CareerService {
 					result = summary;
 					task = CareerTask.DEBRIEF;
 					subject = Subject.interview(summary.interviewSeq());
+				}
+				case "EMAIL", "FOLLOW_UP", "THANK_YOU" -> {
+					var email = json.readValue(data, Email.class);
+					result = email;
+					task = switch (kind) {
+						case "EMAIL" -> CareerTask.EMAIL;
+						case "FOLLOW_UP" -> CareerTask.FOLLOW_UP;
+						default -> CareerTask.THANK_YOU;
+					};
+					if (email.interviewSeq() != null) subject = new Subject(null, email.interviewSeq(), null, null);
 				}
 				case "PRACTICE" -> result = json.readValue(data, Practice.class);
 				default -> {
