@@ -2,17 +2,25 @@ package com.coreex.career;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
@@ -22,6 +30,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.coreex.ai.AiService;
 import com.coreex.applications.Application;
+import com.coreex.applications.Application.Stage;
 import com.coreex.applications.Application.TimelineEntry;
 import com.coreex.applications.ApplicationService;
 import com.coreex.common.ApiException;
@@ -89,6 +98,24 @@ public class CareerService {
 	public record Email(String subject, String body, List<String> attach, List<UUID> evidence, Integer interviewSeq) {
 	}
 
+	/**
+	 * What a reply result holds: what the employer's email asks, what it leaves unconfirmed, a reply draft (its subject and body
+	 * may be edited by the User), the evidence the draft relies on (ids only) and the changes it proposes. The email is kept as
+	 * its stripped text, the only copy stored.
+	 */
+	public record Reply(String message, List<String> asks, List<String> unconfirmed, String subject, String body, List<UUID> evidence,
+			List<Change> changes) {
+
+		/** The same reply with the User's edited subject and body; nothing else changes. */
+		public Reply withText(String text, String bodyText) {
+			return new Reply(message, asks, unconfirmed, text, bodyText, evidence, changes);
+		}
+	}
+
+	/** A change a reply proposes: STAGE (stage, closeReason, date), FOLLOW_UP (date, time) or OFFER (offer terms); the rest is null. */
+	public record Change(String type, String why, String stage, String closeReason, String date, String time, Map<String, Object> offer) {
+	}
+
 	/** A document linked to the Application, as the prompt names it: its kind and the title it was sent under (or its live title). */
 	record Attachment(String kind, String title) {
 	}
@@ -105,6 +132,10 @@ public class CareerService {
 
 		public Email email() {
 			return result instanceof Email e ? e : null;
+		}
+
+		public Reply reply() {
+			return result instanceof Reply r ? r : null;
 		}
 
 		public Answer answer() {
@@ -126,16 +157,20 @@ public class CareerService {
 	}
 
 	/** What a task is about besides the Application: a form question, an interview, or a practice question and answer. */
-	record Subject(UUID questionId, Integer interviewSeq, String practiceQuestion, String practiceAnswer) {
+	record Subject(UUID questionId, Integer interviewSeq, String practiceQuestion, String practiceAnswer, String message) {
 
-		static final Subject NONE = new Subject(null, null, null, null);
+		static final Subject NONE = new Subject(null, null, null, null, null);
 
 		static Subject question(UUID id) {
-			return new Subject(id, null, null, null);
+			return new Subject(id, null, null, null, null);
 		}
 
 		static Subject interview(int seq) {
-			return new Subject(null, seq, null, null);
+			return new Subject(null, seq, null, null, null);
+		}
+
+		static Subject message(String text) {
+			return new Subject(null, null, null, null, text);
 		}
 
 	}
@@ -155,9 +190,12 @@ public class CareerService {
 
 	private final TransactionTemplate tx;
 
+	private final Clock clock;
+
 	private final JsonMapper json = JsonMapper.builder().build();
 
-	CareerService(JdbcClient jdbc, AiService ai, ApplicationService applications, TransactionTemplate tx) {
+	CareerService(JdbcClient jdbc, AiService ai, ApplicationService applications, TransactionTemplate tx, Clock clock) {
+		this.clock = clock;
 		this.jdbc = jdbc;
 		this.ai = ai;
 		this.applications = applications;
@@ -264,7 +302,13 @@ public class CareerService {
 					}
 					data.append("</debrief>\n");
 				}
-				case PREFERENCES -> jdbc.sql("""
+				case MESSAGE -> data.append("<message>\n").append(esc(subject.message())).append("\n</message>\n");
+					case OFFER -> jdbc.sql("""
+							select base_pay, currency, pay_period, bonus, equity, benefits, start_date, place, office_days, respond_by
+							from offers where owner_id = :owner and item_id = :app order by created_at desc, id limit 1""")
+							.param("owner", owner).param("app", applicationId).query((rs, n) -> offerText(rs)).optional()
+							.filter(text -> !text.isEmpty()).ifPresent(text -> data.append("<offer>\n").append(esc(text)).append("\n</offer>\n"));
+					case PREFERENCES -> jdbc.sql("""
 						select target_roles, places, min_base_pay, currency, pay_period, office_days, notice_period
 						from career_preferences where owner_id = :owner""").param("owner", owner).query((rs, n) -> {
 							data.append("<preferences>target roles: ").append(esc(rs.getString("target_roles"))).append("; places: ")
@@ -324,7 +368,8 @@ public class CareerService {
 				CareerTask.TIGHTEN.kind(), CareerTask.TIGHTEN.sends(), CareerTask.PREP.kind(), CareerTask.PREP.sends(),
 				CareerTask.PRACTICE.kind(), CareerTask.PRACTICE.sends(), CareerTask.DEBRIEF.kind(), CareerTask.DEBRIEF.sends(),
 				CareerTask.EMAIL.kind(), CareerTask.EMAIL.sends(), CareerTask.FOLLOW_UP.kind(), CareerTask.FOLLOW_UP.sends(),
-				CareerTask.THANK_YOU.kind(), CareerTask.THANK_YOU.sends());
+				CareerTask.THANK_YOU.kind(), CareerTask.THANK_YOU.sends(),
+				CareerTask.REPLY.kind(), CareerTask.REPLY.sends());
 	}
 
 	/** Runs the Fit check and stores its result. */
@@ -365,6 +410,7 @@ public class CareerService {
 			case Fit fit -> fit.requirements().stream().flatMap(r -> r.evidence().stream()).collect(Collectors.toCollection(LinkedHashSet::new));
 			case Answer answer -> new LinkedHashSet<>(answer.evidence());
 			case Email email -> new LinkedHashSet<>(email.evidence());
+				case Reply replied -> new LinkedHashSet<>(replied.evidence());
 			case Prep prep -> prep.stress().stream().flatMap(p -> p.evidence().stream()).collect(Collectors.toCollection(LinkedHashSet::new));
 			default -> Set.of();
 		};
@@ -404,7 +450,7 @@ public class CareerService {
 		if (q.isEmpty() || q.length() > 500 || a.isEmpty() || a.length() > 5_000) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Give a question up to 500 characters and an answer up to 5,000.");
 		}
-		return run(owner, applicationId, CareerTask.PRACTICE, new Subject(null, null, q, a), (reply, given) -> parsePractice(q, a, reply),
+		return run(owner, applicationId, CareerTask.PRACTICE, new Subject(null, null, q, a, null), (reply, given) -> parsePractice(q, a, reply),
 				"Your Application changed while the AI was working. Try again.");
 	}
 
@@ -412,6 +458,33 @@ public class CareerService {
 	public Stored debriefSummary(UUID owner, UUID applicationId, int interviewSeq) {
 		return run(owner, applicationId, CareerTask.DEBRIEF, Subject.interview(interviewSeq), (answer, given) -> parseSummary(interviewSeq, answer),
 				"Your Debrief changed while the AI was working. Summarise again.");
+	}
+
+	/**
+	 * Reads an employer's email the User pasted into the Application: what it asks, what it leaves unconfirmed, a reply draft and
+	 * the changes it proposes. The quoted history is stripped first, the email is data, and nothing in the Application changes.
+	 */
+	public Stored reply(UUID owner, UUID applicationId, String raw) {
+		var message = QuotedEmail.strip(raw);
+		if (message.isEmpty()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Paste the employer's email first.");
+		}
+		var application = applications.get(owner, applicationId);
+		var today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
+		return run(owner, applicationId, CareerTask.REPLY, Subject.message(message),
+				(answer, given) -> parseReply(message, answer, given, application.stage(), today),
+				"Your Application, Offer, Knowledge or Stories changed while the AI was working. Read the email again.");
+	}
+
+	/** The reply result with this id, when it is a reply of this User's Application; 404 otherwise. */
+	public Reply replyOf(UUID owner, UUID applicationId, UUID resultId) {
+		applications.get(owner, applicationId);
+		var data = jdbc.sql("""
+				select data::text from career_results
+				where id = :id and owner_id = :owner and item_id = :app and kind = 'REPLY'""")
+				.param("id", resultId).param("owner", owner).param("app", applicationId).query(String.class).optional()
+				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Result not found."));
+		return json.readValue(data, Reply.class);
 	}
 
 	/** Drafts the email that sends the Resume and Cover Letter; kept as an editable result. */
@@ -454,15 +527,21 @@ public class CareerService {
 		applications.get(owner, applicationId);
 		tx.executeWithoutResult(status -> {
 			var row = jdbc.sql("""
-					select data::text as data from career_results
-					where id = :id and owner_id = :owner and item_id = :app and kind in ('EMAIL', 'FOLLOW_UP', 'THANK_YOU') for update""")
+					select kind, data::text as data from career_results
+					where id = :id and owner_id = :owner and item_id = :app and kind in ('EMAIL', 'FOLLOW_UP', 'THANK_YOU', 'REPLY') for update""")
 					.param("id", resultId).param("owner", owner).param("app", applicationId)
-					.query((rs, n) -> rs.getString("data")).optional()
+					.query((rs, n) -> new String[] { rs.getString("kind"), rs.getString("data") }).optional()
 					.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Result not found."));
-			var email = json.readValue(row, Email.class);
-			var edited = new Email(text, body.strip(), email.attach(), email.evidence(), email.interviewSeq());
+			String edited;
+			if (row[0].equals("REPLY")) {
+				edited = json.writeValueAsString(json.readValue(row[1], Reply.class).withText(text, body.strip()));
+			}
+			else {
+				var email = json.readValue(row[1], Email.class);
+				edited = json.writeValueAsString(new Email(text, body.strip(), email.attach(), email.evidence(), email.interviewSeq()));
+			}
 			jdbc.sql("update career_results set data = :data::jsonb where id = :id and owner_id = :owner")
-					.param("data", json.writeValueAsString(edited)).param("id", resultId).param("owner", owner).update();
+					.param("data", edited).param("id", resultId).param("owner", owner).update();
 		});
 		// shortcut: reads every result to return this one, upgrade to a single-row read when the Library grows long.
 		return results(owner, applicationId).stream().filter(s -> s.id().equals(resultId)).findFirst().orElseThrow();
@@ -576,6 +655,177 @@ public class CareerService {
 		catch (RuntimeException e) {
 			throw badAnswer();
 		}
+	}
+
+	private static final int MAX_CHANGES = 5;
+
+	private static final Set<String> STAGES = Set.of("SCREENING", "INTERVIEW", "OFFER", "CLOSED");
+
+	private static final Set<String> CLOSE_REASONS = Set.of("ACCEPTED", "NOT_SELECTED", "WITHDREW", "ACCEPTED_ANOTHER", "NO_RESPONSE");
+
+	private static final Pattern TIME = Pattern.compile("\\d{2}:\\d{2}");
+
+	/**
+	 * The reply, checked: a broken shape, an empty subject or an empty body is refused and nothing is saved; a cited id that
+	 * was not given is dropped; and a change that is not valid is dropped, so the rest of the reply still stands.
+	 */
+	static Reply parseReply(String message, String answer, Set<UUID> given, Stage current, LocalDate today) {
+		try {
+			var root = JsonMapper.builder().build().readTree(answer);
+			var subject = root.path("replySubject");
+			var body = root.path("replyBody");
+			if (!subject.isString() || !body.isString() || !root.path("asks").isArray() || !root.path("unconfirmed").isArray()
+					|| !root.path("evidence").isArray() || !root.path("changes").isArray()) {
+				throw new IllegalArgumentException();
+			}
+			var text = cut(subject.asString().replaceAll("\\s+", " ").strip(), 200);
+			var bodyText = body.asString().strip();
+			if (text.isEmpty() || bodyText.isEmpty() || bodyText.length() > 5_000) throw new IllegalArgumentException();
+			var changes = new ArrayList<Change>();
+			for (JsonNode c : root.path("changes")) {
+				if (changes.size() == MAX_CHANGES) break;
+				var change = parseChange(c, current, today);
+				if (change != null) changes.add(change);
+			}
+			return new Reply(message, listed(root.path("asks"), 10, 300), listed(root.path("unconfirmed"), 10, 300), text, bodyText,
+					cited(root.path("evidence"), given), List.copyOf(changes));
+		}
+		catch (RuntimeException e) {
+			throw badAnswer();
+		}
+	}
+
+	/** One proposed change, checked, or null when it is not valid: it is dropped and the rest of the reply stands. */
+	static Change parseChange(JsonNode c, Stage current, LocalDate today) {
+		var why = cut(c.path("why").asString("").strip(), 300);
+		var stage = blank(c.path("stage"));
+		var reason = blank(c.path("closeReason"));
+		var date = blank(c.path("date"));
+		var time = blank(c.path("time"));
+		return switch (c.path("type").asString("")) {
+			case "STAGE" -> {
+				// Only the four Stages a reply can move to: Saved and Applied are never proposed.
+				if (stage == null || !STAGES.contains(stage) || Stage.valueOf(stage) == current) yield null;
+				if (stage.equals("CLOSED") && (reason == null || !CLOSE_REASONS.contains(reason))) yield null;
+				var on = isoDate(date);
+				if (date != null && (on == null || on.isAfter(today))) yield null;
+				yield new Change("STAGE", why, stage, stage.equals("CLOSED") ? reason : null, date, null, null);
+			}
+			case "FOLLOW_UP" -> {
+				var on = isoDate(date);
+				if (on == null || on.isBefore(today)) yield null;
+				if (time != null && (!TIME.matcher(time).matches() || timeOf(time) == null)) yield null;
+				yield new Change("FOLLOW_UP", why, null, null, date, time, null);
+			}
+			case "OFFER" -> {
+				var offer = offerFields(c.path("offer"));
+				yield offer.isEmpty() ? null : new Change("OFFER", why, null, null, null, null, offer);
+			}
+			default -> null;
+		};
+	}
+
+	/** The terms a change proposes, each checked the way the Offer form checks it; an invalid term is left out and the rest stand. */
+	static Map<String, Object> offerFields(JsonNode o) {
+		var terms = new LinkedHashMap<String, Object>();
+		var pay = decimal(blank(o.path("basePay")));
+		if (pay != null && pay.signum() >= 0 && pay.scale() <= 2 && pay.precision() - pay.scale() <= 12) {
+			terms.put("basePay", pay.toPlainString());
+		}
+		var currency = blank(o.path("currency"));
+		if (currency != null && currency.toUpperCase(Locale.ROOT).matches("[A-Z]{3}")) terms.put("currency", currency.toUpperCase(Locale.ROOT));
+		var period = blank(o.path("payPeriod"));
+		if (period != null && Set.of("YEAR", "MONTH", "HOUR").contains(period.toUpperCase(Locale.ROOT))) {
+			terms.put("payPeriod", period.toUpperCase(Locale.ROOT));
+		}
+		for (var name : List.of("bonus", "equity", "benefits", "place")) {
+			var value = blank(o.path(name));
+			if (value != null && value.length() <= 2000) terms.put(name, value);
+		}
+		var start = isoDate(blank(o.path("startDate")));
+		if (start != null) terms.put("startDate", start.toString());
+		var days = blank(o.path("officeDays"));
+		if (days != null && days.matches("[0-5]")) terms.put("officeDays", days);
+		var respond = isoDate(blank(o.path("respondBy")));
+		if (respond != null) terms.put("respondBy", respond.toString());
+		return terms;
+	}
+
+	private static String blank(JsonNode node) {
+		var text = node.isMissingNode() || node.isNull() ? "" : node.asString("").strip();
+		return text.isEmpty() ? null : text;
+	}
+
+	private static LocalDate isoDate(String text) {
+		if (text == null) return null;
+		try {
+			return LocalDate.parse(text);
+		}
+		catch (DateTimeParseException e) {
+			return null;
+		}
+	}
+
+	private static LocalTime timeOf(String text) {
+		try {
+			return LocalTime.parse(text);
+		}
+		catch (DateTimeParseException e) {
+			return null;
+		}
+	}
+
+	private static BigDecimal decimal(String text) {
+		if (text == null) return null;
+		try {
+			return new BigDecimal(text);
+		}
+		catch (NumberFormatException e) {
+			return null;
+		}
+	}
+
+	private static List<String> listed(JsonNode array, int max, int length) {
+		var out = new ArrayList<String>();
+		for (JsonNode e : array) {
+			if (e.isString() && !e.asString().isBlank() && out.size() < max) out.add(cut(e.asString().strip(), length));
+		}
+		return List.copyOf(out);
+	}
+
+	/** The ids that were given, in the order cited; anything else is dropped. */
+	private static List<UUID> cited(JsonNode ids, Set<UUID> given) {
+		var cited = new LinkedHashSet<UUID>();
+		for (JsonNode e : ids) {
+			try {
+				var id = UUID.fromString(e.asString(""));
+				if (given.contains(id)) cited.add(id);
+			}
+			catch (IllegalArgumentException ignored) {
+				// Not an id at all: dropped like one that was not given.
+			}
+		}
+		return List.copyOf(cited);
+	}
+
+	/** The terms of the latest Offer, one "name: value" line each; an unknown term is left out. */
+	private static String offerText(java.sql.ResultSet rs) throws java.sql.SQLException {
+		var fields = new LinkedHashMap<String, Object>();
+		fields.put("base pay", rs.getBigDecimal("base_pay"));
+		fields.put("currency", rs.getString("currency"));
+		fields.put("pay period", rs.getString("pay_period"));
+		fields.put("bonus", rs.getString("bonus"));
+		fields.put("equity", rs.getString("equity"));
+		fields.put("benefits", rs.getString("benefits"));
+		fields.put("start date", rs.getObject("start_date", LocalDate.class));
+		fields.put("place", rs.getString("place"));
+		fields.put("office days a week", rs.getObject("office_days"));
+		fields.put("reply by", rs.getObject("respond_by", LocalDate.class));
+		var lines = new ArrayList<String>();
+		fields.forEach((name, value) -> {
+			if (value != null) lines.add(name + ": " + value);
+		});
+		return String.join("\n", lines);
 	}
 
 	private static ApiException badAnswer() {
@@ -701,11 +951,12 @@ public class CareerService {
 	public List<Stored> results(UUID owner, UUID applicationId) {
 		applications.get(owner, applicationId);
 		var rows = jdbc.sql("""
-				select id, kind, data::text as data, input_fingerprint, resolution, created_at from career_results
+				select id, kind, data::text as data, input_fingerprint, resolution, created_at,
+					exists (select 1 from career_changes c where c.result_id = career_results.id) as has_changes from career_results
 				where owner_id = :owner and item_id = :app order by created_at desc, id""").param("owner", owner)
 				.param("app", applicationId).query((rs, n) -> new Object[] { rs.getObject("id", UUID.class), rs.getString("kind"),
 						rs.getString("data"), rs.getString("input_fingerprint"), rs.getString("resolution"),
-						rs.getObject("created_at", OffsetDateTime.class).toInstant() })
+						rs.getObject("created_at", OffsetDateTime.class).toInstant(), rs.getBoolean("has_changes") })
 				.list();
 		var current = new HashMap<String, String>();
 		var stored = new ArrayList<Stored>();
@@ -741,7 +992,16 @@ public class CareerService {
 						case "FOLLOW_UP" -> CareerTask.FOLLOW_UP;
 						default -> CareerTask.THANK_YOU;
 					};
-					if (email.interviewSeq() != null) subject = new Subject(null, email.interviewSeq(), null, null);
+					if (email.interviewSeq() != null) subject = new Subject(null, email.interviewSeq(), null, null, null);
+				}
+				case "REPLY" -> {
+					var reply = json.readValue(data, Reply.class);
+					result = reply;
+					// A reply whose changes were applied or undone is history: it is never out of date.
+					if (!((Boolean) r[6])) {
+						task = CareerTask.REPLY;
+						subject = Subject.message(reply.message());
+					}
 				}
 				case "PRACTICE" -> result = json.readValue(data, Practice.class);
 				default -> {

@@ -1,6 +1,7 @@
 package com.coreex.career;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +60,8 @@ class CareerController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "Set for a PREP result") PrepResponse prep,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "Set for a PRACTICE result") PracticeResponse practice,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "Set for a DEBRIEF result") SummaryResponse summary,
-				@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "Set for an EMAIL, FOLLOW_UP or THANK_YOU result") EmailResponse email) {
+				@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "Set for an EMAIL, FOLLOW_UP or THANK_YOU result") EmailResponse email,
+				@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "Set for a REPLY result") ReplyResponse reply) {
 	}
 
 	record PointResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String point,
@@ -91,6 +93,21 @@ class CareerController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "What the email relies on; a forgotten or switched-off Fact is left out") List<EvidenceResponse> evidence) {
 	}
 
+	record ChangeResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Its place in the reply's changes; apply and undo name it") int index,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) CareerService.Change change,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "PROPOSED, APPLIED or UNDONE") String state,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "True when this applied change can be undone now") boolean canUndo) {
+	}
+
+	record ReplyResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The employer's email, with its quoted history removed") String message,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "What the email asks") List<String> asks,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "What the email leaves unconfirmed") List<String> unconfirmed,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The reply's subject, which the User may edit") String subject,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The reply's body, which the User may edit") String body,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "What the reply relies on; a forgotten or switched-off Fact is left out") List<EvidenceResponse> evidence,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The changes the email proposes; each is applied or undone on its own") List<ChangeResponse> changes) {
+	}
+
 	record SummaryResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int interviewSeq,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<String> improve) {
 	}
@@ -113,11 +130,14 @@ class CareerController {
 
 	private final CareerService career;
 
-	CareerController(CareerService career) {
+	private final ReplyService replies;
+
+	CareerController(CareerService career, ReplyService replies) {
 		this.career = career;
+		this.replies = replies;
 	}
 
-	private ResultResponse respond(Stored stored, Map<UUID, CareerService.Evidence> evidence) {
+	private ResultResponse respond(Stored stored, Map<UUID, CareerService.Evidence> evidence, Map<Integer, ReplyService.State> states) {
 		FitResponse fit = null;
 		if (stored.fit() != null) {
 			fit = new FitResponse(stored.fit().score(), stored.fit().question(), stored.fit().requirements().stream()
@@ -134,8 +154,21 @@ class CareerController {
 		var summary = stored.summary() == null ? null : new SummaryResponse(stored.summary().interviewSeq(), stored.summary().improve());
 		var email = stored.email() == null ? null : new EmailResponse(stored.email().subject(), stored.email().body(), stored.email().attach(),
 				stored.email().interviewSeq(), evidence(stored.email().evidence(), evidence));
-		return new ResultResponse(stored.id(), stored.kind(), stored.outOfDate(), stored.createdAt(), fit, answer, stored.resolution(), prep,
-				practice, summary, email);
+		var reply = stored.reply() == null ? null : new ReplyResponse(stored.reply().message(), stored.reply().asks(),
+					stored.reply().unconfirmed(), stored.reply().subject(), stored.reply().body(), evidence(stored.reply().evidence(), evidence),
+					changes(stored.reply().changes(), states));
+			return new ResultResponse(stored.id(), stored.kind(), stored.outOfDate(), stored.createdAt(), fit, answer, stored.resolution(), prep,
+				practice, summary, email, reply);
+	}
+
+	/** Each change with its state: PROPOSED until it is applied, then APPLIED, and UNDONE once it is undone. */
+	private static List<ChangeResponse> changes(List<CareerService.Change> changes, Map<Integer, ReplyService.State> states) {
+		var out = new ArrayList<ChangeResponse>();
+		for (int i = 0; i < changes.size(); i++) {
+			var state = states.get(i);
+			out.add(new ChangeResponse(i, changes.get(i), state == null ? "PROPOSED" : state.state(), state != null && state.canUndo()));
+		}
+		return out;
 	}
 
 	private static List<EvidenceResponse> evidence(List<UUID> ids, Map<UUID, CareerService.Evidence> known) {
@@ -149,9 +182,12 @@ class CareerController {
 			if (s.answer() != null) ids.addAll(s.answer().evidence());
 			if (s.prep() != null) s.prep().stress().forEach(p -> ids.addAll(p.evidence()));
 			if (s.email() != null) ids.addAll(s.email().evidence());
+			if (s.reply() != null) ids.addAll(s.reply().evidence());
 		});
 		var evidence = career.evidence(owner, ids);
-		return stored.stream().map(s -> respond(s, evidence)).toList();
+		var replyIds = stored.stream().filter(s -> s.reply() != null).map(Stored::id).toList();
+		var states = replies.states(owner, replyIds);
+		return stored.stream().map(s -> respond(s, evidence, states.getOrDefault(s.id(), Map.of()))).toList();
 	}
 
 	/** The Application's results, newest first, and what each task sends. */

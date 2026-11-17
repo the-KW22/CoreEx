@@ -15,7 +15,14 @@ class FakeModel implements Model {
 
 	@Override
 	public Reply ask(String system, String data, Map<String, Object> schema, long maxTokens) {
-		if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("requirements")) {
+		if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("asks")) {
+				// A reply to an employer's email: what it asks, one start date unconfirmed, a fixed draft and no changes.
+				return new Reply(json.writeValueAsString(Map.of("asks", java.util.List.of("Can you share your availability?"),
+						"unconfirmed", java.util.List.of("The start date"), "replySubject", "Re: your application",
+						"replyBody", "Thank you for your email. I am available next week.", "evidence", java.util.List.of(),
+						"changes", java.util.List.of())), 100, 100);
+			}
+			if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("requirements")) {
 			// A Fit check: one requirement shown by the first Fact it was given, or missing when it was given none.
 			var fact = java.util.regex.Pattern.compile("<fact id=\"([0-9a-f-]{36})\"").matcher(data);
 			var evidence = fact.find() ? java.util.List.of(fact.group(1)) : java.util.List.<String>of();

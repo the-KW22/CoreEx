@@ -319,6 +319,28 @@ public class ApplicationService {
 				current.timeline().stream().map(e -> e.seq() == seq ? edited : e).toList());
 	}
 
+	/** The state an apply of a career reply may change: the Stage, close reason, applied date, reminder and timeline. */
+	public record Snapshot(Stage stage, CloseReason closeReason, Instant appliedOn, LocalDate reminderOn, LocalTime reminderTime,
+			List<TimelineEntry> timeline) {
+	}
+
+	public static Snapshot snapshotOf(Application a) {
+		return new Snapshot(a.stage(), a.closeReason(), a.appliedOn(), a.reminderOn(), a.reminderTime(), a.timeline());
+	}
+
+	/**
+	 * Puts back an earlier Stage, close reason, applied date, reminder and timeline. The version the caller saw must still be
+	 * current (409 otherwise); the save counter goes up as for any other edit.
+	 */
+	@Transactional
+	public Application restore(UUID ownerId, UUID id, Snapshot before, int expectedVersion) {
+		get(ownerId, id);
+		if (!applications.restoreState(ownerId, id, expectedVersion, before)) {
+			throw conflict();
+		}
+		return get(ownerId, id);
+	}
+
 	/** Sets, changes or (with no date) clears the one follow-up reminder. A time needs a date. */
 	@Transactional
 	public Application setReminder(UUID ownerId, UUID id, LocalDate on, LocalTime time, int seenVersion) {

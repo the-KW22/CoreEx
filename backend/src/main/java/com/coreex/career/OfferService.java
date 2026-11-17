@@ -152,6 +152,13 @@ public class OfferService {
 		return one(owner, offerId);
 	}
 
+	/** Deletes an Offer that is still the version seen; false when it is gone or has changed. Undoes an Offer that an apply created. */
+	@Transactional
+	public boolean delete(UUID owner, UUID offerId, int seenVersion) {
+		return jdbc.sql("delete from offers where id = :id and owner_id = :owner and version = :seen")
+				.param("id", offerId).param("owner", owner).param("seen", seenVersion).update() > 0;
+	}
+
 	/** The earlier terms of an Offer, newest first. */
 	public List<Version> versions(UUID owner, UUID offerId) {
 		one(owner, offerId);
