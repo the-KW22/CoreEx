@@ -92,6 +92,15 @@ public class OfferService {
 				.list();
 	}
 
+	/** The respond-by dates of the User's Offers, for Today. */
+	public List<TodayLists.OfferDeadline> deadlines(UUID owner) {
+		return jdbc.sql("select o.item_id, o.respond_by from offers o join items i on i.id = o.item_id"
+				+ " where o.owner_id = :owner and o.respond_by is not null and i.deleted_at is null")
+				.param("owner", owner).query((rs, n) -> new TodayLists.OfferDeadline(rs.getObject("item_id", UUID.class),
+						rs.getObject("respond_by", LocalDate.class)))
+				.list();
+	}
+
 	private Offer one(UUID owner, UUID offerId) {
 		var prefs = prefs(owner);
 		return jdbc.sql("select " + COLUMNS + " from offers o join items i on i.id = o.item_id"

@@ -147,6 +147,11 @@ public class ApplicationService {
 	public record Listed(List<Application> items, int total) {
 	}
 
+	/** Every Application of the User, for the Today page. */
+	public List<Application> all(UUID ownerId) {
+		return applications.findAll(ownerId);
+	}
+
 	public NextStep nextStep(Application application, ZoneId zone) {
 		return NextStep.of(application, clock.instant(), zone);
 	}
