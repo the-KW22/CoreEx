@@ -340,6 +340,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/career/interviews/{seq}/debrief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["save_5"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{id}/quota": {
         parameters: {
             query?: never;
@@ -1124,6 +1140,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/career/practice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["practice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/{id}/career/mark-applied": {
         parameters: {
             query?: never;
@@ -1134,6 +1166,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["markApplied"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/interviews/{seq}/prep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["prep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/interviews/{seq}/debrief/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["debriefSummary"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1780,6 +1844,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/career/debriefs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_17"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/{id}/career/apply": {
         parameters: {
             query?: never;
@@ -1835,7 +1915,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_17"];
+        get: operations["list_18"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2470,6 +2550,39 @@ export interface components {
              */
             version: number;
         };
+        AskedBody: {
+            question: string;
+            /** @description WELL, MIXED or POORLY */
+            landed: string;
+            note: string;
+        };
+        SaveDebriefRequest: {
+            notes: string;
+            /** @description At most 30 */
+            questions: components["schemas"]["AskedBody"][];
+            /**
+             * Format: int32
+             * @description The version you saw; leave out to create the Debrief
+             */
+            version?: number | null;
+        };
+        DebriefResponse: {
+            /**
+             * Format: int32
+             * @description The interview's seq in the timeline
+             */
+            interviewSeq: number;
+            /** Format: date-time */
+            interviewAt: string;
+            /** @description PHONE, VIDEO, ONSITE or OTHER */
+            interviewKind: string;
+            notes: string;
+            questions: components["schemas"]["AskedBody"][];
+            /** Format: int32 */
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         SetQuotaRequest: {
             /**
              * Format: int64
@@ -2891,6 +3004,38 @@ export interface components {
             question: string;
             requirements: components["schemas"]["RequirementResponse"][];
         };
+        PointResponse: {
+            point: string;
+            /** @description What shows it; a forgotten or switched-off Fact is left out */
+            evidence: components["schemas"]["EvidenceResponse"][];
+        };
+        PracticeResponse: {
+            question: string;
+            answer: string;
+            /** @description What works; every quote is from the answer */
+            works: components["schemas"]["QuoteResponse"][];
+            strengthen: string;
+        };
+        PrepResponse: {
+            /**
+             * Format: int32
+             * @description The interview's seq in the timeline
+             */
+            interviewSeq: number;
+            plan: string[];
+            /** @description What the posting says about the company and role */
+            about: string;
+            stress: components["schemas"]["PointResponse"][];
+            /** @description Questions to ask the interviewer */
+            ask: string[];
+            /** @description Questions to practise */
+            practice: string[];
+        };
+        QuoteResponse: {
+            /** @description Words found in the answer */
+            quote: string;
+            why: string;
+        };
         RequirementResponse: {
             requirement: string;
             /** @enum {string} */
@@ -2902,7 +3047,7 @@ export interface components {
         ResultResponse: {
             /** Format: uuid */
             id: string;
-            /** @description FIT, DRAFT or TIGHTEN */
+            /** @description FIT, DRAFT, TIGHTEN, PREP, PRACTICE or DEBRIEF */
             kind: string;
             /** @description The posting, Knowledge or documents changed since it was made */
             outOfDate: boolean;
@@ -2914,6 +3059,17 @@ export interface components {
             answer: components["schemas"]["AnswerResponse"];
             /** @description ACCEPTED or REJECTED; empty while it waits for the User */
             resolution: string | null;
+            /** @description Set for a PREP result */
+            prep: components["schemas"]["PrepResponse"];
+            /** @description Set for a PRACTICE result */
+            practice: components["schemas"]["PracticeResponse"];
+            /** @description Set for a DEBRIEF result */
+            summary: components["schemas"]["SummaryResponse"];
+        };
+        SummaryResponse: {
+            /** Format: int32 */
+            interviewSeq: number;
+            improve: string[];
         };
         ReuseRequest: {
             /** Format: uuid */
@@ -2928,6 +3084,10 @@ export interface components {
         KeptResponse: {
             /** Format: uuid */
             id: string;
+        };
+        PracticeRequest: {
+            question: string;
+            answer: string;
         };
         SentAnswerResponse: {
             question: string;
@@ -3445,6 +3605,10 @@ export interface components {
         SuggestionsResponse: {
             /** @description Best match first */
             items: components["schemas"]["SuggestionResponse"][];
+        };
+        DebriefList: {
+            /** @description Latest interview first */
+            items: components["schemas"]["DebriefResponse"][];
         };
         ApplyResponse: {
             questions: components["schemas"]["QuestionResponse"][];
@@ -4845,6 +5009,33 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    save_5: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDebriefRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DebriefResponse"];
+                };
             };
         };
     };
@@ -6928,6 +7119,32 @@ export interface operations {
             };
         };
     };
+    practice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PracticeRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
     markApplied: {
         parameters: {
             query?: never;
@@ -6946,6 +7163,52 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["SubmissionResponse"];
+                };
+            };
+        };
+    };
+    prep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
+    debriefSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
                 };
             };
         };
@@ -8305,6 +8568,28 @@ export interface operations {
             };
         };
     };
+    list_17: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DebriefList"];
+                };
+            };
+        };
+    };
     get_7: {
         parameters: {
             query?: never;
@@ -8380,7 +8665,7 @@ export interface operations {
             };
         };
     };
-    list_17: {
+    list_18: {
         parameters: {
             query?: {
                 page?: number;
