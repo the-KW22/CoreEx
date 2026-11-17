@@ -25,6 +25,18 @@ class FakeModel implements Model {
 			return new Reply(json.writeValueAsString(Map.of("score", 72, "question", "What does a first month look like?",
 					"requirements", java.util.List.of(requirement, gap))), 100, 100);
 		}
+		if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("draft")) {
+			// A Draft: cites the first Fact it was given, if any.
+			var fact = java.util.regex.Pattern.compile("<fact id=\"([0-9a-f-]{36})\"").matcher(data);
+			var evidence = fact.find() ? java.util.List.of(fact.group(1)) : java.util.List.<String>of();
+			return new Reply(json.writeValueAsString(Map.of("draft", "I build reliable web services and care about clear, tested code.", "evidence", evidence)), 100, 100);
+		}
+		if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("tightened")) {
+			// A Tighten: the first half of the words of the answer it was given.
+			var text = java.util.regex.Pattern.compile("(?s)<answer>(.*?)</answer>").matcher(data);
+			var words = text.find() ? text.group(1).trim().split("\\s+") : new String[0];
+			return new Reply(json.writeValueAsString(Map.of("tightened", String.join(" ", java.util.Arrays.copyOf(words, Math.max(1, words.length / 2))))), 100, 100);
+		}
 		if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("suggestions")) {
 			var original = json.readTree(data).path("fields").path("summary").asText();
 			var suggestions = original.isBlank() ? java.util.List.of() : java.util.List.of(Map.of("field", "summary", "original", original, "suggestion", original));

@@ -324,6 +324,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/career/questions/{questionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["save_4"];
+        post?: never;
+        delete: operations["delete_4"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{id}/quota": {
         parameters: {
             query?: never;
@@ -996,6 +1012,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/career/results/{resultId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reject_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/results/{resultId}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["accept_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["add_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/questions/{questionId}/tighten": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["tighten"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/questions/{questionId}/reuse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reuse"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/questions/{questionId}/library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["keep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/questions/{questionId}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["draft_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/mark-applied": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["markApplied"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/{id}/career/fit": {
         parameters: {
             query?: never;
@@ -1620,6 +1764,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/career/questions/{questionId}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["suggestions_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_7"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/applied-before": {
         parameters: {
             query?: never;
@@ -1759,6 +1935,22 @@ export interface paths {
         put?: never;
         post?: never;
         delete: operations["detach"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/library/{libraryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["removeFromLibrary"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2254,6 +2446,30 @@ export interface components {
             /** Format: int32 */
             version: number;
         };
+        SaveQuestionRequest: {
+            question: string;
+            limitUnit?: string | null;
+            /** Format: int32 */
+            limitValue?: number | null;
+            answer: string;
+            /** Format: int32 */
+            version: number;
+        };
+        QuestionResponse: {
+            /** Format: uuid */
+            id: string;
+            question: string;
+            /** @description WORDS or CHARS */
+            limitUnit: string | null;
+            /** Format: int32 */
+            limitValue: number | null;
+            answer: string;
+            /**
+             * Format: int32
+             * @description The save counter; send it back when you save or accept
+             */
+            version: number;
+        };
         SetQuotaRequest: {
             /**
              * Format: int64
@@ -2639,6 +2855,26 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        AcceptRequest: {
+            /**
+             * Format: int32
+             * @description The version of the answer you saw
+             */
+            version: number;
+        };
+        AddQuestionRequest: {
+            question: string;
+            limitUnit?: string | null;
+            /** Format: int32 */
+            limitValue?: number | null;
+        };
+        AnswerResponse: {
+            /** Format: uuid */
+            questionId: string;
+            text: string;
+            /** @description What a Draft cites; empty for a Tighten */
+            evidence: components["schemas"]["EvidenceResponse"][];
+        };
         EvidenceResponse: {
             /** Format: uuid */
             id: string;
@@ -2666,7 +2902,7 @@ export interface components {
         ResultResponse: {
             /** Format: uuid */
             id: string;
-            /** @description FIT */
+            /** @description FIT, DRAFT or TIGHTEN */
             kind: string;
             /** @description The posting, Knowledge or documents changed since it was made */
             outOfDate: boolean;
@@ -2674,6 +2910,38 @@ export interface components {
             createdAt: string;
             /** @description Set for a FIT result */
             fit: components["schemas"]["FitResponse"];
+            /** @description Set for a DRAFT or TIGHTEN result */
+            answer: components["schemas"]["AnswerResponse"];
+            /** @description ACCEPTED or REJECTED; empty while it waits for the User */
+            resolution: string | null;
+        };
+        ReuseRequest: {
+            /** Format: uuid */
+            libraryId: string;
+            /** Format: int32 */
+            version: number;
+        };
+        KeepRequest: {
+            /** @enum {string} */
+            scope: "REUSABLE" | "EMPLOYER" | "JOB";
+        };
+        KeptResponse: {
+            /** Format: uuid */
+            id: string;
+        };
+        SentAnswerResponse: {
+            question: string;
+            answer: string;
+            limitUnit: string | null;
+            /** Format: int32 */
+            limitValue: number | null;
+            /** Format: int32 */
+            count: number;
+        };
+        SubmissionResponse: {
+            /** Format: date-time */
+            sentAt: string;
+            answers: components["schemas"]["SentAnswerResponse"][];
         };
         ReadLinkRequest: {
             url: string;
@@ -3165,6 +3433,25 @@ export interface components {
             sends: {
                 [key: string]: string;
             };
+        };
+        SuggestionResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            scope: "REUSABLE" | "EMPLOYER" | "JOB";
+            question: string;
+            answer: string;
+        };
+        SuggestionsResponse: {
+            /** @description Best match first */
+            items: components["schemas"]["SuggestionResponse"][];
+        };
+        ApplyResponse: {
+            questions: components["schemas"]["QuestionResponse"][];
+            /** @description What stops Mark as applied right now; empty once applied */
+            blockers: string[];
+            /** @description What was sent, once marked as applied */
+            submission: components["schemas"]["SubmissionResponse"];
         };
         EarlierApplication: {
             /** Format: uuid */
@@ -4510,6 +4797,54 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
+            };
+        };
+    };
+    save_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveQuestionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["QuestionResponse"];
+                };
+            };
+        };
+    };
+    delete_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -6421,6 +6756,200 @@ export interface operations {
             };
         };
     };
+    reject_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                resultId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    accept_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                resultId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    add_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddQuestionRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["QuestionResponse"];
+                };
+            };
+        };
+    };
+    tighten: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
+    reuse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReuseRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["QuestionResponse"];
+                };
+            };
+        };
+    };
+    keep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["KeptResponse"];
+                };
+            };
+        };
+    };
+    draft_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
+    markApplied: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SubmissionResponse"];
+                };
+            };
+        };
+    };
     fit: {
         parameters: {
             query?: never;
@@ -7753,6 +8282,51 @@ export interface operations {
             };
         };
     };
+    suggestions_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SuggestionsResponse"];
+                };
+            };
+        };
+    };
+    get_7: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApplyResponse"];
+                };
+            };
+        };
+    };
     appliedBefore: {
         parameters: {
             query?: {
@@ -8020,6 +8594,27 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["DuplicatePostingResponse"];
                 };
+            };
+        };
+    };
+    removeFromLibrary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                libraryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
