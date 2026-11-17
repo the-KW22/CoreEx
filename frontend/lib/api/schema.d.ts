@@ -1092,6 +1092,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/career/results/{resultId}/changes/{index}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["undo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/results/{resultId}/changes/{index}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/{id}/career/results/{resultId}/accept": {
         parameters: {
             query?: never;
@@ -1102,6 +1134,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["accept_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reply"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2729,6 +2777,29 @@ export interface components {
             /** @description What a Draft cites; empty for a Tighten */
             evidence: components["schemas"]["EvidenceResponse"][];
         };
+        Change: {
+            type?: string;
+            why?: string;
+            stage?: string;
+            closeReason?: string;
+            date?: string;
+            time?: string;
+            offer?: {
+                [key: string]: unknown;
+            };
+        };
+        ChangeResponse: {
+            /**
+             * Format: int32
+             * @description Its place in the reply's changes; apply and undo name it
+             */
+            index: number;
+            change: components["schemas"]["Change"];
+            /** @description PROPOSED, APPLIED or UNDONE */
+            state: string;
+            /** @description True when this applied change can be undone now */
+            canUndo: boolean;
+        };
         EmailResponse: {
             subject: string;
             body: string;
@@ -2790,6 +2861,22 @@ export interface components {
             quote: string;
             why: string;
         };
+        ReplyResponse: {
+            /** @description The employer's email, with its quoted history removed */
+            message: string;
+            /** @description What the email asks */
+            asks: string[];
+            /** @description What the email leaves unconfirmed */
+            unconfirmed: string[];
+            /** @description The reply's subject, which the User may edit */
+            subject: string;
+            /** @description The reply's body, which the User may edit */
+            body: string;
+            /** @description What the reply relies on; a forgotten or switched-off Fact is left out */
+            evidence: components["schemas"]["EvidenceResponse"][];
+            /** @description The changes the email proposes; each is applied or undone on its own */
+            changes: components["schemas"]["ChangeResponse"][];
+        };
         RequirementResponse: {
             requirement: string;
             /** @enum {string} */
@@ -2821,6 +2908,8 @@ export interface components {
             summary: components["schemas"]["SummaryResponse"];
             /** @description Set for an EMAIL, FOLLOW_UP or THANK_YOU result */
             email: components["schemas"]["EmailResponse"];
+            /** @description Set for a REPLY result */
+            reply: components["schemas"]["ReplyResponse"];
         };
         SummaryResponse: {
             /** Format: int32 */
@@ -3275,6 +3364,10 @@ export interface components {
              * @description The version of the answer you saw
              */
             version: number;
+        };
+        ReplyRequest: {
+            /** @description The employer's email as pasted; its quoted history is removed */
+            message: string;
         };
         AddQuestionRequest: {
             question: string;
@@ -7348,6 +7441,54 @@ export interface operations {
             };
         };
     };
+    undo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                resultId: string;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
+    apply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                resultId: string;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
     accept_2: {
         parameters: {
             query?: never;
@@ -7370,6 +7511,32 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    reply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
             };
         };
     };

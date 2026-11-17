@@ -15,6 +15,7 @@ import { runFit } from "./career-actions";
 import { DebriefPanel } from "./debrief";
 import { EmailsPanel } from "./emails";
 import { InterviewPrep } from "./interview-prep";
+import { MessagesPanel } from "./messages";
 import { PracticePanel } from "./practice";
 
 type Library = components["schemas"]["Library"];
@@ -25,7 +26,7 @@ type Debrief = components["schemas"]["DebriefResponse"];
 type Linked = components["schemas"]["LinkedDocument"];
 type NextStep = components["schemas"]["NextStepResponse"];
 
-const TABS = ["Details", "Fit", "Apply", "Emails", "Interview prep", "Practice", "Debrief", "Library"] as const;
+const TABS = ["Details", "Fit", "Apply", "Emails", "Messages", "Interview prep", "Practice", "Debrief", "Library"] as const;
 type Tab = (typeof TABS)[number];
 
 // Ids cannot hold spaces, so "Interview prep" becomes "Interview-prep" in its tab and panel ids.
@@ -139,6 +140,11 @@ export function Workspace({
               ) : (
                 <Alert>Could not load the results. Reload to try again.</Alert>
               )}
+            </div>
+          )}
+          {name === "Messages" && (
+            <div className="mx-auto w-full max-w-3xl">
+              {library ? <MessagesPanel applicationId={applicationId} library={library} /> : <Alert>Could not load the results. Reload to try again.</Alert>}
             </div>
           )}
           {name === "Interview prep" && (
