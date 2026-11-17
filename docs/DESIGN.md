@@ -285,6 +285,7 @@ Rules that hold on every MCP page:
 - The commands show this installation's own address (`API_URL` + `/mcp`, read on the server, `frontend/lib/mcp-server.ts`) and the placeholder `cx_pat_YOUR_TOKEN`, never a real token.
 - Links inside a sentence are always underlined; the sidebar and the "On this page" list are not sentences.
 - The tool list comes from `frontend/lib/mcp-tools.ts`. `McpDocsTest` fails when it differs from the tools the server has.
+- **Adding or changing an MCP tool means updating `frontend/lib/mcp-tools.ts`** (name, group, kind, summary, "Use it when") in the same change. `McpDocsTest` also fails when a tool has no group or a group has no tool. `docs/MCP.md` holds no tool list.
 
 ### 6.12 Graph (`/graph`)
 

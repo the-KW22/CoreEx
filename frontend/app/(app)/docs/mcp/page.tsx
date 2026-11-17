@@ -58,6 +58,10 @@ export default function McpOverviewPage() {
             </li>
           ))}
         </ul>
+        <p>
+          To turn plain mentions into Links, ask “link my orphans”. The Agent finds the orphans with get_graph, the Notes that name
+          one with search, and wraps the words in <code className="font-mono">[[ ]]</code> with edit_note.
+        </p>
       </section>
     </>
   );

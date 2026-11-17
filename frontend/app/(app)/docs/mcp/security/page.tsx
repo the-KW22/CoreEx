@@ -15,7 +15,11 @@ export default function McpSecurityPage() {
         </li>
         <li>
           <strong>Use one token per tool</strong>, named after it, so you can revoke one without breaking the others. Tokens expire
-          after 90 days unless you choose otherwise.
+          after 90 days unless you choose otherwise. A lost laptop is a good moment to revoke its token.
+        </li>
+        <li>
+          <strong>File links are keys too, for a short time.</strong> Anyone who has an upload or download link can send or read that
+          file until it expires (a download link lasts 5 minutes). Do not paste one into a chat or a log.
         </li>
         <li>
           <strong>Revoke at any time</strong> under{" "}

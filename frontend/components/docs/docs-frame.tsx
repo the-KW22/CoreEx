@@ -48,6 +48,7 @@ function DocsNav({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 // Copies the text of the open page. The copy buttons inside it are left out (data-copy-skip).
+// shortcut: copies the rendered text, not the Markdown source, so no page keeps a second copy of its words; upgrade if Users ask for Markdown.
 function CopyPageButton() {
   function copy() {
     const article = document.getElementById("docs-content");
