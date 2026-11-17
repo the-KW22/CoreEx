@@ -24,7 +24,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
   const { id } = await params;
   const { error, depth: rawDepth, mentions } = await searchParams;
   const api = await getApi();
-  const [result, list, itemTags, allTags, docs, linked, library, apply, jar] = await Promise.all([
+  const [result, list, itemTags, allTags, docs, linked, library, apply, debriefs, jar] = await Promise.all([
     api.GET("/api/applications/{id}", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/folders").catch(() => null),
     api.GET("/api/items/{id}/tags", { params: { path: { id } } }).catch(() => null),
@@ -33,6 +33,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
     api.GET("/api/applications/{id}/linked-documents", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/applications/{id}/career/results", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/applications/{id}/career/apply", { params: { path: { id } } }).catch(() => null),
+    api.GET("/api/applications/{id}/career/debriefs", { params: { path: { id } } }).catch(() => null),
     cookies(),
   ]);
 
@@ -93,6 +94,8 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
             stage={application.stage}
             library={library?.data ?? null}
             apply={apply?.data ?? null}
+            timeline={application.timeline}
+            debriefs={debriefs?.data?.items ?? null}
             details={
               <>
                 <EarlierNotice className="mx-auto w-full max-w-3xl" company={application.company} items={earlier?.data?.items ?? []} />

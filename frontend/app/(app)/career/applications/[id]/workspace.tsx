@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from "react";
 
 import { Alert } from "@/components/alert";
@@ -11,31 +12,55 @@ import { formatDay } from "@/lib/applications";
 import { ApplyPanel } from "./apply";
 import { OutOfDate } from "./apply-question";
 import { runFit } from "./career-actions";
+import { DebriefPanel } from "./debrief";
+import { InterviewPrep } from "./interview-prep";
+import { PracticePanel } from "./practice";
 
 type Library = components["schemas"]["Library"];
 type Result = components["schemas"]["ResultResponse"];
 type Apply = components["schemas"]["ApplyResponse"];
+type Timeline = components["schemas"]["TimelineEntryResponse"][];
+type Debrief = components["schemas"]["DebriefResponse"];
 
-const TABS = ["Details", "Fit", "Apply", "Library"] as const;
+const TABS = ["Details", "Fit", "Apply", "Interview prep", "Practice", "Debrief", "Library"] as const;
 type Tab = (typeof TABS)[number];
+
+// Ids cannot hold spaces, so "Interview prep" becomes "Interview-prep" in its tab and panel ids.
+const slug = (name: Tab) => name.replace(/ /g, "-");
 
 const VERDICTS = { SUPPORTED: "Supported", PARTLY: "Partly supported", MISSING: "Missing" } as const;
 
-// The Application's workspace (ADR 0013): its details, the Fit check, the Apply tab and the Library of every AI result.
+// The Application's workspace (ADR 0013): its details, the Fit check, the Apply tab, the interview tabs and the Library of every AI result.
 export function Workspace({
   applicationId,
   stage,
   library,
   apply,
+  timeline,
+  debriefs,
   details,
 }: {
   applicationId: string;
   stage: string;
   library: Library | null;
   apply: Apply | null;
+  timeline: Timeline;
+  debriefs: Debrief[] | null;
   details: ReactNode;
 }) {
-  const [tab, setTab] = useState<Tab>("Details");
+  const router = useRouter();
+  const [tab, setTabState] = useState<Tab>("Details");
+  // The interview tabs read the interviews added in Details, which that tab keeps in its own state: refresh the page data on opening one.
+  const setTab = (next: Tab) => {
+    setTabState(next);
+    if (next === "Interview prep" || next === "Practice" || next === "Debrief") router.refresh();
+  };
+  // Held here so the Interview prep tab can fill the Practice tab's question before it opens.
+  const [practiceQuestion, setPracticeQuestion] = useState("");
+  const practise = (question: string) => {
+    setPracticeQuestion(question);
+    setTab("Practice");
+  };
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
   const move = (e: KeyboardEvent, index: number) => {
     const next = e.key === "ArrowRight" ? index + 1 : e.key === "ArrowLeft" ? index - 1 : e.key === "Home" ? 0 : e.key === "End" ? TABS.length - 1 : null;
@@ -47,7 +72,7 @@ export function Workspace({
   };
   return (
     <div className="grid gap-4">
-      <div role="tablist" aria-label="Application workspace" className="mx-auto flex w-full max-w-3xl gap-1 border-b border-border">
+      <div role="tablist" aria-label="Application workspace" className="mx-auto flex w-full max-w-3xl gap-1 overflow-x-auto border-b border-border">
         {TABS.map((name, index) => (
           <button
             key={name}
@@ -56,20 +81,20 @@ export function Workspace({
             }}
             type="button"
             role="tab"
-            id={`tab-${name}`}
+            id={`tab-${slug(name)}`}
             aria-selected={tab === name}
-            aria-controls={`panel-${name}`}
+            aria-controls={`panel-${slug(name)}`}
             tabIndex={tab === name ? 0 : -1}
             onClick={() => setTab(name)}
             onKeyDown={(e) => move(e, index)}
-            className={`-mb-px h-10 border-b-2 px-4 text-sm font-medium ${tab === name ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            className={`-mb-px h-10 shrink-0 border-b-2 px-4 text-sm font-medium ${tab === name ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
           >
             {name}
           </button>
         ))}
       </div>
       {TABS.map((name) => (
-        <div key={name} role="tabpanel" id={`panel-${name}`} aria-labelledby={`tab-${name}`} hidden={tab !== name} className="grid gap-4">
+        <div key={name} role="tabpanel" id={`panel-${slug(name)}`} aria-labelledby={`tab-${slug(name)}`} hidden={tab !== name} className="grid gap-4">
           {name === "Details" && details}
           {name === "Fit" && (
             <div className="mx-auto w-full max-w-3xl">
@@ -82,6 +107,33 @@ export function Workspace({
                 <ApplyPanel applicationId={applicationId} stage={stage} apply={apply} library={library} />
               ) : (
                 <Alert>Could not load the questions. Reload to try again.</Alert>
+              )}
+            </div>
+          )}
+          {name === "Interview prep" && (
+            <div className="mx-auto w-full max-w-3xl">
+              {library ? (
+                <InterviewPrep applicationId={applicationId} library={library} timeline={timeline} onPractise={practise} />
+              ) : (
+                <Alert>Could not load the results. Reload to try again.</Alert>
+              )}
+            </div>
+          )}
+          {name === "Practice" && (
+            <div className="mx-auto w-full max-w-3xl">
+              {library ? (
+                <PracticePanel applicationId={applicationId} library={library} question={practiceQuestion} onQuestion={setPracticeQuestion} />
+              ) : (
+                <Alert>Could not load the results. Reload to try again.</Alert>
+              )}
+            </div>
+          )}
+          {name === "Debrief" && (
+            <div className="mx-auto w-full max-w-3xl">
+              {library && debriefs ? (
+                <DebriefPanel applicationId={applicationId} library={library} timeline={timeline} debriefs={debriefs} />
+              ) : (
+                <Alert>Could not load the Debriefs. Reload to try again.</Alert>
               )}
             </div>
           )}
@@ -166,7 +218,14 @@ function FitPanel({ applicationId, library }: { applicationId: string; library: 
   );
 }
 
-const KINDS: Record<string, string> = { FIT: "Fit check", DRAFT: "Draft answer", TIGHTEN: "Tightened answer" };
+const KINDS: Record<string, string> = {
+  FIT: "Fit check",
+  DRAFT: "Draft answer",
+  TIGHTEN: "Tightened answer",
+  PREP: "Interview prep",
+  PRACTICE: "Practice attempt",
+  DEBRIEF: "Debrief summary",
+};
 const STATUS: Record<string, string> = { ACCEPTED: "Accepted", REJECTED: "Rejected" };
 
 // The first ~80 characters of a proposed answer, so the Library says what it is without opening it.
@@ -185,6 +244,8 @@ function LibraryPanel({ library, open }: { library: Library; open: (tab: Tab) =>
               <span className="font-medium">{KINDS[r.kind] ?? r.kind}</span>
               {r.fit && <span>{r.fit.score} / 100 (estimate)</span>}
               {r.answer && <span>{preview(r.answer.text)}</span>}
+              {r.kind === "PRACTICE" && <span>{preview(r.practice.question)}</span>}
+              {r.kind === "DEBRIEF" && r.summary.improve[0] && <span>{preview(r.summary.improve[0])}</span>}
               {r.answer && (
                 <span className="rounded-md border border-border px-1.5 py-0.5 text-xs font-semibold">
                   {r.resolution ? (STATUS[r.resolution] ?? r.resolution) : "Waiting"}
@@ -200,6 +261,21 @@ function LibraryPanel({ library, open }: { library: Library; open: (tab: Tab) =>
               {r.answer && (
                 <button type="button" onClick={() => open("Apply")} className="ml-auto font-medium underline">
                   Open Apply
+                </button>
+              )}
+              {r.kind === "PREP" && (
+                <button type="button" onClick={() => open("Interview prep")} className="ml-auto font-medium underline">
+                  Open Interview prep
+                </button>
+              )}
+              {r.kind === "PRACTICE" && (
+                <button type="button" onClick={() => open("Practice")} className="ml-auto font-medium underline">
+                  Open Practice
+                </button>
+              )}
+              {r.kind === "DEBRIEF" && (
+                <button type="button" onClick={() => open("Debrief")} className="ml-auto font-medium underline">
+                  Open Debrief
                 </button>
               )}
             </li>

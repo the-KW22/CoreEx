@@ -21,6 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.coreex.ai.AiService;
+import com.coreex.applications.Application;
+import com.coreex.applications.Application.TimelineEntry;
 import com.coreex.applications.ApplicationService;
 import com.coreex.common.ApiException;
 
@@ -61,8 +63,66 @@ public class CareerService {
 	public record Answer(UUID questionId, String text, List<UUID> evidence) {
 	}
 
-	/** Exactly one of {@code fit} and {@code answer} is set. {@code resolution} is null while an answer is waiting for Accept or Reject. */
-	public record Stored(UUID id, String kind, Fit fit, Answer answer, String resolution, boolean outOfDate, Instant createdAt) {
+	/** One thing to stress in an interview, with the evidence ids that show it. */
+	public record Point(String point, List<UUID> evidence) {
+	}
+
+	/** What is stored for Interview prep: for one interview of the Application, ids only for evidence. */
+	public record Prep(int interviewSeq, List<String> plan, String about, List<Point> stress, List<String> ask, List<String> practice) {
+	}
+
+	public record Quote(String quote, String why) {
+	}
+
+	/** One practice attempt: the question, the typed answer, and feedback whose quotes were all found in that answer. */
+	public record Practice(String question, String answer, List<Quote> works, String strengthen) {
+	}
+
+	/** The AI summary of a Debrief. */
+	public record Summary(int interviewSeq, List<String> improve) {
+	}
+
+	/**
+	 * What a task made: a {@link Fit}, {@link Answer}, {@link Prep}, {@link Practice} or {@link Summary}.
+	 * {@code resolution} is null while an answer is waiting for Accept or Reject.
+	 */
+	public record Stored(UUID id, String kind, Object result, String resolution, boolean outOfDate, Instant createdAt) {
+
+		public Fit fit() {
+			return result instanceof Fit f ? f : null;
+		}
+
+		public Answer answer() {
+			return result instanceof Answer a ? a : null;
+		}
+
+		public Prep prep() {
+			return result instanceof Prep p ? p : null;
+		}
+
+		public Practice practice() {
+			return result instanceof Practice p ? p : null;
+		}
+
+		public Summary summary() {
+			return result instanceof Summary s ? s : null;
+		}
+
+	}
+
+	/** What a task is about besides the Application: a form question, an interview, or a practice question and answer. */
+	record Subject(UUID questionId, Integer interviewSeq, String practiceQuestion, String practiceAnswer) {
+
+		static final Subject NONE = new Subject(null, null, null, null);
+
+		static Subject question(UUID id) {
+			return new Subject(id, null, null, null);
+		}
+
+		static Subject interview(int seq) {
+			return new Subject(null, seq, null, null);
+		}
+
 	}
 
 	/** One form question of an Application, with the answer so far. */
@@ -99,12 +159,13 @@ public class CareerService {
 
 	/** Reads the task's inputs for the User's Application; 404 when it is not theirs or is in the Trash. */
 	Gathered gather(UUID owner, UUID applicationId, CareerTask task) {
-		return gather(owner, applicationId, task, null);
+		return gather(owner, applicationId, task, Subject.NONE);
 	}
 
-	/** The same for a task about one form question; 404 when the question is not on this User's Application. */
-	Gathered gather(UUID owner, UUID applicationId, CareerTask task, UUID questionId) {
+	/** The same for a task about one form question, interview or practice answer; 404 when it is not on this User's Application. */
+	Gathered gather(UUID owner, UUID applicationId, CareerTask task, Subject subject) {
 		var application = applications.get(owner, applicationId);
+		var questionId = subject.questionId();
 		var data = new StringBuilder();
 		var ids = new LinkedHashSet<UUID>();
 		for (var input : task.inputs()) {
@@ -148,6 +209,29 @@ public class CareerService {
 							.append("\">").append(esc(q.text())).append("</question>\n");
 				}
 				case ANSWER -> data.append("<answer>").append(esc(question(owner, applicationId, questionId).answer())).append("</answer>\n");
+				case INTERVIEW -> {
+					var entry = interview(application, subject.interviewSeq());
+					data.append("<interview kind=\"").append(esc(entry.kind())).append("\" at=\"").append(entry.at()).append("\">")
+							.append(esc(entry.text())).append("</interview>\n");
+				}
+				case PRACTICE -> data.append("<practice question=\"").append(esc(subject.practiceQuestion())).append("\">")
+						.append(esc(subject.practiceAnswer())).append("</practice>\n");
+				case DEBRIEF -> {
+					interview(application, subject.interviewSeq());
+					var found = jdbc.sql("""
+							select notes, questions::text as questions from interview_debriefs
+							where owner_id = :owner and item_id = :app and interview_seq = :seq""")
+							.param("owner", owner).param("app", applicationId).param("seq", subject.interviewSeq())
+							.query((rs, n) -> new String[] { rs.getString("notes"), rs.getString("questions") }).optional()
+							.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Write the Debrief first."));
+					data.append("<debrief>\n").append(esc(found[0])).append('\n');
+					for (JsonNode asked : json.readTree(found[1])) {
+						data.append("<asked landed=\"").append(esc(asked.path("landed").asString(""))).append("\">")
+								.append(esc(asked.path("question").asString(""))).append(" | ").append(esc(asked.path("note").asString("")))
+								.append("</asked>\n");
+					}
+					data.append("</debrief>\n");
+				}
 				case PREFERENCES -> jdbc.sql("""
 						select target_roles, places, min_base_pay, currency, pay_period, office_days, notice_period
 						from career_preferences where owner_id = :owner""").param("owner", owner).query((rs, n) -> {
@@ -162,6 +246,12 @@ public class CareerService {
 		}
 		var text = data.toString();
 		return new Gathered(text, ids, fingerprint(text));
+	}
+
+	/** The INTERVIEW entry of the timeline with this seq; 404 when there is none. */
+	static TimelineEntry interview(Application application, Integer seq) {
+		return application.timeline().stream().filter(e -> e.type().equals("INTERVIEW") && seq != null && e.seq() == seq).findFirst()
+				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Interview not found."));
 	}
 
 	Question question(UUID owner, UUID applicationId, UUID id) {
@@ -188,19 +278,20 @@ public class CareerService {
 	/** The "Sends: ..." line of every task, by kind. */
 	public Map<String, String> sends() {
 		return Map.of(CareerTask.FIT.kind(), CareerTask.FIT.sends(), CareerTask.DRAFT.kind(), CareerTask.DRAFT.sends(),
-				CareerTask.TIGHTEN.kind(), CareerTask.TIGHTEN.sends());
+				CareerTask.TIGHTEN.kind(), CareerTask.TIGHTEN.sends(), CareerTask.PREP.kind(), CareerTask.PREP.sends(),
+				CareerTask.PRACTICE.kind(), CareerTask.PRACTICE.sends(), CareerTask.DEBRIEF.kind(), CareerTask.DEBRIEF.sends());
 	}
 
 	/** Runs the Fit check and stores its result. */
 	public Stored fit(UUID owner, UUID applicationId) {
-		return run(owner, applicationId, CareerTask.FIT, null, CareerService::parseFit,
+		return run(owner, applicationId, CareerTask.FIT, Subject.NONE, CareerService::parseFit,
 				"Your posting or Knowledge changed while the AI was working. Run the check again.");
 	}
 
 	/** Drafts an answer to a form question from the posting and the User's evidence; kept as a result until accepted or rejected. */
 	public Stored draft(UUID owner, UUID applicationId, UUID questionId) {
 		question(owner, applicationId, questionId);
-		return run(owner, applicationId, CareerTask.DRAFT, questionId, (answer, given) -> parseDraft(questionId, answer, given),
+		return run(owner, applicationId, CareerTask.DRAFT, Subject.question(questionId), (answer, given) -> parseDraft(questionId, answer, given),
 				"Your posting, Knowledge or question changed while the AI was working. Draft again.");
 	}
 
@@ -210,29 +301,30 @@ public class CareerService {
 		if (question.answer().isBlank()) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Write an answer first, then tighten it.");
 		}
-		return run(owner, applicationId, CareerTask.TIGHTEN, questionId, (answer, given) -> parseTighten(question, answer),
+		return run(owner, applicationId, CareerTask.TIGHTEN, Subject.question(questionId), (answer, given) -> parseTighten(question, answer),
 				"Your answer changed while the AI was working. Tighten again.");
 	}
 
-	private Stored run(UUID owner, UUID applicationId, CareerTask task, UUID questionId,
+	private Stored run(UUID owner, UUID applicationId, CareerTask task, Subject subject,
 			java.util.function.BiFunction<String, Set<UUID>, Object> parse, String changed) {
-		if (task != CareerTask.TIGHTEN) {
+		if (task.inputs().contains(CareerTask.Input.POSTING)) {
 			var posting = applications.get(owner, applicationId).postingText();
 			if (posting == null || posting.isBlank()) {
 				throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Add the posting text to this Application first.");
 			}
 		}
-		var before = gather(owner, applicationId, task, questionId);
+		var before = gather(owner, applicationId, task, subject);
 		var reply = ai.askWithUse(owner, task.system(), before.data(), task.schema());
 		var result = parse.apply(reply.text(), before.ids());
-		var fit = result instanceof Fit f ? f : null;
-		var answer = result instanceof Answer a ? a : null;
-		Set<UUID> evidence = fit != null
-				? fit.requirements().stream().flatMap(r -> r.evidence().stream()).collect(Collectors.toCollection(LinkedHashSet::new))
-				: new LinkedHashSet<>(answer.evidence());
+		Set<UUID> evidence = switch (result) {
+			case Fit fit -> fit.requirements().stream().flatMap(r -> r.evidence().stream()).collect(Collectors.toCollection(LinkedHashSet::new));
+			case Answer answer -> new LinkedHashSet<>(answer.evidence());
+			case Prep prep -> prep.stress().stream().flatMap(p -> p.evidence().stream()).collect(Collectors.toCollection(LinkedHashSet::new));
+			default -> Set.of();
+		};
 		return tx.execute(status -> {
 			// The inputs and the Application are read again here: a result for inputs that changed during the call is refused.
-			var now = gather(owner, applicationId, task, questionId);
+			var now = gather(owner, applicationId, task, subject);
 			if (!now.fingerprint().equals(before.fingerprint())) {
 				throw new ApiException(HttpStatus.CONFLICT, "CONFLICT", changed);
 			}
@@ -243,10 +335,37 @@ public class CareerService {
 					.param("owner", owner).param("app", applicationId).param("kind", task.kind())
 					.param("data", json.writeValueAsString(result)).param("evidence", evidence.toArray(UUID[]::new))
 					.param("fingerprint", now.fingerprint()).param("in", reply.inputTokens()).param("out", reply.outputTokens())
-					.query((rs, n) -> new Stored(rs.getObject("id", UUID.class), task.kind(), fit, answer, null, false,
+					.query((rs, n) -> new Stored(rs.getObject("id", UUID.class), task.kind(), result, null, false,
 							rs.getObject("created_at", OffsetDateTime.class).toInstant()))
 					.optional().orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Application not found."));
 		});
+	}
+
+	/** Interview prep for one interview that has not started yet. */
+	public Stored prep(UUID owner, UUID applicationId, int interviewSeq) {
+		var interview = interview(applications.get(owner, applicationId), interviewSeq);
+		if (!interview.at().isAfter(Instant.now())) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "That interview has already started. Prepare for an upcoming one.");
+		}
+		return run(owner, applicationId, CareerTask.PREP, Subject.interview(interviewSeq), (answer, given) -> parsePrep(interviewSeq, answer, given),
+				"Your posting, Knowledge or interview changed while the AI was working. Prepare again.");
+	}
+
+	/** Feedback on one typed practice answer; the attempt is kept as a result and is never out of date. */
+	public Stored practice(UUID owner, UUID applicationId, String question, String answer) {
+		var q = question == null ? "" : question.strip();
+		var a = answer == null ? "" : answer.strip();
+		if (q.isEmpty() || q.length() > 500 || a.isEmpty() || a.length() > 5_000) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Give a question up to 500 characters and an answer up to 5,000.");
+		}
+		return run(owner, applicationId, CareerTask.PRACTICE, new Subject(null, null, q, a), (reply, given) -> parsePractice(q, a, reply),
+				"Your Application changed while the AI was working. Try again.");
+	}
+
+	/** The AI summary of what to improve from one Debrief. */
+	public Stored debriefSummary(UUID owner, UUID applicationId, int interviewSeq) {
+		return run(owner, applicationId, CareerTask.DEBRIEF, Subject.interview(interviewSeq), (answer, given) -> parseSummary(interviewSeq, answer),
+				"Your Debrief changed while the AI was working. Summarise again.");
 	}
 
 	/**
@@ -325,6 +444,80 @@ public class CareerService {
 				"The AI answered in a form CoreEx could not use, so nothing was saved. Try again.");
 	}
 
+	private static List<String> strings(JsonNode array, int max, int length) {
+		if (!array.isArray()) throw new IllegalArgumentException();
+		var out = new ArrayList<String>();
+		for (JsonNode e : array) {
+			if (!e.isString()) throw new IllegalArgumentException();
+			var text = e.asString().trim();
+			if (!text.isEmpty() && out.size() < max) out.add(cut(text, length));
+		}
+		if (out.isEmpty()) throw new IllegalArgumentException();
+		return out;
+	}
+
+	/** Interview prep: a point to stress with no evidence the prompt contained is dropped, never shown as supported. */
+	static Prep parsePrep(int seq, String answer, Set<UUID> given) {
+		try {
+			var root = JsonMapper.builder().build().readTree(answer);
+			var stress = new ArrayList<Point>();
+			if (!root.path("stress").isArray()) throw new IllegalArgumentException();
+			for (JsonNode s : root.path("stress")) {
+				var point = s.path("point").asString("").trim();
+				var cited = new LinkedHashSet<UUID>();
+				for (JsonNode e : s.path("evidence")) {
+					try {
+						var id = UUID.fromString(e.asString(""));
+						if (given.contains(id)) cited.add(id);
+					}
+					catch (IllegalArgumentException ignored) {
+						// Not an id at all: dropped like one that was not given.
+					}
+				}
+				if (!point.isEmpty() && !cited.isEmpty() && stress.size() < 6) stress.add(new Point(cut(point, 500), List.copyOf(cited)));
+			}
+			return new Prep(seq, strings(root.path("plan"), 8, 300), cut(root.path("about").asString("").trim(), 1_500), stress,
+					strings(root.path("ask"), 8, 300), strings(root.path("practice"), 10, 300));
+		}
+		catch (RuntimeException e) {
+			throw badAnswer();
+		}
+	}
+
+	private static String squash(String text) {
+		return text.replaceAll("\\s+", " ").trim();
+	}
+
+	/** Practice feedback: a quote is kept only if those exact words (spaces aside) are in the answer that was typed. */
+	static Practice parsePractice(String question, String typed, String answer) {
+		try {
+			var root = JsonMapper.builder().build().readTree(answer);
+			var strengthen = root.path("strengthen").asString("").trim();
+			if (!root.path("works").isArray() || strengthen.isEmpty()) throw new IllegalArgumentException();
+			var haystack = squash(typed);
+			var works = new ArrayList<Quote>();
+			for (JsonNode w : root.path("works")) {
+				var quote = squash(w.path("quote").asString(""));
+				if (!quote.isEmpty() && haystack.contains(quote) && works.size() < 3) {
+					works.add(new Quote(cut(quote, 500), cut(w.path("why").asString("").trim(), 300)));
+				}
+			}
+			return new Practice(question, typed, works, cut(strengthen, 800));
+		}
+		catch (RuntimeException e) {
+			throw badAnswer();
+		}
+	}
+
+	static Summary parseSummary(int seq, String answer) {
+		try {
+			return new Summary(seq, strings(JsonMapper.builder().build().readTree(answer).path("improve"), 5, 300));
+		}
+		catch (RuntimeException e) {
+			throw badAnswer();
+		}
+	}
+
 	/** The answer, checked: a score outside 0-100 or a broken shape is refused; a cited id that was not given is dropped. */
 	static Fit parseFit(String answer, Set<UUID> given) {
 		try {
@@ -363,8 +556,8 @@ public class CareerService {
 	}
 
 	/**
-	 * Every result of the Application, newest first. A Fit, or a Draft or Tighten still waiting for Accept or Reject, is
-	 * marked out of date when its inputs have changed; a decided one is history.
+	 * Every result of the Application, newest first. A Fit, a Prep, a Debrief summary, or a Draft or Tighten still waiting
+	 * for Accept or Reject, is marked out of date when its inputs have changed; a decided answer and a practice attempt are history.
 	 */
 	public List<Stored> results(UUID owner, UUID applicationId) {
 		applications.get(owner, applicationId);
@@ -379,27 +572,53 @@ public class CareerService {
 		var stored = new ArrayList<Stored>();
 		for (var r : rows) {
 			var kind = (String) r[1];
-			var created = (Instant) r[5];
-			if (kind.equals("FIT")) {
-				var now = current.computeIfAbsent("FIT", k -> gather(owner, applicationId, CareerTask.FIT).fingerprint());
-				stored.add(new Stored((UUID) r[0], kind, json.readValue((String) r[2], Fit.class), null, null, !r[3].equals(now), created));
-				continue;
+			var data = (String) r[2];
+			var resolution = (String) r[4];
+			Object result;
+			CareerTask task = null;
+			Subject subject = Subject.NONE;
+			switch (kind) {
+				case "FIT" -> {
+					result = json.readValue(data, Fit.class);
+					task = CareerTask.FIT;
+				}
+				case "PREP" -> {
+					var prep = json.readValue(data, Prep.class);
+					result = prep;
+					task = CareerTask.PREP;
+					subject = Subject.interview(prep.interviewSeq());
+				}
+				case "DEBRIEF" -> {
+					var summary = json.readValue(data, Summary.class);
+					result = summary;
+					task = CareerTask.DEBRIEF;
+					subject = Subject.interview(summary.interviewSeq());
+				}
+				case "PRACTICE" -> result = json.readValue(data, Practice.class);
+				default -> {
+					var answer = json.readValue(data, Answer.class);
+					result = answer;
+					if (resolution == null) {
+						task = kind.equals("DRAFT") ? CareerTask.DRAFT : CareerTask.TIGHTEN;
+						subject = Subject.question(answer.questionId());
+					}
+				}
 			}
-			var answer = json.readValue((String) r[2], Answer.class);
 			var outOfDate = false;
-			if (r[4] == null) {
-				var task = kind.equals("DRAFT") ? CareerTask.DRAFT : CareerTask.TIGHTEN;
-				var now = current.computeIfAbsent(kind + answer.questionId(), k -> {
+			if (task != null) {
+				var t = task;
+				var s = subject;
+				var now = current.computeIfAbsent(kind + s, k -> {
 					try {
-						return gather(owner, applicationId, task, answer.questionId()).fingerprint();
+						return gather(owner, applicationId, t, s).fingerprint();
 					}
 					catch (ApiException gone) {
-						return ""; // the question was deleted
+						return ""; // the question, interview or Debrief was deleted
 					}
 				});
 				outOfDate = !r[3].equals(now);
 			}
-			stored.add(new Stored((UUID) r[0], kind, null, answer, (String) r[4], outOfDate, created));
+			stored.add(new Stored((UUID) r[0], kind, result, resolution, outOfDate, (Instant) r[5]));
 		}
 		return stored;
 	}
