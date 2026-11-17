@@ -3,7 +3,7 @@
 import { Color, TextStyle } from "@tiptap/extension-text-style";
 import TextAlign from "@tiptap/extension-text-align";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
-import { createContext, useContext, useEffect } from "react";
+import { createContext, useContext, useEffect, useState, useTransition } from "react";
 import StarterKit from "@tiptap/starter-kit";
 import {
   AlignCenterIcon,
@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { parseRich } from "@/lib/resume/html";
+import { acceptResumeImprovement, improveResumeText, type Loaded } from "./actions";
 
 // Only the marks the backend keeps (ADR 0011): bold, italic, underline, lists, links, colour and alignment. Anything
 // else Tiptap could make is switched off here, and the backend strips it anyway.
@@ -42,12 +44,38 @@ const LETTER_EXTENSIONS = [EXTENSIONS[0].configure({ undoRedo: {} }), ...EXTENSI
 
 // True while the Resume is locked: every rich text field stops accepting changes.
 const LockedContext = createContext(false);
+type ImproveSettings = { id: string; version: number; ready: boolean; applied: (value: Loaded) => void };
+const ImproveContext = createContext<ImproveSettings | null>(null);
+export const ImproveProvider = ImproveContext.Provider;
 export const Locked = ({ value, children }: { value: boolean; children: React.ReactNode }) => (
   <LockedContext.Provider value={value}>{children}</LockedContext.Provider>
 );
 
 const tool =
   "inline-flex size-8 items-center justify-center rounded-md border border-transparent hover:bg-surface aria-pressed:border-border aria-pressed:bg-surface";
+
+function ImproveText({ field }: { field: string }) {
+  const settings = useContext(ImproveContext);
+  const [value, setValue] = useState<{ original: string; suggestion: string } | null>(null);
+  const [error, setError] = useState("");
+  const [pending, start] = useTransition();
+  if (!settings) return null;
+  const plain = (html: string) => parseRich(html).map((block) => block.kind === "paragraph" ? block.runs.map((r) => r.text).join("") : block.items.map((item) => item.map((r) => r.text).join("")).join("\n")).join("\n");
+  return <div className="grid gap-2 border-t border-border p-2 text-sm">
+    <p className="text-muted-foreground">Sends: this field&apos;s text to the configured AI model, using your daily AI budget.</p>
+    <button type="button" className="w-fit underline underline-offset-2" disabled={!settings.ready || pending} onClick={() => start(async () => {
+      const result = await improveResumeText(settings.id, field, settings.version);
+      setValue(result.suggestion); setError(result.error ?? "");
+    })}>Improve with AI</button>
+    {error && <p role="alert">{error}</p>}
+    {value && <div className="grid gap-2"><p>Original: {plain(value.original)}</p><p>Suggestion: {plain(value.suggestion)}</p>
+      <div className="flex gap-3"><button type="button" className="underline underline-offset-2" disabled={!settings.ready || pending} onClick={() => start(async () => {
+        const result = await acceptResumeImprovement(settings.id, field, settings.version, value.original, value.suggestion);
+        if (result) { settings.applied(result); setValue(null); } else setError("The Resume changed or could not be saved. Reload and try again.");
+      })}>Accept</button><button type="button" className="underline underline-offset-2" onClick={() => setValue(null)}>Reject</button></div>
+    </div>}
+  </div>;
+}
 
 // A word-processor style field for the summary and, later, each entry's description. It reports the HTML as the User
 // types; `html` is only read when the field first appears, so the cursor never jumps.
@@ -141,6 +169,7 @@ export function RichText({
         />
       </div>
       <EditorContent editor={editor} />
+      {field && <ImproveText field={field} />}
     </div>
   );
 }

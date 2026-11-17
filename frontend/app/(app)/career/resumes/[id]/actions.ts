@@ -13,6 +13,22 @@ export type SaveResult =
 
 export type Loaded = { title: string; doc: ResumeDocument; version: number; locked: boolean };
 
+export async function improveResumeText(id: string, field: string, version: number) {
+  const api = await getApi();
+  const result = await api.POST("/api/resumes/{id}/improve", { params: { path: { id } }, body: { field, version } }).catch(() => null);
+  return result?.data ? { suggestion: result.data, error: null } : { suggestion: null, error: result?.response.status === 429
+    ? "You have used today's AI budget. It starts again at midnight UTC." : result?.response.status === 409
+      ? "The Resume changed. Reload and try again." : "Could not improve this text. Try again." };
+}
+
+export async function acceptResumeImprovement(id: string, field: string, version: number, original: string, suggestion: string): Promise<Loaded | null> {
+  const api = await getApi();
+  const result = await api.POST("/api/resumes/{id}/improve/accept", { params: { path: { id } }, body: { field, version, original, suggestion } }).catch(() => null);
+  const value = result?.data;
+  return value?.title && value.document && value.version !== undefined && value.locked !== undefined
+    ? { title: value.title, doc: value.document, version: value.version, locked: value.locked } : null;
+}
+
 export async function applicationsForMatch() {
   const api = await getApi();
   const applications: { id: string; title: string; company: string; postingText: string }[] = [];

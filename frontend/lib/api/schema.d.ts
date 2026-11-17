@@ -372,6 +372,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/resumes/{id}/improve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["improve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/improve/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/resumes/{id}/duplicate": {
         parameters: {
             query?: never;
@@ -2036,6 +2068,22 @@ export interface components {
         RestoreResumeRequest: {
             /** Format: int32 */
             version: number;
+        };
+        Improve: {
+            field: string;
+            /** Format: int32 */
+            version: number;
+        };
+        Suggestion: {
+            original: string;
+            suggestion: string;
+        };
+        AcceptImprovement: {
+            field: string;
+            /** Format: int32 */
+            version: number;
+            original: string;
+            suggestion: string;
         };
         ImportText: {
             text: string;
@@ -4327,6 +4375,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    improve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Improve"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Suggestion"];
+                };
+            };
+        };
+    };
+    accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptImprovement"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResumeResponse"];
                 };
             };
         };

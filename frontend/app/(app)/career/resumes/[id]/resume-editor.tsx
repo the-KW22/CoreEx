@@ -32,7 +32,7 @@ import { Check } from "./check";
 import { JobMatch } from "./job-match";
 import { History } from "./history";
 import { PhotoSection } from "./photo";
-import { Locked, RichText } from "./rich-text";
+import { ImproveProvider, Locked, RichText } from "./rich-text";
 import { Sections } from "./sections";
 import { type Action, init, reduce, type ResumeDocument } from "./store";
 
@@ -422,7 +422,14 @@ export function ResumeEditor({
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <Locked value={locked}>
+        <ImproveProvider value={{ id, version: state.version, ready: state.status === "saved" && !locked && !viewing, applied: (value) => {
+          if (latest.current.status !== "saved" || latest.current.version !== value.version - 1) {
+            void keepMineAndReload();
+            return;
+          }
+          dispatch({ type: "load", title: value.title, doc: value.doc, version: value.version });
+          setGeneration((g) => g + 1); setHistoryRefresh((n) => n + 1); clearUnsaved(id, session);
+        } }}><Locked value={locked}>
         <fieldset disabled={locked} className={cn("m-0 grid min-w-0 content-start gap-6 border-0 p-0", mode !== "write" && "hidden")}>
           <section aria-labelledby="contact" className="grid gap-3">
             <h2 id="contact" className="text-lg font-semibold">
@@ -505,7 +512,7 @@ export function ResumeEditor({
             </label>
           </section>
         </fieldset>
-        </Locked>
+        </Locked></ImproveProvider>
         {mode === "check" && <div className="grid min-w-0 content-start gap-6"><Check score={checks.score} issues={checks.issues} locked={locked} select={select}
           ignore={(id, ignored) => dispatch({ type: "ignoreCheck", id, ignored })}
           fix={(issue) => { if (issue.fix === "font") dispatch({ type: "design", patch: { fontSize: 9 } }); }} /><JobMatch doc={doc} locked={locked} ignore={(id, ignored) => dispatch({ type: "ignoreCheck", id, ignored })} /></div>}
