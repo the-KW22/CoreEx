@@ -18,6 +18,8 @@ CoreEx has an MCP server (Model Context Protocol) at `/mcp`. It lets an **Agent*
 | `list_resumes` | The Resumes, most recently changed first, 50 per page |
 | `get_resume` | A Resume: its Markdown view, its JSON document (contents and design) and its `version`, the save counter a `patch_resume` needs |
 | `list_folders`, `list_tags`, `list_trash` | Folders with paths and counts, Tags with counts, what is in the Trash |
+| `list_facts`, `get_fact` | The User's Career Facts that are ACTIVE (text, category and where each came from), or one by id. A switched-off Fact is never returned |
+| `get_application_results` | What the Career AI made for one Application (a Fit check, answers, prep, emails and so on), with its resolution and whether it is out of date |
 
 | Change | |
 |---|---|
@@ -25,6 +27,7 @@ CoreEx has an MCP server (Model Context Protocol) at `/mcp`. It lets an **Agent*
 | `create_application`, `update_application` | Track a new job (company and role; its title becomes "Role at Company") and change its fields. Pass an `id` (a UUID you make up) to `create_application` so a retried call returns the same Application. A `version` from `get_application` is optional: with it a change from an old version is refused, without it the change applies as the Application is |
 | `move_application_stage`, `add_application_note` | Move an Application to a Stage, which writes a line on its timeline (dated today unless a past `date` is given; Closed needs a `closeReason`), and add a note to its timeline |
 | `update_note`, `edit_note` | Replace a Note's text, or replace exact pieces of it. Both need the `version` from `get_item` |
+| `add_fact` | A Career Fact the User gave (`MANUAL`), or one pulled from a Resume or Note (`sourceKind`, `sourceId` and the exact `quote`, which must still be in that source). A line already pulled, or one the User forgot, is refused |
 | `create_folder`, `rename_folder`, `move_folder`, `trash_folder` | Organise Folders |
 | `create_tag`, `rename_tag`, `set_tag_colour`, `set_tags` | Manage Tags; `set_tags` makes an Item's Tags exactly the list given |
 | `patch_resume` | Change a Resume with a JSON Patch (RFC 6902: `add`, `replace`, `remove` or `test`, at most 100 operations) on its JSON document, with the `version` from `get_resume`. The result is cleaned and checked like any save (HTML is sanitised), so an invalid patch, a stale `version` or a locked Resume changes nothing. Each change keeps the previous version. `id`, owner and `version` are not part of the document and cannot be patched |

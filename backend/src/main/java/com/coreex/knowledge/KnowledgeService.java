@@ -60,6 +60,11 @@ public class KnowledgeService {
 	record Candidate(String sourceKind, UUID sourceId, String quote) {
 	}
 
+	/** One Fact of this User with its earlier wordings; 404 when there is none. */
+	public FactView factView(UUID ownerId, UUID id) {
+		return view(ownerId, id);
+	}
+
 	public List<FactView> facts(UUID ownerId, String category, String status) {
 		// shortcut: the Facts list is unpaged, upgrade to paging when a User holds hundreds of Facts.
 		var facts = repo.facts(ownerId, category, status);
