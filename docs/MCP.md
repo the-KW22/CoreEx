@@ -17,6 +17,7 @@ CoreEx has an MCP server (Model Context Protocol) at `/mcp`. It lets an **Agent*
 | `suggest_links` | Pairs of Notes close in meaning but not linked, closest first, for a Folder or everything: Links worth making. Suggestions only, and empty until Notes are embedded |
 | `list_resumes` | The Resumes, most recently changed first, 50 per page |
 | `get_resume` | A Resume: its Markdown view, its JSON document (contents and design) and its `version`, the save counter a `patch_resume` needs |
+| `list_cover_letters`, `get_cover_letter` | The Cover Letters (id, title, linked Resume, Folder), or one in full: its Markdown view, its JSON document and its `version`, the save counter an `edit_cover_letter` needs |
 | `list_folders`, `list_tags`, `list_trash` | Folders with paths and counts, Tags with counts, what is in the Trash |
 | `list_facts`, `get_fact` | The User's Career Facts that are ACTIVE (text, category and where each came from), or one by id. A switched-off Fact is never returned |
 | `get_application_results` | What the Career AI made for one Application (a Fit check, answers, prep, emails and so on), with its resolution and whether it is out of date |
@@ -31,6 +32,8 @@ CoreEx has an MCP server (Model Context Protocol) at `/mcp`. It lets an **Agent*
 | `create_folder`, `rename_folder`, `move_folder`, `trash_folder` | Organise Folders |
 | `create_tag`, `rename_tag`, `set_tag_colour`, `set_tags` | Manage Tags; `set_tags` makes an Item's Tags exactly the list given |
 | `patch_resume` | Change a Resume with a JSON Patch (RFC 6902: `add`, `replace`, `remove` or `test`, at most 100 operations) on its JSON document, with the `version` from `get_resume`. The result is cleaned and checked like any save (HTML is sanitised), so an invalid patch, a stale `version` or a locked Resume changes nothing. Each change keeps the previous version. `id`, owner and `version` are not part of the document and cannot be patched |
+| `create_resume` | Start a blank Resume with a title (an optional made-up `id` makes a retry safe); fill it with `patch_resume` |
+| `create_cover_letter`, `edit_cover_letter` | Start an empty Cover Letter (optionally linked to a Resume, whose sender and look it then follows), and set its title, recipient, date, greeting, body (HTML, sanitised) or sign-off with the `version` from `get_cover_letter`. A stale `version` changes nothing; each edit keeps the previous version |
 | `move_item`, `trash_item`, `restore`, `update_asset` | Move, trash and restore Items (Notes, Assets, Applications and Resumes); change an Asset's title and description |
 | `start_upload`, `confirm_upload` | Add a file (PNG, JPEG, WebP, GIF or PDF, 5 MB at most, within your storage quota) as a new Asset. `start_upload` checks it and returns a link; the Agent sends the file to the link itself (`curl -X PUT -H "Content-Type: image/png" --data-binary @file.png "<link>"`); `confirm_upload` checks what was stored and creates the Asset, with an optional title and description |
 
