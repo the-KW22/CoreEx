@@ -84,6 +84,13 @@ class ResumeTools {
 				listed.total(), (long) (at + 1) * PAGE < listed.total() ? at + 1 : null);
 	}
 
+	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "create_resume", description = "Start a new, blank Resume with a title; then fill it with patch_resume (use the id and version 1 it returns). Pass an id you made up (a UUID) to make a retry safe: sending the same call again returns that Resume as it is, with nothing applied twice, instead of making a second one.")
+	ResumeSaved createResume(McpTransportContext context, @McpToolParam(description = "The Resume's title") String title,
+			@McpToolParam(required = false, description = "An id you made up (a UUID), so a retry makes no second Resume") UUID id) {
+		var made = resumes.create(owner(context), id, Input.required("title", title, Input.TITLE_MAX), false).resume();
+		return new ResumeSaved(made.id(), made.title(), made.version(), made.updatedAt());
+	}
+
 	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_resume", description = "Read one Resume: its Markdown view, its JSON document (the contents and the design, with the fields a patch_resume path names) and its version, the save counter you need to change it with patch_resume. Locked says whether it can be changed at all now.")
 	ResumeView getResume(McpTransportContext context, @McpToolParam(description = "The Resume's id") UUID id) {
 		var resume = resumes.get(owner(context), id);

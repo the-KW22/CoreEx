@@ -100,6 +100,36 @@ export const MCP_TOOLS: McpTool[] = [
     useWhen: "Editing a Resume's contents or design. Send the version from get_resume.",
   },
   {
+    name: "create_resume",
+    kind: "change",
+    summary: "Start a new, blank Resume with a title. A client-made id makes a retry safe.",
+    useWhen: "You are asked to write a Resume from scratch: create it, then fill it with patch_resume.",
+  },
+  {
+    name: "list_cover_letters",
+    kind: "read",
+    summary: "List the Cover Letters, most recently changed first: id, title, linked Resume and Folder.",
+    useWhen: "You want to find a Cover Letter before reading or editing it.",
+  },
+  {
+    name: "get_cover_letter",
+    kind: "read",
+    summary: "Read one Cover Letter: its Markdown view, its JSON document and its version, the save counter an edit needs.",
+    useWhen: "Before editing a Cover Letter: it gives the version edit_cover_letter needs.",
+  },
+  {
+    name: "create_cover_letter",
+    kind: "change",
+    summary: "Start a new, empty Cover Letter with a title, optionally linked to a Resume so its sender and look follow that Resume.",
+    useWhen: "You are asked to write a Cover Letter: create it, then write it with edit_cover_letter.",
+  },
+  {
+    name: "edit_cover_letter",
+    kind: "change",
+    summary: "Set a Cover Letter's title, recipient, date, greeting, body (HTML, sanitised) or sign-off; fields you leave out stay. A stale version changes nothing. Each edit keeps the previous version.",
+    useWhen: "Writing or changing a Cover Letter. Send the version from get_cover_letter.",
+  },
+  {
     name: "get_asset_url",
     kind: "read",
     summary: "A link to download an Asset's file (an image or PDF), valid for a few minutes. Anyone who has the link can download the file until it expires.",
