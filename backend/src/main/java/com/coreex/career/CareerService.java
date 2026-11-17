@@ -230,14 +230,17 @@ public class CareerService {
 
 	/** Every result of the Application, newest first, each marked out of date when its inputs have changed. */
 	public List<Stored> results(UUID owner, UUID applicationId) {
-		var current = gather(owner, applicationId, CareerTask.FIT).fingerprint();
-		return jdbc.sql("""
+		applications.get(owner, applicationId);
+		var rows = jdbc.sql("""
 				select id, kind, data::text as data, input_fingerprint, created_at from career_results
 				where owner_id = :owner and item_id = :app order by created_at desc, id""").param("owner", owner)
-				.param("app", applicationId).query((rs, n) -> new Stored(rs.getObject("id", UUID.class), rs.getString("kind"),
-						json.readValue(rs.getString("data"), Fit.class), !rs.getString("input_fingerprint").equals(current),
-						rs.getObject("created_at", OffsetDateTime.class).toInstant()))
+				.param("app", applicationId).query((rs, n) -> new Object[] { rs.getObject("id", UUID.class), rs.getString("kind"),
+						rs.getString("data"), rs.getString("input_fingerprint"), rs.getObject("created_at", OffsetDateTime.class).toInstant() })
 				.list();
+		if (rows.isEmpty()) return List.of();
+		var current = gather(owner, applicationId, CareerTask.FIT).fingerprint();
+		return rows.stream().map(r -> new Stored((UUID) r[0], (String) r[1], json.readValue((String) r[2], Fit.class),
+				!r[3].equals(current), (Instant) r[4])).toList();
 	}
 
 	/** What each cited id is now: forgotten, switched-off or deleted evidence no longer resolves and is left out. */
