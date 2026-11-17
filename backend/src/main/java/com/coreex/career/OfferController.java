@@ -87,11 +87,13 @@ class OfferController {
 	record AllOffers(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Newest first") List<OfferItem> items) {
 	}
 
+	@Schema(name = "OfferVersion")
 	record VersionResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The version these terms were") int version,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant savedAt,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) TermsResponse terms) {
 	}
 
+	@Schema(name = "OfferVersionList")
 	record VersionList(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Newest first") List<VersionResponse> items) {
 	}
 

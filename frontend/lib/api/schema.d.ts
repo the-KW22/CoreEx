@@ -3503,14 +3503,28 @@ export interface components {
             role: string;
             offer: components["schemas"]["OfferResponse"];
         };
-        VersionList: {
-            items: components["schemas"]["VersionSummary"][];
-            /** Format: int32 */
-            total: number;
+        OfferVersion: {
+            /**
+             * Format: int32
+             * @description The version these terms were
+             */
+            version: number;
+            /** Format: date-time */
+            savedAt: string;
+            terms: components["schemas"]["TermsResponse"];
+        };
+        OfferVersionList: {
+            /** @description Newest first */
+            items: components["schemas"]["OfferVersion"][];
         };
         Comparison: {
             a: components["schemas"]["OfferResponse"];
             b: components["schemas"]["OfferResponse"];
+        };
+        VersionList: {
+            items: components["schemas"]["VersionSummary"][];
+            /** Format: int32 */
+            total: number;
         };
         VersionSummary: {
             /** Format: uuid */
@@ -8236,7 +8250,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VersionList"];
+                    "application/json": components["schemas"]["OfferVersionList"];
                 };
             };
         };
