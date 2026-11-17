@@ -53,11 +53,16 @@ public class KnowledgeService {
 	}
 
 	/** A Fact with its earlier wordings, oldest first. */
-	record FactView(FactRow fact, List<Revision> revisions) {
+	public record FactView(FactRow fact, List<Revision> revisions) {
 	}
 
 	/** One line of a Resume or Note that could become a Fact; the quote is its exact text in the source. */
 	record Candidate(String sourceKind, UUID sourceId, String quote) {
+	}
+
+	/** One Fact of this User with its earlier wordings; 404 when there is none. */
+	public FactView factView(UUID ownerId, UUID id) {
+		return view(ownerId, id);
 	}
 
 	public List<FactView> facts(UUID ownerId, String category, String status) {

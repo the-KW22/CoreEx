@@ -25,10 +25,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import com.coreex.applications.ApplicationService;
+import com.coreex.career.CareerService;
+import com.coreex.career.OfferService;
 import com.coreex.common.ApiException;
 import com.coreex.export.ExportRepository.Row;
 import com.coreex.folders.Folder;
 import com.coreex.folders.FolderService;
+import com.coreex.knowledge.KnowledgeService;
 import com.coreex.resumes.Resume;
 import com.coreex.resumes.ResumeDocument;
 import com.coreex.resumes.ResumeService;
@@ -60,6 +63,12 @@ class ExportService {
 
 	private static final Dir TOP = new Dir("", null);
 
+	private static final String FACTS = "career/facts.json";
+
+	private static final String OFFERS = "career/offers.json";
+
+	private static final String RESULTS = "career/results.json";
+
 	/** A directory in the zip, and the Folder path the manifest shows for it. */
 	private record Dir(String path, String label) {
 	}
@@ -83,6 +92,12 @@ class ExportService {
 
 	private final ExportProperties properties;
 
+	private final OfferService offers;
+
+	private final CareerService career;
+
+	private final KnowledgeService knowledge;
+
 	private final JsonMapper json = JsonMapper.builder().build();
 
 	// shortcut: remembered in memory on this instance, so a second API instance would not see it. Move it to the
@@ -90,8 +105,12 @@ class ExportService {
 	private final Map<UUID, Instant> lastExport = new ConcurrentHashMap<>();
 
 	ExportService(ExportRepository repository, FolderService folders, TagService tags, ApplicationService applications,
-			ResumeService resumes, CoverLetterService letters, ResumePdfRenderer renderer, Storage storage, Clock clock, ExportProperties properties) {
+			ResumeService resumes, CoverLetterService letters, ResumePdfRenderer renderer, Storage storage, Clock clock, ExportProperties properties,
+			OfferService offers, CareerService career, KnowledgeService knowledge) {
 		this.repository = repository;
+		this.offers = offers;
+		this.career = career;
+		this.knowledge = knowledge;
 		this.folders = folders;
 		this.tags = tags;
 		this.applications = applications;
@@ -122,6 +141,8 @@ class ExportService {
 
 	void write(UUID ownerId, OutputStream out) throws IOException {
 		var names = new ExportNames();
+		// The career/ directory is ours: a Folder or file of the User with that name is renamed, never merged into it.
+		names.folder("", "career");
 		var directories = directories(ownerId, names);
 		var rows = repository.live(ownerId);
 		var items = new ArrayList<Map<String, Object>>();
@@ -165,13 +186,71 @@ class ExportService {
 			}
 		}
 
+		put(zip, FACTS, clock.instant(), factsJson(ownerId));
+		put(zip, OFFERS, clock.instant(), offersJson(ownerId));
+		put(zip, RESULTS, clock.instant(), resultsJson(ownerId, rows));
+
 		var manifest = new LinkedHashMap<String, Object>();
 		manifest.put("exportedAt", clock.instant().toString());
 		manifest.put("items", items);
 		manifest.put("omitted", omitted);
+		manifest.put("career", List.of(FACTS, OFFERS, RESULTS));
 		put(zip, "manifest.json", clock.instant(), json.writeValueAsBytes(manifest));
 		zip.finish();
 		zip.flush();
+	}
+
+	/** Every Fact of the User once, switched-off ones too (with their status), with earlier wordings. The source key is left out. */
+	// shortcut: the Facts are built in memory before they are written. Upgrade with the Offers shortcut below.
+	private byte[] factsJson(UUID ownerId) {
+		var all = knowledge.facts(ownerId, null, null).stream().map(view -> {
+			var f = view.fact();
+			var revisions = view.revisions().stream().map(r -> fields("text", r.text(), "savedAt", r.savedAt().toString())).toList();
+			return fields("id", f.id().toString(), "text", f.text(), "category", f.category(), "sourceKind", f.sourceKind(),
+					"sourceId", f.sourceId() == null ? null : f.sourceId().toString(), "quote", f.quote(), "status", f.status(),
+					"updatedAt", f.updatedAt().toString(), "revisions", revisions);
+		}).toList();
+		return json.writeValueAsBytes(all);
+	}
+
+	/** Every Offer of the User once, with its earlier terms; the computed checks are left out. */
+	// shortcut: the Offers are built in memory before they are written, so a User with very many holds them all at once. Upgrade to writing them row by row when that matters.
+	private byte[] offersJson(UUID ownerId) {
+		var all = offers.all(ownerId).stream().map(listed -> {
+			var offer = listed.offer();
+			var earlier = offers.versions(ownerId, offer.id()).stream()
+					.map(v -> fields("version", v.version(), "savedAt", v.savedAt().toString(), "terms", v.terms())).toList();
+			return fields("id", offer.id().toString(), "applicationId", offer.applicationId().toString(),
+					"applicationTitle", listed.applicationTitle(), "company", listed.company(), "role", listed.role(),
+					"version", offer.version(), "updatedAt", offer.updatedAt().toString(), "terms", offer.terms(),
+					"versions", earlier);
+		}).toList();
+		return json.writeValueAsBytes(all);
+	}
+
+	/** The Career results of every live Application of the User, as one flat list. Out-of-date is left out: it is derived. */
+	// shortcut: the results are built in memory before they are written, one Application's list after another. Upgrade with the Offers shortcut above.
+	private byte[] resultsJson(UUID ownerId, List<Row> rows) {
+		var all = new ArrayList<Map<String, Object>>();
+		for (var row : rows) {
+			if (!"APPLICATION".equals(row.type())) {
+				continue;
+			}
+			for (var result : career.results(ownerId, row.id())) {
+				all.add(fields("id", result.id().toString(), "applicationId", row.id().toString(), "kind", result.kind(),
+						"result", result.result(), "resolution", result.resolution(), "createdAt", result.createdAt().toString()));
+			}
+		}
+		return json.writeValueAsBytes(all);
+	}
+
+	/** An object for the JSON with its keys in the order given. A null value stays null. */
+	private static Map<String, Object> fields(Object... keyValues) {
+		var out = new LinkedHashMap<String, Object>();
+		for (int i = 0; i < keyValues.length; i += 2) {
+			out.put((String) keyValues[i], keyValues[i + 1]);
+		}
+		return out;
 	}
 
 	private void letter(UUID ownerId, Row row, Dir dir, ExportNames names, List<Tag> itemTags, ZipOutputStream zip,

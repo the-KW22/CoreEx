@@ -40,6 +40,24 @@ export const MCP_TOOLS: McpTool[] = [
     useWhen: "You want the Links worth making, as well as the ones already there.",
   },
   {
+    name: "list_facts",
+    kind: "read",
+    summary: "List the User's Career Facts that are switched on, newest first, with where each came from. Switched-off Facts are never shown. Optionally one category.",
+    useWhen: "Before writing about the User's career, so only what they have confirmed is used.",
+  },
+  {
+    name: "get_fact",
+    kind: "read",
+    summary: "Read one Career Fact by id. A switched-off Fact is treated as not found.",
+    useWhen: "You have a Fact's id and want its text and source.",
+  },
+  {
+    name: "get_application_results",
+    kind: "read",
+    summary: "List what the Career AI made for one Application (a Fit check, answers, prep, emails and so on), newest first, with its resolution and whether it is out of date.",
+    useWhen: "You want the Fit check or other work already done for an Application.",
+  },
+  {
     name: "list_folders",
     kind: "read",
     summary: "Every Folder with its full path and how many Items it holds.",
@@ -134,6 +152,12 @@ export const MCP_TOOLS: McpTool[] = [
     kind: "change",
     summary: "Replace exact pieces of a Note's text, in order. Each piece must appear exactly once, or nothing is changed. Needs the version from get_item.",
     useWhen: "A small change: it cannot touch anything it did not name.",
+  },
+  {
+    name: "add_fact",
+    kind: "change",
+    summary: "Add a Career Fact the User gave, or pull one from a Resume or Note with the exact quote from it. A line already pulled, or one the User forgot, is refused.",
+    useWhen: "The User states something about their career, or confirms a line from a Resume or Note that belongs in Knowledge.",
   },
   {
     name: "create_folder",
