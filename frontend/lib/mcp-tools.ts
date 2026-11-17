@@ -1,4 +1,4 @@
-// The MCP server's tools as the in-app guide describes them (app/(app)/help/mcp). The backend test McpDocsTest checks
+// The MCP server's tools as the in-app guide describes them (app/(app)/docs/mcp). The backend test McpDocsTest checks
 // that this list has exactly the tools the server has, so change both together. Each entry's name is written as
 // `name: "..."` on purpose: that is what the test looks for.
 export type McpTool = {

@@ -61,7 +61,7 @@ function CreateForm({ close }: { close: () => void }) {
           <DialogDescription>
             This is the only time {state.name} is shown. Anyone with it can read and change your knowledge base, so
             keep it secret. Open{" "}
-            <a href="/help/mcp" target="_blank" rel="noopener" className="text-link underline underline-offset-4">
+            <a href="/docs/mcp" target="_blank" rel="noopener" className="text-link underline underline-offset-4">
               how to connect an Agent
             </a>{" "}
             in a new tab to use it.

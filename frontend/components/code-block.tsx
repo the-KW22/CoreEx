@@ -37,6 +37,7 @@ export function CodeBlock({ code, label }: { code: string; label: string }) {
         size="sm"
         onClick={copy}
         aria-label={`${copied ? "Copied" : "Copy"} ${label}`}
+        data-copy-skip
         className="absolute right-2 top-2"
       >
         <Icon aria-hidden />

@@ -2,17 +2,9 @@ import { KeyRoundIcon } from "lucide-react";
 import Link from "next/link";
 
 import { CodeBlock } from "@/components/code-block";
+import { DocsHeading } from "@/components/docs/docs-heading";
 import { Button } from "@/components/ui/button";
 import { MCP_TOOLS, type McpTool } from "@/lib/mcp-tools";
-
-const SECTIONS = [
-  { id: "what", title: "What an Agent can do" },
-  { id: "connect", title: "Connect your tool" },
-  { id: "tools", title: "Tools" },
-  { id: "safety", title: "Access tokens and safety" },
-  { id: "limits", title: "Limits" },
-  { id: "troubleshooting", title: "Troubleshooting" },
-];
 
 const PROMPTS = [
   "Find the Notes that mention my orphans by name, and link them.",
@@ -80,14 +72,12 @@ function ToolList({ tools }: { tools: McpTool[] }) {
 export default function McpHelpPage() {
   const server = `${(process.env.API_URL ?? "http://localhost:8080").replace(/\/+$/, "")}/mcp`;
   const token = "cx_pat_YOUR_TOKEN";
-  const heading = "text-2xl font-semibold tracking-tight";
   // Links in a sentence are always underlined (colour alone is not enough to spot them); the list of sections is not a sentence.
   const inline = "text-link underline underline-offset-4";
-  const link = "text-link underline-offset-4 hover:underline";
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[1fr_13rem] lg:gap-12">
-      <header className="grid gap-4 lg:col-span-2">
+    <div className="grid gap-8">
+      <header className="grid gap-4">
         <div className="grid gap-2">
           <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Connect an Agent</h1>
           <p className="max-w-2xl text-muted-foreground">
@@ -105,29 +95,14 @@ export default function McpHelpPage() {
         </div>
       </header>
 
-      <nav aria-label="On this page" className="lg:order-last lg:sticky lg:top-8 lg:self-start">
-        <h2 className="mb-2 text-xs font-semibold text-muted-foreground">On this page</h2>
-        <ul className="grid gap-1.5 text-sm">
-          {SECTIONS.map((s) => (
-            <li key={s.id}>
-              <a href={`#${s.id}`} className={link}>
-                {s.title}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
-
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-12">
-        <section id="what" aria-labelledby="what-heading" className="grid scroll-mt-8 grid-cols-[minmax(0,1fr)] gap-4">
-          <h2 id="what-heading" className={heading}>
-            What an Agent can do
-          </h2>
+        <section aria-labelledby="what" className="grid scroll-mt-8 grid-cols-[minmax(0,1fr)] gap-4">
+          <DocsHeading level={2} id="what">What an Agent can do</DocsHeading>
           <p>
             An Agent acts as you, through an Access token. It can find and read your Notes and Assets, write and edit
             Notes, organise Folders and Tags, and move things to the Trash and back. It can never delete anything for good.
           </p>
-          <h3 className="text-base font-semibold">Things you can ask</h3>
+          <DocsHeading level={3} id="things-you-can-ask">Things you can ask</DocsHeading>
           <ul className="grid gap-2">
             {PROMPTS.map((prompt) => (
               <li key={prompt} className="rounded-[10px] border border-border bg-surface px-3 py-2 text-sm">
@@ -137,10 +112,8 @@ export default function McpHelpPage() {
           </ul>
         </section>
 
-        <section id="connect" aria-labelledby="connect-heading" className="grid scroll-mt-8 grid-cols-[minmax(0,1fr)] gap-6">
-          <h2 id="connect-heading" className={heading}>
-            Connect your tool
-          </h2>
+        <section aria-labelledby="connect" className="grid scroll-mt-8 grid-cols-[minmax(0,1fr)] gap-6">
+          <DocsHeading level={2} id="connect">Connect your tool</DocsHeading>
           <ol className="grid list-decimal gap-2 pl-5">
             <li>
               <Link href="/settings/tokens" className={inline}>
@@ -157,9 +130,7 @@ export default function McpHelpPage() {
           </p>
 
           <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
-            <h3 id="claude-code" className="scroll-mt-8 text-lg font-semibold">
-              Claude Code
-            </h3>
+            <DocsHeading level={3} id="claude-code">Claude Code</DocsHeading>
             <CodeBlock
               label="Claude Code command"
               code={`claude mcp add --transport http coreex ${server} \\\n  --header "Authorization: Bearer ${token}"`}
@@ -185,9 +156,7 @@ export default function McpHelpPage() {
           </div>
 
           <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
-            <h3 id="codex" className="scroll-mt-8 text-lg font-semibold">
-              Codex
-            </h3>
+            <DocsHeading level={3} id="codex">Codex</DocsHeading>
             <p className="text-sm">
               Add this to <code className="font-mono">~/.codex/config.toml</code>:
             </p>
@@ -203,9 +172,7 @@ export default function McpHelpPage() {
           </div>
 
           <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
-            <h3 id="claude-desktop" className="scroll-mt-8 text-lg font-semibold">
-              Claude Desktop
-            </h3>
+            <DocsHeading level={3} id="claude-desktop">Claude Desktop</DocsHeading>
             <ol className="grid list-decimal gap-1.5 pl-5 text-sm">
               <li>
                 Open <strong>Customize</strong>, then <strong>Connectors</strong>, click <strong>+ Add</strong> and choose{" "}
@@ -234,9 +201,7 @@ export default function McpHelpPage() {
           </div>
 
           <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
-            <h3 id="other-clients" className="scroll-mt-8 text-lg font-semibold">
-              Any other client
-            </h3>
+            <DocsHeading level={3} id="other-clients">Any other client</DocsHeading>
             <p className="text-sm">
               CoreEx speaks standard MCP over Streamable HTTP, without sessions. Give your client the server address and
               send your token as a bearer token in the <code className="font-mono">Authorization</code> header. To test it
@@ -249,17 +214,15 @@ export default function McpHelpPage() {
           </div>
         </section>
 
-        <section id="tools" aria-labelledby="tools-heading" className="grid scroll-mt-8 grid-cols-[minmax(0,1fr)] gap-4">
-          <h2 id="tools-heading" className={heading}>
-            Tools
-          </h2>
+        <section aria-labelledby="tools" className="grid scroll-mt-8 grid-cols-[minmax(0,1fr)] gap-4">
+          <DocsHeading level={2} id="tools">Tools</DocsHeading>
           <p className="text-sm">
             The Agent chooses the tools itself. Your tool may ask you to approve each call; leaving that on lets you see what
             an Agent is about to do.
           </p>
-          <h3 className="text-lg font-semibold">Read</h3>
+          <DocsHeading level={3} id="read">Read</DocsHeading>
           <ToolList tools={MCP_TOOLS.filter((t) => t.kind === "read")} />
-          <h3 className="text-lg font-semibold">Change</h3>
+          <DocsHeading level={3} id="change">Change</DocsHeading>
           <ToolList tools={MCP_TOOLS.filter((t) => t.kind === "change")} />
           <p className="text-sm text-muted-foreground">
             There is no tool to delete for good, empty the Trash, delete a Tag, import files or use Admin. Files move only
@@ -268,10 +231,8 @@ export default function McpHelpPage() {
           </p>
         </section>
 
-        <section id="safety" aria-labelledby="safety-heading" className="grid scroll-mt-8 grid-cols-[minmax(0,1fr)] gap-4">
-          <h2 id="safety-heading" className={heading}>
-            Access tokens and safety
-          </h2>
+        <section aria-labelledby="safety" className="grid scroll-mt-8 grid-cols-[minmax(0,1fr)] gap-4">
+          <DocsHeading level={2} id="safety">Access tokens and safety</DocsHeading>
           <ul className="grid list-disc gap-2 pl-5">
             <li>
               <strong>A token is a full key.</strong> Anyone who has it can read and change your Notes. Do not paste it into
@@ -310,10 +271,8 @@ export default function McpHelpPage() {
           </ul>
         </section>
 
-        <section id="limits" aria-labelledby="limits-heading" className="grid scroll-mt-8 grid-cols-[minmax(0,1fr)] gap-4">
-          <h2 id="limits-heading" className={heading}>
-            Limits
-          </h2>
+        <section aria-labelledby="limits" className="grid scroll-mt-8 grid-cols-[minmax(0,1fr)] gap-4">
+          <DocsHeading level={2} id="limits">Limits</DocsHeading>
           <p className="text-sm text-muted-foreground">These are the defaults; the person running CoreEx can change them.</p>
           <dl className="grid divide-y divide-border-subtle rounded-[14px] border border-border bg-surface text-sm">
             {[
@@ -332,10 +291,8 @@ export default function McpHelpPage() {
           </dl>
         </section>
 
-        <section id="troubleshooting" aria-labelledby="troubleshooting-heading" className="grid scroll-mt-8 grid-cols-[minmax(0,1fr)] gap-4">
-          <h2 id="troubleshooting-heading" className={heading}>
-            Troubleshooting
-          </h2>
+        <section aria-labelledby="troubleshooting" className="grid scroll-mt-8 grid-cols-[minmax(0,1fr)] gap-4">
+          <DocsHeading level={2} id="troubleshooting">Troubleshooting</DocsHeading>
           <div className="grid divide-y divide-border-subtle rounded-[14px] border border-border bg-surface">
             {TROUBLESHOOTING.map((item) => (
               <details key={item.problem} className="group p-4 text-sm">

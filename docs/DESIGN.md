@@ -27,7 +27,7 @@ The agreed design for the frontend redesign. It records **what** the UI looks li
 |---|---|---|
 | Top | CoreEx logo, collapse button | All |
 | Modules | **Home**, **Knowledge Base**, **Assets**, **Graph**, **Career** | All |
-| Divider, then | **Quick find** (Ctrl K, desktop rail only), **Search**, **Trash**, **Admin** | Admin only for Admin |
+| Divider, then | **Quick find** (Ctrl K, desktop rail only), **Search**, **Docs**, **Trash**, **Admin** | Admin only for Admin |
 | Bottom | Theme toggle, **Account** menu (email, Access tokens, Connect an Agent, Log out) | All |
 
 - Planned modules (Integrations) are **not shown** until they exist. **Career** is shown after Graph (section 3.4).
@@ -59,7 +59,7 @@ The panel belongs to the Knowledge Base module: it shows only on Knowledge Base 
 | `/tags`, `/trash`, `/search` | Tags, Trash, full-text Search results |
 | `/admin` (tabs: Overview, Users, Invites) | Admin |
 | `/settings/tokens` | Access tokens (from the Account menu; no panel beside it) |
-| `/help/mcp` | The MCP guide (from the Account menu and the Access tokens page; no panel beside it) |
+| `/docs`, `/docs/mcp` (and the other MCP guide pages, section 6.11) | Docs: the Introduction and the MCP guide, with a sidebar and no panel beside it. `/help/mcp` redirects to `/docs/mcp` |
 | `/login`, `/reset-password`, `/invite-only`, `/disabled`, 404, error | Sign-in and system pages |
 
 ### 3.4 Career module (being built)
@@ -257,7 +257,18 @@ A Career screen (#227), opened from the Applications list below.
 
 Opened from **Access tokens** in the Account menu. Title, one sentence on what an Access token lets an Agent do, and **New Access token**. A table of the User's tokens: Name, Created, Last used ("Never used"), Expires (a date, "Never", or an orange **Expired** Badge) and **Revoke** behind an Alert Dialog. On a phone each row becomes a card, as in Admin Invites. Empty state: "No Access tokens yet". (The Details panel of a Note or Asset shows an **Edited by** row, with the token's name, while an Agent made its latest content change; the User's next save clears it.) The New Access token Dialog asks for a Name and an Expires-after Select (30 days, 90 days default, 1 year, Never); on success the same Dialog shows the secret once in a read-only field with **Copy token** and **Done**, and says it is never shown again.
 
-### 6.11 MCP guide (`/help/mcp`)
+### 6.11 Docs (`/docs`)
+
+**Docs** is a rail entry above Trash (book icon; a Tooltip when the rail is collapsed; current on every `/docs` page). Its pages are the in-app documentation, written for Users. Every page under `/docs` has the same frame (`components/docs/docs-frame.tsx`), inside the signed-in shell and with no Knowledge Base panel:
+
+- **Sidebar** on the left, in two groups, **Getting started** and **MCP**. The pages and their order come from one list, `frontend/lib/docs.ts`, which also drives the previous and next links at the foot of each page. The current page is marked.
+- **On this page** on the right (from `xl`, 1280px, sticky) lists the page's `h2` and `h3` headings and marks the one nearest the top of the screen. Below `xl` the same list sits above the text. Each heading has a "#" link to its own address.
+- **Copy page** above the text copies the page's text (the Copy buttons of code blocks are left out).
+- Below `xl` the sidebar is a Sheet, opened by **Docs pages**; choosing a page closes it.
+
+Pages so far: **Introduction** (`/docs`) and the MCP guide, whose first page is still titled "Connect an Agent" at `/docs/mcp`. The Account menu's **Connect an Agent** item opens it, and `/help/mcp` redirects there.
+
+### 6.11a MCP guide (`/docs/mcp`)
 
 The documentation for the MCP server, written for Users, in the shape SaaS products such as Linear, Notion and Stripe use for theirs. A title with one sentence on what MCP is and a **Create an Access token** button. Then, in order: **What an Agent can do** (a short paragraph and seven example prompts), **Connect your tool** (the server address in a code block, then one heading per tool: Claude Code, Codex, Claude Desktop and any other client, each with copyable commands), **Tools** (Read and Change lists: name, what it does, "Use it when"), **Access tokens and safety**, **Limits** and **Troubleshooting** (native `<details>` items).
 

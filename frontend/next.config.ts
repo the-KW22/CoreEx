@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
   experimental: { serverActions: { bodySizeLimit: "4mb" } },
   // The Resume PDF route reads the Inter files from public/fonts at run time, so they must ship with that function.
   outputFileTracingIncludes: { "/export/resume-pdf": ["./public/fonts/*.woff"] },
+  // The MCP guide moved into the Docs (docs/DESIGN.md section 6.11); old links keep working.
+  async redirects() {
+    return [{ source: "/help/mcp", destination: "/docs/mcp", permanent: true }];
+  },
 };
 
 export default nextConfig;
