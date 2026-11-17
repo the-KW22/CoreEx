@@ -334,8 +334,10 @@ public class ApplicationService {
 		if (entry(current, seq).type().equals("STAGE")) {
 			throw invalid("A Stage entry cannot be deleted.");
 		}
-		return store(ownerId, id, seenVersion, current.stage(), current.closeReason(),
+		var kept = store(ownerId, id, seenVersion, current.stage(), current.closeReason(),
 				current.timeline().stream().filter(e -> e.seq() != seq).toList());
+		if (entry(current, seq).type().equals("INTERVIEW")) applications.dropDebrief(ownerId, id, seq);
+		return kept;
 	}
 
 	private static TimelineEntry entry(Application application, int seq) {

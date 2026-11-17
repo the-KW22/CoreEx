@@ -37,6 +37,27 @@ class FakeModel implements Model {
 			var words = text.find() ? text.group(1).trim().split("\\s+") : new String[0];
 			return new Reply(json.writeValueAsString(Map.of("tightened", String.join(" ", java.util.Arrays.copyOf(words, Math.max(1, words.length / 2))))), 100, 100);
 		}
+		if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("plan")) {
+			// Interview prep: stresses the first Fact it was given, if any.
+			var fact = java.util.regex.Pattern.compile("<fact id=\"([0-9a-f-]{36})\"").matcher(data);
+			var evidence = fact.find() ? java.util.List.of(fact.group(1)) : java.util.List.<String>of();
+			var stress = evidence.isEmpty() ? java.util.List.of()
+					: java.util.List.of(Map.of("point", "Stress your web services work", "evidence", evidence));
+			return new Reply(json.writeValueAsString(Map.of("plan", java.util.List.of("Reread the posting", "Pick two stories", "Rehearse out loud"),
+					"about", "A fake company hiring an engineer.", "stress", stress, "ask", java.util.List.of("What does a first month look like?"),
+					"practice", java.util.List.of("Tell me about yourself.", "Why do you want this role?"))), 100, 100);
+		}
+		if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("works")) {
+			// Practice feedback: quotes the first four words of the answer it was given.
+			var typed = java.util.regex.Pattern.compile("(?s)<practice[^>]*>(.*?)</practice>").matcher(data);
+			var words = typed.find() ? typed.group(1).trim().split("\\s+") : new String[0];
+			var quote = String.join(" ", java.util.Arrays.copyOf(words, Math.min(4, words.length)));
+			return new Reply(json.writeValueAsString(Map.of("works", java.util.List.of(Map.of("quote", quote, "why", "Clear and direct.")),
+					"strengthen", "Add one concrete result.")), 100, 100);
+		}
+		if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("improve")) {
+			return new Reply(json.writeValueAsString(Map.of("improve", java.util.List.of("Give a specific example next time."))), 100, 100);
+		}
 		if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("suggestions")) {
 			var original = json.readTree(data).path("fields").path("summary").asText();
 			var suggestions = original.isBlank() ? java.util.List.of() : java.util.List.of(Map.of("field", "summary", "original", original, "suggestion", original));

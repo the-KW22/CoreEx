@@ -150,6 +150,12 @@ class ApplicationRepository {
 				.param("app", applicationId).param("asset", assetId).param("label", label.name()).update();
 	}
 
+	/** An interview's Debrief goes with it: a later interview can be given the same seq, and must not inherit it. */
+	void dropDebrief(UUID ownerId, UUID applicationId, int seq) {
+		jdbc.sql("delete from interview_debriefs where owner_id = :owner and item_id = :app and interview_seq = :seq")
+				.param("owner", ownerId).param("app", applicationId).param("seq", seq).update();
+	}
+
 	boolean detach(UUID applicationId, UUID assetId) {
 		return jdbc.sql("delete from application_documents where application_id = :app and asset_id = :asset")
 				.param("app", applicationId).param("asset", assetId).update() > 0;
