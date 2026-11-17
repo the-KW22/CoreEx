@@ -71,6 +71,25 @@ public class CoverLetterService {
 
 	@Transactional
 	public Letter create(UUID owner, String title, UUID resumeId, CoverLetterDocument imported) {
+		return create(owner, null, title, resumeId, imported);
+	}
+
+	/**
+	 * With an {@code id} the caller made up, a repeated request returns the letter as stored instead of making a second
+	 * one; an id that is someone else's is refused with the same answer as a missing one.
+	 */
+	@Transactional
+	public Letter create(UUID owner, UUID wantedId, String title, UUID resumeId, CoverLetterDocument imported) {
+		if (wantedId != null) {
+			// shortcut: check-then-insert, so two simultaneous retries can still collide on the key; fine for one Agent, add a unique-violation catch if not.
+			var taken = jdbc.sql("select owner_id, type from items where id = :id").param("id", wantedId)
+					.query((rs, n) -> rs.getObject("owner_id", UUID.class).equals(owner) && rs.getString("type").equals("COVER_LETTER"))
+					.optional();
+			if (taken.isPresent()) {
+				if (!taken.get()) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "That id cannot be used for a new Cover Letter.");
+				return get(owner, wantedId);
+			}
+		}
 		var document = new CoverLetterDocument(null, null, null, null, null, null, null);
 		if (resumeId != null) {
 			// Serialize the snapshot with Resume saves so a concurrent edit cannot leave a newly linked letter stale.
@@ -81,8 +100,8 @@ public class CoverLetterService {
 			var source = resumes.get(owner, resumeId).document();
 			document = document.withSenderAndDesign(source.basics(), source.metadata());
 		}
-		var id = jdbc.sql("insert into items (owner_id, type, title) values (:owner, 'COVER_LETTER', :title) returning id")
-				.param("owner", owner).param("title", title).query(UUID.class).single();
+		var id = jdbc.sql("insert into items (id, owner_id, type, title) values (coalesce(:id, gen_random_uuid()), :owner, 'COVER_LETTER', :title) returning id")
+				.param("id", wantedId).param("owner", owner).param("title", title).query(UUID.class).single();
 		jdbc.sql("insert into cover_letter_contents (item_id, linked_resume_id, document) values (:id, :resume, :document::jsonb)")
 				.param("id", id).param("resume", resumeId).param("document", json.writeValueAsString(document)).update();
 		return imported == null ? get(owner, id) : save(owner, id, title, 1, imported);

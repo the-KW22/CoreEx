@@ -126,4 +126,29 @@ class McpCoverLetterToolsApiTest extends McpApiTest {
 		assertThat(callFails("edit_cover_letter", "{\"id\":\"" + id + "\",\"version\":1}")).contains("Give at least one");
 	}
 
+	@Test
+	void createWithTheSameIdTwiceMakesOneLetterAndAnotherUsersIdIsRefused() throws Exception {
+		var id = UUID.randomUUID().toString();
+		call("create_cover_letter", "{\"title\":\"L\",\"id\":\"" + id + "\"}");
+		var again = call("create_cover_letter", "{\"title\":\"L\",\"id\":\"" + id + "\"}");
+
+		assertThat(again.path("id").asString()).isEqualTo(id);
+		assertThat(call("list_cover_letters", "{}").path("coverLetters")).hasSize(1);
+
+		var theirs = id(post("/api/cover-letters", newUser("c@example.com"), "{\"title\":\"Theirs\"}").body());
+		assertThat(callFails("create_cover_letter", "{\"title\":\"L\",\"id\":\"" + theirs + "\"}")).isNotBlank();
+	}
+
+	@Test
+	void aTooLongBodyIsRefusedAndALinkedLetterKeepsItsSender() throws Exception {
+		var resume = id(post("/api/resumes", jwt, "{\"sample\":true}").body());
+		var id = call("create_cover_letter", "{\"title\":\"L\",\"resumeId\":\"" + resume + "\"}").path("id").asString();
+
+		assertThat(callFails("edit_cover_letter", "{\"id\":\"" + id + "\",\"version\":1,\"body\":\"" + "x".repeat(200001) + "\"}"))
+				.contains("too long");
+		call("edit_cover_letter", "{\"id\":\"" + id + "\",\"version\":1,\"greeting\":\"Hi\"}");
+
+		assertThat(restLetter(id).path("document").path("sender").path("name").asString()).isEqualTo("Alex Morgan");
+	}
+
 }

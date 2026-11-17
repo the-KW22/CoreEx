@@ -61,8 +61,9 @@ class CoverLetterTools {
 
 	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "create_cover_letter", description = "Start a new, empty Cover Letter with a title. Pass resumeId to link it to one of the User's Resumes: its sender details and look then follow that Resume. Write it with edit_cover_letter (use the id and version 1 it returns).")
 	LetterSaved createCoverLetter(McpTransportContext context, @McpToolParam(description = "The Cover Letter's title") String title,
-			@McpToolParam(required = false, description = "A Resume to link it to") UUID resumeId) {
-		var letter = letters.create(owner(context), Input.required("title", title, Input.TITLE_MAX), resumeId, null);
+			@McpToolParam(required = false, description = "A Resume to link it to") UUID resumeId,
+			@McpToolParam(required = false, description = "An id you made up (a UUID), so a retry makes no second letter") UUID id) {
+		var letter = letters.create(owner(context), id, Input.required("title", title, Input.TITLE_MAX), resumeId, null);
 		return new LetterSaved(letter.id(), letter.title(), letter.version());
 	}
 
