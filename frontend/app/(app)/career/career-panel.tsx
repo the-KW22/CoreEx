@@ -1,6 +1,6 @@
 "use client";
 
-import { BriefcaseBusinessIcon, FileUserIcon } from "lucide-react";
+import { BookOpenIcon, BriefcaseBusinessIcon, FileUserIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -13,6 +13,7 @@ import { itemLink } from "../kb-panel";
 const ENTRIES = [
   { href: "/career/applications", label: "Applications", icon: BriefcaseBusinessIcon },
   { href: "/career/library", label: "Resumes & Letters", icon: FileUserIcon },
+  { href: "/career/knowledge", label: "Knowledge", icon: BookOpenIcon },
 ];
 
 export function CareerPanel() {

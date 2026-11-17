@@ -132,6 +132,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/knowledge/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["preferences"];
+        put: operations["savePreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/notes/{id}/story": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["setStory"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/facts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["correct"];
+        post?: never;
+        delete: operations["forget"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/facts/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["status"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/folders/{id}": {
         parameters: {
             query?: never;
@@ -564,6 +628,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/knowledge/stories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["stories"];
+        put?: never;
+        post: operations["newStory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["facts"];
+        put?: never;
+        post: operations["create_3"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/items/{id}/tags": {
         parameters: {
             query?: never;
@@ -653,7 +749,7 @@ export interface paths {
         };
         get: operations["list_6"];
         put?: never;
-        post: operations["create_3"];
+        post: operations["create_4"];
         delete?: never;
         options?: never;
         head?: never;
@@ -685,7 +781,7 @@ export interface paths {
         };
         get: operations["list_7"];
         put?: never;
-        post: operations["create_4"];
+        post: operations["create_5"];
         delete?: never;
         options?: never;
         head?: never;
@@ -813,7 +909,7 @@ export interface paths {
         };
         get: operations["list_8"];
         put?: never;
-        post: operations["create_5"];
+        post: operations["create_6"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1037,7 +1133,7 @@ export interface paths {
         };
         get: operations["list_9"];
         put?: never;
-        post: operations["create_6"];
+        post: operations["create_7"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1069,7 +1165,7 @@ export interface paths {
         };
         get: operations["list_10"];
         put?: never;
-        post: operations["create_7"];
+        post: operations["create_8"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1260,6 +1356,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["suggestions_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/facts/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["candidates"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1499,7 +1611,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["status"];
+        get: operations["status_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1840,6 +1952,58 @@ export interface components {
             x: number;
             /** Format: double */
             y: number;
+        };
+        PreferencesRequest: {
+            targetRoles?: string;
+            /** @description Any of REMOTE, HYBRID, ONSITE */
+            places?: string[] | null;
+            minBasePay?: number | null;
+            /** @description Three letters, such as GBP */
+            currency?: string | null;
+            payPeriod?: string | null;
+            /** Format: int32 */
+            officeDaysPerWeek?: number | null;
+            noticePeriod?: string;
+        };
+        PreferencesResponse: {
+            targetRoles?: string;
+            places?: string[];
+            minBasePay?: number;
+            currency?: string;
+            payPeriod?: string;
+            /** Format: int32 */
+            officeDaysPerWeek?: number;
+            noticePeriod?: string;
+        };
+        StoryFlagRequest: {
+            story: boolean;
+        };
+        FactRequest: {
+            text: string;
+            category: string;
+        };
+        FactResponse: {
+            /** Format: uuid */
+            id: string;
+            text: string;
+            category: string;
+            sourceKind: string;
+            /** Format: uuid */
+            sourceId?: string | null;
+            quote?: string | null;
+            status: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Earlier wordings, oldest first */
+            revisions: components["schemas"]["RevisionResponse"][];
+        };
+        RevisionResponse: {
+            text?: string;
+            /** Format: date-time */
+            savedAt?: string;
+        };
+        StatusRequest: {
+            status: string;
         };
         RenameFolderRequest: {
             name: string;
@@ -2224,6 +2388,25 @@ export interface components {
             title: string;
             /** @description The Folder path such as "Work / CoreEx", null at the top level */
             folderPath: string | null;
+        };
+        StoryRequest: {
+            title?: string;
+        };
+        StoryCreatedResponse: {
+            /** Format: uuid */
+            id?: string;
+            title?: string;
+            body?: string;
+        };
+        CreateFactRequest: {
+            text: string;
+            category: string;
+            /** @description MANUAL (the default), RESUME or NOTE */
+            sourceKind?: string | null;
+            /** Format: uuid */
+            sourceId?: string | null;
+            /** @description The exact words of the source; checked against its current text */
+            quote?: string | null;
         };
         AddTagRequest: {
             name: string;
@@ -2768,6 +2951,19 @@ export interface components {
              * @description How close in meaning, 0 to 1
              */
             similarity: number;
+        };
+        StoryResponse: {
+            /** Format: uuid */
+            id?: string;
+            title?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        CandidateResponse: {
+            sourceKind?: string;
+            /** Format: uuid */
+            sourceId?: string;
+            quote?: string;
         };
         ItemPage: {
             items: components["schemas"]["ItemResponse"][];
@@ -3456,6 +3652,146 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    preferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesResponse"];
+                };
+            };
+        };
+    };
+    savePreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferencesRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesResponse"];
+                };
+            };
+        };
+    };
+    setStory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoryFlagRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    correct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FactRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactResponse"];
+                };
+            };
+        };
+    };
+    forget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactResponse"];
                 };
             };
         };
@@ -4870,6 +5206,97 @@ export interface operations {
             };
         };
     };
+    stories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryResponse"][];
+                };
+            };
+        };
+    };
+    newStory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoryRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryCreatedResponse"];
+                };
+            };
+        };
+    };
+    facts: {
+        parameters: {
+            query?: {
+                category?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactResponse"][];
+                };
+            };
+        };
+    };
+    create_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFactRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactResponse"];
+                };
+            };
+        };
+    };
     list_5: {
         parameters: {
             query?: never;
@@ -5111,7 +5538,7 @@ export interface operations {
             };
         };
     };
-    create_3: {
+    create_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -5217,7 +5644,7 @@ export interface operations {
             };
         };
     };
-    create_4: {
+    create_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -5596,7 +6023,7 @@ export interface operations {
             };
         };
     };
-    create_5: {
+    create_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -6287,7 +6714,7 @@ export interface operations {
             };
         };
     };
-    create_6: {
+    create_7: {
         parameters: {
             query?: never;
             header?: never;
@@ -6389,7 +6816,7 @@ export interface operations {
             };
         };
     };
-    create_7: {
+    create_8: {
         parameters: {
             query?: never;
             header?: never;
@@ -6809,6 +7236,29 @@ export interface operations {
             };
         };
     };
+    candidates: {
+        parameters: {
+            query: {
+                sourceKind: string;
+                sourceId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateResponse"][];
+                };
+            };
+        };
+    };
     list_13: {
         parameters: {
             query?: {
@@ -7212,7 +7662,7 @@ export interface operations {
             };
         };
     };
-    status: {
+    status_1: {
         parameters: {
             query?: never;
             header?: never;
