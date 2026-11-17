@@ -372,6 +372,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/resumes/{id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_4"];
+        put?: never;
+        post: operations["review"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/reviews/{reviewId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/reviews/{reviewId}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/improve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["improve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/improve/{suggestionId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reject_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/improve/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["accept_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/resumes/{id}/duplicate": {
         parameters: {
             query?: never;
@@ -382,6 +478,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["duplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/ai-import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["read"];
         delete?: never;
         options?: never;
         head?: never;
@@ -459,7 +571,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_4"];
+        get: operations["list_5"];
         put?: never;
         post: operations["add"];
         delete?: never;
@@ -539,7 +651,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_5"];
+        get: operations["list_6"];
         put?: never;
         post: operations["create_3"];
         delete?: never;
@@ -571,7 +683,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_6"];
+        get: operations["list_7"];
         put?: never;
         post: operations["create_4"];
         delete?: never;
@@ -699,7 +811,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_7"];
+        get: operations["list_8"];
         put?: never;
         post: operations["create_5"];
         delete?: never;
@@ -923,7 +1035,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_8"];
+        get: operations["list_9"];
         put?: never;
         post: operations["create_6"];
         delete?: never;
@@ -955,7 +1067,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_9"];
+        get: operations["list_10"];
         put?: never;
         post: operations["create_7"];
         delete?: never;
@@ -971,7 +1083,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_10"];
+        get: operations["list_11"];
         put?: never;
         post?: never;
         delete: operations["empty"];
@@ -1051,7 +1163,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_11"];
+        get: operations["list_12"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1163,7 +1275,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_12"];
+        get: operations["list_13"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1179,7 +1291,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_13"];
+        get: operations["list_14"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1195,7 +1307,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_14"];
+        get: operations["list_15"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1323,7 +1435,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_15"];
+        get: operations["list_16"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1403,7 +1515,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_16"];
+        get: operations["list_17"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2020,6 +2132,45 @@ export interface components {
         RestoreResumeRequest: {
             /** Format: int32 */
             version: number;
+        };
+        Request: {
+            /** Format: int32 */
+            version: number;
+        };
+        Review: {
+            /** Format: uuid */
+            id: string;
+            suggestions: components["schemas"]["ReviewSuggestion"][];
+        };
+        ReviewSuggestion: {
+            /** Format: uuid */
+            id: string;
+            field: string;
+            original: string;
+            suggestion: string;
+        };
+        Selection: {
+            ids: string[];
+        };
+        Improve: {
+            field: string;
+            /** Format: int32 */
+            version: number;
+        };
+        Suggestion: {
+            /** Format: uuid */
+            id: string;
+            original: string;
+            suggestion: string;
+        };
+        AcceptImprovement: {
+            /** Format: uuid */
+            suggestionId: string;
+            /** Format: int32 */
+            version: number;
+        };
+        ImportText: {
+            text: string;
         };
         CreateNoteRequest: {
             title?: string;
@@ -4312,6 +4463,181 @@ export interface operations {
             };
         };
     };
+    list_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Review"][];
+                };
+            };
+        };
+    };
+    review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Request"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Review"];
+                };
+            };
+        };
+    };
+    reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                reviewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Selection"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResumeResponse"];
+                };
+            };
+        };
+    };
+    accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                reviewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Selection"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResumeResponse"];
+                };
+            };
+        };
+    };
+    improve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Improve"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Suggestion"];
+                };
+            };
+        };
+    };
+    reject_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                suggestionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    accept_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptImprovement"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResumeResponse"];
+                };
+            };
+        };
+    };
     duplicate: {
         parameters: {
             query?: never;
@@ -4339,6 +4665,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportText"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResumeDocument"];
                 };
             };
         };
@@ -4520,7 +4870,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -4741,7 +5091,7 @@ export interface operations {
             };
         };
     };
-    list_5: {
+    list_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -4847,7 +5197,7 @@ export interface operations {
             };
         };
     };
-    list_6: {
+    list_7: {
         parameters: {
             query?: never;
             header?: never;
@@ -5212,7 +5562,7 @@ export interface operations {
             };
         };
     };
-    list_7: {
+    list_8: {
         parameters: {
             query?: {
                 page?: number;
@@ -5914,7 +6264,7 @@ export interface operations {
             };
         };
     };
-    list_8: {
+    list_9: {
         parameters: {
             query?: {
                 page?: number;
@@ -6019,7 +6369,7 @@ export interface operations {
             };
         };
     };
-    list_9: {
+    list_10: {
         parameters: {
             query?: never;
             header?: never;
@@ -6081,7 +6431,7 @@ export interface operations {
             };
         };
     };
-    list_10: {
+    list_11: {
         parameters: {
             query?: {
                 page?: number;
@@ -6252,7 +6602,7 @@ export interface operations {
             };
         };
     };
-    list_11: {
+    list_12: {
         parameters: {
             query?: never;
             header?: never;
@@ -6459,7 +6809,7 @@ export interface operations {
             };
         };
     };
-    list_12: {
+    list_13: {
         parameters: {
             query?: {
                 folderId?: string;
@@ -6494,7 +6844,7 @@ export interface operations {
             };
         };
     };
-    list_13: {
+    list_14: {
         parameters: {
             query?: {
                 size?: number;
@@ -6527,7 +6877,7 @@ export interface operations {
             };
         };
     };
-    list_14: {
+    list_15: {
         parameters: {
             query?: never;
             header?: never;
@@ -6747,7 +7097,7 @@ export interface operations {
             };
         };
     };
-    list_15: {
+    list_16: {
         parameters: {
             query?: never;
             header?: never;
@@ -6882,7 +7232,7 @@ export interface operations {
             };
         };
     };
-    list_16: {
+    list_17: {
         parameters: {
             query?: {
                 page?: number;

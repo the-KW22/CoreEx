@@ -8,6 +8,13 @@ export type ResumeResult = { ok: true } | { ok: false; message: string };
 
 const failed = (message?: string): ResumeResult => ({ ok: false, message: message ?? "Something went wrong. Try again." });
 
+export async function mapResumeText(text: string) {
+  const api = await getApi();
+  const result = await api.POST("/api/resumes/ai-import", { body: { text } }).catch(() => null);
+  return result?.data ? { document: result.data, error: null } : { document: null, error: result?.response.status === 429
+    ? "You have used today's AI budget. It starts again at midnight UTC." : "Could not read this Resume with AI. Try again." };
+}
+
 export async function createCoverLetter(title: string, resumeId: string): Promise<ResumeResult> {
   const api = await getApi();
   const result = await api.POST("/api/cover-letters", { body: { title: title.trim() || "My Cover Letter", resumeId: resumeId || undefined } }).catch(() => null);
