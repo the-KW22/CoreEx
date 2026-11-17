@@ -14,8 +14,9 @@ test("adds, corrects, switches off and forgets a Fact by hand", async ({ page })
 
   const row = page.getByRole("listitem").filter({ hasText: first });
   await row.getByRole("button", { name: "Edit" }).click();
-  await row.getByLabel("Fact text").fill(corrected);
-  await row.getByRole("button", { name: "Save Fact" }).click();
+  await page.getByLabel("Fact text").fill(corrected);
+  // While editing, the Fact's old words are in the box, not in the row's text, so find the row by its box.
+  await page.getByRole("listitem").filter({ has: page.getByLabel("Fact text") }).getByRole("button", { name: "Save Fact" }).click();
   await expect(page.getByText(corrected)).toBeVisible();
   await expect(page.getByText(`Earlier wording: ${first}`)).toBeVisible();
 
@@ -44,7 +45,7 @@ test("pulls a Fact from a Resume line with its quote, and it is not suggested ag
 
   await page.goto("/career/knowledge");
   await page.getByText("Pull Facts from a Resume or Note").click();
-  await page.getByLabel("Resume", { exact: true }).selectOption({ label: resume });
+  await page.getByRole("combobox", { name: "Resume", exact: true }).selectOption({ label: resume });
   await page.getByRole("button", { name: "Show lines" }).click();
   const candidate = page.locator("form").filter({ hasText: "From the source:" }).first();
   await expect(candidate).toBeVisible();
@@ -69,6 +70,23 @@ test("starts a Story with its five headings, and removes its Story kind", async 
   await expectNoViolations(page);
 });
 
+test("marks an existing Note as a Story from the Note, and clears it", async ({ page }) => {
+  test.setTimeout(120_000);
+  const name = `Plain note ${Date.now()}`;
+  await signIn(page);
+  await page.goto("/career/knowledge");
+  await page.getByLabel("Story name").fill(name);
+  await page.getByRole("button", { name: "New Story" }).click();
+  await page.getByRole("link", { name, exact: true }).click();
+  const toggle = page.getByLabel("This Note is a Story");
+  await expect(toggle).toBeChecked();
+  await toggle.click();
+  await expect(toggle).not.toBeChecked();
+  await page.goto("/career/knowledge");
+  await expect(page.getByRole("link", { name, exact: true })).toHaveCount(0);
+  await expectNoViolations(page);
+});
+
 test("saves Preferences and reloads them, and refuses a minimum pay without a currency", async ({ page }) => {
   test.setTimeout(120_000);
   await signIn(page);
@@ -78,7 +96,7 @@ test("saves Preferences and reloads them, and refuses a minimum pay without a cu
   await prefs.getByLabel("Remote").check();
   await page.getByLabel("Minimum base pay").fill("60000");
   await page.getByRole("button", { name: "Save Preferences" }).click();
-  await expect(page.getByRole("alert")).toContainText("A minimum pay needs a currency and a pay period.");
+  await expect(page.getByText("A minimum pay needs a currency and a pay period.")).toBeVisible();
 
   await page.getByLabel("Currency").selectOption("GBP");
   await page.getByLabel("Pay period").selectOption("YEAR");

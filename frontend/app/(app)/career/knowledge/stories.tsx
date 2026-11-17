@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { clearStory, createStory } from "./actions";
 
 // Story Notes (decision C5): a normal Note with the Story flag. "New Story" starts one with the five headings.
-// shortcut: a Note that is not a Story yet is flagged from its own screen only after the Note editor gets the control, so this list only starts and clears Stories, upgrade when the Note editor gets the Story toggle.
+// A Note is flagged or cleared from its own screen too (StoryToggle on the Note page).
 export function Stories({ stories }: { stories: { id: string; title: string }[] }) {
   const [title, setTitle] = useState("");
   const [error, setError] = useState("");
@@ -35,7 +35,7 @@ export function Stories({ stories }: { stories: { id: string; title: string }[] 
       <ul className="grid gap-2">
         {stories.map((story) => (
           <li key={story.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3">
-            <Link href={`/items/${story.id}`} className="font-medium underline-offset-4 hover:underline">{story.title}</Link>
+            <Link href={`/notes/${story.id}`} className="font-medium underline-offset-4 hover:underline">{story.title}</Link>
             <Button type="button" variant="ghost" disabled={pending} onClick={() => start(async () => {
               const result = await clearStory(story.id);
               if (!result.ok) setError(result.message);

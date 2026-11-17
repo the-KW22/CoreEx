@@ -6,6 +6,7 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -64,6 +65,19 @@ class KnowledgeRepository {
 		return jdbc.sql("select text, saved_at from fact_revisions where owner_id = :owner and fact_id = :id order by saved_at, id")
 				.param("owner", ownerId).param("id", factId)
 				.query((rs, n) -> new Revision(rs.getString("text"), instant(rs, "saved_at"))).list();
+	}
+
+	/** The revisions of many Facts in one query, oldest first, keyed by Fact id. */
+	Map<UUID, List<Revision>> revisionsOf(UUID ownerId, List<UUID> factIds) {
+		var byFact = new java.util.HashMap<UUID, List<Revision>>();
+		if (factIds.isEmpty()) return byFact;
+		jdbc.sql("select fact_id, text, saved_at from fact_revisions where owner_id = :owner and fact_id in (:ids) order by saved_at, id")
+				.param("owner", ownerId).param("ids", factIds).query((rs, n) -> {
+					byFact.computeIfAbsent(rs.getObject("fact_id", UUID.class), k -> new java.util.ArrayList<>())
+							.add(new Revision(rs.getString("text"), instant(rs, "saved_at")));
+					return null;
+				}).list();
+		return byFact;
 	}
 
 	/** Empty when a Fact with the same source key already exists. */

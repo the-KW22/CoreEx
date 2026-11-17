@@ -86,13 +86,17 @@ export async function createStory(title: string): Promise<KnowledgeResult> {
   return done(!!result.data) ? { ok: true } : failed(reason(result.error));
 }
 
-export async function clearStory(noteId: string): Promise<KnowledgeResult> {
+export async function setStory(noteId: string, story: boolean): Promise<KnowledgeResult> {
   const api = await getApi();
   const result = await api
-    .PUT("/api/knowledge/notes/{id}/story", { params: { path: { id: noteId } }, body: { story: false } })
+    .PUT("/api/knowledge/notes/{id}/story", { params: { path: { id: noteId } }, body: { story } })
     .catch(() => null);
   if (!result) return unreachable;
   return done(result.response.ok) ? { ok: true } : failed(reason(result.error));
+}
+
+export async function clearStory(noteId: string): Promise<KnowledgeResult> {
+  return setStory(noteId, false);
 }
 
 export async function savePreferences(prefs: Preferences): Promise<KnowledgeResult> {

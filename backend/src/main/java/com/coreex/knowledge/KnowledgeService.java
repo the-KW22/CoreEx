@@ -61,7 +61,10 @@ class KnowledgeService {
 	}
 
 	public List<FactView> facts(UUID ownerId, String category, String status) {
-		return repo.facts(ownerId, category, status).stream().map(f -> new FactView(f, repo.revisions(ownerId, f.id()))).toList();
+		// shortcut: the Facts list is unpaged, upgrade to paging when a User holds hundreds of Facts.
+		var facts = repo.facts(ownerId, category, status);
+		var revisions = repo.revisionsOf(ownerId, facts.stream().map(f -> f.id()).toList());
+		return facts.stream().map(f -> new FactView(f, revisions.getOrDefault(f.id(), List.of()))).toList();
 	}
 
 	/**

@@ -14,6 +14,7 @@ export default async function KnowledgePage() {
     api.GET("/api/knowledge/stories").catch(() => null),
     api.GET("/api/knowledge/preferences").catch(() => null),
     api.GET("/api/resumes", { params: { query: { size: 100 } } }).catch(() => null),
+    // shortcut: the pull picker lists only the 100 newest Notes, upgrade to a search box when a User has more.
     api.GET("/api/items", { params: { query: { type: "NOTE", size: 100 } } }).catch(() => null),
   ]);
 

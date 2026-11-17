@@ -9,6 +9,7 @@ import { ItemBacklinks, ItemConnections, parseDepth } from "../../items/item-sec
 import { ItemMentions, parseMentions } from "../../items/mentions";
 import { TagEditor } from "../../items/tag-editor";
 import { RecordOpen } from "../../search/record-open";
+import { StoryToggle } from "../../career/knowledge/story-toggle";
 import { NoteEditor } from "./note-editor";
 
 export default async function NotePage({ params, searchParams }: PageProps<"/notes/[id]">) {
@@ -16,11 +17,12 @@ export default async function NotePage({ params, searchParams }: PageProps<"/not
   const { depth: rawDepth, mentions } = await searchParams;
   const depth = parseDepth(rawDepth);
   const api = await getApi();
-  const [result, list, itemTags, allTags, jar] = await Promise.all([
+  const [result, list, itemTags, allTags, stories, jar] = await Promise.all([
     api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/folders").catch(() => null),
     api.GET("/api/items/{id}/tags", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/tags").catch(() => null),
+    api.GET("/api/knowledge/stories").catch(() => null),
     cookies(),
   ]);
 
@@ -59,6 +61,7 @@ export default async function NotePage({ params, searchParams }: PageProps<"/not
         }
         details={
           <div className="grid gap-6">
+            <StoryToggle noteId={note.id} isStory={(stories?.data ?? []).some((x) => x.id === note.id)} />
             <FolderPicker itemId={note.id} folderId={note.folderId} folders={folders} />
             <ItemBacklinks itemId={note.id} />
             <ItemMentions itemId={note.id} size={parseMentions(mentions)} depth={depth} />
