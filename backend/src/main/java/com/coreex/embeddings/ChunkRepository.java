@@ -47,9 +47,11 @@ class ChunkRepository {
 				select i.id from items i
 				left join note_contents c on c.item_id = i.id
 				left join application_contents a on a.item_id = i.id
-				where i.type in ('NOTE', 'APPLICATION') and i.deleted_at is null
+				left join resume_contents r on r.item_id = i.id
+				left join cover_letter_contents l on l.item_id = i.id
+				where i.type in ('NOTE', 'APPLICATION', 'RESUME', 'COVER_LETTER') and i.deleted_at is null
 				  and i.updated_at <= now() - make_interval(secs => :seconds)
-				  and (coalesce(c.embedded_updated_at, a.embedded_updated_at) is distinct from i.updated_at
+				  and (coalesce(c.embedded_updated_at, a.embedded_updated_at, r.embedded_updated_at, l.embedded_updated_at) is distinct from i.updated_at
 				       or exists (select 1 from note_chunks k where k.note_id = i.id and k.model <> :model))
 				order by i.updated_at, i.id limit :limit""").param("seconds", settle.toMillis() / 1000.0)
 				.param("model", model).param("limit", limit).query(UUID.class).list();
@@ -61,11 +63,15 @@ class ChunkRepository {
 	 */
 	Optional<Snapshot> snapshot(UUID noteId) {
 		return jdbc.sql("""
-				select i.id, i.owner_id, i.title, coalesce(c.body, a.plain_text) as body, i.updated_at
+				select i.id, i.owner_id, i.title, coalesce(c.body, a.plain_text, r.plain_text,
+				  concat_ws(E'\n', l.document->'sender'->>'name', l.document->'sender'->>'headline', l.document->'sender'->>'email',
+				    l.document->'sender'->>'phone', l.document->'sender'->>'location', l.document->'sender'->>'website', l.plain_text)) as body, i.updated_at
 				from items i
 				left join note_contents c on c.item_id = i.id
 				left join application_contents a on a.item_id = i.id
-				where i.id = :id and i.type in ('NOTE', 'APPLICATION') and i.deleted_at is null""").param("id", noteId)
+				left join resume_contents r on r.item_id = i.id
+				left join cover_letter_contents l on l.item_id = i.id
+				where i.id = :id and i.type in ('NOTE', 'APPLICATION', 'RESUME', 'COVER_LETTER') and i.deleted_at is null""").param("id", noteId)
 				.query((rs, n) -> new Snapshot(rs.getObject("id", UUID.class), rs.getObject("owner_id", UUID.class),
 						rs.getString("title"), rs.getString("body"), rs.getObject("updated_at", OffsetDateTime.class)))
 				.optional();
@@ -108,6 +114,10 @@ class ChunkRepository {
 			jdbc.sql("update note_contents set embedded_updated_at = :at where item_id = :note")
 					.param("at", note.updatedAt()).param("note", note.noteId()).update();
 			jdbc.sql("update application_contents set embedded_updated_at = :at where item_id = :note")
+					.param("at", note.updatedAt()).param("note", note.noteId()).update();
+			jdbc.sql("update resume_contents set embedded_updated_at = :at where item_id = :note")
+					.param("at", note.updatedAt()).param("note", note.noteId()).update();
+			jdbc.sql("update cover_letter_contents set embedded_updated_at = :at where item_id = :note")
 					.param("at", note.updatedAt()).param("note", note.noteId()).update();
 		}
 	}

@@ -15,19 +15,25 @@ import { deleteApplication } from "../actions";
 import { EarlierNotice } from "../earlier-notice";
 import { ApplicationView } from "./application-view";
 import { Documents } from "./documents";
+import { LinkedDocuments } from "./linked-documents";
+import { Workspace } from "./workspace";
 
 // The Application screen: the Item frame (breadcrumb, Move to Trash, and a Details panel with its Folder and Tags)
 // around its fields edited in place, the Stage stepper, the timeline and the posting.
 export default async function ApplicationPage({ params, searchParams }: PageProps<"/career/applications/[id]">) {
   const { id } = await params;
-  const { error, depth: rawDepth, mentions } = await searchParams;
+  const { error, depth: rawDepth, mentions, tab, interview } = await searchParams;
   const api = await getApi();
-  const [result, list, itemTags, allTags, docs, jar] = await Promise.all([
+  const [result, list, itemTags, allTags, docs, linked, library, apply, debriefs, jar] = await Promise.all([
     api.GET("/api/applications/{id}", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/folders").catch(() => null),
     api.GET("/api/items/{id}/tags", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/tags").catch(() => null),
     api.GET("/api/applications/{id}/documents", { params: { path: { id } } }).catch(() => null),
+    api.GET("/api/applications/{id}/linked-documents", { params: { path: { id } } }).catch(() => null),
+    api.GET("/api/applications/{id}/career/results", { params: { path: { id } } }).catch(() => null),
+    api.GET("/api/applications/{id}/career/apply", { params: { path: { id } } }).catch(() => null),
+    api.GET("/api/applications/{id}/career/debriefs", { params: { path: { id } } }).catch(() => null),
     cookies(),
   ]);
 
@@ -83,17 +89,37 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
       >
         <div className="grid flex-1 content-start gap-4 p-4 md:p-8">
           {error === "delete" && <Alert>Could not move the Application to the Trash. Try again.</Alert>}
-          <EarlierNotice className="mx-auto w-full max-w-3xl" company={application.company} items={earlier?.data?.items ?? []} />
-          <ApplicationView initial={application} />
-          <div className="mx-auto w-full max-w-3xl">
-            {docs?.data ? (
-              <Documents applicationId={application.id} documents={docs.data.items} />
-            ) : (
-              <p role="alert" className="text-sm">
-                Could not load the PDFs.
-              </p>
-            )}
-          </div>
+          <Workspace
+            applicationId={application.id}
+            stage={application.stage}
+            library={library?.data ?? null}
+            apply={apply?.data ?? null}
+            timeline={application.timeline}
+            debriefs={debriefs?.data?.items ?? null}
+            linked={linked?.data ?? null}
+            nextStep={application.nextStep}
+            appliedOn={application.appliedOn ?? null}
+            initialTab={typeof tab === "string" ? tab : undefined}
+            initialInterview={typeof interview === "string" && /^\d{1,6}$/.test(interview) ? Number(interview) : undefined}
+            details={
+              <>
+                <EarlierNotice className="mx-auto w-full max-w-3xl" company={application.company} items={earlier?.data?.items ?? []} />
+                <ApplicationView initial={application} />
+                <div className="mx-auto w-full max-w-3xl">
+                  {linked?.data ? <LinkedDocuments key={JSON.stringify(linked.data)} applicationId={application.id} initial={linked.data} /> : <p role="alert">Could not load linked documents.</p>}
+                </div>
+                <div className="mx-auto w-full max-w-3xl">
+                  {docs?.data ? (
+                    <Documents applicationId={application.id} documents={docs.data.items} />
+                  ) : (
+                    <p role="alert" className="text-sm">
+                      Could not load the PDFs.
+                    </p>
+                  )}
+                </div>
+              </>
+            }
+          />
         </div>
       </ItemFrame>
     </>

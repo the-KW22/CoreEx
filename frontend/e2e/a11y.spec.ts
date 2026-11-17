@@ -3044,3 +3044,693 @@ test("Career opens from the rail with its panel and the Applications list, and N
   await page.goto("/trash");
   await expect(page.getByRole("navigation", { name: "Career" })).toHaveCount(0);
 });
+
+test("Resumes & Letters lists Resumes, and a Resume is created blank or with sample content, renamed and duplicated", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const blank = `Blank ${stamp}`;
+  const sample = `Sample ${stamp}`;
+
+  await page.goto("/career/library");
+  await expect(page.getByRole("heading", { name: "Resumes & Letters", level: 1 })).toBeVisible();
+  await expectNoViolations(page);
+
+  const create = async (name: string, withSample: boolean) => {
+    await page.getByRole("button", { name: "New Resume" }).click();
+    const dialog = page.getByRole("dialog", { name: "New Resume" });
+    await dialog.getByLabel("Name").fill(name);
+    if (withSample) await dialog.getByLabel("Start with sample content").check();
+    await dialog.getByRole("button", { name: "Create Resume" }).click();
+    await expect(dialog).toHaveCount(0);
+  };
+  await create(blank, false);
+  await create(sample, true);
+  const rows = page.getByRole("list", { name: "Resumes" });
+  await expect(rows.getByText(blank, { exact: true })).toBeVisible();
+  await expect(rows.getByText(sample, { exact: true })).toBeVisible();
+  await expectNoViolations(page);
+
+  // Rename.
+  await page.getByRole("button", { name: `Rename ${blank}` }).click();
+  const rename = page.getByRole("dialog", { name: "Rename Resume" });
+  await expectNoViolations(page);
+  await rename.getByLabel("Name").fill(`Renamed ${stamp}`);
+  await rename.getByRole("button", { name: "Save name" }).click();
+  await expect(rows.getByText(`Renamed ${stamp}`, { exact: true })).toBeVisible();
+  await expect(rows.getByText(blank, { exact: true })).toHaveCount(0);
+
+  // Duplicate keeps the original and adds "(copy)".
+  await page.getByRole("button", { name: `Duplicate ${sample}` }).click();
+  await expect(rows.getByText(`${sample} (copy)`, { exact: true })).toBeVisible();
+  await expect(rows.getByText(sample, { exact: true })).toBeVisible();
+
+  // The Career panel keeps the entry, and it is the current page.
+  await expect(page.getByRole("navigation", { name: "Career" }).getByRole("link", { name: "Resumes & Letters" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+});
+
+// A new Resume made through the library, opened in its editor.
+async function openNewResume(page: Page, name: string) {
+  await page.goto("/career/library");
+  await page.getByRole("button", { name: "New Resume" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Resume" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByRole("button", { name: "Create Resume" }).click();
+  await page.getByRole("link", { name }).click();
+  await expect(page.getByRole("textbox", { name: "Resume name" })).toHaveValue(name);
+}
+
+test("Resume downloads Word, Markdown and a JSON backup", async ({ page, context }) => {
+  await signIn(page);
+  await openNewResume(page, `Downloads ${Date.now()}`);
+  await page.getByLabel("Name", { exact: true }).fill("Download Person");
+  await page.getByRole("region", { name: "Private notes" }).locator("textarea").fill("private backup note");
+  await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
+  const preview = page.getByRole("region", { name: "Page preview" });
+  for (const [label, extension] of [["Word", "docx"], ["Markdown", "md"], ["JSON", "json"]] as const) {
+    const [download] = await Promise.all([page.waitForEvent("download"), preview.getByRole("button", { name: `Download ${label}` }).click()]);
+    expect(download.suggestedFilename()).toMatch(new RegExp(`\\.${extension}$`));
+    const bytes = await readFile(await download.path());
+    if (extension === "docx") {
+      const zip = await (await import("jszip")).default.loadAsync(bytes);
+      const xml = await zip.file("word/document.xml")!.async("string");
+      expect(xml).toContain("Download Person");
+      expect(xml).not.toContain("private backup note");
+    }
+    else if (extension === "md") expect(bytes.toString()).toContain("Download Person");
+    else expect(JSON.parse(bytes.toString()).privateNotes).toBe("private backup note");
+  }
+  await expectNoViolations(page);
+  const other = await context.newPage();
+  await other.goto(page.url());
+  await other.getByLabel("Name", { exact: true }).fill("Changed elsewhere");
+  await expect(other.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
+  await preview.getByRole("button", { name: "Download Markdown" }).click();
+  await expect(preview.getByRole("alert")).toContainText("Could not download");
+  await other.close();
+});
+
+test("the Resume editor saves contact details and the summary as you type, and shows Not saved with Retry when offline", async ({ page }) => {
+  await signIn(page);
+  const name = `Editor ${Date.now()}`;
+  await openNewResume(page, name);
+  const status = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+  await expectNoViolations(page);
+
+  await page.getByLabel("Name", { exact: true }).fill("Ada Lovelace");
+  await page.getByRole("textbox", { name: "Summary" }).fill("Builds engines.");
+  await page.getByRole("button", { name: "Bold" }).click();
+  await expect(status).not.toHaveText("Saved");
+  await expect(status).toHaveText("Saved");
+  await page.reload();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Ada Lovelace");
+  await expect(page.getByRole("textbox", { name: "Summary" })).toContainText("Builds engines.");
+
+  // Offline: the save fails, and Retry saves once the connection is back.
+  await page.context().setOffline(true);
+  await page.getByLabel("Headline").fill("Analyst");
+  await expect(status).toHaveText("Not saved");
+  await page.context().setOffline(false);
+  await page.getByRole("button", { name: "Retry" }).click();
+  await expect(status).toHaveText("Saved");
+  await page.reload();
+  await expect(page.getByLabel("Headline")).toHaveValue("Analyst");
+});
+
+test("a save from another tab makes a (mine) copy and loads the stored Resume", async ({ page, context }) => {
+  await signIn(page);
+  const name = `Conflict ${Date.now()}`;
+  await openNewResume(page, name);
+  const other = await context.newPage();
+  await other.goto(page.url());
+  await other.getByLabel("Name", { exact: true }).fill("Bee");
+  const otherStatus = other.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+  await expect(otherStatus).not.toHaveText("Saved");
+  await expect(otherStatus).toHaveText("Saved");
+  await other.close();
+
+  await page.getByLabel("Headline").fill("Mine");
+  await expect(page.getByText("This Resume was changed in another tab.")).toBeVisible();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Bee");
+  await expect(page.getByLabel("Headline")).toHaveValue("");
+  await expectNoViolations(page);
+
+  await page.goto("/career/library");
+  await expect(page.getByRole("list", { name: "Resumes" }).getByText(`${name} (mine)`, { exact: true })).toBeVisible();
+});
+
+test("text typed but not saved before the tab closed is offered again on reopening", async ({ page, context }) => {
+  await signIn(page);
+  await openNewResume(page, `Recover ${Date.now()}`);
+  const url = page.url();
+  await context.setOffline(true);
+  await page.getByLabel("Headline").fill("Unsaved headline");
+  await expect(page.getByRole("status").filter({ hasText: "Not saved" })).toBeVisible();
+  await page.close();
+  await context.setOffline(false);
+
+  const again = await context.newPage();
+  await again.goto(url);
+  await expect(again.getByText("Unsaved text from your last visit was put back.")).toBeVisible();
+  await expect(again.getByLabel("Headline")).toHaveValue("Unsaved headline");
+});
+
+test("the Resume preview shows the page at real size, follows typing, zooms, and downloads the same PDF", async ({ page }) => {
+  await signIn(page);
+  const name = `Preview ${Date.now()}`;
+  await page.goto("/career/library");
+  await page.getByRole("button", { name: "New Resume" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Resume" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByLabel("Start with sample content").check();
+  await dialog.getByRole("button", { name: "Create Resume" }).click();
+  await page.getByRole("link", { name }).click();
+
+  const preview = page.getByRole("region", { name: "Page preview" });
+  const sheet = preview.getByRole("img", { name: "Page 1 of 1" });
+  await expect(sheet).toBeVisible({ timeout: 30_000 });
+  // A4 at 100% is 595 points wide, which is about 794 CSS pixels.
+  const before = (await sheet.boundingBox())!;
+  expect(Math.round(before.width)).toBeGreaterThan(780);
+  expect(Math.round(before.width)).toBeLessThan(810);
+  await expectNoViolations(page);
+
+  // Typing changes the page without waiting for it: the field answers at once, the page follows.
+  const status = preview.getByRole("status");
+  await page.getByLabel("Name", { exact: true }).fill("Grace Hopper");
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Grace Hopper");
+  await expect(status).toHaveText("1 page", { timeout: 30_000 });
+
+  await preview.getByRole("button", { name: "Zoom in" }).click();
+  await expect(preview.getByRole("button", { name: "Reset zoom" })).toHaveText("125%");
+  await expect(async () => {
+    expect((await preview.getByRole("img", { name: "Page 1 of 1" }).boundingBox())!.width).toBeGreaterThan(before.width * 1.2);
+  }).toPass();
+  await preview.getByRole("button", { name: "Reset zoom" }).click();
+
+  // The download is a PDF named after the Resume, with real text in it.
+  const [download] = await Promise.all([page.waitForEvent("download"), preview.getByRole("button", { name: "Download PDF" }).click()]);
+  expect(download.suggestedFilename()).toBe(`${name}.pdf`);
+  const path = await download.path();
+  const { readFile } = await import("node:fs/promises");
+  const bytes = await readFile(path);
+  expect(bytes.subarray(0, 5).toString()).toBe("%PDF-");
+  expect(bytes.byteLength).toBeGreaterThan(5000);
+});
+
+test("sections and entries are added, reordered, hidden and printed in one date format, and they survive a reload", async ({ page }) => {
+  await signIn(page);
+  await openNewResume(page, `Sections ${Date.now()}`);
+  const status = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+
+  // A section of a chosen kind starts with that kind's name.
+  await page.getByRole("button", { name: "Add section" }).click();
+  const experience = page.getByRole("region", { name: "Experience", exact: true });
+  await experience.getByRole("button", { name: "Add an entry" }).click();
+  await experience.getByRole("button", { name: "Add an entry" }).click();
+  const rows = experience.getByRole("list", { name: "Entries of Experience" }).getByRole("listitem").filter({ has: page.getByLabel("Title", { exact: true }) });
+  await rows.nth(0).getByLabel("Title", { exact: true }).fill("Engineer");
+  await rows.nth(1).getByLabel("Title", { exact: true }).fill("Designer");
+  await rows.nth(0).getByLabel("Start").fill("2021-03");
+  await rows.nth(0).getByLabel("Present").check();
+  await rows.nth(0).getByRole("button", { name: "Add a role" }).click();
+  await rows.nth(0).getByLabel("Role title").fill("Lead");
+  await expectNoViolations(page);
+
+  // A second section, of another kind, goes below; the date format is one setting for the whole Resume.
+  await page.getByLabel("Kind of section").selectOption("EDUCATION");
+  await page.getByRole("button", { name: "Add section" }).click();
+  await expect(page.getByRole("region", { name: "Education", exact: true })).toBeVisible();
+  await page.getByLabel("Date format").selectOption("MM_YYYY");
+
+  // Reorder an entry with its buttons, hide the other, and move the Education section above Experience.
+  await page.getByRole("button", { name: "Move Designer up" }).click();
+  await expect(rows.nth(0).getByLabel("Title", { exact: true })).toHaveValue("Designer");
+  await page.getByRole("button", { name: "Hide Engineer" }).click();
+  await page.getByRole("button", { name: "Move Education up" }).click();
+  await expect(status).not.toHaveText("Saved");
+  await expect(status).toHaveText("Saved");
+
+  await page.reload();
+  const names = page.getByRole("textbox", { name: "Section name" });
+  await expect(names.nth(0)).toHaveValue("Education");
+  await expect(names.nth(1)).toHaveValue("Experience");
+  const again = page.getByRole("region", { name: "Experience", exact: true }).getByRole("list", { name: "Entries of Experience" }).getByRole("listitem").filter({ has: page.getByLabel("Title", { exact: true }) });
+  await expect(again.nth(0).getByLabel("Title", { exact: true })).toHaveValue("Designer");
+  await expect(again.nth(1).getByLabel("Title", { exact: true })).toHaveValue("Engineer");
+  await expect(page.getByRole("button", { name: "Show Engineer" })).toBeVisible();
+  await expect(again.nth(1).getByLabel("Present").first()).toBeChecked();
+  await expect(page.getByLabel("Date format")).toHaveValue("MM_YYYY");
+  await expectNoViolations(page);
+});
+
+test("Undo takes back a whole typed sentence in one step, and Redo puts it back; a delete offers Undo", async ({ page }) => {
+  await signIn(page);
+  await openNewResume(page, `Undo ${Date.now()}`);
+  const headline = page.getByLabel("Headline");
+  await headline.pressSequentially("Staff engineer");
+  await expect(headline).toHaveValue("Staff engineer");
+
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(headline).toHaveValue("");
+  await page.getByRole("button", { name: "Redo" }).click();
+  await expect(headline).toHaveValue("Staff engineer");
+  // The keys do the same.
+  await headline.press("Control+z");
+  await expect(headline).toHaveValue("");
+
+  // A deleted section can be brought back from the toast.
+  await page.getByRole("button", { name: "Add section" }).click();
+  await page.getByRole("button", { name: "Remove Experience" }).click();
+  await expect(page.getByRole("region", { name: "Experience", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Undo", exact: true }).last().click();
+  await expect(page.getByRole("region", { name: "Experience", exact: true })).toBeVisible();
+});
+
+test("a locked Resume cannot be edited until unlocked, and private notes are kept", async ({ page }) => {
+  await signIn(page);
+  await openNewResume(page, `Lock ${Date.now()}`);
+  const status = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+
+  await page.getByLabel("Only you see these").fill("Sent to Acme on Monday");
+  await page.getByLabel("Headline").fill("Analyst");
+  await expect(status).not.toHaveText("Saved");
+  await expect(status).toHaveText("Saved");
+
+  await page.getByRole("button", { name: "Lock" }).click();
+  await expect(page.getByText("This Resume is locked.")).toBeVisible();
+  await expect(page.getByLabel("Headline")).toBeDisabled();
+  await expectNoViolations(page);
+  await page.reload();
+  await expect(page.getByLabel("Headline")).toBeDisabled();
+  await expect(page.getByLabel("Only you see these")).toHaveValue("Sent to Acme on Monday");
+
+  await page.getByRole("button", { name: "Unlock" }).click();
+  await expect(page.getByLabel("Headline")).toBeEnabled();
+  await page.getByLabel("Headline").fill("Senior analyst");
+  await expect(status).not.toHaveText("Saved");
+  await expect(status).toHaveText("Saved");
+});
+
+test("a click on the page jumps to that field in the editor, on page 1 and on page 2", async ({ page }) => {
+  await signIn(page);
+  const name = `Map ${Date.now()}`;
+  await page.goto("/career/library");
+  await page.getByRole("button", { name: "New Resume" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Resume" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByLabel("Start with sample content").check();
+  await dialog.getByRole("button", { name: "Create Resume" }).click();
+  await page.getByRole("link", { name }).click();
+  const preview = page.getByRole("region", { name: "Page preview" });
+  await expect(preview.getByRole("img", { name: "Page 1 of 1" })).toBeVisible({ timeout: 30_000 });
+
+  // The name on the page is the name field.
+  await preview.locator('[data-page="1"] [data-ref="basics.name"]').click();
+  await expect(page.locator(":focus")).toHaveAttribute("data-field", "basics.name");
+
+  // Copies of the first job push the Resume onto a second page.
+  const experience = page.getByRole("region", { name: "Experience", exact: true });
+  for (let i = 0; i < 12; i++) await experience.getByRole("button", { name: "Duplicate Senior Software Engineer" }).first().click();
+  await expect(preview.getByRole("status")).toHaveText("2 pages", { timeout: 30_000 });
+  await expectNoViolations(page);
+
+  const onSecond = preview.locator('[data-page="2"] [data-ref$=":title"]').first();
+  const ref = await onSecond.getAttribute("data-ref");
+  expect(ref).toMatch(/^entry:.+:title$/);
+  await onSecond.click();
+  await expect(page.locator(":focus")).toHaveAttribute("data-field", ref!);
+});
+
+test("Design mode shows each template with the Resume's own content, previews one, and applies it", async ({ page }) => {
+  await signIn(page);
+  const name = `Templates ${Date.now()}`;
+  await page.goto("/career/library");
+  await page.getByRole("button", { name: "New Resume" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Resume" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByLabel("Start with sample content").check();
+  await dialog.getByRole("button", { name: "Create Resume" }).click();
+  await page.getByRole("link", { name }).click();
+  const status = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+
+  await page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Design" }).click();
+  const gallery = page.getByRole("list", { name: "Templates" });
+  for (const label of ["Classic", "Sidebar", "Modern"]) {
+    await expect(gallery.getByRole("img", { name: `${label} template with your content` })).toBeVisible({ timeout: 30_000 });
+  }
+  await expectNoViolations(page);
+
+  // Looking at a template changes the page preview but not the Resume.
+  await gallery.getByRole("button", { name: "Preview Modern" }).click();
+  await expect(gallery.getByRole("button", { name: "Use this template" })).toBeVisible();
+  await gallery.getByRole("button", { name: "Cancel" }).click();
+  await expect(gallery.getByRole("button", { name: "Use this template" })).toHaveCount(0);
+  await expect(status).toHaveText("Saved");
+
+  await gallery.getByRole("button", { name: "Preview Sidebar" }).click();
+  await gallery.getByRole("button", { name: "Use this template" }).click();
+  await expect(status).not.toHaveText("Saved");
+  await expect(status).toHaveText("Saved");
+  await expect(gallery.getByText("In use")).toHaveCount(1);
+
+  // The choice is saved, and a click on the page still finds its field in the two-column layout.
+  await page.reload();
+  await page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Design" }).click();
+  await expect(page.getByRole("list", { name: "Templates" }).getByRole("listitem").filter({ hasText: "In use" })).toContainText("Sidebar");
+  const preview = page.getByRole("region", { name: "Page preview" });
+  await expect(preview.getByRole("img", { name: "Page 1 of 1" })).toBeVisible({ timeout: 30_000 });
+  await preview.locator('[data-page="1"] [data-ref^="section:"]').first().click();
+  await expect(page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Write" })).toHaveAttribute("aria-current", "page");
+  await expect(page.locator(":focus")).toHaveAttribute("data-field", /^section:/);
+});
+
+test("the design controls change the page, warn about a hard-to-read accent, move a section to page 2, and reset", async ({ page }) => {
+  await signIn(page);
+  const name = `Design ${Date.now()}`;
+  await page.goto("/career/library");
+  await page.getByRole("button", { name: "New Resume" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Resume" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByLabel("Start with sample content").check();
+  await dialog.getByRole("button", { name: "Create Resume" }).click();
+  await page.getByRole("link", { name }).click();
+  const status = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+  const preview = page.getByRole("region", { name: "Page preview" });
+  await expect(preview.getByRole("img", { name: "Page 1 of 1" })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Design" }).click();
+  await expectNoViolations(page);
+
+  // A different page size changes the page: Letter is wider than a point, not a pixel, away from A4 (794 px at 100%).
+  const width = async () => Math.round((await preview.getByRole("img", { name: /^Page 1 of/ }).boundingBox())!.width);
+  expect(await width()).toBeGreaterThan(790);
+  await page.getByLabel("Page size").selectOption("LETTER");
+  await expect.poll(width, { timeout: 30_000 }).toBeGreaterThan(810);
+
+  // Text size and the two-column entries change the page too (the page count is the same, the layout is not).
+  await page.getByLabel("Text size (pt)").fill("14");
+  await page.getByLabel("Entries in columns").selectOption("2");
+  await page.getByLabel("Heading font").selectOption("Times");
+  await expect(preview.getByRole("status")).toHaveText(/pages?$/, { timeout: 30_000 });
+
+  // A pale accent shows a warning; the default one does not.
+  await expect(page.getByText(/easy to read/)).toBeVisible();
+  await page.getByLabel("Accent colour").fill("#ffe066");
+  await expect(page.getByText(/Hard to read: contrast/)).toBeVisible();
+
+  // A section placed on page 2 makes a second page.
+  await page.getByLabel("Page of Education").selectOption("2");
+  await expect(preview.getByRole("img", { name: "Page 2 of 2" })).toBeVisible({ timeout: 30_000 });
+  await expect(preview.locator('[data-page="2"] [data-ref="section:education"]')).toHaveCount(1);
+  // "Saved" only shows when what is saved is what is on screen.
+  await expect(status).toHaveText("Saved");
+
+  // The settings are saved; Reset brings back the template's look, and it is one Undo step.
+  await page.reload();
+  await page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Design" }).click();
+  await expect(page.getByLabel("Page size")).toHaveValue("LETTER");
+  await expect(page.getByLabel("Text size (pt)")).toHaveValue("14");
+  await page.getByRole("button", { name: "Reset to template defaults" }).click();
+  await expect(page.getByLabel("Page size")).toHaveValue("A4");
+  await expect(page.getByLabel("Text size (pt)")).toHaveValue("10");
+  await expect(page.getByLabel("Page of Education")).toHaveValue("1");
+  await expectNoViolations(page);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(page.getByLabel("Page size")).toHaveValue("LETTER");
+});
+
+test("an overflowing Resume is fitted back onto its page in one Undo step, a hopeless one is left alone, and Add a page accepts it", async ({ page }) => {
+  await signIn(page);
+  const name = `Fit ${Date.now()}`;
+  await page.goto("/career/library");
+  await page.getByRole("button", { name: "New Resume" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Resume" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByLabel("Start with sample content").check();
+  await dialog.getByRole("button", { name: "Create Resume" }).click();
+  await page.getByRole("link", { name }).click();
+  const preview = page.getByRole("region", { name: "Page preview" });
+  await expect(preview.getByRole("img", { name: "Page 1 of 1" })).toBeVisible({ timeout: 30_000 });
+  const overflow = preview.getByText("This Resume runs onto page 2.");
+  await expect(overflow).toHaveCount(0);
+
+  // A little too long: Fit to page squeezes it back onto one page, and names what it changed.
+  const experience = page.getByRole("region", { name: "Experience", exact: true });
+  for (let i = 0; i < 8; i++) await experience.getByRole("button", { name: "Duplicate Senior Software Engineer" }).first().click();
+  await expect(overflow).toBeVisible({ timeout: 30_000 });
+  await expectNoViolations(page);
+  await preview.getByRole("button", { name: "Fit to page" }).click();
+  await expect(page.getByText(/^Fitted to one page: /)).toBeVisible({ timeout: 60_000 });
+  await expect(preview.getByRole("status").filter({ hasText: /pages?$/ })).toHaveText("1 page", { timeout: 30_000 });
+  await expect(overflow).toHaveCount(0);
+
+  // One Undo brings the settings (and the overflow) back.
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(overflow).toBeVisible({ timeout: 30_000 });
+
+  // Far too long: Fit to page says it cannot, and the settings are as they were.
+  for (let i = 0; i < 30; i++) await experience.getByRole("button", { name: "Duplicate Senior Software Engineer" }).first().click();
+  await preview.getByRole("button", { name: "Fit to page" }).click();
+  await expect(page.getByText(/does not fit on one page/)).toBeVisible({ timeout: 90_000 });
+  await page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Design" }).click();
+  await expect(page.getByLabel("Text size (pt)")).toHaveValue("10");
+  await expect(page.getByLabel("Density")).toHaveValue("comfortable");
+
+  // Add a page accepts the overflow: the message goes.
+  await preview.getByRole("button", { name: "Add a page" }).click();
+  await expect(overflow).toHaveCount(0, { timeout: 30_000 });
+});
+
+test("a photo is uploaded as an Asset, reaches the PDF, changes its frame, survives a reload and is removed", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const name = `Photo ${stamp}`;
+  await openNewResume(page, name);
+  const status = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+  const preview = page.getByRole("region", { name: "Page preview" });
+  await expect(preview.getByRole("img", { name: "Page 1 of 1" })).toBeVisible({ timeout: 30_000 });
+
+  // The downloaded PDF has an image in it only while there is a photo.
+  const hasImage = async () => {
+    const [download] = await Promise.all([page.waitForEvent("download"), preview.getByRole("button", { name: "Download PDF" }).click()]);
+    const { readFile } = await import("node:fs/promises");
+    return /\/Subtype\s*\/Image/.test((await readFile(await download.path())).toString("latin1"));
+  };
+  expect(await hasImage()).toBe(false);
+
+  // Uploading makes an Asset, and the photo is that Asset.
+  await page.getByLabel("Upload a photo").setInputFiles({ name: `me-${stamp}.png`, mimeType: "image/png", buffer: PIXEL });
+  await expect(page.getByRole("img", { name: "Your photo" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByLabel("Choose from your Assets")).toHaveValue(/.+/);
+  await expect(status).toHaveText("Saved");
+  await expect.poll(hasImage, { timeout: 30_000 }).toBe(true);
+  await expectNoViolations(page);
+
+  // The frame and crop are settings of the Resume.
+  await page.getByLabel("Shape").selectOption("square");
+  await page.getByLabel("Size (pt)").fill("120");
+  await page.getByLabel("Zoom (%)").fill("150");
+  await expect(status).not.toHaveText("Saved");
+  await expect(status).toHaveText("Saved");
+  await page.reload();
+  await expect(page.getByRole("img", { name: "Your photo" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByLabel("Shape")).toHaveValue("square");
+  await expect(page.getByLabel("Size (pt)")).toHaveValue("120");
+
+  // Hiding it takes it off the page; the Resume still names the Asset. Remove forgets it.
+  await page.getByLabel("Show the photo on the page").uncheck();
+  await expect.poll(hasImage, { timeout: 30_000 }).toBe(false);
+  await page.getByLabel("Show the photo on the page").check();
+  await expect.poll(hasImage, { timeout: 30_000 }).toBe(true);
+  await page.getByRole("button", { name: "Remove photo" }).click();
+  await expect(page.getByRole("img", { name: "Your photo" })).toHaveCount(0);
+  await expect.poll(hasImage, { timeout: 30_000 }).toBe(false);
+});
+
+test("the library searches and sorts Resumes, draws their first page, files them in a Folder and Tags, and trashes and restores them", async ({ page }) => {
+  await signIn(page);
+  const stamp = Date.now();
+  const folderName = `Resume folder ${stamp}`;
+  const tagName = `resume-probe-${stamp}`;
+  const [beta, alpha, gamma] = [`Beta ${stamp}`, `Alpha ${stamp}`, `Gamma ${stamp}`];
+  await page.goto("/items");
+  await page.getByRole("button", { name: "New Folder" }).click();
+  await page.getByLabel("Folder name").fill(folderName);
+  await page.getByRole("button", { name: "Create Folder" }).click();
+
+  const make = async (name: string, sample: boolean) => {
+    await page.goto("/career/library");
+    await page.getByRole("button", { name: "New Resume" }).click();
+    const dialog = page.getByRole("dialog", { name: "New Resume" });
+    await dialog.getByLabel("Name").fill(name);
+    if (sample) await dialog.getByLabel("Start with sample content").check();
+    await dialog.getByRole("button", { name: "Create Resume" }).click();
+    await expect(dialog).toHaveCount(0);
+  };
+  await make(beta, false);
+  await make(alpha, true);
+  await make(gamma, false);
+
+  // Search by title, and sort by name.
+  await page.goto("/career/library");
+  await page.getByLabel("Search by title").fill(stamp.toString());
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(page).toHaveURL(/q=/);
+  const list = page.getByRole("list", { name: "Resumes" });
+  await page.getByRole("navigation", { name: "Sort" }).getByRole("link", { name: "Name" }).click();
+  await expect(page).toHaveURL(/sort=name/);
+  await expect(list.getByRole("link")).toHaveText([alpha, beta, gamma]);
+  await page.getByLabel("Search by title").fill(`ALPHA ${stamp}`);
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(list.getByRole("link")).toHaveText([alpha]);
+
+  // The card shows the Resume's first page, drawn (the sample Resume has text, so it is not blank).
+  // The canvas is hidden until the page is drawn, so it is found by its label rather than by role.
+  const first = page.locator(`canvas[aria-label="First page of ${alpha}"]`);
+  await expect(first).toHaveAttribute("data-state", "done", { timeout: 60_000 });
+  expect(await first.evaluate((canvas: HTMLCanvasElement) => {
+    const data = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data;
+    let ink = 0;
+    for (let i = 0; i < data.length; i += 4) if (data[i] < 200 || data[i + 1] < 200 || data[i + 2] < 200) ink++;
+    return ink;
+  })).toBeGreaterThan(100);
+  await expectNoViolations(page);
+
+  // The list view keeps the search and drops the pictures.
+  await page.getByRole("navigation", { name: "View" }).getByRole("link", { name: "List" }).click();
+  await expect(page).toHaveURL(/view=list/);
+  await expect(page.locator(`canvas[aria-label="First page of ${alpha}"]`)).toHaveCount(0);
+  await expect(list.getByRole("link")).toHaveText([alpha]);
+
+  // A Folder and a Tag, set on the Resume's page (a Resume is an Item).
+  await list.getByRole("link", { name: alpha }).click();
+  const organise = page.getByRole("region", { name: "Folder and Tags" });
+  await expect(page.getByRole("heading", { name: "Backlinks" })).toBeVisible();
+  await chooseFolder(page, organise, "Folder", folderName);
+  await organise.getByRole("button", { name: "Tag", exact: true }).click();
+  await page.getByPlaceholder("Find or create a Tag").fill(tagName);
+  await page.getByRole("option", { name: `Create “${tagName}”` }).click();
+  await expect(organise.getByRole("list", { name: "Tags" }).getByRole("link", { name: tagName })).toBeVisible();
+  await expectNoViolations(page);
+
+  // The Tag shows on its card, and the Folder lists the Resume and opens its page.
+  await page.goto(`/career/library?q=${alpha}`);
+  await expect(page.getByRole("list", { name: `Tags of ${alpha}` })).toContainText(tagName);
+  await page.goto("/items");
+  await page.getByRole("link", { name: folderName }).first().click();
+  const listed = page.getByRole("main").getByRole("link", { name: alpha }).first();
+  await expect(listed).toHaveAttribute("href", /^\/career\/resumes\//);
+  await page.goto((await listed.getAttribute("href"))!);
+  await expect(page.getByRole("textbox", { name: "Resume name" })).toHaveValue(alpha);
+
+  // Move to Trash with Undo, then for good enough to see the Trash: Restore brings it back.
+  await page.goto(`/career/library?q=${alpha}`);
+  await page.getByRole("button", { name: `Move to Trash: ${alpha}` }).click();
+  await expect(page.getByText(`Moved “${alpha}” to the Trash`)).toBeVisible();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(list.getByRole("link", { name: alpha })).toBeVisible();
+  await page.getByRole("button", { name: `Move to Trash: ${alpha}` }).click();
+  await expect(list.getByRole("link", { name: alpha })).toHaveCount(0);
+  await page.goto("/trash");
+  const row = page.getByRole("row").filter({ hasText: alpha });
+  await expect(row).toContainText("Resume");
+  await expectNoViolations(page);
+  await row.getByRole("button", { name: `Restore ${alpha}` }).click();
+  await expect(page.getByText(`Restored "${alpha}"`)).toBeVisible();
+  await page.goto(`/career/library?q=${alpha}`);
+  await expect(list.getByRole("link", { name: alpha })).toBeVisible();
+});
+
+test("History keeps earlier versions: one is named, looked at in the preview without changing the Resume, and restored", async ({ page }) => {
+  await signIn(page);
+  await openNewResume(page, `History ${Date.now()}`);
+  const status = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+  const mode = page.getByRole("navigation", { name: "Mode" });
+  const name = page.getByLabel("Name", { exact: true });
+
+  await name.fill("Ada One");
+  await expect(status).not.toHaveText("Saved");
+  await expect(status).toHaveText("Saved");
+
+  // Nothing was replaced yet that is worth keeping; naming keeps the Resume as it is now, for good.
+  await mode.getByRole("button", { name: "History" }).click();
+  await expect(page.getByText("No earlier versions yet.")).toBeVisible();
+  await page.getByLabel("Name this version").fill("First draft");
+  await page.getByRole("button", { name: "Keep as a named version" }).click();
+  const versions = page.getByRole("list", { name: "Versions" });
+  await expect(versions.getByRole("button", { name: /First draft/ })).toBeVisible();
+  await expectNoViolations(page);
+
+  // The Resume changes.
+  await mode.getByRole("button", { name: "Write" }).click();
+  await name.fill("Ada Two");
+  await expect(status).not.toHaveText("Saved");
+  await expect(status).toHaveText("Saved");
+
+  // Looking at the named version changes nothing, and Stop looking drops it.
+  await mode.getByRole("button", { name: "History" }).click();
+  await versions.getByRole("button", { name: /First draft/ }).click();
+  await expect(page.getByText("Looking at “First draft” in the page preview.")).toBeVisible();
+  await page.getByRole("button", { name: "Stop looking" }).click();
+  await expect(page.getByText(/Looking at/)).toHaveCount(0);
+  await mode.getByRole("button", { name: "Write" }).click();
+  await expect(name).toHaveValue("Ada Two");
+
+  // Restoring brings back exactly that document, and keeps the one it replaced.
+  await mode.getByRole("button", { name: "History" }).click();
+  await versions.getByRole("button", { name: /First draft/ }).click();
+  await page.getByRole("button", { name: "Restore this version" }).click();
+  await expect(page.getByText("The version is back.")).toBeVisible();
+  await expect(mode.getByRole("button", { name: "Write" })).toHaveAttribute("aria-current", "page");
+  await expect(name).toHaveValue("Ada One");
+  await mode.getByRole("button", { name: "History" }).click();
+  await expect(versions.getByRole("listitem")).toHaveCount(2);
+  // The older "Ada Two" is the one that was kept: restoring it gets it back.
+  await versions.getByRole("listitem").filter({ hasNotText: "First draft" }).getByRole("button").click();
+  await page.getByRole("button", { name: "Restore this version" }).click();
+  await expect(name).toHaveValue("Ada Two");
+});
+
+test("custom style rules change the page, bad ones are explained and not saved, and a part is picked on the page", async ({ page }) => {
+  await signIn(page);
+  const name = `Style ${Date.now()}`;
+  await page.goto("/career/library");
+  await page.getByRole("button", { name: "New Resume" }).click();
+  const dialog = page.getByRole("dialog", { name: "New Resume" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByLabel("Start with sample content").check();
+  await dialog.getByRole("button", { name: "Create Resume" }).click();
+  await page.getByRole("link", { name }).click();
+  const status = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved changes|Not saved)$/ });
+  const preview = page.getByRole("region", { name: "Page preview" });
+  await expect(preview.getByRole("img", { name: "Page 1 of 1" })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Design" }).click();
+  const rules = page.getByLabel("Custom style rules");
+  const heading = preview.locator('[data-page="1"] [data-ref^="section:"]').first();
+  const height = async () => (await heading.boundingBox())!.height;
+  const before = await height();
+
+  // A rule changes the page: the heading is bigger.
+  await rules.fill("heading { font-size: 20 }");
+  await expect.poll(height, { timeout: 30_000 }).toBeGreaterThan(before * 1.3);
+  await expect(status).toHaveText("Saved");
+  await expectNoViolations(page);
+
+  // A rule that cannot be drawn is explained, and the page keeps the last good one.
+  await rules.fill("heading { position: fixed }");
+  await expect(page.getByRole("alert", { name: "Problems with the custom style" })).toContainText('"position" is not a property you can set.');
+  await page.reload();
+  await page.getByRole("navigation", { name: "Mode" }).getByRole("button", { name: "Design" }).click();
+  await expect(page.getByLabel("Custom style rules")).toHaveValue("heading { font-size: 20 }");
+
+  // Picking a part on the page starts a rule for it, with the cursor in the rules.
+  await page.getByRole("button", { name: "Pick a part on the page" }).click();
+  await expect(page.getByRole("button", { name: "Click a part on the page…" })).toHaveAttribute("aria-pressed", "true");
+  await expect(preview.getByRole("img", { name: "Page 1 of 1" })).toBeVisible({ timeout: 30_000 });
+  await preview.locator('[data-page="1"] [data-ref="basics.name"]').click();
+  await expect(page.getByLabel("Custom style rules")).toHaveValue(/name \{\s*\}/);
+  await expect(page.getByLabel("Custom style rules")).toBeFocused();
+  await expect(page.getByRole("button", { name: "Pick a part on the page" })).toHaveAttribute("aria-pressed", "false");
+});

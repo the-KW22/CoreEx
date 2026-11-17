@@ -27,6 +27,7 @@ export type Row = {
   due: boolean;
   updated: string | null;
   tags: RowTag[];
+  score: number | null;
 };
 export type Group = { stage: Stage; label: string; items: Row[] };
 
@@ -238,6 +239,7 @@ export function ApplicationsList({ groups, tags }: { groups: Group[]; tags: { id
                         {row.due ? `Needs you: ${row.next}` : row.next}
                       </span>
                       {row.updated && ` · Updated ${row.updated}`}
+                      {row.score !== null && ` · Match about ${row.score} of 100 (estimate)`}
                     </span>
                     {row.tags.length > 0 && (
                       <span className="flex flex-wrap gap-1">

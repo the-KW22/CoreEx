@@ -63,11 +63,11 @@ _Avoid_: Bin, archive, recycle bin
 ### Search
 
 **Semantic search**:
-Finding Notes and Applications by what they mean, not only by the words they contain, so a search for "car" can find a Note about an automobile. It sits beside exact-word search, and the Search page shows both as one list.
+Finding Notes, Applications and Resumes by what they mean, not only by the words they contain, so a search for "car" can find a Note about an automobile. It sits beside exact-word search, and the Search page shows both as one list.
 _Avoid_: Vector search, AI search, smart search
 
 **Chunk**:
-A piece of a Note, about 250 words, cut at headings and whole paragraphs, that Semantic search matches and shows as the snippet. A short Note is one Chunk. An Application is cut the same way from its plain text: company, role, location, posting and the notes on its timeline.
+A piece of a Note, about 250 words, cut at headings and whole paragraphs, that Semantic search matches and shows as the snippet. A short Note is one Chunk. Applications and Resumes are cut the same way from their plain text.
 _Avoid_: Segment, passage, fragment, block
 
 ### Chat
@@ -121,6 +121,14 @@ _Avoid_: STAR answer, example, anecdote
 **Career result**:
 Something Career's AI made for one Application from its evidence: a Fit check, an interview briefing, practice feedback, a debrief, a draft email, or a reply read from an employer's message. It belongs to its Application, leaves with it, and is marked out of date when the posting, the Facts, the Stories or the linked Resume or Cover Letter change after it was made. It is not an Item.
 _Avoid_: Artifact, output, saved item, generation
+
+**Form question**:
+One question on an employer's application form, kept on its Application with the User's answer and an optional limit in words or characters. The count follows the limit's unit, ignores spaces at the ends and counts an emoji as one character. A Draft or a Tighten is a Career result that waits until the User accepts or rejects it; accepting writes it as the answer.
+_Avoid_: Screening question, prompt, field
+
+**Answer library**:
+Reviewed answers the User keeps to use again: reusable, for one employer only, or for one job only. Matching a Form question to a kept answer uses words alone, never AI. Reusing one makes an independent copy: editing the copy never changes the library.
+_Avoid_: Saved answers bank, template, snippet
 
 **Application email**:
 A Career result drafting an email for one Application: the email that sends the Resume and Cover Letter, a follow-up, a thank-you after an interview, or a reply to the employer. CoreEx never sends it: the User copies it or opens it in their own mail app, with the exact PDFs to attach.

@@ -18,6 +18,8 @@ import com.coreex.items.Item;
 import com.coreex.items.ItemService;
 import com.coreex.links.LinkService;
 import com.coreex.notes.NoteService;
+import com.coreex.resumes.ResumeService;
+import com.coreex.resumes.CoverLetterService;
 import com.coreex.search.SearchService;
 import com.coreex.tags.TagService;
 import com.coreex.trash.TrashService;
@@ -122,8 +124,13 @@ class ReadTools {
 
 	private final ApplicationService applications;
 
+	private final ResumeService resumes;
+	private final CoverLetterService letters;
+
 	ReadTools(ItemService items, NoteService notes, AssetService assets, SearchService search, FolderService folders,
-			TagService tags, LinkService links, TrashService trash, ApplicationService applications) {
+			TagService tags, LinkService links, TrashService trash, ApplicationService applications, ResumeService resumes, CoverLetterService letters) {
+		this.resumes = resumes;
+		this.letters = letters;
 		this.applications = applications;
 		this.items = items;
 		this.notes = notes;
@@ -135,10 +142,10 @@ class ReadTools {
 		this.trash = trash;
 	}
 
-	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "search", description = "Find Notes, Assets and Applications by words in a Note's title or text, an Asset's title or description, an Application's company, role, posting or notes, or a Tag name, and Notes and Applications also by meaning, so a question in your own words can find a Note that uses other words (English). Use this when you know what you are looking for; use list_items to browse. Words are matched exactly (ignoring case); put a phrase in \"quotes\", use or for either word, and -word to leave one out. Returns titles, ids and snippets, not full Notes: call get_item to read one. exactOnly true means the search by meaning could not run, so only exact words were matched.")
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "search", description = "Find Notes, Assets, Applications and Resumes by words in a Note's title or text, an Asset's title or description, an Application's company, role, posting or notes, a Resume's text, or a Tag name, and Notes, Applications and Resumes also by meaning, so a question in your own words can find a Note that uses other words (English). Use this when you know what you are looking for; use list_items to browse. Words are matched exactly (ignoring case); put a phrase in \"quotes\", use or for either word, and -word to leave one out. Returns titles, ids and snippets, not full Notes: call get_item to read one. exactOnly true means the search by meaning could not run, so only exact words were matched.")
 	SearchResult search(McpTransportContext context,
 			@McpToolParam(description = "What to search for") String query,
-			@McpToolParam(required = false, description = "Only Notes (NOTE), only Assets (ASSET) or only Applications (APPLICATION)") Item.Type type,
+			@McpToolParam(required = false, description = "Only Notes (NOTE), Assets (ASSET), Applications (APPLICATION) or Resumes (RESUME)") Item.Type type,
 			@McpToolParam(required = false, description = "Only Items with this Tag (an id from list_tags)") UUID tagId,
 			@McpToolParam(required = false, description = "Only Items in this Folder or its subfolders (an id from list_folders)") UUID folderId,
 			@McpToolParam(required = false, description = "The nextCursor of the previous page") String cursor) {
@@ -153,7 +160,7 @@ class ReadTools {
 	ItemList listItems(McpTransportContext context,
 			@McpToolParam(required = false, description = "Only Items in this Folder (an id from list_folders)") UUID folderId,
 			@McpToolParam(required = false, description = "Only Items with this Tag (an id from list_tags)") UUID tagId,
-			@McpToolParam(required = false, description = "Only Notes (NOTE), only Assets (ASSET) or only Applications (APPLICATION)") Item.Type type,
+			@McpToolParam(required = false, description = "Only Notes (NOTE), Assets (ASSET), Applications (APPLICATION) or Resumes (RESUME)") Item.Type type,
 			@McpToolParam(required = false, description = "The nextCursor of the previous page") String cursor) {
 		var user = user(context);
 		var page = page(cursor);
@@ -164,7 +171,7 @@ class ReadTools {
 		return new ItemList(list, total, next(page, total));
 	}
 
-	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_item", description = "Read one Note, Asset or Application by id. For a Note: its full Markdown, its version (you need it to edit the Note), Tags, Folder and the Notes that link to it (Backlinks). For an Asset: its title, description, type and size; the file itself is not sent, use get_asset_url to download it. For an Application: a short text summary and its version, with Tags, Folder and Backlinks; use get_application for its whole timeline.")
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_item", description = "Read one Note, Asset, Application or Resume by id. For a Note: its full Markdown, its version (you need it to edit the Note), Tags, Folder and the Notes that link to it (Backlinks). For an Asset: its title, description, type and size; the file itself is not sent, use get_asset_url to download it. For an Application: a short text summary and its version, with Tags, Folder and Backlinks; use get_application for its whole timeline. For a Resume: its Markdown and its version (the save counter for patch_resume), with Tags, Folder and Backlinks; use get_resume for its JSON document.")
 	ItemDetail getItem(McpTransportContext context, @McpToolParam(description = "The Item's id") UUID id) {
 		var user = user(context);
 		var item = items.findLive(user.id(), List.of(id)).stream().findFirst()
@@ -195,6 +202,16 @@ class ReadTools {
 			}
 			return new ItemDetail(id, item.type(), application.title(), application.folderId(), path,
 					application.updatedAt(), itemTags, backlinks, text.toString(), application.version(), null, null, null);
+		}
+		if (item.type() == Item.Type.RESUME) {
+			var resume = resumes.get(user.id(), id);
+			return new ItemDetail(id, item.type(), resume.title(), resume.folderId(), path, resume.updatedAt(), itemTags,
+					backlinks, resumes.markdown(resume.document()), resume.version(), null, null, null);
+		}
+		if (item.type() == Item.Type.COVER_LETTER) {
+			var letter = letters.get(user.id(), id);
+			return new ItemDetail(id, item.type(), letter.title(), item.folderId(), path, item.updatedAt(), itemTags,
+					backlinks, letter.document().markdown(), letter.version(), null, null, null);
 		}
 		var asset = assets.get(user, id);
 		return new ItemDetail(id, item.type(), asset.title(), asset.folderId(), path, asset.updatedAt(), itemTags,

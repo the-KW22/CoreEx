@@ -8,6 +8,51 @@ The project's skills live in `.agents/skills/` and are pinned in `skills-lock.js
 
 ---
 
+## Bundles: the unit of work (read this first)
+
+Every ticket has a fixed cost: loading context, a plan, the full CI run, a review and a session record. That cost is larger than the cost of the next, similar slice. So **the unit of work is a bundle, not a sub-issue**. A **bundle** is 3–5 related sub-issues of one epic, built on one branch, in one session, merged in one PR. The sub-issues stay as acceptance checklists, so progress is still tracked per sub-issue.
+
+### Raising issues (`to-spec`, `to-tickets`, or by hand)
+
+This overrides `to-tickets`' "each slice fits a single fresh context window": that now applies to the **bundle**, not each sub-issue.
+
+1. **Group while you slice.** Put a `Bundle: <name>` line at the top of every sub-issue, and a `## Bundles` list in the epic body (name, then the sub-issue numbers). A bundle is the same area, the same pattern, or the same layer of one capability (for example "download, Export and MCP for Resumes").
+2. **Size.** Aim for 4 sub-issues per bundle, 6 at most, and about 1,500 changed lines. Split the bundle if it mixes a migration with a large new screen, or touches more than one trust boundary (auth, uploads, MCP tokens, admin, Markdown rendering).
+3. **Write sub-issues as short checklists.** The title, one sentence of behaviour, the acceptance criteria, and `Blocked by`. Don't repeat epic text, ADR text or file paths.
+4. **Add a "Read first" line** naming the exact ADRs, decision-record headings and `DESIGN.md` sections the bundle needs. Agents read only those.
+5. **Blocking edges** go between bundles. Inside a bundle, list sub-issues in build order.
+6. **Recipes.** The first sub-issue of a kind (add an AI feature, add an Item type to Search, Export and MCP) must leave a one-page `docs/recipes/<kind>.md`. Later sub-issues cite it and copy the pattern instead of exploring the code.
+7. **Keep the usual rules:** native sub-issues and "blocked by", the `ready-for-agent` label, the `fix` label for problems found by using the app.
+
+### Working a bundle
+
+1. **Pick** the first bundle with no open blockers. Assign yourself to all its sub-issues.
+2. **Read** `AGENTS.md`, `DEVELOPMENT.md` sections 4, 9 and 18, and the bundle's "Read first" list. Do not read `DESIGN.md`, `CONTEXT.md` or the decision records whole: open only the sections you need.
+3. **Plan once.** Post one comment on the first sub-issue: a checklist of the bundle's sub-issues, the test for each criterion, risks. No per-sub-issue plan comments.
+4. **Branch** as `<type>/<first-issue>-<bundle-slug>` from an up-to-date `staging`.
+5. **Build each sub-issue test-first** and commit it separately (`feat(scope): ... (#n)`, `Refs #n`). Run only the targeted tests while building. Run `/compact` between sub-issues when the context is large.
+6. **Once, before the PR:** the whole `npm test`, typecheck, lint and the full backend suite; the bundle's Playwright tests (time-boxed); `/ponytail-review` (fix every "Must fix"); tick every criterion.
+7. **One PR** into `staging`, with `Closes #a`, `Closes #b` and so on, one per line. Turn Auto-fix on. Squash-merge when CI is green.
+8. **Verify locally once**, then write **one** session record for the bundle (see "End of session" below for how short it may be).
+
+### Full process or light process
+
+- **Full process** (the one in `DEVELOPMENT.md`, with the threat noted in the plan): migrations, auth, uploads, signed URLs, MCP tokens, admin, Markdown or HTML rendering.
+- **Light process** for sub-issues that copy an existing pattern: targeted tests while building, the full suite once at the end.
+
+### Keep the context small
+
+- Name files instead of exploring. Use `grep` first, then read the lines you need.
+- Pipe long test or build output through `tail` or a failures-only filter.
+- Hand test runs, `/ponytail-review` and the wiki ingest to a subagent on a cheaper model. Only the result comes back.
+- Start a fresh session for a different bundle. Stay in one session across a bundle: a long, steady context is cheap because of prompt caching.
+
+### If a bundle goes wrong
+
+If the scope turns out bigger than planned, merge what is green as a smaller PR, close only the sub-issues whose criteria are all met, and note in the issue what is left. Never close a sub-issue with a criterion unmet.
+
+---
+
 ## 1. Always on
 
 These apply to every coding session, whatever the ticket.
@@ -31,7 +76,7 @@ Follows `DEVELOPMENT.md` section 4 step by step.
 | A fuzzy idea or plan you want stress-tested | `grill-me` (explicit) |
 | The same, and it will introduce new terms or a hard-to-reverse choice | `grill-with-docs` (explicit). It updates `CONTEXT.md` and writes ADRs in `docs/adr/` as decisions land. |
 | The idea is settled in the conversation and needs writing down | `to-spec` (explicit). Publishes a spec issue labelled `ready-for-agent`. |
-| A spec or plan needs splitting into work | `to-tickets` (explicit). Vertical slices, each under ~400 changed lines (`DEVELOPMENT.md` section 6), with native "blocked by" edges. Make them sub-issues of the spec. |
+| A spec or plan needs splitting into work | `to-tickets` (explicit). Vertical slices grouped into bundles (see "Bundles" above), with native "blocked by" edges between bundles. Make them sub-issues of the spec. |
 | New or unclear issues are piling up | `triage` (explicit). Labels per `docs/agents/triage-labels.md`; every comment starts with the AI disclaimer. |
 | A choice that needs an ADR but no grilling | `engineering:architecture` (Claude Code), or write the ADR by hand from an existing one. |
 
@@ -74,7 +119,7 @@ No skill needed. CI green, squash-merge into `staging`, run the stack locally. I
 
 | Situation | Skill |
 |---|---|
-| Every session | Record and ingest it in `wiki-vault/` (`DEVELOPMENT.md` section 19). No skill: follow `wiki-vault/AGENTS.md`. |
+| Every session (one per bundle) | Record and ingest it in `wiki-vault/` (`DEVELOPMENT.md` section 19). No skill: follow `wiki-vault/AGENTS.md`. Keep the record short. Add or change concept and entity pages only when you learned something new. |
 | Work is unfinished and another agent continues it | `handoff` (explicit). It writes to the OS temp folder, not the repo. Its "suggested skills" section names skills from this file. |
 
 ---

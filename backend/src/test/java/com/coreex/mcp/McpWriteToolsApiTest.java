@@ -25,7 +25,7 @@ class McpWriteToolsApiTest extends McpApiTest {
 		var names = new ArrayList<String>();
 		rpc(token, "tools/list", "{}").path("result").path("tools").forEach(t -> names.add(t.path("name").asString()));
 
-		assertThat(names).hasSize(32).contains("create_note", "update_note", "edit_note", "create_folder",
+		assertThat(names).hasSize(39).contains("create_note", "update_note", "edit_note", "create_folder",
 				"rename_folder", "move_folder", "trash_folder", "create_tag", "rename_tag", "set_tag_colour", "set_tags",
 				"move_item", "trash_item", "restore", "update_asset", "start_upload", "confirm_upload", "get_asset_url");
 		assertThat(names).noneMatch(n -> n.matches(".*(delete|empty|import|admin|purge).*"));

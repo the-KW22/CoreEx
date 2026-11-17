@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class TrashRepository {
 
 	public enum Kind {
-		FOLDER, NOTE, ASSET, APPLICATION
+		FOLDER, NOTE, ASSET, APPLICATION, RESUME, COVER_LETTER
 	}
 
 	public record Entry(Kind kind, UUID id, String title, Instant deletedAt, long folderCount, long itemCount) {

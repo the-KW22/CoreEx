@@ -1,0 +1,109 @@
+{
+  "picture": { "hidden": true, "url": "", "size": 64, "rotation": 0, "aspectRatio": 1, "borderRadius": 0, "borderColor": "", "borderWidth": 0, "shadowColor": "", "shadowWidth": 0, "fit": "cover" },
+  "basics": {
+    "name": "Grace Hopper",
+    "headline": "Rear Admiral",
+    "email": "grace@example.com",
+    "phone": "+1 555 0199",
+    "location": "Arlington, VA",
+    "website": { "url": "https://grace.example", "label": "", "inlineLink": false },
+    "customFields": [{ "id": "cf-1", "icon": "", "name": "GitHub", "value": "gracehopper" }]
+  },
+  "summary": { "id": "summary", "hidden": false, "content": "<p>Pioneer of <strong>compilers</strong>.</p>", "icon": "", "showHeading": true, "keepTogether": false },
+  "sections": {
+    "experience": {
+      "id": "experience",
+      "name": "Experience",
+      "items": [
+        {
+          "id": "x1",
+          "hidden": false,
+          "company": "US Navy",
+          "position": "Programmer",
+          "location": "Washington",
+          "period": "1944 - 1966",
+          "dates": { "start": "1944", "end": "1966", "present": false },
+          "website": { "url": "", "label": "", "inlineLink": false },
+          "description": "<p>Built the <em>Mark I</em>.</p>",
+          "roles": []
+        },
+        {
+          "id": "x2",
+          "hidden": true,
+          "company": "Eckert-Mauchly",
+          "position": "Consultant",
+          "location": "",
+          "period": "1967 - Present",
+          "dates": { "start": "1967", "end": null, "present": true },
+          "website": { "url": "", "label": "", "inlineLink": false },
+          "description": "",
+          "roles": []
+        }
+      ]
+    },
+    "education": {
+      "id": "education",
+      "name": "Education",
+      "items": [
+        {
+          "id": "e1",
+          "hidden": false,
+          "school": "Vassar College",
+          "degree": "BA",
+          "area": "Mathematics",
+          "grade": "",
+          "location": "",
+          "period": "1924 - 1928",
+          "dates": { "start": "1924", "end": "1928", "present": false },
+          "website": { "url": "", "label": "", "inlineLink": false },
+          "description": ""
+        }
+      ]
+    },
+    "projects": {
+      "id": "projects",
+      "name": "Projects",
+      "items": [
+        {
+          "id": "p1",
+          "hidden": false,
+          "name": "COBOL",
+          "period": "1959 - 1960",
+          "dates": { "start": "1959", "end": "1960", "present": false },
+          "website": { "url": "", "label": "", "inlineLink": false },
+          "description": "<p>A <strong>business</strong> language.</p>"
+        }
+      ]
+    },
+    "skills": {
+      "id": "skills",
+      "name": "Skills",
+      "items": [
+        { "id": "s1", "hidden": false, "name": "Programming", "proficiency": "Expert", "level": 4, "icon": "", "iconColor": "", "keywords": ["COBOL", "FORTRAN"] }
+      ]
+    },
+    "languages": {
+      "id": "languages",
+      "name": "Languages",
+      "items": [{ "id": "l1", "hidden": false, "language": "English", "fluency": "Native", "level": 5 }]
+    },
+    "certifications": {
+      "id": "certifications",
+      "name": "Certifications",
+      "items": [
+        {
+          "id": "c1",
+          "hidden": false,
+          "title": "Naval Reserve Certificate",
+          "issuer": "US Navy",
+          "date": "1943",
+          "dates": { "start": "1943", "end": null, "present": false },
+          "website": { "url": "", "label": "", "inlineLink": false },
+          "description": ""
+        }
+      ]
+    }
+  },
+  "customSections": [{ "id": "custom-1", "name": "Hobbies", "items": [] }],
+  "metadata": { "template": "azurill" }
+}

@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.coreex.career.CareerService;
 import com.coreex.applications.Application.CloseReason;
 import com.coreex.applications.Application.EntryType;
 import com.coreex.applications.Application.InterviewKind;
@@ -269,7 +270,8 @@ class ApplicationController {
 
 	record ApplicationPage(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ApplicationResponse> items,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) long total,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Tags of each listed Application, by its id; one without Tags is left out") Map<UUID, List<ApplicationTag>> tags) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Tags of each listed Application, by its id; one without Tags is left out") Map<UUID, List<ApplicationTag>> tags,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The latest Fit match score (an estimate, 0 to 100) of each listed Application that has one, by its id") Map<UUID, Integer> matchScores) {
 	}
 
 	private final ApplicationService applications;
@@ -284,8 +286,11 @@ class ApplicationController {
 
 	private final PostingFiller filler;
 
+	private final CareerService career;
+
 	ApplicationController(ApplicationService applications, ApplicationBulkService bulk, HttpServletRequest request,
-			TagService tags, PostingFetcher postings, PostingFiller filler) {
+			TagService tags, PostingFetcher postings, PostingFiller filler, CareerService career) {
+		this.career = career;
 		this.filler = filler;
 		this.postings = postings;
 		this.applications = applications;
@@ -391,7 +396,8 @@ class ApplicationController {
 		var tagged = tags.forItems(user.id(), listed.items().stream().map(Application::id).toList());
 		var chips = new LinkedHashMap<UUID, List<ApplicationTag>>();
 		tagged.forEach((id, list) -> chips.put(id, list.stream().map(t -> new ApplicationTag(t.id(), t.name(), t.colour())).toList()));
-		return new ApplicationPage(listed.items().stream().map(this::respond).toList(), listed.total(), chips);
+		return new ApplicationPage(listed.items().stream().map(this::respond).toList(), listed.total(), chips,
+				career.matchScores(user.id(), listed.items().stream().map(Application::id).toList()));
 	}
 
 	@GetMapping("/{id}")

@@ -1,0 +1,188 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`what the template draws > lists the sample Resume in reading order 1`] = `
+[
+  {
+    "contact": [
+      "alex.morgan@example.com",
+      "+1 555 0100",
+      "Austin, TX",
+      "https://alexmorgan.example",
+    ],
+    "headline": "Senior Software Engineer",
+    "kind": "header",
+    "name": "Alex Morgan",
+    "photo": null,
+  },
+  {
+    "column": "main",
+    "kind": "heading",
+    "page": 1,
+    "ref": "summary",
+    "text": "Summary",
+  },
+  {
+    "column": "main",
+    "kind": "text",
+    "page": 1,
+    "rich": [
+      {
+        "align": undefined,
+        "kind": "paragraph",
+        "runs": [
+          {
+            "text": "Engineer with ",
+          },
+          {
+            "bold": true,
+            "text": "seven years",
+          },
+          {
+            "text": " of experience building reliable web services and the teams that run them.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    "column": "main",
+    "kind": "heading",
+    "page": 1,
+    "ref": "section:experience",
+    "text": "Experience",
+  },
+  {
+    "column": "main",
+    "dates": "Mar 2021 - Present",
+    "id": "exp-1",
+    "keywords": [
+      "Java",
+      "PostgreSQL",
+    ],
+    "kind": "entry",
+    "level": "",
+    "location": "Remote",
+    "page": 1,
+    "rich": [
+      {
+        "items": [
+          [
+            {
+              "text": "Led a team of five that cut page load time by 40%.",
+            },
+          ],
+          [
+            {
+              "text": "Moved the billing system to a queue-based design.",
+            },
+          ],
+        ],
+        "kind": "list",
+        "ordered": false,
+      },
+    ],
+    "roles": [],
+    "subtitle": "Northwind Labs",
+    "title": "Senior Software Engineer",
+    "url": "",
+  },
+  {
+    "column": "main",
+    "dates": "Jun 2018 - Feb 2021",
+    "id": "exp-2",
+    "keywords": [],
+    "kind": "entry",
+    "level": "",
+    "location": "Berlin, Germany",
+    "page": 1,
+    "rich": [
+      {
+        "align": undefined,
+        "kind": "paragraph",
+        "runs": [
+          {
+            "text": "Built and ran the ",
+          },
+          {
+            "bold": true,
+            "text": "customer API",
+          },
+          {
+            "text": " used by 2,000 companies.",
+          },
+        ],
+      },
+    ],
+    "roles": [],
+    "subtitle": "Contoso",
+    "title": "Software Engineer",
+    "url": "",
+  },
+  {
+    "column": "main",
+    "kind": "heading",
+    "page": 1,
+    "ref": "section:education",
+    "text": "Education",
+  },
+  {
+    "column": "main",
+    "dates": "Sep 2014 - Jun 2018",
+    "id": "edu-1",
+    "keywords": [],
+    "kind": "entry",
+    "level": "",
+    "location": "",
+    "page": 1,
+    "rich": [],
+    "roles": [],
+    "subtitle": "University of Example",
+    "title": "BSc Computer Science",
+    "url": "",
+  },
+  {
+    "column": "main",
+    "kind": "heading",
+    "page": 1,
+    "ref": "section:skills",
+    "text": "Skills",
+  },
+  {
+    "column": "main",
+    "dates": "",
+    "id": "skill-1",
+    "keywords": [
+      "Java",
+      "Spring Boot",
+      "SQL",
+    ],
+    "kind": "entry",
+    "level": "",
+    "location": "",
+    "page": 1,
+    "rich": [],
+    "roles": [],
+    "subtitle": "",
+    "title": "Backend",
+    "url": "",
+  },
+  {
+    "column": "main",
+    "dates": "",
+    "id": "skill-2",
+    "keywords": [
+      "TypeScript",
+      "React",
+    ],
+    "kind": "entry",
+    "level": "",
+    "location": "",
+    "page": 1,
+    "rich": [],
+    "roles": [],
+    "subtitle": "",
+    "title": "Frontend",
+    "url": "",
+  },
+]
+`;

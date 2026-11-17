@@ -1,0 +1,421 @@
+package com.coreex.resumes;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.regex.Pattern;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.simple.JdbcClient;
+
+import com.coreex.ApiTest;
+import com.coreex.TestJwts;
+
+import tools.jackson.databind.json.JsonMapper;
+
+class ResumeApiTest extends ApiTest {
+
+	private static final JsonMapper JSON = JsonMapper.builder().build();
+
+	@Autowired
+	JdbcClient jdbc;
+
+	private String userA;
+
+	private String userB;
+
+	@BeforeEach
+	void cleanDatabase() {
+		jdbc.sql("delete from users").update();
+		idA = null;
+		idB = null;
+		userA = userToken("a@example.com");
+		userB = userToken("b@example.com");
+	}
+
+	private UUID idA;
+
+	private UUID idB;
+
+	private String userToken(String email) {
+		var id = UUID.randomUUID();
+		jdbc.sql("insert into users (id, email, role) values (:id, :email, 'USER')").param("id", id)
+				.param("email", email).update();
+		if (idA == null) {
+			idA = id;
+		}
+		else {
+			idB = id;
+		}
+		return TestJwts.tokenFor(id, email);
+	}
+
+	/** An Asset of the given type, made straight in the database (the file itself is not needed here). */
+	private UUID asset(UUID owner, String title, String mimeType) {
+		var id = UUID.randomUUID();
+		jdbc.sql("insert into items (id, owner_id, type, title) values (:id, :owner, 'ASSET', :title)").param("id", id)
+				.param("owner", owner).param("title", title).update();
+		jdbc.sql("insert into asset_files (item_id, storage_key, mime_type, size_bytes) values (:id, :key, :mime, 10)")
+				.param("id", id).param("key", "k/" + id).param("mime", mimeType).update();
+		return id;
+	}
+
+	private static Map<String, Object> withPhoto(Map<String, Object> photo) {
+		return Map.of("basics", Map.of("name", "Ada", "photo", photo));
+	}
+
+	private static String field(String json, String name) {
+		var matcher = Pattern.compile("\"" + name + "\":\"?([^\",}]*)").matcher(json);
+		assertThat(matcher.find()).as(json).isTrue();
+		return matcher.group(1);
+	}
+
+	private String made(String token, String body) throws Exception {
+		var created = post("/api/resumes", token, body);
+		assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
+		return field(created.body(), "id");
+	}
+
+	/** A document with the given summary and one experience entry with the given description. */
+	private static Map<String, Object> document(String summary, String description) {
+		var entry = Map.of("id", "e1", "title", "Engineer", "description", description);
+		var section = Map.of("id", "s1", "kind", "EXPERIENCE", "title", "Experience", "entries", List.of(entry));
+		return Map.of("basics", Map.of("name", "Ada Lovelace", "headline", "Engineer", "email", "ada@example.com"),
+				"summary", summary, "sections", List.of(section));
+	}
+
+	private static String save(String title, int version, Map<String, Object> document) {
+		return JSON.writeValueAsString(Map.of("title", title, "version", version, "document", document));
+	}
+
+	@Test
+	void markdownDownloadIsScopedAndExcludesPrivateNotes() throws Exception {
+		var id = made(userA, "{\"sample\":true}");
+		var saved = put("/api/resumes/" + id, userA, save("CV", 1,
+				Map.of("basics", Map.of("name", "Alex Morgan"), "summary", "<p><strong>seven years</strong></p>", "privateNotes", "private secret")));
+		assertThat(saved.statusCode()).isEqualTo(200);
+		var response = get("/api/resumes/" + id + "/markdown", userA);
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(response.body()).contains("Alex Morgan", "**seven years**", "\"version\":2").doesNotContain("private secret");
+		assertThat(get("/api/resumes/" + id + "/markdown", userB).statusCode()).isEqualTo(404);
+	}
+
+	@Test
+	void aBlankResumeIsCreatedAndRead() throws Exception {
+		var id = made(userA, "{}");
+
+		var read = get("/api/resumes/" + id, userA);
+		assertThat(read.statusCode()).isEqualTo(200);
+		assertThat(field(read.body(), "version")).isEqualTo("1");
+		assertThat(read.body()).contains("\"sections\":[]").contains("\"locale\":\"en\"");
+		assertThat(field(read.body(), "title")).isNotBlank();
+	}
+
+	@Test
+	void aSampleResumeComesWithContent() throws Exception {
+		var id = made(userA, "{\"sample\":true,\"title\":\"Sample\"}");
+
+		var body = get("/api/resumes/" + id, userA).body();
+		assertThat(body).contains("\"title\":\"Sample\"").contains("\"kind\":\"EXPERIENCE\"").contains("\"kind\":\"EDUCATION\"");
+	}
+
+	@Test
+	void hostileHtmlComesBackStripped() throws Exception {
+		var id = made(userA, "{}");
+		var hostile = "<p onclick=\"x()\">Hi<script>alert(1)</script><a href=\"javascript:alert(1)\">bad</a><blink>b</blink></p>";
+
+		var saved = put("/api/resumes/" + id, userA, save("CV", 1, document(hostile, hostile)));
+
+		assertThat(saved.statusCode()).as(saved.body()).isEqualTo(200);
+		assertThat(saved.body()).contains("Hi").doesNotContain("<script", "alert", "onclick", "javascript:", "blink");
+		assertThat(get("/api/resumes/" + id, userA).body()).doesNotContain("<script", "alert", "onclick", "javascript:", "blink");
+	}
+
+	@Test
+	void aDocumentWithEverySectionKindLevelsAndRolesRoundTrips() throws Exception {
+		var id = made(userA, "{}");
+		var sections = new java.util.ArrayList<Map<String, Object>>();
+		for (var kind : ResumeDocument.Kind.values()) {
+			var role = Map.<String, Object>of("id", "r1", "title", "Lead", "startDate", "2022-01", "endDate", "present",
+					"description", "<p onclick=\"x()\">Led <strong>it</strong></p><script>alert(1)</script>");
+			var entry = Map.<String, Object>of("id", "e-" + kind, "title", "T " + kind, "level", "Fluent",
+					"keywords", List.of("a", "b"), "url", "https://x.example", "roles", List.of(role));
+			sections.add(Map.of("id", "s-" + kind, "kind", kind.name(), "title", "Title " + kind, "entries", List.of(entry)));
+		}
+		Map<String, Object> doc = Map.of("sections", sections, "metadata", Map.of("dateFormat", "MM_YYYY"));
+
+		var saved = put("/api/resumes/" + id, userA, save("CV", 1, doc));
+
+		assertThat(saved.statusCode()).as(saved.body()).isEqualTo(200);
+		var body = get("/api/resumes/" + id, userA).body();
+		for (var kind : ResumeDocument.Kind.values()) {
+			assertThat(body).contains("\"kind\":\"" + kind + "\"").contains("\"title\":\"Title " + kind + "\"");
+		}
+		assertThat(body).contains("\"level\":\"Fluent\"").contains("\"endDate\":\"present\"")
+				.contains("\"dateFormat\":\"MM_YYYY\"").contains("\"description\":\"<p>Led <strong>it</strong></p>\"")
+				.doesNotContain("onclick", "<script");
+		var markdown = jdbc.sql("select markdown from resume_contents where item_id = :id").param("id", UUID.fromString(id))
+				.query(String.class).single();
+		assertThat(markdown).contains("Lead").contains("Led **it**").contains("Fluent");
+	}
+
+	@Test
+	void aPhotoMustBeAnImageAssetOfTheUser() throws Exception {
+		var id = made(userA, "{}");
+		var mine = asset(idA, "me.png", "image/png");
+
+		var saved = put("/api/resumes/" + id, userA, save("CV", 1, withPhoto(Map.of("assetId", mine.toString(), "size", 100, "shape", "square"))));
+		assertThat(saved.statusCode()).as(saved.body()).isEqualTo(200);
+		assertThat(saved.body()).contains("\"assetId\":\"" + mine + "\"").contains("\"size\":100").contains("\"shape\":\"square\"");
+
+		// Another User's image, a PDF of one's own and an id that is nothing are all refused alike.
+		var version = 2;
+		for (var refused : List.of(asset(idB, "theirs.png", "image/png"), asset(idA, "cv.pdf", "application/pdf"), UUID.randomUUID())) {
+			var answer = put("/api/resumes/" + id, userA, save("CV", version, withPhoto(Map.of("assetId", refused.toString()))));
+			assertThat(answer.statusCode()).as(refused.toString()).isEqualTo(400);
+			assertThat(answer.body()).contains("INVALID_REQUEST").doesNotContain(idB.toString());
+		}
+		assertThat(get("/api/resumes/" + id, userA).body()).contains("\"assetId\":\"" + mine + "\"").contains("\"version\":2");
+	}
+
+	@Test
+	void aPhotoWhoseAssetWasTrashedStaysButDoesNotBlockSavingOrCopying() throws Exception {
+		var id = made(userA, "{}");
+		var mine = asset(idA, "me.png", "image/png");
+		put("/api/resumes/" + id, userA, save("CV", 1, withPhoto(Map.of("assetId", mine.toString()))));
+
+		jdbc.sql("update items set deleted_at = now() where id = :id").param("id", mine).update();
+
+		// The Resume still names the Asset, and an edit that leaves the photo alone is saved.
+		var saved = put("/api/resumes/" + id, userA, save("CV", 2, withPhoto(Map.of("assetId", mine.toString(), "size", 120))));
+		assertThat(saved.statusCode()).as(saved.body()).isEqualTo(200);
+		assertThat(saved.body()).contains("\"assetId\":\"" + mine + "\"");
+		// A copy has no photo to show, so it carries none.
+		var copy = post("/api/resumes/" + id + "/duplicate", userA, null);
+		assertThat(copy.statusCode()).isEqualTo(201);
+		assertThat(copy.body()).contains("\"assetId\":\"\"").doesNotContain(mine.toString());
+	}
+
+	@Test
+	void photoSettingsAreBroughtIntoRangeAndAnythingButAnIdIsNoPhoto() throws Exception {
+		var id = made(userA, "{}");
+
+		put("/api/resumes/" + id, userA, save("CV", 1, withPhoto(Map.of("assetId", "not-an-id", "size", 9999, "shape", "star", "zoom", 5,
+				"cropX", 400, "cropY", -3, "visible", false))));
+
+		var body = get("/api/resumes/" + id, userA).body();
+		assertThat(body).contains("\"assetId\":\"\"").contains("\"size\":160").contains("\"shape\":\"circle\"").contains("\"zoom\":100")
+				.contains("\"cropX\":100").contains("\"cropY\":0").contains("\"visible\":false");
+	}
+
+	@Test
+	void customStyleRulesAreKeptWhenTheyCanBeDrawnAndRefusedWhenTheyCannot() throws Exception {
+		var id = made(userA, "{}");
+		var rule = "heading { color: #ff0000; font-size: 14 }";
+
+		var saved = put("/api/resumes/" + id, userA, save("CV", 1, Map.of("metadata", Map.of("customCss", rule))));
+		assertThat(saved.statusCode()).as(saved.body()).isEqualTo(200);
+		assertThat(saved.body()).contains("\"customCss\":\"heading { color: #ff0000; font-size: 14 }\"");
+
+		for (var bad : List.of("heading { position: fixed }", "heading { color: red }", "script { color: #000000 }", "heading {")) {
+			var refused = put("/api/resumes/" + id, userA, save("CV", 2, Map.of("metadata", Map.of("customCss", bad))));
+			assertThat(refused.statusCode()).as(bad).isEqualTo(400);
+			assertThat(refused.body()).contains("INVALID_REQUEST").contains("Custom style");
+		}
+		// Refused saves change nothing.
+		assertThat(get("/api/resumes/" + id, userA).body()).contains(rule).contains("\"version\":2");
+	}
+
+	@Test
+	void designSettingsRoundTripAndOutOfRangeOnesAreBroughtBack() throws Exception {
+		var id = made(userA, "{}");
+		var placements = List.of(Map.of("section", "s1", "column", "side", "page", 2));
+		Map<String, Object> metadata = new java.util.HashMap<>(Map.of("font", "Times", "headingFont", "Courier", "fontSize", 12,
+				"density", "relaxed", "pageSize", "FREE", "pageWidth", 500, "pageHeight", 700, "pageCount", 3, "margin", 24, "sidebarSide", "right"));
+		metadata.putAll(Map.of("sidebarWidth", 200, "entryColumns", 2, "entryHeader", "stacked", "placements", placements));
+
+		put("/api/resumes/" + id, userA, save("CV", 1, Map.of("metadata", metadata)));
+		var body = get("/api/resumes/" + id, userA).body();
+		assertThat(body).contains("\"font\":\"Times\"").contains("\"headingFont\":\"Courier\"").contains("\"density\":\"relaxed\"")
+				.contains("\"pageSize\":\"FREE\"").contains("\"pageWidth\":500").contains("\"pageCount\":3").contains("\"margin\":24")
+				.contains("\"sidebarSide\":\"right\"").contains("\"sidebarWidth\":200").contains("\"entryColumns\":2")
+				.contains("\"entryHeader\":\"stacked\"").contains("\"placements\":[{\"section\":\"s1\",\"column\":\"side\",\"page\":2}]");
+
+		// A value outside what the renderer can draw comes back as something it can.
+		Map<String, Object> wild = new java.util.HashMap<>(Map.of("fontSize", 500, "density", "huge", "pageSize", "A0", "pageWidth", 5,
+				"pageCount", 40, "margin", -9, "sidebarSide", "up", "sidebarWidth", 9000, "entryColumns", 7));
+		wild.putAll(Map.of("entryHeader", "zigzag", "placements", List.of(Map.of("section", "s1", "column", "diagonal", "page", 99))));
+		put("/api/resumes/" + id, userA, save("CV", 2, Map.of("metadata", wild)));
+		var fixed = get("/api/resumes/" + id, userA).body();
+		assertThat(fixed).contains("\"fontSize\":20").contains("\"density\":\"comfortable\"").contains("\"pageSize\":\"A4\"")
+				.contains("\"pageWidth\":200").contains("\"pageCount\":9").contains("\"margin\":0").contains("\"sidebarSide\":\"left\"")
+				.contains("\"sidebarWidth\":400").contains("\"entryColumns\":1").contains("\"entryHeader\":\"inline\"")
+				.contains("\"placements\":[{\"section\":\"s1\",\"column\":\"\",\"page\":9}]");
+	}
+
+	@Test
+	void aLockedResumeRefusesSavesAndRenamesUntilUnlocked() throws Exception {
+		var id = made(userA, "{\"title\":\"Final\"}");
+		assertThat(put("/api/resumes/" + id + "/lock", userA, "{\"locked\":true}").statusCode()).isEqualTo(204);
+		assertThat(get("/api/resumes/" + id, userA).body()).contains("\"locked\":true");
+
+		var refused = put("/api/resumes/" + id, userA, save("Final", 1, document("<p>a</p>", "")));
+		assertThat(refused.statusCode()).isEqualTo(409);
+		assertThat(refused.body()).contains("RESUME_LOCKED");
+		var renamed = put("/api/resumes/" + id + "/title", userA, "{\"title\":\"Other\"}");
+		assertThat(renamed.statusCode()).isEqualTo(409);
+		assertThat(renamed.body()).contains("RESUME_LOCKED");
+		assertThat(get("/api/resumes/" + id, userA).body()).contains("\"title\":\"Final\"").contains("\"version\":1");
+		// A copy of a locked Resume is not locked.
+		assertThat(post("/api/resumes/" + id + "/duplicate", userA, null).body()).contains("\"locked\":false");
+
+		assertThat(put("/api/resumes/" + id + "/lock", userA, "{\"locked\":false}").statusCode()).isEqualTo(204);
+		assertThat(put("/api/resumes/" + id, userA, save("Final", 1, document("<p>a</p>", ""))).statusCode()).isEqualTo(200);
+	}
+
+	@Test
+	void anotherUserCannotLockOrUnlock() throws Exception {
+		var id = made(userA, "{}");
+
+		assertThat(put("/api/resumes/" + id + "/lock", userB, "{\"locked\":true}").statusCode()).isEqualTo(404);
+		assertThat(get("/api/resumes/" + id, userA).body()).contains("\"locked\":false");
+	}
+
+	@Test
+	void privateNotesAreKeptButNeverInTheDerivedText() throws Exception {
+		var id = made(userA, "{}");
+		Map<String, Object> doc = Map.of("basics", Map.of("name", "Ada"), "privateNotes", "Sent to Acme on Monday");
+
+		assertThat(put("/api/resumes/" + id, userA, save("CV", 1, doc)).body()).contains("Sent to Acme on Monday");
+
+		var row = jdbc.sql("select plain_text, markdown from resume_contents where item_id = :id").param("id", UUID.fromString(id))
+				.query((rs, n) -> rs.getString(1) + rs.getString(2)).single();
+		assertThat(row).contains("Ada").doesNotContain("Acme");
+	}
+
+	@Test
+	void aStaleSaveCounterIsRefused() throws Exception {
+		var id = made(userA, "{}");
+		assertThat(put("/api/resumes/" + id, userA, save("CV", 1, document("<p>a</p>", "<p>b</p>"))).statusCode()).isEqualTo(200);
+
+		var stale = put("/api/resumes/" + id, userA, save("CV", 1, document("<p>c</p>", "<p>d</p>")));
+
+		assertThat(stale.statusCode()).isEqualTo(409);
+		assertThat(stale.body()).contains("VERSION_CONFLICT");
+		assertThat(get("/api/resumes/" + id, userA).body()).contains("<p>a</p>").contains("\"version\":2");
+	}
+
+	@Test
+	void plainTextAndMarkdownAreDerivedOnSave() throws Exception {
+		var id = made(userA, "{}");
+
+		put("/api/resumes/" + id, userA, save("CV", 1, document("<p><strong>Builds</strong> things</p>", "<ul><li><p>Shipped it</p></li></ul>")));
+
+		var row = jdbc.sql("select plain_text, markdown from resume_contents where item_id = :id").param("id", UUID.fromString(id))
+				.query((rs, n) -> List.of(rs.getString(1), rs.getString(2))).single();
+		assertThat(row.get(0)).contains("Ada Lovelace", "Builds things", "Shipped it").doesNotContain("<");
+		assertThat(row.get(1)).contains("# Ada Lovelace", "**Builds** things", "## Experience", "- Shipped it");
+	}
+
+	@Test
+	void aNulCharacterIsNeverAServerError() throws Exception {
+		var id = made(userA, "{}");
+
+		// In rich text it is dropped; in a plain field the save is refused.
+		var saved = put("/api/resumes/" + id, userA, save("CV", 1, document("<p>a\u0000b</p>", "")));
+		assertThat(saved.statusCode()).as(saved.body()).isEqualTo(200);
+		assertThat(saved.body()).contains("<p>ab</p>");
+
+		Map<String, Object> plain = Map.of("basics", Map.of("name", "A\u0000da"));
+		assertThat(put("/api/resumes/" + id, userA, save("CV", 2, plain)).statusCode()).isEqualTo(400);
+	}
+
+	@Test
+	void renameChangesTheTitleInTheListAndRejectsBlank() throws Exception {
+		var id = made(userA, "{\"title\":\"Old\"}");
+
+		assertThat(put("/api/resumes/" + id + "/title", userA, "{\"title\":\" \"}").statusCode()).isEqualTo(400);
+		assertThat(put("/api/resumes/" + id + "/title", userA, "{\"title\":\"New name\"}").statusCode()).isEqualTo(204);
+
+		assertThat(get("/api/resumes", userA).body()).contains("\"title\":\"New name\"").doesNotContain("Old");
+	}
+
+	@Test
+	void duplicatingMakesAnIndependentCopy() throws Exception {
+		var id = made(userA, "{\"title\":\"Mine\"}");
+		put("/api/resumes/" + id, userA, save("Mine", 1, document("<p>keep</p>", "<p>d</p>")));
+
+		var copy = post("/api/resumes/" + id + "/duplicate", userA, null);
+
+		assertThat(copy.statusCode()).as(copy.body()).isEqualTo(201);
+		var copyId = field(copy.body(), "id");
+		assertThat(copyId).isNotEqualTo(id);
+		assertThat(copy.body()).contains("\"title\":\"Mine (copy)\"").contains("<p>keep</p>").contains("\"version\":1");
+		assertThat(get("/api/resumes", userA).body()).contains("\"total\":2");
+	}
+
+	@Test
+	void aMadeUpIdMakesOneResumeEvenWhenSentTwice() throws Exception {
+		var id = UUID.randomUUID().toString();
+		made(userA, "{\"id\":\"" + id + "\"}");
+		assertThat(made(userA, "{\"id\":\"" + id + "\"}")).isEqualTo(id);
+
+		assertThat(get("/api/resumes", userA).body()).contains("\"total\":1");
+		// Another User's id is refused without saying whose it is.
+		assertThat(post("/api/resumes", userB, "{\"id\":\"" + id + "\"}").statusCode()).isEqualTo(400);
+	}
+
+	@Test
+	void anImportedDocumentCreatesTheResumeSanitisedLikeAnySave() throws Exception {
+		var body = JSON.writeValueAsString(Map.of("title", "Imported", "document",
+				document("<p>Engineer<script>alert(1)</script></p>", "<p onclick=\"x()\">Built it</p>")));
+		var created = post("/api/resumes", userA, body);
+		assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
+		var read = get("/api/resumes/" + field(created.body(), "id"), userA).body();
+		assertThat(read).contains("\"title\":\"Imported\"", "Engineer", "Built it", "Ada Lovelace")
+				.doesNotContain("<script", "alert(1)", "onclick");
+	}
+
+	@Test
+	void aBrokenOrOversizedImportCreatesNothing() throws Exception {
+		var broken = post("/api/resumes", userA, "{\"title\":\"Broken\",\"document\":{\"sections\":[{\"kind\":\"NOPE\"}]}}");
+		assertThat(broken.statusCode()).isEqualTo(400);
+		var oversized = post("/api/resumes", userA, JSON.writeValueAsString(Map.of("title", "Big", "document",
+				document("x".repeat(1_000_001), ""))));
+		assertThat(oversized.statusCode()).isEqualTo(400);
+		assertThat(get("/api/resumes", userA).body()).contains("\"total\":0");
+	}
+
+	@Test
+	void anImportedPhotoMustBeTheUsersOwnImage() throws Exception {
+		var theirs = asset(idB, "photo.png", "image/png");
+		var refused = post("/api/resumes", userA, JSON.writeValueAsString(Map.of("title", "Photo", "document",
+				Map.of("basics", Map.of("name", "Ada", "photo", Map.of("assetId", theirs.toString()))))));
+		assertThat(refused.statusCode()).isEqualTo(400);
+		assertThat(get("/api/resumes", userA).body()).contains("\"total\":0");
+	}
+
+	@Test
+	void anotherUserGets404OnEveryEndpoint() throws Exception {
+		var id = made(userA, "{}");
+
+		assertThat(get("/api/resumes/" + id, userB).statusCode()).isEqualTo(404);
+		assertThat(put("/api/resumes/" + id, userB, save("x", 1, document("", ""))).statusCode()).isEqualTo(404);
+		assertThat(put("/api/resumes/" + id + "/title", userB, "{\"title\":\"x\"}").statusCode()).isEqualTo(404);
+		assertThat(post("/api/resumes/" + id + "/duplicate", userB, null).statusCode()).isEqualTo(404);
+		assertThat(get("/api/resumes", userB).body()).contains("\"total\":0").doesNotContain(id);
+		// A Note id is not a Resume.
+		var note = field(post("/api/notes", userA, "{\"title\":\"n\",\"body\":\"b\"}").body(), "id");
+		assertThat(get("/api/resumes/" + note, userA).statusCode()).isEqualTo(404);
+	}
+
+	@Test
+	void signedOutCallsAreRefused() throws Exception {
+		assertThat(get("/api/resumes").statusCode()).isEqualTo(401);
+	}
+
+}

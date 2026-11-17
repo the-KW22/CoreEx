@@ -67,7 +67,7 @@ The panel belongs to the Knowledge Base module: it shows only on Knowledge Base 
 Agreed 2026-11-14 ([ADR 0010](adr/0010-career-items-are-applications-resumes-and-cover-letters.md), decision records in `docs/career/`). The rail entry, the panel and the Applications list are built (#228); each other screen is designed in its own ticket and recorded here when it lands.
 
 - **One rail entry, "Career"**, after Graph. Applications, Resumes and Cover Letters are Items, so they also show in All Items, Folders, Tags, Search and the Graph, and open their Career page from there.
-- **A Career panel beside the rail**, like the Knowledge Base panel (the same width, and in a Sheet below 1280px, opened by the rail's "Panel" button), shown only on Career routes: **Today**, **Applications**, **Resumes & Letters**, **Knowledge** (Facts, Stories, Preferences), **Offers**. Only entries whose screen exists are shown: for now just **Applications**.
+- **A Career panel beside the rail**, like the Knowledge Base panel (the same width, and in a Sheet below 1280px, opened by the rail's "Panel" button), shown only on Career routes: **Today**, **Applications**, **Resumes & Letters**, **Knowledge** (Facts, Stories, Preferences), **Offers**. Only entries whose screen exists are shown: for now **Applications** and **Resumes & Letters**.
 - **Applications** has four views: List (grouped by Stage, sorted by Next step), Board (drag between Stages, with Undo), Calendar (interviews) and Insights. One Application opens its details and its workspace tabs: Fit, Apply, Interview prep, Practice, Debrief, Messages (where Application emails live), Library.
 - **The Resume and Cover Letter editor** uses the full width with the panel hidden: a form panel beside a real-size page preview, with Write, Design and Check modes (Cover Letters: Write and Design), and the same save status as the Note editor.
 - Every AI button carries its one-line "Sends: …" disclosure ([ADR 0013](adr/0013-career-ai-works-only-from-the-users-evidence.md)).
@@ -77,6 +77,10 @@ Agreed 2026-11-14 ([ADR 0010](adr/0010-career-items-are-applications-resumes-and
 | `/career` | Today |
 | `/career/applications`, `/career/applications/[id]` | Applications views; one Application with its workspace tabs |
 | `/career/library`, `/career/resumes/[id]`, `/career/cover-letters/[id]` | Resumes & Letters library; the editors |
+
+The Resume preview offers PDF, Word, Markdown and JSON downloads alongside Print. JSON is a full backup and explicitly says that it includes private notes; Word and Markdown omit them. Markdown is unavailable until changes are saved and while previewing a different version or an unapplied template.
+
+In Resume Check, the form panel lists categorized findings and a score, with actions to edit, ignore or apply an available fix. The preview can show the PDF's extracted text beside the page and compare it with the Resume. A selected Application's posting can also be compared locally with the Resume; keywords are suggestions, not a fit score.
 | `/career/knowledge`, `/career/offers` | Knowledge; Offers |
 
 ## 4. Design tokens

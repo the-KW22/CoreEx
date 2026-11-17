@@ -29,10 +29,12 @@ public class ApplicationService {
 	private final ApplicationRepository applications;
 
 	private final Clock clock;
+	private final ApplicationLinkedDocuments linkedDocuments;
 
-	ApplicationService(ApplicationRepository applications, Clock clock) {
+	ApplicationService(ApplicationRepository applications, Clock clock, ApplicationLinkedDocuments linkedDocuments) {
 		this.applications = applications;
 		this.clock = clock;
+		this.linkedDocuments = linkedDocuments;
 	}
 
 	private LocalDate today() {
@@ -145,6 +147,11 @@ public class ApplicationService {
 	public record Listed(List<Application> items, int total) {
 	}
 
+	/** Every Application of the User, for the Today page. */
+	public List<Application> all(UUID ownerId) {
+		return applications.findAll(ownerId);
+	}
+
 	public NextStep nextStep(Application application, ZoneId zone) {
 		return NextStep.of(application, clock.instant(), zone);
 	}
@@ -211,8 +218,10 @@ public class ApplicationService {
 		if (current.stage() == stage) {
 			return current;
 		}
-		return store(ownerId, id, from != null ? current.version() : seenVersion, stage, closeReason,
+		var moved = store(ownerId, id, from != null ? current.version() : seenVersion, stage, closeReason,
 				append(current.timeline(), "STAGE", stage, day(date), stage == Stage.CLOSED ? closeReason.name() : null, null));
+		if (stage == Stage.APPLIED && current.appliedOn() == null) linkedDocuments.snapshot(ownerId, id);
+		return moved;
 	}
 
 	/** The rules of a move that do not depend on the Application, so a bulk move can refuse them once. */
@@ -310,6 +319,28 @@ public class ApplicationService {
 				current.timeline().stream().map(e -> e.seq() == seq ? edited : e).toList());
 	}
 
+	/** The state an apply of a career reply may change: the Stage, close reason, applied date, reminder and timeline. */
+	public record Snapshot(Stage stage, CloseReason closeReason, Instant appliedOn, LocalDate reminderOn, LocalTime reminderTime,
+			List<TimelineEntry> timeline) {
+	}
+
+	public static Snapshot snapshotOf(Application a) {
+		return new Snapshot(a.stage(), a.closeReason(), a.appliedOn(), a.reminderOn(), a.reminderTime(), a.timeline());
+	}
+
+	/**
+	 * Puts back an earlier Stage, close reason, applied date, reminder and timeline. The version the caller saw must still be
+	 * current (409 otherwise); the save counter goes up as for any other edit.
+	 */
+	@Transactional
+	public Application restore(UUID ownerId, UUID id, Snapshot before, int expectedVersion) {
+		get(ownerId, id);
+		if (!applications.restoreState(ownerId, id, expectedVersion, before)) {
+			throw conflict();
+		}
+		return get(ownerId, id);
+	}
+
 	/** Sets, changes or (with no date) clears the one follow-up reminder. A time needs a date. */
 	@Transactional
 	public Application setReminder(UUID ownerId, UUID id, LocalDate on, LocalTime time, int seenVersion) {
@@ -330,8 +361,10 @@ public class ApplicationService {
 		if (entry(current, seq).type().equals("STAGE")) {
 			throw invalid("A Stage entry cannot be deleted.");
 		}
-		return store(ownerId, id, seenVersion, current.stage(), current.closeReason(),
+		var kept = store(ownerId, id, seenVersion, current.stage(), current.closeReason(),
 				current.timeline().stream().filter(e -> e.seq() != seq).toList());
+		if (entry(current, seq).type().equals("INTERVIEW")) applications.dropDebrief(ownerId, id, seq);
+		return kept;
 	}
 
 	private static TimelineEntry entry(Application application, int seq) {

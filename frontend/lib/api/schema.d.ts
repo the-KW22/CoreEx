@@ -36,7 +36,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/notes/{id}": {
+    "/api/resumes/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -45,6 +45,86 @@ export interface paths {
         };
         get: operations["get"];
         put: operations["save"];
+        post?: never;
+        delete: operations["trash"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/versions/{versionId}/name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["rename_1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/title": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["rename_2"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["lock"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/offers/{offerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_1"];
+        put: operations["save_1"];
         post?: never;
         delete: operations["delete_1"];
         options?: never;
@@ -68,6 +148,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/knowledge/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["preferences"];
+        put: operations["savePreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/notes/{id}/story": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["setStory"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/facts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["correct"];
+        post?: never;
+        delete: operations["forget"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/facts/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["status"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/folders/{id}": {
         parameters: {
             query?: never;
@@ -76,9 +220,25 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put: operations["rename_1"];
+        put: operations["rename_3"];
         post?: never;
         delete: operations["delete_2"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cover-letters/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_2"];
+        put: operations["save_2"];
+        post?: never;
+        delete: operations["trash_1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -91,8 +251,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_1"];
-        put: operations["update"];
+        get: operations["get_3"];
+        put: operations["update_1"];
         post?: never;
         delete: operations["delete_3"];
         options?: never;
@@ -107,10 +267,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_2"];
-        put: operations["save_1"];
+        get: operations["get_4"];
+        put: operations["save_3"];
         post?: never;
-        delete: operations["trash"];
+        delete: operations["trash_2"];
         options?: never;
         head?: never;
         patch?: never;
@@ -148,6 +308,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/linked-documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list"];
+        put: operations["link"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/{id}/interviews/{seq}": {
         parameters: {
             query?: never;
@@ -157,6 +333,54 @@ export interface paths {
         };
         get?: never;
         put: operations["editInterview"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/results/{resultId}/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["edit"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/questions/{questionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["save_4"];
+        post?: never;
+        delete: operations["delete_4"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/interviews/{seq}/debrief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["save_5"];
         post?: never;
         delete?: never;
         options?: never;
@@ -219,9 +443,185 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list"];
+        get: operations["list_1"];
         put?: never;
         post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_2"];
+        put?: never;
+        post: operations["create_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_3"];
+        put?: never;
+        post: operations["name"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/versions/{versionId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_4"];
+        put?: never;
+        post: operations["review"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/reviews/{reviewId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/reviews/{reviewId}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/improve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["improve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/improve/{suggestionId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reject_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/improve/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["accept_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["duplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/ai-import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["read"];
         delete?: never;
         options?: never;
         head?: never;
@@ -237,7 +637,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["create_1"];
+        post: operations["create_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -253,7 +653,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["restore"];
+        post: operations["restore_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -292,6 +692,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/knowledge/stories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["stories"];
+        put?: never;
+        post: operations["newStory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["facts"];
+        put?: never;
+        post: operations["create_3"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/items/{id}/tags": {
         parameters: {
             query?: never;
@@ -299,7 +731,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_1"];
+        get: operations["list_5"];
         put?: never;
         post: operations["add"];
         delete?: never;
@@ -317,7 +749,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["link"];
+        post: operations["link_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -365,7 +797,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["link_1"];
+        post: operations["link_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -379,9 +811,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_2"];
+        get: operations["list_6"];
         put?: never;
-        post: operations["create_2"];
+        post: operations["create_4"];
         delete?: never;
         options?: never;
         head?: never;
@@ -398,6 +830,102 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["move_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cover-letters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_7"];
+        put?: never;
+        post: operations["create_5"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cover-letters/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["versions"];
+        put?: never;
+        post: operations["nameVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cover-letters/{id}/versions/{versionId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restore_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cover-letters/{id}/unlink": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["unlink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cover-letters/{id}/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["drafts"];
+        put?: never;
+        post: operations["draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cover-letters/{id}/drafts/{draftId}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["acceptDraft"];
         delete?: never;
         options?: never;
         head?: never;
@@ -443,9 +971,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_3"];
+        get: operations["list_8"];
         put?: never;
-        post: operations["create_3"];
+        post: operations["create_6"];
         delete?: never;
         options?: never;
         head?: never;
@@ -484,6 +1012,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_9"];
+        put?: never;
+        post: operations["create_7"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/{id}/interviews": {
         parameters: {
             query?: never;
@@ -510,6 +1054,278 @@ export interface paths {
         get: operations["documents"];
         put?: never;
         post: operations["attach"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/copy-resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["copy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/results/{resultId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reject_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/results/{resultId}/changes/{index}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["undo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/results/{resultId}/changes/{index}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/results/{resultId}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["accept_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["add_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/questions/{questionId}/tighten": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["tighten"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/questions/{questionId}/reuse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reuse"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/questions/{questionId}/library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["keep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/questions/{questionId}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["draft_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/practice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["practice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/mark-applied": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["markApplied"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/interviews/{seq}/prep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["prep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/interviews/{seq}/debrief/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["debriefSummary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/fit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["fit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/emails": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["draft_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -651,9 +1467,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_4"];
+        get: operations["list_10"];
         put?: never;
-        post: operations["create_4"];
+        post: operations["create_8"];
         delete?: never;
         options?: never;
         head?: never;
@@ -683,9 +1499,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_5"];
+        get: operations["list_11"];
         put?: never;
-        post: operations["create_5"];
+        post: operations["create_9"];
         delete?: never;
         options?: never;
         head?: never;
@@ -699,7 +1515,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_6"];
+        get: operations["list_12"];
         put?: never;
         post?: never;
         delete: operations["empty"];
@@ -740,6 +1556,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/resumes/{id}/versions/{versionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_5"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/{id}/markdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["markdown"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["all"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/offers/{offerId}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["versions_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/offers/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["compare"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notes/{id}/versions": {
         parameters: {
             query?: never;
@@ -747,7 +1643,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_7"];
+        get: operations["list_13"];
         put?: never;
         post?: never;
         delete?: never;
@@ -763,7 +1659,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_3"];
+        get: operations["get_6"];
         put?: never;
         post?: never;
         delete?: never;
@@ -852,6 +1748,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/knowledge/facts/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["candidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/items": {
         parameters: {
             query?: never;
@@ -859,7 +1771,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_8"];
+        get: operations["list_14"];
         put?: never;
         post?: never;
         delete?: never;
@@ -875,7 +1787,23 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_9"];
+        get: operations["list_15"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/items/{id}/linked-applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_16"];
         put?: never;
         post?: never;
         delete?: never;
@@ -964,6 +1892,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cover-letters/{id}/versions/{versionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["version"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cover-letters/{id}/markdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["markdown_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["today"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/documents-by-application": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_17"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assets/{id}/url": {
         parameters: {
             query?: never;
@@ -996,6 +1988,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/career/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["library"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/questions/{questionId}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["suggestions_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/debriefs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_18"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_7"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/applied-before": {
         parameters: {
             query?: never;
@@ -1019,7 +2075,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["status"];
+        get: operations["status_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1035,7 +2091,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_10"];
+        get: operations["list_19"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1140,6 +2196,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/career/library/{libraryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["removeFromLibrary"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{id}": {
         parameters: {
             query?: never;
@@ -1204,6 +2276,199 @@ export interface components {
             /** @enum {string|null} */
             colour?: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
         };
+        Basics: {
+            name: string;
+            headline: string;
+            email: string;
+            phone: string;
+            location: string;
+            website: string;
+            customFields: components["schemas"]["Field"][];
+            photo: components["schemas"]["Photo"];
+        };
+        Entry: {
+            id: string;
+            hidden: boolean;
+            title: string;
+            subtitle: string;
+            location: string;
+            startDate: string;
+            endDate: string;
+            url: string;
+            level: string;
+            description: string;
+            keywords: string[];
+            roles: components["schemas"]["Role"][];
+        };
+        Field: {
+            label: string;
+            value: string;
+        };
+        Metadata: {
+            template: string;
+            accent: string;
+            font: string;
+            headingFont: string;
+            /** Format: int32 */
+            fontSize: number;
+            density: string;
+            pageSize: string;
+            /** Format: int32 */
+            pageWidth: number;
+            /** Format: int32 */
+            pageHeight: number;
+            /** Format: int32 */
+            pageCount: number;
+            /** Format: int32 */
+            margin: number;
+            dateFormat: string;
+            sidebarSide: string;
+            /** Format: int32 */
+            sidebarWidth: number;
+            /** Format: int32 */
+            entryColumns: number;
+            entryHeader: string;
+            placements: components["schemas"]["Placement"][];
+            customCss: string;
+        };
+        Photo: {
+            assetId: string;
+            visible: boolean;
+            /** Format: int32 */
+            size: number;
+            shape: string;
+            /** Format: int32 */
+            cropX: number;
+            /** Format: int32 */
+            cropY: number;
+            /** Format: int32 */
+            zoom: number;
+        };
+        Placement: {
+            section: string;
+            column: string;
+            /** Format: int32 */
+            page: number;
+        };
+        ResumeDocument: {
+            locale: string;
+            basics: components["schemas"]["Basics"];
+            summary: string;
+            sections: components["schemas"]["Section"][];
+            metadata: components["schemas"]["Metadata"];
+            privateNotes: string;
+            ignoredChecks: string[];
+        };
+        Role: {
+            id: string;
+            title: string;
+            startDate: string;
+            endDate: string;
+            description: string;
+        };
+        SaveResumeRequest: {
+            title: string;
+            document: components["schemas"]["ResumeDocument"];
+            /** Format: int32 */
+            version: number;
+        };
+        Section: {
+            id: string;
+            /** @enum {string} */
+            kind: "EXPERIENCE" | "EDUCATION" | "PROJECTS" | "SKILLS" | "LANGUAGES" | "CERTIFICATIONS" | "AWARDS" | "PUBLICATIONS" | "VOLUNTEERING" | "INTERESTS" | "REFERENCES" | "PROFILES" | "CUSTOM";
+            title: string;
+            hidden: boolean;
+            entries: components["schemas"]["Entry"][];
+        };
+        ResumeResponse: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            document: components["schemas"]["ResumeDocument"];
+            /** Format: int32 */
+            version: number;
+            /** @description A locked Resume cannot be saved or renamed until it is unlocked */
+            locked: boolean;
+            /** Format: uuid */
+            folderId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        RenameResumeVersionRequest: {
+            name?: string;
+        };
+        RenameResumeRequest: {
+            title: string;
+        };
+        LockRequest: {
+            locked: boolean;
+        };
+        OfferRequest: {
+            /** @description Base pay per pay period */
+            basePay?: number | null;
+            /** @description Three letters, such as GBP */
+            currency?: string | null;
+            /** @description YEAR, MONTH or HOUR */
+            payPeriod?: string | null;
+            bonus?: string | null;
+            equity?: string | null;
+            benefits?: string | null;
+            /**
+             * Format: date
+             * @description yyyy-mm-dd
+             */
+            startDate?: string | null;
+            place?: string | null;
+            /**
+             * Format: int32
+             * @description Office days a week, 0 to 5
+             */
+            officeDays?: number | null;
+            /**
+             * Format: date
+             * @description yyyy-mm-dd
+             */
+            respondBy?: string | null;
+            /**
+             * Format: int32
+             * @description The version you saw; required to edit, left out to create
+             */
+            version?: number | null;
+        };
+        Check: {
+            code?: string;
+            message?: string;
+        };
+        OfferResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            applicationId: string;
+            terms: components["schemas"]["TermsResponse"];
+            /** Format: int32 */
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Flags against the User's Preferences; empty when none are saved */
+            checks: components["schemas"]["Check"][];
+        };
+        TermsResponse: {
+            basePay?: number | null;
+            currency?: string | null;
+            payPeriod?: string | null;
+            bonus?: string | null;
+            equity?: string | null;
+            benefits?: string | null;
+            /** Format: date */
+            startDate?: string | null;
+            place?: string | null;
+            /** Format: int32 */
+            officeDays?: number | null;
+            /** Format: date */
+            respondBy?: string | null;
+        };
         SaveNoteRequest: {
             title: string;
             body: string;
@@ -1232,6 +2497,58 @@ export interface components {
             /** Format: double */
             y: number;
         };
+        PreferencesRequest: {
+            targetRoles?: string;
+            /** @description Any of REMOTE, HYBRID, ONSITE */
+            places?: string[] | null;
+            minBasePay?: number | null;
+            /** @description Three letters, such as GBP */
+            currency?: string | null;
+            payPeriod?: string | null;
+            /** Format: int32 */
+            officeDaysPerWeek?: number | null;
+            noticePeriod?: string;
+        };
+        PreferencesResponse: {
+            targetRoles?: string;
+            places?: string[];
+            minBasePay?: number;
+            currency?: string;
+            payPeriod?: string;
+            /** Format: int32 */
+            officeDaysPerWeek?: number;
+            noticePeriod?: string;
+        };
+        StoryFlagRequest: {
+            story: boolean;
+        };
+        FactRequest: {
+            text: string;
+            category: string;
+        };
+        FactResponse: {
+            /** Format: uuid */
+            id: string;
+            text: string;
+            category: string;
+            sourceKind: string;
+            /** Format: uuid */
+            sourceId?: string | null;
+            quote?: string | null;
+            status: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Earlier wordings, oldest first */
+            revisions: components["schemas"]["RevisionResponse"][];
+        };
+        RevisionResponse: {
+            text?: string;
+            /** Format: date-time */
+            savedAt?: string;
+        };
+        StatusRequest: {
+            status: string;
+        };
         RenameFolderRequest: {
             name: string;
         };
@@ -1246,6 +2563,33 @@ export interface components {
              * @description Live Items directly in this Folder, not in its subfolders
              */
             itemCount: number;
+        };
+        CoverLetterDocument: {
+            recipient: string;
+            date: string;
+            greeting: string;
+            body: string;
+            signOff: string;
+            sender: components["schemas"]["Basics"];
+            design: components["schemas"]["Metadata"];
+        };
+        SaveCoverLetter: {
+            title: string;
+            /** Format: int32 */
+            version: number;
+            document: components["schemas"]["CoverLetterDocument"];
+        };
+        Letter: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            document: components["schemas"]["CoverLetterDocument"];
+            /** Format: int32 */
+            version: number;
+            /** Format: uuid */
+            linkedResumeId: string | null;
+            /** Format: uuid */
+            folderId: string | null;
         };
         UpdateAssetRequest: {
             title: string;
@@ -1386,6 +2730,30 @@ export interface components {
             /** Format: int32 */
             version: number;
         };
+        LinkDocument: {
+            /** @enum {string} */
+            kind: "RESUME" | "COVER_LETTER";
+            /** Format: uuid */
+            itemId?: string | null;
+            /** @description Explicitly replace an unsent linked document */
+            replaceExisting?: boolean;
+        };
+        LinkedDocument: {
+            /** @enum {string} */
+            kind: "RESUME" | "COVER_LETTER";
+            /** Format: uuid */
+            itemId: string | null;
+            sentTitle: string | null;
+            sentDocument: {
+                [key: string]: unknown;
+            } | null;
+            /** Format: int32 */
+            sentVersion: number | null;
+            /** Format: int32 */
+            checkScore: number | null;
+            /** Format: date-time */
+            sentAt: string | null;
+        };
         InterviewRequest: {
             /**
              * Format: date-time
@@ -1397,6 +2765,213 @@ export interface components {
             notes?: string | null;
             /** Format: int32 */
             version: number;
+        };
+        EditEmailRequest: {
+            subject: string;
+            body: string;
+        };
+        AnswerResponse: {
+            /** Format: uuid */
+            questionId: string;
+            text: string;
+            /** @description What a Draft cites; empty for a Tighten */
+            evidence: components["schemas"]["EvidenceResponse"][];
+        };
+        Change: {
+            type?: string;
+            why?: string;
+            stage?: string;
+            closeReason?: string;
+            date?: string;
+            time?: string;
+            offer?: {
+                [key: string]: unknown;
+            };
+        };
+        ChangeResponse: {
+            /**
+             * Format: int32
+             * @description Its place in the reply's changes; apply and undo name it
+             */
+            index: number;
+            change: components["schemas"]["Change"];
+            /** @description PROPOSED, APPLIED or UNDONE */
+            state: string;
+            /** @description True when this applied change can be undone now */
+            canUndo: boolean;
+        };
+        EmailResponse: {
+            subject: string;
+            body: string;
+            /** @description RESUME and/or COVER_LETTER, only those linked on the Application */
+            attach: string[];
+            /**
+             * Format: int32
+             * @description The interview's seq; set for a THANK_YOU
+             */
+            interviewSeq: number | null;
+            /** @description What the email relies on; a forgotten or switched-off Fact is left out */
+            evidence: components["schemas"]["EvidenceResponse"][];
+        };
+        EvidenceResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @description FACT, STORY or RESUME */
+            kind: string;
+            label: string;
+        };
+        FitResponse: {
+            /**
+             * Format: int32
+             * @description An estimate from 0 to 100, never a measurement
+             */
+            score: number;
+            question: string;
+            requirements: components["schemas"]["RequirementResponse"][];
+        };
+        PointResponse: {
+            point: string;
+            /** @description What shows it; a forgotten or switched-off Fact is left out */
+            evidence: components["schemas"]["EvidenceResponse"][];
+        };
+        PracticeResponse: {
+            question: string;
+            answer: string;
+            /** @description What works; every quote is from the answer */
+            works: components["schemas"]["QuoteResponse"][];
+            strengthen: string;
+        };
+        PrepResponse: {
+            /**
+             * Format: int32
+             * @description The interview's seq in the timeline
+             */
+            interviewSeq: number;
+            plan: string[];
+            /** @description What the posting says about the company and role */
+            about: string;
+            stress: components["schemas"]["PointResponse"][];
+            /** @description Questions to ask the interviewer */
+            ask: string[];
+            /** @description Questions to practise */
+            practice: string[];
+        };
+        QuoteResponse: {
+            /** @description Words found in the answer */
+            quote: string;
+            why: string;
+        };
+        ReplyResponse: {
+            /** @description The employer's email, with its quoted history removed */
+            message: string;
+            /** @description What the email asks */
+            asks: string[];
+            /** @description What the email leaves unconfirmed */
+            unconfirmed: string[];
+            /** @description The reply's subject, which the User may edit */
+            subject: string;
+            /** @description The reply's body, which the User may edit */
+            body: string;
+            /** @description What the reply relies on; a forgotten or switched-off Fact is left out */
+            evidence: components["schemas"]["EvidenceResponse"][];
+            /** @description The changes the email proposes; each is applied or undone on its own */
+            changes: components["schemas"]["ChangeResponse"][];
+        };
+        RequirementResponse: {
+            requirement: string;
+            /** @enum {string} */
+            verdict: "SUPPORTED" | "PARTLY" | "MISSING";
+            note: string;
+            /** @description What shows it; a forgotten or switched-off Fact is left out */
+            evidence: components["schemas"]["EvidenceResponse"][];
+        };
+        ResultResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @description FIT, DRAFT, TIGHTEN, PREP, PRACTICE, DEBRIEF, EMAIL, FOLLOW_UP or THANK_YOU */
+            kind: string;
+            /** @description The posting, Knowledge or documents changed since it was made */
+            outOfDate: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description Set for a FIT result */
+            fit: components["schemas"]["FitResponse"];
+            /** @description Set for a DRAFT or TIGHTEN result */
+            answer: components["schemas"]["AnswerResponse"];
+            /** @description ACCEPTED or REJECTED; empty while it waits for the User */
+            resolution: string | null;
+            /** @description Set for a PREP result */
+            prep: components["schemas"]["PrepResponse"];
+            /** @description Set for a PRACTICE result */
+            practice: components["schemas"]["PracticeResponse"];
+            /** @description Set for a DEBRIEF result */
+            summary: components["schemas"]["SummaryResponse"];
+            /** @description Set for an EMAIL, FOLLOW_UP or THANK_YOU result */
+            email: components["schemas"]["EmailResponse"];
+            /** @description Set for a REPLY result */
+            reply: components["schemas"]["ReplyResponse"];
+        };
+        SummaryResponse: {
+            /** Format: int32 */
+            interviewSeq: number;
+            improve: string[];
+        };
+        SaveQuestionRequest: {
+            question: string;
+            limitUnit?: string | null;
+            /** Format: int32 */
+            limitValue?: number | null;
+            answer: string;
+            /** Format: int32 */
+            version: number;
+        };
+        QuestionResponse: {
+            /** Format: uuid */
+            id: string;
+            question: string;
+            /** @description WORDS or CHARS */
+            limitUnit: string | null;
+            /** Format: int32 */
+            limitValue: number | null;
+            answer: string;
+            /**
+             * Format: int32
+             * @description The save counter; send it back when you save or accept
+             */
+            version: number;
+        };
+        AskedBody: {
+            question: string;
+            /** @description WELL, MIXED or POORLY */
+            landed: string;
+            note: string;
+        };
+        SaveDebriefRequest: {
+            notes: string;
+            /** @description At most 30 */
+            questions: components["schemas"]["AskedBody"][];
+            /**
+             * Format: int32
+             * @description The version you saw; leave out to create the Debrief
+             */
+            version?: number | null;
+        };
+        DebriefResponse: {
+            /**
+             * Format: int32
+             * @description The interview's seq in the timeline
+             */
+            interviewSeq: number;
+            /** Format: date-time */
+            interviewAt: string;
+            /** @description PHONE, VIDEO, ONSITE or OTHER */
+            interviewKind: string;
+            notes: string;
+            questions: components["schemas"]["AskedBody"][];
+            /** Format: int32 */
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
         };
         SetQuotaRequest: {
             /**
@@ -1437,6 +3012,80 @@ export interface components {
         };
         CreateTagRequest: {
             name: string;
+        };
+        CreateResumeRequest: {
+            title?: string;
+            /** @description Start from made-up sample content instead of a blank Resume */
+            sample?: boolean;
+            /**
+             * Format: uuid
+             * @description An id you make up. Sending the same request again returns that Resume instead of making a second one; an id already used for anything else is refused with INVALID_REQUEST
+             */
+            id?: string | null;
+            /** @description A Resume to start from, such as one imported from a file. Checked and sanitised like a save; when sent, sample is ignored */
+            document?: components["schemas"]["ResumeDocument"];
+        };
+        NameResumeVersionRequest: {
+            name: string;
+        };
+        ResumeVersionSummary: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** @description The name the User gave it; a named version is never cleaned up */
+            name: string | null;
+            /** Format: int32 */
+            sizeBytes: number;
+            /** @description The name of the Access token that wrote it; null when the User did */
+            editedBy: string | null;
+            /**
+             * Format: date-time
+             * @description When the document was written, not when it was kept
+             */
+            savedAt: string;
+        };
+        RestoreResumeRequest: {
+            /** Format: int32 */
+            version: number;
+        };
+        Request: {
+            /** Format: int32 */
+            version: number;
+        };
+        Review: {
+            /** Format: uuid */
+            id: string;
+            suggestions: components["schemas"]["ReviewSuggestion"][];
+        };
+        ReviewSuggestion: {
+            /** Format: uuid */
+            id: string;
+            field: string;
+            original: string;
+            suggestion: string;
+        };
+        Selection: {
+            ids: string[];
+        };
+        Improve: {
+            field: string;
+            /** Format: int32 */
+            version: number;
+        };
+        Suggestion: {
+            /** Format: uuid */
+            id: string;
+            original: string;
+            suggestion: string;
+        };
+        AcceptImprovement: {
+            /** Format: uuid */
+            suggestionId: string;
+            /** Format: int32 */
+            version: number;
+        };
+        ImportText: {
+            text: string;
         };
         CreateNoteRequest: {
             title?: string;
@@ -1486,10 +3135,29 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET" | "APPLICATION";
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
             title: string;
             /** @description The Folder path such as "Work / CoreEx", null at the top level */
             folderPath: string | null;
+        };
+        StoryRequest: {
+            title?: string;
+        };
+        StoryCreatedResponse: {
+            /** Format: uuid */
+            id?: string;
+            title?: string;
+            body?: string;
+        };
+        CreateFactRequest: {
+            text: string;
+            category: string;
+            /** @description MANUAL (the default), RESUME or NOTE */
+            sourceKind?: string | null;
+            /** Format: uuid */
+            sourceId?: string | null;
+            /** @description The exact words of the source; checked against its current text */
+            quote?: string | null;
         };
         AddTagRequest: {
             name: string;
@@ -1512,7 +3180,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET" | "APPLICATION";
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
             title: string;
             /** Format: uuid */
             folderId: string | null;
@@ -1553,6 +3221,54 @@ export interface components {
              * @description Null moves the Folder to the top level
              */
             parentId?: string | null;
+        };
+        CreateCoverLetter: {
+            title: string;
+            /** Format: uuid */
+            resumeId?: string;
+            document?: components["schemas"]["CoverLetterDocument"];
+        };
+        NameCoverLetterVersion: {
+            name: string;
+        };
+        CoverLetterVersion: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            name: string | null;
+            document: components["schemas"]["CoverLetterDocument"];
+            /** Format: date-time */
+            savedAt: string;
+        };
+        UnlinkCoverLetter: {
+            /** Format: int32 */
+            version: number;
+        };
+        DraftCoverLetter: {
+            /** Format: uuid */
+            applicationId: string;
+            /** Format: uuid */
+            resumeId: string;
+            /** Format: int32 */
+            version: number;
+            /** @enum {string} */
+            mode: "DRAFT" | "SHORTER" | "PERSONAL";
+            /** Format: uuid */
+            draftId?: string;
+        };
+        CoverLetterDraft: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            mode: "DRAFT" | "SHORTER" | "PERSONAL";
+            body: string;
+            /** Format: int32 */
+            baseVersion: number;
+            stale: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            acceptedAt: string | null;
         };
         UploadIntentRequest: {
             filename: string;
@@ -1620,6 +3336,88 @@ export interface components {
             assetId: string;
             /** @enum {string} */
             label: "RESUME" | "COVER_LETTER" | "OTHER";
+        };
+        CopyResume: {
+            /** Format: uuid */
+            resumeId: string;
+            /** Format: uuid */
+            requestId: string;
+        };
+        Resume: {
+            /** Format: uuid */
+            id?: string;
+            title?: string;
+            document?: components["schemas"]["ResumeDocument"];
+            /** Format: int32 */
+            version?: number;
+            locked?: boolean;
+            /** Format: uuid */
+            folderId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        AcceptRequest: {
+            /**
+             * Format: int32
+             * @description The version of the answer you saw
+             */
+            version: number;
+        };
+        ReplyRequest: {
+            /** @description The employer's email as pasted; its quoted history is removed */
+            message: string;
+        };
+        AddQuestionRequest: {
+            question: string;
+            limitUnit?: string | null;
+            /** Format: int32 */
+            limitValue?: number | null;
+        };
+        ReuseRequest: {
+            /** Format: uuid */
+            libraryId: string;
+            /** Format: int32 */
+            version: number;
+        };
+        KeepRequest: {
+            /** @enum {string} */
+            scope: "REUSABLE" | "EMPLOYER" | "JOB";
+        };
+        KeptResponse: {
+            /** Format: uuid */
+            id: string;
+        };
+        PracticeRequest: {
+            question: string;
+            answer: string;
+        };
+        SentAnswerResponse: {
+            question: string;
+            answer: string;
+            limitUnit: string | null;
+            /** Format: int32 */
+            limitValue: number | null;
+            /** Format: int32 */
+            count: number;
+        };
+        SubmissionResponse: {
+            /** Format: date-time */
+            sentAt: string;
+            answers: components["schemas"]["SentAnswerResponse"][];
+        };
+        EmailRequest: {
+            /**
+             * @description APPLICATION (the email that sends the Resume and Cover Letter), FOLLOW_UP or THANK_YOU
+             * @enum {string}
+             */
+            kind: "APPLICATION" | "FOLLOW_UP" | "THANK_YOU";
+            /**
+             * Format: int32
+             * @description The interview's seq; required for THANK_YOU
+             */
+            interviewSeq?: number | null;
         };
         ReadLinkRequest: {
             url: string;
@@ -1725,7 +3523,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "FOLDER" | "NOTE" | "ASSET" | "APPLICATION";
+            kind: "FOLDER" | "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
             /** @description A Folder's name, or an Item's title (may be empty) */
             title: string;
             /** Format: date-time */
@@ -1772,7 +3570,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET" | "APPLICATION";
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
             title: string;
             /** @description The Folder path such as "Work / CoreEx", null at the top level */
             folderPath: string | null;
@@ -1797,12 +3595,87 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET" | "APPLICATION";
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
             title: string;
             folderPath: string | null;
         };
         QuickList: {
             items: components["schemas"]["QuickHitResponse"][];
+        };
+        ResumePage: {
+            items: components["schemas"]["ResumeSummary"][];
+            /** Format: int64 */
+            total: number;
+            /** @description The Tags of each listed Resume, by its id; one without Tags is left out */
+            tags: {
+                [key: string]: components["schemas"]["ResumeTag"][];
+            };
+        };
+        ResumeSummary: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** Format: uuid */
+            folderId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ResumeTag: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string|null} */
+            colour?: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
+        };
+        ResumeVersionList: {
+            items: components["schemas"]["ResumeVersionSummary"][];
+        };
+        ResumeVersionResponse: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            name: string | null;
+            document: components["schemas"]["ResumeDocument"];
+            editedBy: string | null;
+            /** Format: date-time */
+            savedAt: string;
+        };
+        ResumeMarkdown: {
+            markdown: string;
+            /** Format: int32 */
+            version: number;
+        };
+        AllOffers: {
+            /** @description Newest first */
+            items: components["schemas"]["OfferItem"][];
+        };
+        OfferItem: {
+            /** Format: uuid */
+            applicationId: string;
+            applicationTitle: string;
+            company: string;
+            role: string;
+            offer: components["schemas"]["OfferResponse"];
+        };
+        OfferVersion: {
+            /**
+             * Format: int32
+             * @description The version these terms were
+             */
+            version: number;
+            /** Format: date-time */
+            savedAt: string;
+            terms: components["schemas"]["TermsResponse"];
+        };
+        OfferVersionList: {
+            /** @description Newest first */
+            items: components["schemas"]["OfferVersion"][];
+        };
+        Comparison: {
+            a: components["schemas"]["OfferResponse"];
+            b: components["schemas"]["OfferResponse"];
         };
         VersionList: {
             items: components["schemas"]["VersionSummary"][];
@@ -1857,7 +3730,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "NOTE" | "ASSET" | "APPLICATION";
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
             title: string;
             /**
              * Format: uuid
@@ -1921,6 +3794,19 @@ export interface components {
              */
             similarity: number;
         };
+        StoryResponse: {
+            /** Format: uuid */
+            id?: string;
+            title?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        CandidateResponse: {
+            sourceKind?: string;
+            /** Format: uuid */
+            sourceId?: string;
+            quote?: string;
+        };
         ItemPage: {
             items: components["schemas"]["ItemResponse"][];
             /** Format: int64 */
@@ -1952,6 +3838,12 @@ export interface components {
             /** @description Plain text after the mention */
             after: string;
         };
+        LinkedApplication: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            sent: boolean;
+        };
         BacklinkList: {
             items: components["schemas"]["BacklinkResponse"][];
             /** Format: int64 */
@@ -1976,6 +3868,44 @@ export interface components {
             /** Format: int64 */
             itemCount: number;
         };
+        CoverLetterMarkdown: {
+            markdown: string;
+            /** Format: int32 */
+            version: number;
+        };
+        EntryResponse: {
+            /** Format: uuid */
+            applicationId: string;
+            title: string;
+            /** @enum {string} */
+            kind: "NEXT_STEP" | "INTERVIEW" | "FOLLOW_UP" | "OFFER_DEADLINE";
+            /** @description Ready to show, with any time in the User's timezone */
+            label: string;
+            /** Format: date-time */
+            at: string | null;
+            /**
+             * Format: int32
+             * @description Set for an interview
+             */
+            interviewSeq: number | null;
+            /** @description An interview starting within 24 hours: Today offers the briefing and Practice */
+            withinDay: boolean;
+        };
+        TodayResponse: {
+            needsYou: components["schemas"]["EntryResponse"][];
+            comingUp: components["schemas"]["EntryResponse"][];
+        };
+        GroupedDocument: {
+            /** Format: uuid */
+            applicationId: string;
+            applicationTitle: string;
+            /** @enum {string} */
+            kind: "RESUME" | "COVER_LETTER";
+            /** Format: uuid */
+            itemId: string | null;
+            documentTitle: string;
+            sent: boolean;
+        };
         AssetUrlResponse: {
             url: string;
             /** Format: int64 */
@@ -1998,6 +3928,10 @@ export interface components {
             tags: {
                 [key: string]: components["schemas"]["ApplicationTag"][];
             };
+            /** @description The latest Fit match score (an estimate, 0 to 100) of each listed Application that has one, by its id */
+            matchScores: {
+                [key: string]: number;
+            };
         };
         ApplicationTag: {
             /** Format: uuid */
@@ -2005,6 +3939,10 @@ export interface components {
             name: string;
             /** @enum {string|null} */
             colour?: "gray" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "pink" | null;
+        };
+        OfferList: {
+            /** @description Newest first */
+            items: components["schemas"]["OfferResponse"][];
         };
         DocumentList: {
             items: components["schemas"]["DocumentResponse"][];
@@ -2019,6 +3957,37 @@ export interface components {
             sizeBytes: number;
             /** Format: date-time */
             attachedAt: string;
+        };
+        Library: {
+            /** @description Newest first */
+            results: components["schemas"]["ResultResponse"][];
+            /** @description The Sends: line of each task, by kind */
+            sends: {
+                [key: string]: string;
+            };
+        };
+        SuggestionResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            scope: "REUSABLE" | "EMPLOYER" | "JOB";
+            question: string;
+            answer: string;
+        };
+        SuggestionsResponse: {
+            /** @description Best match first */
+            items: components["schemas"]["SuggestionResponse"][];
+        };
+        DebriefList: {
+            /** @description Latest interview first */
+            items: components["schemas"]["DebriefResponse"][];
+        };
+        ApplyResponse: {
+            questions: components["schemas"]["QuestionResponse"][];
+            /** @description What stops Mark as applied right now; empty once applied */
+            blockers: string[];
+            /** @description What was sent, once marked as applied */
+            submission: components["schemas"]["SubmissionResponse"];
         };
         EarlierApplication: {
             /** Format: uuid */
@@ -2222,6 +4191,254 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description The Resume */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeResponse"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Resume) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveResumeRequest"];
+            };
+        };
+        responses: {
+            /** @description The saved Resume, with its new version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Resume) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT, or RESUME_LOCKED when the Resume is locked */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    trash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Moved to the Trash */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND (also for another User's Resume) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    rename_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameResumeVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description Named, or the name cleared */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    rename_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameResumeRequest"];
+            };
+        };
+        responses: {
+            /** @description Renamed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Resume) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    lock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LockRequest"];
+            };
+        };
+        responses: {
+            /** @description Locked or unlocked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND (also for another User's Resume) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                offerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferResponse"];
+                };
+            };
+        };
+    };
+    get_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
             /** @description The Note */
             200: {
                 headers: {
@@ -2242,7 +4459,7 @@ export interface operations {
             };
         };
     };
-    save: {
+    save_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -2368,7 +4585,147 @@ export interface operations {
             };
         };
     };
-    rename_1: {
+    preferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesResponse"];
+                };
+            };
+        };
+    };
+    savePreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferencesRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesResponse"];
+                };
+            };
+        };
+    };
+    setStory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoryFlagRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    correct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FactRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactResponse"];
+                };
+            };
+        };
+    };
+    forget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactResponse"];
+                };
+            };
+        };
+    };
+    rename_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -2441,7 +4798,75 @@ export interface operations {
             };
         };
     };
-    get_1: {
+    get_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Letter"];
+                };
+            };
+        };
+    };
+    save_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveCoverLetter"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Letter"];
+                };
+            };
+        };
+    };
+    trash_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -2472,7 +4897,7 @@ export interface operations {
             };
         };
     };
-    update: {
+    update_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -2545,7 +4970,7 @@ export interface operations {
             };
         };
     };
-    get_2: {
+    get_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -2585,7 +5010,7 @@ export interface operations {
             };
         };
     };
-    save_1: {
+    save_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -2638,7 +5063,7 @@ export interface operations {
             };
         };
     };
-    trash: {
+    trash_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -2835,6 +5260,54 @@ export interface operations {
             };
         };
     };
+    list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LinkedDocument"][];
+                };
+            };
+        };
+    };
+    link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkDocument"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LinkedDocument"][];
+                };
+            };
+        };
+    };
     editInterview: {
         parameters: {
             query?: never;
@@ -2885,6 +5358,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    edit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                resultId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditEmailRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
+    save_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveQuestionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["QuestionResponse"];
+                };
+            };
+        };
+    };
+    delete_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    save_5: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDebriefRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DebriefResponse"];
                 };
             };
         };
@@ -3022,7 +5597,7 @@ export interface operations {
             };
         };
     };
-    list: {
+    list_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -3084,7 +5659,408 @@ export interface operations {
             };
         };
     };
+    list_2: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                /** @description Only Resumes whose title contains this, in any case */
+                q?: string;
+                /** @description updated (newest change first, the default), name or created (newest first) */
+                sort?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the User's Resumes, newest change first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumePage"];
+                };
+            };
+        };
+    };
     create_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateResumeRequest"];
+            };
+        };
+        responses: {
+            /** @description The new Resume */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeResponse"];
+                };
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Resume's versions, newest first, without their documents */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeVersionList"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Resume) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    name: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NameResumeVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description The named version */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeVersionSummary"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Resume) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreResumeRequest"];
+            };
+        };
+        responses: {
+            /** @description The restored Resume, with its new version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeResponse"];
+                };
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code VERSION_CONFLICT, or RESUME_LOCKED when the Resume is locked */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Review"][];
+                };
+            };
+        };
+    };
+    review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Request"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Review"];
+                };
+            };
+        };
+    };
+    reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                reviewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Selection"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResumeResponse"];
+                };
+            };
+        };
+    };
+    accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                reviewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Selection"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResumeResponse"];
+                };
+            };
+        };
+    };
+    improve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Improve"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Suggestion"];
+                };
+            };
+        };
+    };
+    reject_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                suggestionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    accept_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptImprovement"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResumeResponse"];
+                };
+            };
+        };
+    };
+    duplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The copy, titled "<title> (copy)" */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeResponse"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Resume) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportText"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResumeDocument"];
+                };
+            };
+        };
+    };
+    create_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -3126,7 +6102,7 @@ export interface operations {
             };
         };
     };
-    restore: {
+    restore_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -3261,7 +6237,98 @@ export interface operations {
             };
         };
     };
-    list_1: {
+    stories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryResponse"][];
+                };
+            };
+        };
+    };
+    newStory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoryRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryCreatedResponse"];
+                };
+            };
+        };
+    };
+    facts: {
+        parameters: {
+            query?: {
+                category?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactResponse"][];
+                };
+            };
+        };
+    };
+    create_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFactRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactResponse"];
+                };
+            };
+        };
+    };
+    list_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -3336,7 +6403,7 @@ export interface operations {
             };
         };
     };
-    link: {
+    link_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -3439,7 +6506,7 @@ export interface operations {
             };
         };
     };
-    link_1: {
+    link_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -3482,7 +6549,7 @@ export interface operations {
             };
         };
     };
-    list_2: {
+    list_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -3502,7 +6569,7 @@ export interface operations {
             };
         };
     };
-    create_2: {
+    create_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -3584,6 +6651,226 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_7: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Letter"][];
+                };
+            };
+        };
+    };
+    create_5: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCoverLetter"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Letter"];
+                };
+            };
+        };
+    };
+    versions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterVersion"][];
+                };
+            };
+        };
+    };
+    nameVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NameCoverLetterVersion"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterVersion"];
+                };
+            };
+        };
+    };
+    restore_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnlinkCoverLetter"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Letter"];
+                };
+            };
+        };
+    };
+    unlink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnlinkCoverLetter"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Letter"];
+                };
+            };
+        };
+    };
+    drafts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterDraft"][];
+                };
+            };
+        };
+    };
+    draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftCoverLetter"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterDraft"];
+                };
+            };
+        };
+    };
+    acceptDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                draftId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnlinkCoverLetter"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Letter"];
                 };
             };
         };
@@ -3733,7 +7020,7 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list_8: {
         parameters: {
             query?: {
                 page?: number;
@@ -3767,7 +7054,7 @@ export interface operations {
             };
         };
     };
-    create_3: {
+    create_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -3915,6 +7202,54 @@ export interface operations {
             };
         };
     };
+    list_9: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferList"];
+                };
+            };
+        };
+    };
+    create_7: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferResponse"];
+                };
+            };
+        };
+    };
     addInterview: {
         parameters: {
             query?: never;
@@ -4055,6 +7390,420 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+        };
+    };
+    copy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyResume"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Resume"];
+                };
+            };
+        };
+    };
+    reject_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                resultId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    undo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                resultId: string;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
+    apply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                resultId: string;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
+    accept_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                resultId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    reply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
+    add_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddQuestionRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["QuestionResponse"];
+                };
+            };
+        };
+    };
+    tighten: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
+    reuse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReuseRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["QuestionResponse"];
+                };
+            };
+        };
+    };
+    keep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["KeptResponse"];
+                };
+            };
+        };
+    };
+    draft_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
+    practice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PracticeRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
+    markApplied: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SubmissionResponse"];
+                };
+            };
+        };
+    };
+    prep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
+    debriefSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
+    fit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
+    draft_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
                 };
             };
         };
@@ -4409,7 +8158,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_10: {
         parameters: {
             query?: {
                 page?: number;
@@ -4432,7 +8181,7 @@ export interface operations {
             };
         };
     };
-    create_4: {
+    create_8: {
         parameters: {
             query?: never;
             header?: never;
@@ -4514,7 +8263,7 @@ export interface operations {
             };
         };
     };
-    list_5: {
+    list_11: {
         parameters: {
             query?: never;
             header?: never;
@@ -4534,7 +8283,7 @@ export interface operations {
             };
         };
     };
-    create_5: {
+    create_9: {
         parameters: {
             query?: never;
             header?: never;
@@ -4576,7 +8325,7 @@ export interface operations {
             };
         };
     };
-    list_6: {
+    list_12: {
         parameters: {
             query?: {
                 page?: number;
@@ -4630,7 +8379,7 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string;
-                type?: "NOTE" | "ASSET" | "APPLICATION";
+                type?: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
                 tagId?: string;
                 folderId?: string;
                 page?: number;
@@ -4684,7 +8433,135 @@ export interface operations {
             };
         };
     };
-    list_7: {
+    get_5: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One version with its document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeVersionResponse"];
+                };
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    markdown: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Resume as Markdown and the version it was made from */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeMarkdown"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Resume) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    all: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllOffers"];
+                };
+            };
+        };
+    };
+    versions_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                offerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferVersionList"];
+                };
+            };
+        };
+    };
+    compare: {
+        parameters: {
+            query: {
+                a: string;
+                b: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comparison"];
+                };
+            };
+        };
+    };
+    list_13: {
         parameters: {
             query?: never;
             header?: never;
@@ -4715,7 +8592,7 @@ export interface operations {
             };
         };
     };
-    get_3: {
+    get_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -4891,12 +8768,35 @@ export interface operations {
             };
         };
     };
-    list_8: {
+    candidates: {
+        parameters: {
+            query: {
+                sourceKind: string;
+                sourceId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateResponse"][];
+                };
+            };
+        };
+    };
+    list_14: {
         parameters: {
             query?: {
                 folderId?: string;
                 tagId?: string;
-                type?: "NOTE" | "ASSET" | "APPLICATION";
+                type?: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
                 page?: number;
                 size?: number;
             };
@@ -4926,7 +8826,7 @@ export interface operations {
             };
         };
     };
-    list_9: {
+    list_15: {
         parameters: {
             query?: {
                 size?: number;
@@ -4955,6 +8855,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_16: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LinkedApplication"][];
                 };
             };
         };
@@ -5112,6 +9034,91 @@ export interface operations {
             };
         };
     };
+    version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterVersion"];
+                };
+            };
+        };
+    };
+    markdown_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterMarkdown"];
+                };
+            };
+        };
+    };
+    today: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TodayResponse"];
+                };
+            };
+        };
+    };
+    list_17: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GroupedDocument"][];
+                };
+            };
+        };
+    };
     url: {
         parameters: {
             query?: {
@@ -5174,6 +9181,95 @@ export interface operations {
             };
         };
     };
+    library: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Library"];
+                };
+            };
+        };
+    };
+    suggestions_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SuggestionsResponse"];
+                };
+            };
+        };
+    };
+    list_18: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DebriefList"];
+                };
+            };
+        };
+    };
+    get_7: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApplyResponse"];
+                };
+            };
+        };
+    };
     appliedBefore: {
         parameters: {
             query?: {
@@ -5207,7 +9303,7 @@ export interface operations {
             };
         };
     };
-    status: {
+    status_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -5227,7 +9323,7 @@ export interface operations {
             };
         };
     };
-    list_10: {
+    list_19: {
         parameters: {
             query?: {
                 page?: number;
@@ -5441,6 +9537,27 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["DuplicatePostingResponse"];
                 };
+            };
+        };
+    };
+    removeFromLibrary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                libraryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

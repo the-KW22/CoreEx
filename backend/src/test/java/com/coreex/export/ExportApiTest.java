@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -23,14 +24,33 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.coreex.ApiTest;
 import com.coreex.TestJwts;
+import com.coreex.TestResumePdfRenderer;
 import com.coreex.TestStorage;
 import com.coreex.TestSupportConfiguration.TestClock;
 
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Export: everything a User keeps, as one zip. */
 class ExportApiTest extends ApiTest {
+
+	@Test
+	void coverLetterExportsItsDocumentMarkdownAndPdfOnlyForItsOwner() throws Exception {
+		var made = post("/api/cover-letters", userA, "{\"title\":\"Letter\"}");
+		assertThat(made.statusCode()).as(made.body()).isEqualTo(201);
+		var letter = id(made.body());
+		assertThat(put("/api/cover-letters/" + letter, userA,
+				"{\"title\":\"Letter\",\"version\":1,\"document\":{\"recipient\":\"Hiring team\",\"body\":\"<p>Hello <strong>there</strong></p>\"}}")
+				.statusCode()).isEqualTo(200);
+		var files = exported(userA);
+		assertThat(text(files, "Letter.md")).contains("Hiring team", "**there**");
+		assertThat(text(files, "Letter.json")).contains("Hiring team", "<strong>there</strong>");
+		assertThat(files.get("Letter.pdf")).isEqualTo(TestResumePdfRenderer.PDF);
+		assertThat(renderer.requests()).hasSize(1);
+		assertThat(renderer.requests().get(0).letter()).isTrue();
+		assertThat(exported(userB)).doesNotContainKeys("Letter.md", "Letter.json", "Letter.pdf");
+	}
 
 	private static final JsonMapper JSON = JsonMapper.builder().build();
 
@@ -39,6 +59,9 @@ class ExportApiTest extends ApiTest {
 
 	@Autowired
 	TestStorage storage;
+
+	@Autowired
+	TestResumePdfRenderer renderer;
 
 	@Autowired
 	TestClock clock;
@@ -51,6 +74,7 @@ class ExportApiTest extends ApiTest {
 	void cleanDatabase() {
 		jdbc.sql("delete from users").update();
 		storage.clear();
+		renderer.clear();
 		userA = userToken("a@example.com", "USER");
 		userB = userToken("b@example.com", "USER");
 	}
@@ -156,7 +180,7 @@ class ExportApiTest extends ApiTest {
 		var today = LocalDate.ofInstant(clock.instant(), ZoneOffset.UTC).toString();
 		assertThat(response.headers().firstValue("content-disposition")).contains("attachment; filename=\"coreex-export-" + today + ".zip\"");
 		assertThat(zip.keySet()).containsExactlyInAnyOrder("Inbox.md", "Research/Physics/Energy.md", "Research/diagram.png",
-				"manifest.json");
+				"career/facts.json", "career/offers.json", "career/results.json", "manifest.json");
 		// A Note is written exactly as stored, its Links as written.
 		assertThat(text(zip, "Research/Physics/Energy.md")).isEqualTo(stored.path("body").asString()).contains("[[" + inbox + "|Inbox]]");
 		assertThat(text(zip, "Inbox.md")).isEqualTo("loose thoughts");
@@ -200,7 +224,7 @@ class ExportApiTest extends ApiTest {
 
 		var zip = exported(userA);
 
-		assertThat(zip.keySet()).containsExactlyInAnyOrder("Kept.md", "manifest.json");
+		assertThat(zip.keySet()).containsExactlyInAnyOrder("Kept.md", "career/facts.json", "career/offers.json", "career/results.json", "manifest.json");
 		assertThat(manifest(zip).path("items")).hasSize(1);
 		assertThat(manifest(zip).path("items").get(0).path("id").asString()).isEqualTo(kept);
 		assertThat(new String(zip.get("manifest.json"), StandardCharsets.UTF_8)).doesNotContain("secret of B").doesNotContain("Bs note");
@@ -214,7 +238,7 @@ class ExportApiTest extends ApiTest {
 
 		var zip = exported(admin);
 
-		assertThat(zip.keySet()).containsExactlyInAnyOrder("Admin's own.md", "manifest.json");
+		assertThat(zip.keySet()).containsExactlyInAnyOrder("Admin's own.md", "career/facts.json", "career/offers.json", "career/results.json", "manifest.json");
 	}
 
 	@Test
@@ -227,7 +251,7 @@ class ExportApiTest extends ApiTest {
 
 		var zip = exported(userA);
 
-		assertThat(zip).hasSize(28);
+		assertThat(zip).hasSize(31);
 		for (int i = 1; i <= 27; i++) {
 			assertThat(text(zip, "Note " + i + ".md")).isEqualTo("text of " + i);
 		}
@@ -244,7 +268,7 @@ class ExportApiTest extends ApiTest {
 	void anEmptyAccountGivesAValidZipWithAnEmptyManifest() throws Exception {
 		var zip = exported(userA);
 
-		assertThat(zip.keySet()).containsExactly("manifest.json");
+		assertThat(zip.keySet()).containsExactlyInAnyOrder("career/facts.json", "career/offers.json", "career/results.json", "manifest.json");
 		assertThat(manifest(zip).path("items")).isEmpty();
 		assertThat(manifest(zip).path("omitted")).isEmpty();
 	}
@@ -257,7 +281,7 @@ class ExportApiTest extends ApiTest {
 
 		var zip = exported(userA);
 
-		assertThat(zip.keySet()).containsExactlyInAnyOrder("Plans.md", "plans (2).md", "a-b-c.md", "manifest.json");
+		assertThat(zip.keySet()).containsExactlyInAnyOrder("Plans.md", "plans (2).md", "a-b-c.md", "career/facts.json", "career/offers.json", "career/results.json", "manifest.json");
 		assertThat(text(zip, "Plans.md")).isEqualTo("first");
 		assertThat(text(zip, "plans (2).md")).isEqualTo("second");
 	}
@@ -281,7 +305,7 @@ class ExportApiTest extends ApiTest {
 
 		var zip = exported(userA);
 
-		assertThat(zip.keySet()).containsExactlyInAnyOrder("Fine.md", "Jobs/Engineer at Acme.json", "manifest.json");
+		assertThat(zip.keySet()).containsExactlyInAnyOrder("Fine.md", "Jobs/Engineer at Acme.json", "career/facts.json", "career/offers.json", "career/results.json", "manifest.json");
 		var application = JSON.readTree(text(zip, "Jobs/Engineer at Acme.json"));
 		assertThat(application.path("id").asString()).isEqualTo(id);
 		assertThat(application.path("title").asString()).isEqualTo("Engineer at Acme");
@@ -309,7 +333,7 @@ class ExportApiTest extends ApiTest {
 
 		var zip = exported(userA);
 
-		assertThat(zip.keySet()).containsExactlyInAnyOrder("Fine.md", "good.png", "manifest.json");
+		assertThat(zip.keySet()).containsExactlyInAnyOrder("Fine.md", "good.png", "career/facts.json", "career/offers.json", "career/results.json", "manifest.json");
 		assertThat(zip.get("good.png")).isEqualTo(new byte[] { 3, 4 });
 		var omitted = manifest(zip).path("omitted");
 		assertThat(omitted).hasSize(1);
@@ -326,8 +350,225 @@ class ExportApiTest extends ApiTest {
 
 		var zip = exported(userA);
 
-		assertThat(zip.keySet()).containsExactlyInAnyOrder("Fine.md", "manifest.json");
+		assertThat(zip.keySet()).containsExactlyInAnyOrder("Fine.md", "career/facts.json", "career/offers.json", "career/results.json", "manifest.json");
 		assertThat(manifest(zip).path("omitted").get(0).path("reason").asString()).contains("could not be read");
+	}
+
+	private String resume(String token, String title, String folderId) throws Exception {
+		var created = post("/api/resumes", token, "{\"sample\":true,\"title\":" + JSON.writeValueAsString(title) + "}");
+		assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
+		var resume = id(created.body());
+		if (folderId != null) {
+			assertThat(post("/api/items/" + resume + "/move", token, "{\"folderId\":\"" + folderId + "\"}").statusCode() / 100)
+					.isEqualTo(2);
+		}
+		return resume;
+	}
+
+	@Test
+	void aResumeIsWrittenAsJsonMarkdownAndPdfInItsFolderAndListedInTheManifest() throws Exception {
+		var jobs = folder(userA, "Jobs", null);
+		var cv = resume(userA, "CV", jobs);
+		var stored = JSON.readTree(get("/api/resumes/" + cv, userA).body());
+		var markdown = JSON.readTree(get("/api/resumes/" + cv + "/markdown", userA).body()).path("markdown").asString();
+
+		var zip = exported(userA);
+
+		assertThat(zip.keySet()).containsExactlyInAnyOrder("Jobs/CV.json", "Jobs/CV.md", "Jobs/CV.pdf", "career/facts.json", "career/offers.json", "career/results.json", "manifest.json");
+		// The JSON is the Resume's document, and the Markdown is the same text the Resume's own endpoint gives.
+		assertThat(JSON.readTree(text(zip, "Jobs/CV.json"))).isEqualTo(stored.path("document"));
+		assertThat(text(zip, "Jobs/CV.md")).isEqualTo(markdown).isNotBlank();
+		assertThat(zip.get("Jobs/CV.pdf")).isEqualTo(TestResumePdfRenderer.PDF);
+		assertThat(renderer.requests()).hasSize(1);
+		assertThat(renderer.requests().get(0).photoSrc()).isNull();
+
+		var cvEntry = new LinkedHashMap<String, JsonNode>();
+		manifest(zip).path("items").forEach(item -> cvEntry.put(item.path("id").asString(), item));
+		var entry = cvEntry.get(cv);
+		assertThat(entry.path("type").asString()).isEqualTo("RESUME");
+		assertThat(entry.path("title").asString()).isEqualTo("CV");
+		assertThat(entry.path("folder").asString()).isEqualTo("Jobs");
+		assertThat(entry.path("path").asString()).isEqualTo("Jobs/CV.json");
+		var paths = new java.util.ArrayList<String>();
+		entry.path("paths").forEach(p -> paths.add(p.asString()));
+		assertThat(paths).containsExactly("Jobs/CV.json", "Jobs/CV.md", "Jobs/CV.pdf");
+		assertThat(manifest(zip).path("omitted")).isEmpty();
+	}
+
+	@Test
+	void aResumePdfThatCannotBeMadeIsOmittedWithAReasonAndTheRestOfTheResumeIsWritten() throws Exception {
+		var cv = resume(userA, "CV", null);
+		renderer.setFailing(true);
+
+		var zip = exported(userA);
+
+		assertThat(zip.keySet()).containsExactlyInAnyOrder("CV.json", "CV.md", "career/facts.json", "career/offers.json", "career/results.json", "manifest.json");
+		var omitted = manifest(zip).path("omitted");
+		assertThat(omitted).hasSize(1);
+		assertThat(omitted.get(0).path("id").asString()).isEqualTo(cv);
+		assertThat(omitted.get(0).path("title").asString()).isEqualTo("CV");
+		assertThat(omitted.get(0).path("reason").asString()).contains("PDF");
+		var paths = new java.util.ArrayList<String>();
+		manifest(zip).path("items").get(0).path("paths").forEach(p -> paths.add(p.asString()));
+		assertThat(paths).containsExactly("CV.json", "CV.md");
+	}
+
+	@Test
+	void anotherUsersAndATrashedResumeAreNeverRenderedOrWritten() throws Exception {
+		resume(userB, "B's CV", null);
+		var trashed = resume(userA, "Old CV", null);
+		assertThat(delete("/api/resumes/" + trashed, userA).statusCode()).isEqualTo(204);
+
+		var zip = exported(userA);
+
+		assertThat(zip.keySet()).containsExactlyInAnyOrder("career/facts.json", "career/offers.json", "career/results.json", "manifest.json");
+		assertThat(renderer.requests()).isEmpty();
+		assertThat(new String(zip.get("manifest.json"), StandardCharsets.UTF_8)).doesNotContain("B's CV").doesNotContain("Old CV");
+	}
+
+	@Test
+	void aResumesPhotoGoesToThePdfAsTheEditorShowsIt() throws Exception {
+		var cv = resume(userA, "CV", null);
+		var picture = new byte[] { 1, 2, 3, 4, 5 };
+		var photo = asset(userA, "me.png", picture, null);
+		var saved = JSON.readTree(get("/api/resumes/" + cv, userA).body());
+		var document = (ObjectNode) saved.path("document");
+		((ObjectNode) document.path("basics").path("photo")).put("assetId", photo).put("visible", true);
+		var put = put("/api/resumes/" + cv, userA, "{\"title\":\"CV\",\"document\":" + JSON.writeValueAsString(document)
+				+ ",\"version\":" + saved.path("version").asInt() + "}");
+		assertThat(put.statusCode()).as(put.body()).isEqualTo(200);
+
+		exported(userA);
+
+		assertThat(renderer.requests().get(0).photoSrc())
+				.isEqualTo("data:image/png;base64," + Base64.getEncoder().encodeToString(picture));
+	}
+
+	private String application(String token, String company) throws Exception {
+		var made = post("/api/applications", token, "{\"company\":\"" + company + "\",\"role\":\"Engineer\",\"postingText\":\"Build things\"}");
+		assertThat(made.statusCode()).as(made.body()).isEqualTo(201);
+		return id(made.body());
+	}
+
+	private String offer(String token, String application, String basePay) throws Exception {
+		var made = post("/api/applications/" + application + "/offers", token,
+				"{\"basePay\":" + basePay + ",\"currency\":\"GBP\",\"payPeriod\":\"YEAR\"}");
+		assertThat(made.statusCode()).as(made.body()).isEqualTo(201);
+		return id(made.body());
+	}
+
+	private String result(String application) {
+		return jdbc.sql("insert into career_results (owner_id, item_id, kind, data, input_fingerprint)"
+				+ " select i.owner_id, i.id, 'FIT', cast(:data as jsonb), 'fp' from items i where i.id = :item returning id")
+				.param("data", "{\"score\":80,\"question\":\"Why us?\",\"requirements\":[]}")
+				.param("item", UUID.fromString(application)).query(UUID.class).single().toString();
+	}
+
+	private static JsonNode array(Map<String, byte[]> zip, String path) throws Exception {
+		return JSON.readTree(text(zip, path));
+	}
+
+	private String fact(String token, String text, String quote, String noteId) throws Exception {
+		var source = noteId == null ? "" : ",\"sourceKind\":\"NOTE\",\"sourceId\":\"" + noteId + "\",\"quote\":\"" + quote + "\"";
+		var made = post("/api/knowledge/facts", token, "{\"text\":\"" + text + "\",\"category\":\"SKILL\"" + source + "}");
+		assertThat(made.statusCode()).as(made.body()).isEqualTo(201);
+		return id(made.body());
+	}
+
+	@Test
+	void everyFactIsInTheExportOnceSwitchedOffOnesWithTheirStatusAndForgottenOnesNot() throws Exception {
+		var note = note(userA, "Story", "Led a team of five engineers", null);
+		var manual = fact(userA, "Knows Java", null, null);
+		var pulled = fact(userA, "Led a team", "Led a team of five engineers", note);
+		var off = fact(userA, "Knows COBOL", null, null);
+		var forgotten = fact(userA, "Secret thing", null, null);
+		assertThat(put("/api/knowledge/facts/" + off + "/status", userA, "{\"status\":\"OFF\"}").statusCode()).isEqualTo(200);
+		assertThat(delete("/api/knowledge/facts/" + forgotten, userA).statusCode()).isEqualTo(204);
+		fact(userB, "Rival fact", null, null);
+
+		var zip = exported(userA);
+		var facts = array(zip, "career/facts.json");
+
+		assertThat(facts).hasSize(3);
+		var byId = new java.util.HashMap<String, JsonNode>();
+		facts.forEach(f -> byId.put(f.path("id").asString(), f));
+		assertThat(byId.keySet()).containsExactlyInAnyOrder(manual, pulled, off);
+		assertThat(byId.get(off).path("status").asString()).isEqualTo("OFF");
+		assertThat(byId.get(pulled).path("quote").asString()).isEqualTo("Led a team of five engineers");
+		assertThat(byId.get(pulled).has("sourceKey")).isFalse();
+		assertThat(text(zip, "career/facts.json")).doesNotContain("Secret thing", "Rival fact");
+	}
+
+	@Test
+	void aFolderOrNoteCalledCareerIsRenamedNotMergedIntoTheCareerDirectory() throws Exception {
+		folder(userA, "career", null);
+		note(userA, "career", "x", null);
+
+		var zip = exported(userA);
+
+		assertThat(zip.keySet()).contains("career/facts.json", "career/offers.json", "career/results.json");
+		assertThat(zip.keySet()).noneMatch(n -> n.startsWith("career/") && !n.matches("career/(facts|offers|results)\\.json"));
+	}
+
+	@Test
+	void anOfferAppearsOnceWithItsEarlierVersionsAndNoChecks() throws Exception {
+		var app = application(userA, "Acme");
+		var made = offer(userA, app, "60000");
+		assertThat(put("/api/offers/" + made, userA, "{\"basePay\":65000,\"currency\":\"GBP\",\"payPeriod\":\"YEAR\",\"version\":1}")
+				.statusCode()).isEqualTo(200);
+
+		var zip = exported(userA);
+
+		var offers = array(zip, "career/offers.json");
+		assertThat(offers).hasSize(1);
+		var entry = offers.get(0);
+		assertThat(entry.path("id").asString()).isEqualTo(made);
+		assertThat(entry.path("applicationId").asString()).isEqualTo(app);
+		assertThat(entry.path("company").asString()).isEqualTo("Acme");
+		assertThat(entry.path("version").asInt()).isEqualTo(2);
+		assertThat(entry.path("terms").path("basePay").asInt()).isEqualTo(65000);
+		assertThat(entry.has("checks")).isFalse();
+		assertThat(entry.path("versions")).hasSize(1);
+		assertThat(entry.path("versions").get(0).path("version").asInt()).isEqualTo(1);
+		assertThat(entry.path("versions").get(0).path("terms").path("basePay").asInt()).isEqualTo(60000);
+	}
+
+	@Test
+	void aCareerResultAppearsOnceAndLeavesTheExportWhenItsApplicationIsTrashed() throws Exception {
+		var app = application(userA, "Acme");
+		var stored = result(app);
+
+		var zip = exported(userA);
+
+		var results = array(zip, "career/results.json");
+		assertThat(results).hasSize(1);
+		assertThat(results.get(0).path("id").asString()).isEqualTo(stored);
+		assertThat(results.get(0).path("applicationId").asString()).isEqualTo(app);
+		assertThat(results.get(0).path("kind").asString()).isEqualTo("FIT");
+		assertThat(results.get(0).has("outOfDate")).isFalse();
+
+		clock.advance(Duration.ofMinutes(2));
+		assertThat(delete("/api/applications/" + app, userA).statusCode()).isEqualTo(204);
+		var afterTrash = exported(userA);
+		assertThat(array(afterTrash, "career/results.json")).isEmpty();
+		assertThat(array(afterTrash, "career/offers.json")).isEmpty();
+	}
+
+	@Test
+	void anotherUsersOffersAndResultsAreNeverInMyExport() throws Exception {
+		var mine = application(userA, "Mine Ltd");
+		offer(userA, mine, "1000");
+		result(mine);
+		var theirs = application(userB, "Rival Ltd");
+		var theirOffer = offer(userB, theirs, "99999");
+		var theirResult = result(theirs);
+
+		var zip = exported(userA);
+
+		assertThat(array(zip, "career/offers.json")).hasSize(1);
+		assertThat(array(zip, "career/results.json")).hasSize(1);
+		assertThat(text(zip, "career/offers.json")).doesNotContain("Rival Ltd", "99999", theirOffer);
+		assertThat(text(zip, "career/results.json")).doesNotContain("Rival Ltd", theirResult, theirs);
 	}
 
 	@Test

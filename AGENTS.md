@@ -30,6 +30,8 @@ CoreEx is a personal knowledge base, built as a learning project that may later 
 
 ## Workflow per ticket
 
+**Work epics in bundles** (3–5 related sub-issues, one branch, one PR, one session). The rules for raising issues and for working a bundle are in `docs/agents/skills-playbook.md`, section "Bundles". Read it before you raise or pick up an issue.
+
 **`docs/DEVELOPMENT.md` is the full guide.** It covers branching, commits, PRs, releases, testing, conventions, and the Definition of Done. Read it before your first change. In short:
 
 1. Pick an open issue with no open blockers, assign yourself, and post an implementation plan as an issue comment.

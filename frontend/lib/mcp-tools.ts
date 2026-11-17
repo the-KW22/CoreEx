@@ -40,6 +40,24 @@ export const MCP_TOOLS: McpTool[] = [
     useWhen: "You want the Links worth making, as well as the ones already there.",
   },
   {
+    name: "list_facts",
+    kind: "read",
+    summary: "List the User's Career Facts that are switched on, newest first, with where each came from. Switched-off Facts are never shown. Optionally one category.",
+    useWhen: "Before writing about the User's career, so only what they have confirmed is used.",
+  },
+  {
+    name: "get_fact",
+    kind: "read",
+    summary: "Read one Career Fact by id. A switched-off Fact is treated as not found.",
+    useWhen: "You have a Fact's id and want its text and source.",
+  },
+  {
+    name: "get_application_results",
+    kind: "read",
+    summary: "List what the Career AI made for one Application (a Fit check, answers, prep, emails and so on), newest first, with its resolution and whether it is out of date.",
+    useWhen: "You want the Fit check or other work already done for an Application.",
+  },
+  {
     name: "list_folders",
     kind: "read",
     summary: "Every Folder with its full path and how many Items it holds.",
@@ -62,6 +80,24 @@ export const MCP_TOOLS: McpTool[] = [
     kind: "read",
     summary: "List the Applications grouped by Stage, the ones that need the User now first. One Stage or only those that need the User, 50 per page.",
     useWhen: "You want to know where the job search stands.",
+  },
+  {
+    name: "list_resumes",
+    kind: "read",
+    summary: "List the Resumes, most recently changed first, 50 per page.",
+    useWhen: "You want to find a Resume before reading or editing it.",
+  },
+  {
+    name: "get_resume",
+    kind: "read",
+    summary: "Read one Resume: its Markdown view, its JSON document (contents and design) and its version, the save counter a patch needs.",
+    useWhen: "Before editing a Resume: it gives the version patch_resume needs.",
+  },
+  {
+    name: "patch_resume",
+    kind: "change",
+    summary: "Change a Resume with a JSON Patch (add, replace, remove or test) on its document. The result is cleaned like any save (HTML is sanitised) and checked; an invalid patch, a stale version or a locked Resume changes nothing. A change keeps the previous version.",
+    useWhen: "Editing a Resume's contents or design. Send the version from get_resume.",
   },
   {
     name: "get_asset_url",
@@ -118,6 +154,12 @@ export const MCP_TOOLS: McpTool[] = [
     useWhen: "A small change: it cannot touch anything it did not name.",
   },
   {
+    name: "add_fact",
+    kind: "change",
+    summary: "Add a Career Fact the User gave, or pull one from a Resume or Note with the exact quote from it. A line already pulled, or one the User forgot, is refused.",
+    useWhen: "The User states something about their career, or confirms a line from a Resume or Note that belongs in Knowledge.",
+  },
+  {
     name: "create_folder",
     kind: "change",
     summary: "Create a Folder, at the top level or inside another Folder.",
@@ -168,7 +210,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "move_item",
     kind: "change",
-    summary: "Move a Note, Asset or Application into a Folder, or to the top level.",
+    summary: "Move a Note, Asset, Application or Resume into a Folder, or to the top level.",
     useWhen: "Filing an Item.",
   },
   {

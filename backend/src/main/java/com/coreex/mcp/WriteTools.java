@@ -19,6 +19,8 @@ import com.coreex.items.Item;
 import com.coreex.items.ItemService;
 import com.coreex.notes.Note;
 import com.coreex.notes.NoteService;
+import com.coreex.resumes.ResumeService;
+import com.coreex.resumes.CoverLetterService;
 import com.coreex.tags.Tag;
 import com.coreex.tags.TagColour;
 import com.coreex.tags.TagService;
@@ -76,8 +78,13 @@ class WriteTools {
 
 	private final ApplicationService applications;
 
+	private final ResumeService resumes;
+	private final CoverLetterService letters;
+
 	WriteTools(ItemService items, NoteService notes, AssetService assets, FolderService folders, TagService tagService,
-			TrashService trash, ApplicationService applications) {
+			TrashService trash, ApplicationService applications, ResumeService resumes, CoverLetterService letters) {
+		this.resumes = resumes;
+		this.letters = letters;
 		this.applications = applications;
 		this.items = items;
 		this.notes = notes;
@@ -219,14 +226,14 @@ class WriteTools {
 				tagService.forItem(userId, id).stream().map(t -> new ReadTools.TagRef(t.id(), t.name())).toList());
 	}
 
-	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "move_item", description = "Move a Note, Asset or Application into a Folder, or to the top level.")
+	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "move_item", description = "Move a Note, Asset, Application or Resume into a Folder, or to the top level.")
 	Done moveItem(McpTransportContext context, @McpToolParam(description = "The Item's id") UUID id,
 			@McpToolParam(required = false, description = "The Folder (an id from list_folders); leave out for the top level") UUID folderId) {
 		items.move(McpConfig.agent(context).user().id(), id, folderId);
 		return new Done(id, "Moved.");
 	}
 
-	@McpTool(name = "trash_item", description = "Move a Note, Asset or Application to the Trash. It stays there 30 days; restore brings it back.")
+	@McpTool(name = "trash_item", description = "Move a Note, Asset, Application or Resume to the Trash. It stays there 30 days; restore brings it back.")
 	Done trashItem(McpTransportContext context, @McpToolParam(description = "The Item's id") UUID id) {
 		var user = McpConfig.agent(context).user();
 		var item = items.findLive(user.id(), List.of(id)).stream().findFirst()
@@ -237,13 +244,19 @@ class WriteTools {
 		else if (item.type() == Item.Type.APPLICATION) {
 			applications.trash(user.id(), id);
 		}
+		else if (item.type() == Item.Type.RESUME) {
+			resumes.trash(user.id(), id);
+		}
+		else if (item.type() == Item.Type.COVER_LETTER) {
+			letters.trash(user.id(), id);
+		}
 		else {
 			assets.delete(user, id);
 		}
 		return new Done(id, "Moved to the Trash." + TRASH_HINT);
 	}
 
-	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "restore", description = "Bring a Note, Asset, Application or Folder back from the Trash (see list_trash). A Folder returns with what was deleted with it; an Item also brings back the Folders it was in.")
+	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "restore", description = "Bring a Note, Asset, Application, Resume or Folder back from the Trash (see list_trash). A Folder returns with what was deleted with it; an Item also brings back the Folders it was in.")
 	Done restore(McpTransportContext context, @McpToolParam(description = "The id from list_trash") UUID id) {
 		var userId = McpConfig.agent(context).user().id();
 		try {

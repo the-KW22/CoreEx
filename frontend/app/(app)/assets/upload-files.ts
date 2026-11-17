@@ -12,7 +12,7 @@ export type Outcome = {
 };
 
 // fetch() cannot report upload progress; XMLHttpRequest can. Resolves with whether Storage took the file.
-function put(url: string, file: File, onProgress: (share: number) => void): Promise<boolean> {
+export function put(url: string, file: File, onProgress: (share: number) => void): Promise<boolean> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open("PUT", url);
