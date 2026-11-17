@@ -7,7 +7,8 @@ import { Stories } from "./stories";
 
 // Knowledge (docs/career/career-features-decisions.md C2, C5, C13): the Facts the AI may use, the Stories and the
 // Preferences. Sources for pulling Facts are the User's Resumes and Notes.
-export default async function KnowledgePage() {
+export default async function KnowledgePage({ searchParams }: PageProps<"/career/knowledge">) {
+  const { for: requirement } = await searchParams;
   const api = await getApi();
   const [facts, stories, prefs, resumes, notes] = await Promise.all([
     api.GET("/api/knowledge/facts").catch(() => null),
@@ -29,6 +30,7 @@ export default async function KnowledgePage() {
       </header>
       <Facts
         facts={facts.data}
+        forRequirement={typeof requirement === "string" ? requirement.slice(0, 500) : undefined}
         sources={{
           resumes: resumes?.data?.items ?? [],
           notes: notes?.data?.items.map((n) => ({ id: n.id, title: n.title })) ?? [],
