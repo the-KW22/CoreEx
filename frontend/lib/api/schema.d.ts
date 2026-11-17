@@ -996,6 +996,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/career/fit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["fit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/read-link": {
         parameters: {
             query?: never;
@@ -1580,6 +1596,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["usage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/career/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["library"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2607,6 +2639,42 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        EvidenceResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @description FACT, STORY or RESUME */
+            kind: string;
+            label: string;
+        };
+        FitResponse: {
+            /**
+             * Format: int32
+             * @description An estimate from 0 to 100, never a measurement
+             */
+            score: number;
+            question: string;
+            requirements: components["schemas"]["RequirementResponse"][];
+        };
+        RequirementResponse: {
+            requirement: string;
+            /** @enum {string} */
+            verdict: "SUPPORTED" | "PARTLY" | "MISSING";
+            note: string;
+            /** @description What shows it; a forgotten or switched-off Fact is left out */
+            evidence: components["schemas"]["EvidenceResponse"][];
+        };
+        ResultResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @description FIT */
+            kind: string;
+            /** @description The posting, Knowledge or documents changed since it was made */
+            outOfDate: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description Set for a FIT result */
+            fit: components["schemas"]["FitResponse"];
+        };
         ReadLinkRequest: {
             url: string;
         };
@@ -3064,6 +3132,10 @@ export interface components {
             tags: {
                 [key: string]: components["schemas"]["ApplicationTag"][];
             };
+            /** @description The latest Fit match score (an estimate, 0 to 100) of each listed Application that has one, by its id */
+            matchScores: {
+                [key: string]: number;
+            };
         };
         ApplicationTag: {
             /** Format: uuid */
@@ -3085,6 +3157,14 @@ export interface components {
             sizeBytes: number;
             /** Format: date-time */
             attachedAt: string;
+        };
+        Library: {
+            /** @description Newest first */
+            results: components["schemas"]["ResultResponse"][];
+            /** @description The Sends: line of each task, by kind */
+            sends: {
+                [key: string]: string;
+            };
         };
         EarlierApplication: {
             /** Format: uuid */
@@ -6341,6 +6421,28 @@ export interface operations {
             };
         };
     };
+    fit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResultResponse"];
+                };
+            };
+        };
+    };
     readLink: {
         parameters: {
             query?: never;
@@ -7625,6 +7727,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsageResponse"];
+                };
+            };
+        };
+    };
+    library: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Library"];
                 };
             };
         };
