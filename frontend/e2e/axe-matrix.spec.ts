@@ -181,6 +181,8 @@ for (const colorScheme of ["dark", "light"] as const) {
         await screen(page, failures, "resumes library", "/career/library", heading("Resumes & Letters"));
         await screen(page, failures, "resumes library list", "/career/library?view=list", heading("Resumes & Letters"));
         await screen(page, failures, "knowledge", "/career/knowledge", heading("Knowledge"));
+        await screen(page, failures, "today", "/career", heading("Today"));
+        await screen(page, failures, "offers", "/career/offers", heading("Offers"));
         await screen(page, failures, "applications needs you", "/career/applications?needs=1", heading("Applications"));
         await screen(page, failures, "applications board", "/career/applications?view=board", heading("Applications"));
         await screen(page, failures, "applications calendar", "/career/applications?view=calendar", heading("Applications"));
