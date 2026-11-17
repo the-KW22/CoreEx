@@ -29,10 +29,12 @@ public class ApplicationService {
 	private final ApplicationRepository applications;
 
 	private final Clock clock;
+	private final ApplicationLinkedDocuments linkedDocuments;
 
-	ApplicationService(ApplicationRepository applications, Clock clock) {
+	ApplicationService(ApplicationRepository applications, Clock clock, ApplicationLinkedDocuments linkedDocuments) {
 		this.applications = applications;
 		this.clock = clock;
+		this.linkedDocuments = linkedDocuments;
 	}
 
 	private LocalDate today() {
@@ -211,8 +213,10 @@ public class ApplicationService {
 		if (current.stage() == stage) {
 			return current;
 		}
-		return store(ownerId, id, from != null ? current.version() : seenVersion, stage, closeReason,
+		var moved = store(ownerId, id, from != null ? current.version() : seenVersion, stage, closeReason,
 				append(current.timeline(), "STAGE", stage, day(date), stage == Stage.CLOSED ? closeReason.name() : null, null));
+		if (stage == Stage.APPLIED && current.appliedOn() == null) linkedDocuments.snapshot(ownerId, id);
+		return moved;
 	}
 
 	/** The rules of a move that do not depend on the Application, so a bulk move can refuse them once. */

@@ -19,6 +19,7 @@ import com.coreex.items.ItemService;
 import com.coreex.links.LinkService;
 import com.coreex.notes.NoteService;
 import com.coreex.resumes.ResumeService;
+import com.coreex.resumes.CoverLetterService;
 import com.coreex.search.SearchService;
 import com.coreex.tags.TagService;
 import com.coreex.trash.TrashService;
@@ -124,10 +125,12 @@ class ReadTools {
 	private final ApplicationService applications;
 
 	private final ResumeService resumes;
+	private final CoverLetterService letters;
 
 	ReadTools(ItemService items, NoteService notes, AssetService assets, SearchService search, FolderService folders,
-			TagService tags, LinkService links, TrashService trash, ApplicationService applications, ResumeService resumes) {
+			TagService tags, LinkService links, TrashService trash, ApplicationService applications, ResumeService resumes, CoverLetterService letters) {
 		this.resumes = resumes;
+		this.letters = letters;
 		this.applications = applications;
 		this.items = items;
 		this.notes = notes;
@@ -204,6 +207,11 @@ class ReadTools {
 			var resume = resumes.get(user.id(), id);
 			return new ItemDetail(id, item.type(), resume.title(), resume.folderId(), path, resume.updatedAt(), itemTags,
 					backlinks, resumes.markdown(resume.document()), resume.version(), null, null, null);
+		}
+		if (item.type() == Item.Type.COVER_LETTER) {
+			var letter = letters.get(user.id(), id);
+			return new ItemDetail(id, item.type(), letter.title(), item.folderId(), path, item.updatedAt(), itemTags,
+					backlinks, letter.document().markdown(), letter.version(), null, null, null);
 		}
 		var asset = assets.get(user, id);
 		return new ItemDetail(id, item.type(), asset.title(), asset.folderId(), path, asset.updatedAt(), itemTags,

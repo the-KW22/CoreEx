@@ -5,7 +5,7 @@ import { done } from "@/lib/refresh";
 
 // The Item list's row actions. Unlike the form actions on an Item's own page, these answer whether they worked, so
 // the list can say so in a toast and stay where it is.
-export type ItemType = "NOTE" | "ASSET" | "APPLICATION" | "RESUME";
+export type ItemType = "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
 
 export async function moveItemTo(id: string, folderId: string | null): Promise<boolean> {
   const api = await getApi();
@@ -41,7 +41,9 @@ export async function trashItem(id: string, type: ItemType): Promise<boolean> {
       ? api.DELETE("/api/assets/{id}", { params: { path: { id } } })
       : type === "RESUME"
         ? api.DELETE("/api/resumes/{id}", { params: { path: { id } } })
-        : api.DELETE("/api/applications/{id}", { params: { path: { id } } })
+        : type === "COVER_LETTER"
+          ? api.DELETE("/api/cover-letters/{id}", { params: { path: { id } } })
+          : api.DELETE("/api/applications/{id}", { params: { path: { id } } })
   ).catch(() => null);
   return done(!!result && !result.error);
 }

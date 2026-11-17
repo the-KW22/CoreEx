@@ -21,12 +21,12 @@ function rich(blocks: Rich[]): Paragraph[] {
       ? { numbering: { reference: "list", level: 0 } } : { bullet: { level: 0 } }) })));
 }
 
-export async function resumeWord(doc: Doc): Promise<Blob> {
+export async function resumeWord(doc: Doc, letter = false): Promise<Blob> {
   const paragraphs: Paragraph[] = [];
   const line = (text: string, heading?: typeof HeadingLevel.HEADING_1 | typeof HeadingLevel.HEADING_2 | typeof HeadingLevel.HEADING_3) => {
     if (text) paragraphs.push(new Paragraph({ text, heading }));
   };
-  for (const block of resumeBlocks(doc)) {
+  for (const block of resumeBlocks(doc, letter)) {
     if (block.kind === "header") {
       line(block.name, HeadingLevel.HEADING_1);
       line(block.headline);

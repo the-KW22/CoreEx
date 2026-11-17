@@ -29,7 +29,7 @@ export const labelOpacity = (zoom: number) =>
 
 /** The word for a node's type, for labels and cards. */
 export const typeName = (type: GraphNode["type"]) =>
-  type === "NOTE" ? "Note" : type === "APPLICATION" ? "Application" : type === "RESUME" ? "Resume" : "Asset";
+  type === "NOTE" ? "Note" : type === "APPLICATION" ? "Application" : type === "RESUME" ? "Resume" : type === "COVER_LETTER" ? "Cover Letter" : "Asset";
 
 export const where = (node: GraphNode) =>
   node.folderPath ? `In ${node.folderPath}` : "Top level";
@@ -147,7 +147,7 @@ export function fit(
 // What narrows and colours the Graph, kept in the address so a view can be shared and reloaded.
 export type GraphFilter = {
   tags: string[];
-  type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | null;
+  type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER" | null;
   linkedOnly: boolean;
   colour: "tag" | "folder" | null;
   similar: boolean;
@@ -158,7 +158,7 @@ export function readFilter(params: { getAll(name: string): string[]; get(name: s
   const colour = params.get("colour");
   return {
     tags: params.getAll("tag"),
-    type: type === "NOTE" || type === "ASSET" || type === "APPLICATION" || type === "RESUME" ? type : null,
+    type: type === "NOTE" || type === "ASSET" || type === "APPLICATION" || type === "RESUME" || type === "COVER_LETTER" ? type : null,
     linkedOnly: params.get("linked") === "1",
     colour: colour === "tag" || colour === "folder" ? colour : null,
     similar: params.get("similar") === "1",

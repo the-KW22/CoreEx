@@ -35,6 +35,23 @@ import tools.jackson.databind.json.JsonMapper;
 /** Export: everything a User keeps, as one zip. */
 class ExportApiTest extends ApiTest {
 
+	@Test
+	void coverLetterExportsItsDocumentMarkdownAndPdfOnlyForItsOwner() throws Exception {
+		var made = post("/api/cover-letters", userA, "{\"title\":\"Letter\"}");
+		assertThat(made.statusCode()).as(made.body()).isEqualTo(201);
+		var letter = id(made.body());
+		assertThat(put("/api/cover-letters/" + letter, userA,
+				"{\"title\":\"Letter\",\"version\":1,\"document\":{\"recipient\":\"Hiring team\",\"body\":\"<p>Hello <strong>there</strong></p>\"}}")
+				.statusCode()).isEqualTo(200);
+		var files = exported(userA);
+		assertThat(text(files, "Letter.md")).contains("Hiring team", "**there**");
+		assertThat(text(files, "Letter.json")).contains("Hiring team", "<strong>there</strong>");
+		assertThat(files.get("Letter.pdf")).isEqualTo(TestResumePdfRenderer.PDF);
+		assertThat(renderer.requests()).hasSize(1);
+		assertThat(renderer.requests().get(0).letter()).isTrue();
+		assertThat(exported(userB)).doesNotContainKeys("Letter.md", "Letter.json", "Letter.pdf");
+	}
+
 	private static final JsonMapper JSON = JsonMapper.builder().build();
 
 	@Autowired

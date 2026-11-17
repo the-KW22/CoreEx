@@ -38,6 +38,7 @@ const EXTENSIONS = [
   Color,
   TextAlign.configure({ types: ["paragraph"] }),
 ];
+const LETTER_EXTENSIONS = [EXTENSIONS[0].configure({ undoRedo: {} }), ...EXTENSIONS.slice(1)];
 
 // True while the Resume is locked: every rich text field stops accepting changes.
 const LockedContext = createContext(false);
@@ -55,15 +56,17 @@ export function RichText({
   html,
   onChange,
   field,
+  ownHistory = false,
 }: {
   label: string;
   html: string;
   onChange: (html: string) => void;
   field?: string;
+  ownHistory?: boolean;
 }) {
   const locked = useContext(LockedContext);
   const editor = useEditor({
-    extensions: EXTENSIONS,
+    extensions: ownHistory ? LETTER_EXTENSIONS : EXTENSIONS,
     content: html,
     editable: !locked,
     immediatelyRender: false,

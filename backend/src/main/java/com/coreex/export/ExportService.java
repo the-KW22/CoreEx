@@ -32,6 +32,7 @@ import com.coreex.folders.FolderService;
 import com.coreex.resumes.Resume;
 import com.coreex.resumes.ResumeDocument;
 import com.coreex.resumes.ResumeService;
+import com.coreex.resumes.CoverLetterService;
 import com.coreex.storage.Storage;
 import com.coreex.tags.Tag;
 import com.coreex.tags.TagService;
@@ -72,6 +73,7 @@ class ExportService {
 	private final ApplicationService applications;
 
 	private final ResumeService resumes;
+	private final CoverLetterService letters;
 
 	private final ResumePdfRenderer renderer;
 
@@ -88,12 +90,13 @@ class ExportService {
 	private final Map<UUID, Instant> lastExport = new ConcurrentHashMap<>();
 
 	ExportService(ExportRepository repository, FolderService folders, TagService tags, ApplicationService applications,
-			ResumeService resumes, ResumePdfRenderer renderer, Storage storage, Clock clock, ExportProperties properties) {
+			ResumeService resumes, CoverLetterService letters, ResumePdfRenderer renderer, Storage storage, Clock clock, ExportProperties properties) {
 		this.repository = repository;
 		this.folders = folders;
 		this.tags = tags;
 		this.applications = applications;
 		this.resumes = resumes;
+		this.letters = letters;
 		this.renderer = renderer;
 		this.storage = storage;
 		this.clock = clock;
@@ -135,6 +138,10 @@ class ExportService {
 					resume(ownerId, row, dir, names, tagsByItem.getOrDefault(row.id(), List.of()), zip, items, omitted);
 					continue;
 				}
+				if ("COVER_LETTER".equals(row.type())) {
+					letter(ownerId, row, dir, names, tagsByItem.getOrDefault(row.id(), List.of()), zip, items, omitted);
+					continue;
+				}
 				byte[] content;
 				String name;
 				if ("NOTE".equals(row.type())) {
@@ -165,6 +172,34 @@ class ExportService {
 		put(zip, "manifest.json", clock.instant(), json.writeValueAsBytes(manifest));
 		zip.finish();
 		zip.flush();
+	}
+
+	private void letter(UUID ownerId, Row row, Dir dir, ExportNames names, List<Tag> itemTags, ZipOutputStream zip,
+			List<Map<String, Object>> items, List<Map<String, Object>> omitted) throws IOException {
+		CoverLetterService.Letter letter;
+		try { letter = letters.get(ownerId, row.id()); }
+		catch (ApiException e) { return; }
+		var paths = new ArrayList<String>();
+		var jsonPath = pathIn(dir, names.file(dir.path(), row.title(), ".json"));
+		var markdownPath = pathIn(dir, names.file(dir.path(), row.title(), ".md"));
+		put(zip, jsonPath, row.updatedAt(), json.writeValueAsBytes(letter.document()));
+		put(zip, markdownPath, row.updatedAt(), letter.document().markdown().getBytes(StandardCharsets.UTF_8));
+		paths.add(jsonPath);
+		paths.add(markdownPath);
+		try {
+			var doc = letter.document().asResume();
+			var pdf = renderer.render(new ResumePdfRequest(doc, photoSrc(ownerId, doc), true));
+			var path = pathIn(dir, names.file(dir.path(), row.title(), ".pdf"));
+			put(zip, path, row.updatedAt(), pdf);
+			paths.add(path);
+		}
+		catch (IOException | RuntimeException e) {
+			log.warn("A Cover Letter's PDF was left out of an export: {}", e.getMessage());
+			omitted.add(omission(row, "The PDF could not be made."));
+		}
+		var item = manifestItem(row, dir, jsonPath, itemTags);
+		item.put("paths", paths);
+		items.add(item);
 	}
 
 	/**
