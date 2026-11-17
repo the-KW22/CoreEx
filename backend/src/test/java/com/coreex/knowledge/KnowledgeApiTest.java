@@ -173,6 +173,12 @@ class KnowledgeApiTest extends ApiTest {
 	}
 
 	@Test
+	void aNullOrUnknownPlaceIsRefusedNotAServerError() throws Exception {
+		assertThat(put("/api/knowledge/preferences", userA, "{\"places\":[\"REMOTE\",null]}").statusCode()).isEqualTo(400);
+		assertThat(put("/api/knowledge/preferences", userA, "{\"places\":[\"MARS\"]}").statusCode()).isEqualTo(400);
+	}
+
+	@Test
 	void minimumPayNeedsACurrencyAndAPayPeriod() throws Exception {
 		var refused = put("/api/knowledge/preferences", userA, "{\"minBasePay\":60000}");
 		assertThat(refused.statusCode()).isEqualTo(400);

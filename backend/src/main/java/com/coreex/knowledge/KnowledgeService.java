@@ -163,7 +163,8 @@ class KnowledgeService {
 		if (minBasePay != null && (currency == null || payPeriod == null)) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "A minimum pay needs a currency and a pay period.");
 		}
-		if (places != null && !PLACES.containsAll(places)) {
+		// A null element would throw inside List.of's contains, so it is checked first.
+		if (places != null && places.stream().anyMatch(p -> p == null || !PLACES.contains(p))) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Places are REMOTE, HYBRID or ONSITE.");
 		}
 		repo.savePreferences(ownerId, new PreferencesRow(targetRoles == null ? "" : targetRoles,
