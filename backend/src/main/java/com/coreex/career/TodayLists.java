@@ -1,9 +1,7 @@
 package com.coreex.career;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
@@ -35,12 +33,6 @@ public final class TodayLists {
 	public record Today(List<Entry> needsYou, List<Entry> comingUp) {
 	}
 
-	/** Equals NextStep.PREPARE_WINDOW, which is package-private in the applications package. */
-	private static final Duration WITHIN_DAY = Duration.ofHours(24);
-
-	/** Equals NextStep.DEFAULT_REMINDER_TIME, which is package-private in the applications package. */
-	private static final LocalTime DEFAULT_REMINDER_TIME = LocalTime.of(9, 0);
-
 	/** shortcut: Coming up shows only the first 20 entries with no paging, upgrade when a User has more than 20 upcoming items. */
 	private static final int COMING_UP_CAP = 20;
 
@@ -67,7 +59,7 @@ public final class TodayLists {
 				.filter(e -> e.type().equals("INTERVIEW") && e.at().isAfter(now))
 				.filter(e -> shown.stream().noneMatch(s -> s.applicationId().equals(a.id()) && s.interviewSeq() == e.seq()))
 				.map(e -> new Entry(a.id(), a.title(), Kind.INTERVIEW, "Interview " + WHEN.format(e.at().atZone(zone)),
-						e.at(), e.seq(), !e.at().isAfter(now.plus(WITHIN_DAY)))));
+						e.at(), e.seq(), !e.at().isAfter(now.plus(NextStep.PREPARE_WINDOW)))));
 
 		var followUps = open.stream().filter(a -> a.reminderOn() != null)
 				.map(a -> new Entry(a.id(), a.title(), Kind.FOLLOW_UP, "Follow up", reminderAt(a, zone), null, false))
@@ -96,7 +88,7 @@ public final class TodayLists {
 	}
 
 	private static Instant reminderAt(Application a, ZoneId zone) {
-		var time = a.reminderTime() == null ? DEFAULT_REMINDER_TIME : a.reminderTime();
+		var time = a.reminderTime() == null ? NextStep.DEFAULT_REMINDER_TIME : a.reminderTime();
 		return a.reminderOn().atTime(time).atZone(zone).toInstant();
 	}
 }

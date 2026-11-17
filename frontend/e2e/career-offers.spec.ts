@@ -41,7 +41,7 @@ test("adds an Offer with only pay, edits it, and reads its earlier versions", as
   await expect(termValue(row, "Office days per week")).toHaveText("Not set");
 
   // Edit: add a bonus. The form shows the saved values after the save.
-  await row.getByRole("button", { name: "Edit", exact: true }).click();
+  await row.getByRole("button", { name: /^Edit / }).click();
   const form = row.getByRole("form");
   await form.getByLabel("Bonus", { exact: true }).fill("Signing bonus 5000");
   await form.getByRole("button", { name: "Save Offer" }).click();
@@ -50,7 +50,7 @@ test("adds an Offer with only pay, edits it, and reads its earlier versions", as
   await expect(form.getByLabel("Start date", { exact: true })).toHaveValue("");
 
   // The terms before the edit are an earlier version.
-  const earlier = row.getByRole("button", { name: "Earlier versions", exact: true });
+  const earlier = row.getByRole("button", { name: /^Earlier versions of / });
   await expect(earlier).toHaveAttribute("aria-expanded", "false");
   await earlier.click();
   await expect(earlier).toHaveAttribute("aria-expanded", "true");

@@ -46,7 +46,7 @@ export function OfferRow({
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" aria-expanded={editing} aria-controls={`${id}-edit`} onClick={() => setEditing(!editing)}>
+        <Button variant="outline" size="sm" aria-label={`Edit ${item.applicationTitle}`} aria-expanded={editing} aria-controls={`${id}-edit`} onClick={() => setEditing(!editing)}>
           Edit
         </Button>
       </div>
@@ -62,12 +62,12 @@ export function OfferRow({
         </div>
       )}
       {/* Keyed by version: after a save, the earlier versions load again the next time they are opened. */}
-      <EarlierVersions key={offer.version} offerId={offer.id} />
+      <EarlierVersions key={offer.version} offerId={offer.id} title={item.applicationTitle} />
     </li>
   );
 }
 
-function EarlierVersions({ offerId }: { offerId: string }) {
+function EarlierVersions({ offerId, title }: { offerId: string; title: string }) {
   const [open, setOpen] = useState(false);
   const [versions, setVersions] = useState<OfferVersion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +86,7 @@ function EarlierVersions({ offerId }: { offerId: string }) {
 
   return (
     <div className="grid gap-2">
-      <Button variant="ghost" size="sm" className="justify-self-start" aria-expanded={open} aria-controls={id} onClick={toggle}>
+      <Button variant="ghost" size="sm" className="justify-self-start" aria-label={`Earlier versions of ${title}`} aria-expanded={open} aria-controls={id} onClick={toggle}>
         Earlier versions
       </Button>
       <div id={id} hidden={!open} className="grid gap-3">
