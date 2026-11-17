@@ -8,19 +8,33 @@ import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/schema";
 import { formatDay } from "@/lib/applications";
 
+import { ApplyPanel } from "./apply";
+import { OutOfDate } from "./apply-question";
 import { runFit } from "./career-actions";
 
 type Library = components["schemas"]["Library"];
 type Result = components["schemas"]["ResultResponse"];
+type Apply = components["schemas"]["ApplyResponse"];
 
-const TABS = ["Details", "Fit", "Library"] as const;
+const TABS = ["Details", "Fit", "Apply", "Library"] as const;
 type Tab = (typeof TABS)[number];
 
 const VERDICTS = { SUPPORTED: "Supported", PARTLY: "Partly supported", MISSING: "Missing" } as const;
 
-// The Application's workspace (ADR 0013): its details, the Fit check and the Library of every AI result. More tabs
-// arrive with the other Career tasks.
-export function Workspace({ applicationId, library, details }: { applicationId: string; library: Library | null; details: ReactNode }) {
+// The Application's workspace (ADR 0013): its details, the Fit check, the Apply tab and the Library of every AI result.
+export function Workspace({
+  applicationId,
+  stage,
+  library,
+  apply,
+  details,
+}: {
+  applicationId: string;
+  stage: string;
+  library: Library | null;
+  apply: Apply | null;
+  details: ReactNode;
+}) {
   const [tab, setTab] = useState<Tab>("Details");
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
   const move = (e: KeyboardEvent, index: number) => {
@@ -62,22 +76,23 @@ export function Workspace({ applicationId, library, details }: { applicationId: 
               {library ? <FitPanel applicationId={applicationId} library={library} /> : <Alert>Could not load the results. Reload to try again.</Alert>}
             </div>
           )}
+          {name === "Apply" && (
+            <div className="mx-auto w-full max-w-3xl">
+              {apply && library ? (
+                <ApplyPanel applicationId={applicationId} stage={stage} apply={apply} library={library} />
+              ) : (
+                <Alert>Could not load the questions. Reload to try again.</Alert>
+              )}
+            </div>
+          )}
           {name === "Library" && (
             <div className="mx-auto w-full max-w-3xl">
-              {library ? <LibraryPanel library={library} open={() => setTab("Fit")} /> : <Alert>Could not load the results. Reload to try again.</Alert>}
+              {library ? <LibraryPanel library={library} open={setTab} /> : <Alert>Could not load the results. Reload to try again.</Alert>}
             </div>
           )}
         </div>
       ))}
     </div>
-  );
-}
-
-function OutOfDate() {
-  return (
-    <p className="rounded-lg border border-border bg-surface px-3 py-2 text-sm">
-      <strong>Out of date.</strong> Your posting, Knowledge or documents have changed since this was made. Run it again to refresh it.
-    </p>
   );
 }
 
@@ -151,9 +166,13 @@ function FitPanel({ applicationId, library }: { applicationId: string; library: 
   );
 }
 
-const KINDS: Record<string, string> = { FIT: "Fit check" };
+const KINDS: Record<string, string> = { FIT: "Fit check", DRAFT: "Draft answer", TIGHTEN: "Tightened answer" };
+const STATUS: Record<string, string> = { ACCEPTED: "Accepted", REJECTED: "Rejected" };
 
-function LibraryPanel({ library, open }: { library: Library; open: () => void }) {
+// The first ~80 characters of a proposed answer, so the Library says what it is without opening it.
+const preview = (text: string) => (text.length > 80 ? `${text.slice(0, 80)}…` : text);
+
+function LibraryPanel({ library, open }: { library: Library; open: (tab: Tab) => void }) {
   return (
     <section aria-labelledby="library-heading" className="grid gap-4">
       <h2 id="library-heading" className="text-lg font-semibold">Library</h2>
@@ -165,11 +184,22 @@ function LibraryPanel({ library, open }: { library: Library; open: () => void })
             <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border px-3 py-2 text-sm">
               <span className="font-medium">{KINDS[r.kind] ?? r.kind}</span>
               {r.fit && <span>{r.fit.score} / 100 (estimate)</span>}
+              {r.answer && <span>{preview(r.answer.text)}</span>}
+              {r.answer && (
+                <span className="rounded-md border border-border px-1.5 py-0.5 text-xs font-semibold">
+                  {r.resolution ? (STATUS[r.resolution] ?? r.resolution) : "Waiting"}
+                </span>
+              )}
               <span className="text-muted-foreground">{formatDay(r.createdAt)}</span>
               {r.outOfDate && <span className="rounded-md border border-border px-1.5 py-0.5 text-xs font-semibold">Out of date</span>}
               {r.kind === "FIT" && (
-                <button type="button" onClick={open} className="ml-auto font-medium underline">
+                <button type="button" onClick={() => open("Fit")} className="ml-auto font-medium underline">
                   Open Fit check
+                </button>
+              )}
+              {r.answer && (
+                <button type="button" onClick={() => open("Apply")} className="ml-auto font-medium underline">
+                  Open Apply
                 </button>
               )}
             </li>
