@@ -68,7 +68,7 @@ export function Workspace({
   // The interview tabs read the interviews added in Details, which that tab keeps in its own state: refresh the page data on opening one.
   const setTab = (next: Tab) => {
     setTabState(next);
-    if (next === "Interview prep" || next === "Practice" || next === "Debrief") router.refresh();
+    if (next === "Interview prep" || next === "Practice" || next === "Debrief" || next === "Emails") router.refresh();
   };
   // Held here so the Interview prep tab can fill the Practice tab's question before it opens.
   const [practiceQuestion, setPracticeQuestion] = useState("");
