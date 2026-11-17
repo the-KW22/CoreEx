@@ -62,6 +62,7 @@ These apply to every coding session, whatever the ticket.
 | `ponytail` (full) | Load before writing any code: features, fixes, refactors, dependency choices. Smallest change that meets **every** acceptance criterion. Mark each deliberate shortcut `shortcut: <the limit>, <when to upgrade>`. |
 | `ponytail-review` | Run on the branch before opening a PR. Fix every "Must fix". |
 | `supabase-postgres-best-practices` | Load before touching anything in Postgres: a migration, a column type, an index, a query you are tuning, RLS. Even a one-column change. |
+| MCP tools (`backend/.../mcp/*Tools.java`) | Adding, renaming, removing or changing a tool means updating `frontend/lib/mcp-tools.ts` in the same change: its name, group, read or change kind, summary and "Use it when" line. `McpDocsTest` fails until the guide matches the server, and fails when a tool has no group or a group has no tool. |
 
 ---
 

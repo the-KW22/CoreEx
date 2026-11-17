@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BookOpenIcon,
   BriefcaseBusinessIcon,
   CommandIcon,
   FilesIcon,
@@ -241,6 +242,7 @@ export function Rail({
         </Hint>
       )}
       <RailLink href="/search" label="Search" icon={SearchIcon} current={onSearch} collapsed={collapsed} />
+      <RailLink href="/docs" label="Docs" icon={BookOpenIcon} current={active === "docs"} collapsed={collapsed} />
       <RailLink href="/trash" label="Trash" icon={Trash2Icon} current={active === "trash"} collapsed={collapsed} />
       {/* Only a convenience: the API refuses non-admins on its own (ADR 0004). */}
       {isAdmin && <RailLink href="/admin" label="Admin" icon={ShieldIcon} current={active === "admin"} collapsed={collapsed} />}
@@ -280,7 +282,7 @@ export function Rail({
               <Link href="/settings/tokens">Access tokens</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/help/mcp">Connect an Agent</Link>
+              <Link href="/docs/mcp">Connect an Agent</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/settings/export">Export</Link>
