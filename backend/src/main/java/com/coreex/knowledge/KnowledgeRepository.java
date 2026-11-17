@@ -15,7 +15,7 @@ import org.springframework.stereotype.Repository;
 
 /** Every query carries the owner id. */
 @Repository
-class KnowledgeRepository {
+public class KnowledgeRepository {
 
 	record FactRow(UUID id, String text, String category, String sourceKind, UUID sourceId, String quote, String sourceKey,
 			String status, Instant updatedAt) {
@@ -27,7 +27,7 @@ class KnowledgeRepository {
 	record StoryRow(UUID id, String title, Instant updatedAt) {
 	}
 
-	record PreferencesRow(String targetRoles, List<String> places, BigDecimal minBasePay, String currency, String payPeriod,
+	public record PreferencesRow(String targetRoles, List<String> places, BigDecimal minBasePay, String currency, String payPeriod,
 			Integer officeDays, String noticePeriod) {
 	}
 
