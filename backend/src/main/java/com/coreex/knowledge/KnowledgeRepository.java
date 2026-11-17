@@ -17,11 +17,11 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class KnowledgeRepository {
 
-	record FactRow(UUID id, String text, String category, String sourceKind, UUID sourceId, String quote, String sourceKey,
+	public record FactRow(UUID id, String text, String category, String sourceKind, UUID sourceId, String quote, String sourceKey,
 			String status, Instant updatedAt) {
 	}
 
-	record Revision(String text, Instant savedAt) {
+	public record Revision(String text, Instant savedAt) {
 	}
 
 	record StoryRow(UUID id, String title, Instant updatedAt) {

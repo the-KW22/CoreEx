@@ -53,7 +53,7 @@ public class KnowledgeService {
 	}
 
 	/** A Fact with its earlier wordings, oldest first. */
-	record FactView(FactRow fact, List<Revision> revisions) {
+	public record FactView(FactRow fact, List<Revision> revisions) {
 	}
 
 	/** One line of a Resume or Note that could become a Fact; the quote is its exact text in the source. */
