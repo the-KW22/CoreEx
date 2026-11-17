@@ -265,7 +265,13 @@ for (const colorScheme of ["dark", "light"] as const) {
         await screen(page, failures, "admin invites", "/admin", heading("Admin"));
         await screen(page, failures, "access tokens", "/settings/tokens", heading("Access tokens"));
         await screen(page, failures, "docs introduction", "/docs", heading("CoreEx docs"));
-        await screen(page, failures, "mcp guide", "/docs/mcp", heading("Connect an Agent"));
+        await screen(page, failures, "mcp overview", "/docs/mcp", heading("MCP server"));
+        await screen(page, failures, "mcp quick start", "/docs/mcp/quick-start", heading("Quick start"));
+        await screen(page, failures, "mcp connect", "/docs/mcp/connect", heading("Connect a client"));
+        await screen(page, failures, "mcp tools", "/docs/mcp/tools", heading("Tools"));
+        await screen(page, failures, "mcp security", "/docs/mcp/security", heading("Security"));
+        await screen(page, failures, "mcp limits", "/docs/mcp/limits", heading("Limits"));
+        await screen(page, failures, "mcp troubleshooting", "/docs/mcp/troubleshooting", heading("Troubleshooting"));
         await screen(page, failures, "export", "/settings/export", heading("Export"));
         await screen(page, failures, "export refused", "/settings/export?error=wait", async () => {
           await expect(page.getByRole("alert").filter({ hasText: "once a minute" })).toBeVisible();

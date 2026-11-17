@@ -5,6 +5,12 @@ export type DocPage = { href: string; title: string; group: string };
 export const DOC_PAGES: DocPage[] = [
   { href: "/docs", title: "Introduction", group: "Getting started" },
   { href: "/docs/mcp", title: "Overview", group: "MCP" },
+  { href: "/docs/mcp/quick-start", title: "Quick start", group: "MCP" },
+  { href: "/docs/mcp/connect", title: "Connect a client", group: "MCP" },
+  { href: "/docs/mcp/tools", title: "Tools", group: "MCP" },
+  { href: "/docs/mcp/security", title: "Security", group: "MCP" },
+  { href: "/docs/mcp/limits", title: "Limits", group: "MCP" },
+  { href: "/docs/mcp/troubleshooting", title: "Troubleshooting", group: "MCP" },
 ];
 
 // The pages of each group, in the order the groups first appear.

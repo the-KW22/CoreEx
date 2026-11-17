@@ -266,19 +266,25 @@ Opened from **Access tokens** in the Account menu. Title, one sentence on what a
 - **Copy page** above the text copies the page's text (the Copy buttons of code blocks are left out).
 - Below `xl` the sidebar is a Sheet, opened by **Docs pages**; choosing a page closes it.
 
-Pages so far: **Introduction** (`/docs`) and the MCP guide, whose first page is still titled "Connect an Agent" at `/docs/mcp`. The Account menu's **Connect an Agent** item opens it, and `/help/mcp` redirects there.
+Pages so far: **Introduction** (`/docs`) and the MCP guide. The Account menu's **Connect an Agent** item opens the guide at `/docs/mcp`, and `/help/mcp` redirects there.
 
-### 6.11a MCP guide (`/docs/mcp`)
+### 6.11a MCP guide (`/docs/mcp` and its pages)
 
-The documentation for the MCP server, written for Users, in the shape SaaS products such as Linear, Notion and Stripe use for theirs. A title with one sentence on what MCP is and a **Create an Access token** button. Then, in order: **What an Agent can do** (a short paragraph and seven example prompts), **Connect your tool** (the server address in a code block, then one heading per tool: Claude Code, Codex, Claude Desktop and any other client, each with copyable commands), **Tools** (Read and Change lists: name, what it does, "Use it when"), **Access tokens and safety**, **Limits** and **Troubleshooting** (native `<details>` items).
+The guide is for Users, in the shape SaaS products such as Linear, Notion and Stripe use for theirs. It is split into short pages, each a sidebar entry in the **MCP** group, in this order:
 
-- The commands show this installation's own address (`API_URL` + `/mcp`, read on the server) and the placeholder `cx_pat_YOUR_TOKEN`, never a real token.
-- Code blocks are a `<pre>` with a **Copy** button (`components/code-block.tsx`); on a narrow screen the text scrolls sideways and can be reached with the keyboard. The button's accessible name changes with its text.
-- An **On this page** list of anchors sits beside the text from the `lg` breakpoint (sticky) and above it on narrower screens.
-- Links inside a sentence are always underlined; the section list is not.
+- **Overview** (`/docs/mcp`, titled "MCP server"): what MCP is, a **Create an Access token** button, **What an Agent can do** and seven-to-ten example prompts (Notes, Career, Resumes and Cover Letters).
+- **Quick start** (`/docs/mcp/quick-start`): three numbered steps: create an Access token (shown once), copy the server address, and add both to your tool.
+- **Connect a client** (`/docs/mcp/connect`): the server address in a code block, then a tablist of **Claude Code**, **Codex**, **Claude Desktop** and **Other client**. Each panel has its commands, each with a Copy button named after its file or command. The tabs follow the application workspace's pattern: arrow keys, Home and End move between them.
+- **Tools** (`/docs/mcp/tools`): one table per group (Notes, Items, Folders and Tags, Search and Graph, Assets and uploads, Trash, Applications, Resumes, Cover Letters, Career Facts). Each row has the tool's name, a **Read** or **Change** label (text, not colour alone), what it does and "Use it when". A filter box narrows the tables by name (spaces count as underscores); with nothing matching, it says so and offers to show every tool. The grouping and filter logic is `frontend/lib/mcp-tool-groups.ts`. On a phone each row becomes a stacked block. Summaries follow the server's own tool descriptions (`backend/.../mcp/*Tools.java`), so when a tool changes, its summary changes in the same PR.
+- **Security** (`/docs/mcp/security`): what a token can do, one token per tool, revoking, the Trash, **Edited by**, where Notes go, and prompt injection. The token warning ("a token is a full key") appears here only.
+- **Limits** (`/docs/mcp/limits`): the server's defaults.
+- **Troubleshooting** (`/docs/mcp/troubleshooting`): the errors people meet most, each a native `<details>` item.
+
+Rules that hold on every MCP page:
+
+- The commands show this installation's own address (`API_URL` + `/mcp`, read on the server, `frontend/lib/mcp-server.ts`) and the placeholder `cx_pat_YOUR_TOKEN`, never a real token.
+- Links inside a sentence are always underlined; the sidebar and the "On this page" list are not sentences.
 - The tool list comes from `frontend/lib/mcp-tools.ts`. `McpDocsTest` fails when it differs from the tools the server has.
-- **Tools** (the reference in the same section): one table per group (Notes, Items, Folders and Tags, Search and Graph, Assets and uploads, Trash, Applications, Resumes, Cover Letters, Career Facts). Each row has the tool's name, a **Read** or **Change** label (text, not colour alone), what it does and "Use it when". A filter box narrows the tables by name (spaces count as underscores); with nothing matching, it says so and offers to show every tool. The grouping and filter logic is `frontend/lib/mcp-tool-groups.ts`. On a phone each row becomes a stacked block.
-- Summaries follow the server's own tool descriptions (`backend/.../mcp/*Tools.java`), so when a tool changes, its summary changes in the same PR.
 
 ### 6.12 Graph (`/graph`)
 

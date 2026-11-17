@@ -674,14 +674,13 @@ test("the MCP guide shows this server's address and the tools, and a command can
   // It opens from the Account menu, and has no Knowledge Base panel beside it.
   await page.getByRole("button", { name: /^Account/ }).click();
   await page.getByRole("menuitem", { name: "Connect an Agent" }).click();
-  await expect(page).toHaveURL(/\/help\/mcp$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Connect an Agent" })).toBeVisible();
+  await expect(page).toHaveURL(/\/docs\/mcp$/);
+  await expect(page.getByRole("heading", { level: 1, name: "MCP server" })).toBeVisible();
   await expect(page.getByRole("complementary")).toHaveCount(0);
-  for (const name of ["What an Agent can do", "Connect your tool", "Tools", "Access tokens and safety", "Limits", "Troubleshooting"]) {
-    await expect(page.getByRole("heading", { level: 2, name })).toBeVisible();
-  }
+  await expect(page.getByRole("heading", { level: 2, name: "What an Agent can do" })).toBeVisible();
 
   // The address is this installation's own, and every command uses a placeholder, never a real token.
+  await page.goto("/docs/mcp/connect");
   const address = page.getByRole("group", { name: "CoreEx server address" });
   await expect(address).toContainText("/mcp");
   await address.getByRole("button", { name: "Copy CoreEx server address" }).click();
@@ -689,18 +688,29 @@ test("the MCP guide shows this server's address and the tools, and a command can
   await expect(page.getByRole("group", { name: "Claude Code command" })).toContainText("Bearer cx_pat_YOUR_TOKEN");
   expect(await page.getByRole("main").innerText()).not.toMatch(/cx_pat_(?!YOUR_TOKEN)/);
 
-  // Every tool is listed, and the page's own links work.
-  await expect(page.locator("table tbody tr")).toHaveCount(MCP_TOOLS.length);
-  await page.getByRole("navigation", { name: "On this page" }).getByRole("link", { name: "Troubleshooting" }).click();
-  await expect(page).toHaveURL(/#troubleshooting$/);
-  await page.getByText("429 RATE_LIMITED").click();
-  await expect(page.getByText("more than 60 calls in a minute")).toBeVisible();
+  // The tabs switch clients, and the arrow keys move between them.
+  await page.getByRole("tab", { name: "Codex" }).click();
+  await expect(page.getByRole("group", { name: "~/.codex/config.toml" })).toBeVisible();
+  await page.getByRole("tab", { name: "Codex" }).press("ArrowLeft");
+  await expect(page.getByRole("tab", { name: "Claude Code" })).toHaveAttribute("aria-selected", "true");
   await expectNoViolations(page);
+
+  // Every tool is listed once, and the filter box narrows the tables by name.
+  await page.goto("/docs/mcp/tools");
+  await expect(page.locator("table tbody tr")).toHaveCount(MCP_TOOLS.length);
+  await page.getByRole("searchbox", { name: "Filter tools by name" }).fill("trash");
+  await expect(page.locator("table tbody tr")).toHaveCount(3);
+  await expectNoViolations(page);
+
+  // The sidebar's pages work.
+  await page.getByRole("navigation", { name: "Docs pages" }).getByRole("link", { name: "Security" }).click();
+  await expect(page).toHaveURL(/\/docs\/mcp\/security$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Security" })).toBeVisible();
 
   // And from the Access tokens page.
   await page.goto("/settings/tokens");
   await page.getByRole("link", { name: "How to connect an Agent" }).click();
-  await expect(page).toHaveURL(/\/help\/mcp$/);
+  await expect(page).toHaveURL(/\/docs\/mcp$/);
 });
 
 test("an Access token is created, its secret shown once, and revoked after a confirm", async ({ page, context }) => {

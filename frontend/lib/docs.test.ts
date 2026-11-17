@@ -10,9 +10,14 @@ describe("neighbours", () => {
   });
 
   it("has no next page after the last one", () => {
-    const { previous, next } = neighbours("/docs/mcp");
-    expect(previous?.href).toBe("/docs");
+    const { previous, next } = neighbours("/docs/mcp/troubleshooting");
+    expect(previous?.href).toBe("/docs/mcp/limits");
     expect(next).toBeNull();
+  });
+
+  it("walks through the MCP pages in the sidebar's order", () => {
+    expect(neighbours("/docs/mcp").next?.href).toBe("/docs/mcp/quick-start");
+    expect(neighbours("/docs/mcp/connect").previous?.href).toBe("/docs/mcp/quick-start");
   });
 
   it("ignores a trailing slash", () => {
