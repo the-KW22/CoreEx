@@ -96,6 +96,9 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
             apply={apply?.data ?? null}
             timeline={application.timeline}
             debriefs={debriefs?.data?.items ?? null}
+            linked={linked?.data ?? null}
+            nextStep={application.nextStep}
+            appliedOn={application.appliedOn ?? null}
             initialTab={typeof tab === "string" ? tab : undefined}
             initialInterview={typeof interview === "string" && /^\d{1,6}$/.test(interview) ? Number(interview) : undefined}
             details={
