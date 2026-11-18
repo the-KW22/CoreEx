@@ -29,6 +29,17 @@ describe("the page map", () => {
     expect(round(boxes)).toMatchSnapshot();
   });
 
+  // The name's line used to inherit the page's line height (about 13 pt for a 22 pt name), so its box ran into the headline.
+  it("keeps the name clear of the headline below it", async () => {
+    for (const template of ["classic", "sidebar", "modern"]) {
+      const doc = structuredClone(SAMPLE);
+      doc.metadata.template = template;
+      const { boxes } = await mapOf(doc);
+      const at = (ref: string) => boxes.find((b) => b.ref === ref)!;
+      expect(at("basics.name").y + at("basics.name").height, template).toBeLessThanOrEqual(at("basics.headline").y);
+    }
+  });
+
   it("puts the name above the first heading, and each field inside its page", async () => {
     const { boxes } = await mapOf(SAMPLE);
     const at = (ref: string) => boxes.find((b) => b.ref === ref)!;

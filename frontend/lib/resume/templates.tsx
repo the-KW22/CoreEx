@@ -150,12 +150,12 @@ function HeaderView({ block, look }: { block: Extract<Block, { kind: "header" }>
     <View style={{ marginBottom: look.modern ? 0 : 8 * look.gap, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
       <View style={{ flex: 1 }}>
       {block.name && (
-        <Text style={{ ...heading(look), ...color, fontSize: look.size * 2.2, ...custom(look, "name", { bold: true, heading: true }) }}>
+        <Text style={{ ...heading(look), ...color, fontSize: look.size * 2.2, lineHeight: 1.15, ...custom(look, "name", { bold: true, heading: true }) }}>
           {block.name}
         </Text>
       )}
       {block.headline && (
-        <Text style={{ ...body(look), ...color, fontSize: look.size * 1.2, marginTop: 2, ...custom(look, "headline") }}>{block.headline}</Text>
+        <Text style={{ ...body(look), ...color, fontSize: look.size * 1.2, lineHeight: 1.2, marginTop: 2, ...custom(look, "headline") }}>{block.headline}</Text>
       )}
       {block.contact.length > 0 && (
         <Text style={{ ...color, marginTop: 4, ...custom(look, "contact") }}>{block.contact.join("  |  ")}</Text>
@@ -176,6 +176,7 @@ function BlockView({ block, look }: { block: Block; look: Look }) {
           style={{
             ...heading(look),
             fontSize: look.size * 1.2,
+            lineHeight: 1.2,
             color: look.accent,
             textTransform: "uppercase",
             borderBottomWidth: look.modern ? 0 : 1,
