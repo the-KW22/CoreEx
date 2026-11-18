@@ -16,7 +16,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "basics.headline",
     "width": 137,
     "x": 40,
-    "y": 54,
+    "y": 66,
   },
   {
     "height": 10,
@@ -24,7 +24,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "basics.email",
     "width": 388,
     "x": 40,
-    "y": 72,
+    "y": 85,
   },
   {
     "height": 12,
@@ -32,7 +32,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "summary",
     "width": 61,
     "x": 40,
-    "y": 103,
+    "y": 116,
   },
   {
     "height": 10,
@@ -40,7 +40,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "summary",
     "width": 446,
     "x": 40,
-    "y": 125,
+    "y": 139,
   },
   {
     "height": 12,
@@ -48,7 +48,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "section:experience",
     "width": 77,
     "x": 40,
-    "y": 151,
+    "y": 165,
   },
   {
     "height": 10,
@@ -56,7 +56,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:exp-1:title",
     "width": 122,
     "x": 40,
-    "y": 173,
+    "y": 188,
   },
   {
     "height": 10,
@@ -64,7 +64,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:exp-1:dates",
     "width": 86,
     "x": 470,
-    "y": 173,
+    "y": 188,
   },
   {
     "height": 10,
@@ -72,7 +72,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:exp-1:subtitle",
     "width": 110,
     "x": 40,
-    "y": 187,
+    "y": 201,
   },
   {
     "height": 10,
@@ -80,7 +80,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:exp-1:description",
     "width": 222,
     "x": 54,
-    "y": 200,
+    "y": 215,
   },
   {
     "height": 10,
@@ -88,7 +88,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:exp-1:description",
     "width": 225,
     "x": 54,
-    "y": 215,
+    "y": 229,
   },
   {
     "height": 10,
@@ -96,7 +96,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:exp-1:keywords",
     "width": 80,
     "x": 40,
-    "y": 232,
+    "y": 247,
   },
   {
     "height": 10,
@@ -104,7 +104,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:exp-2:title",
     "width": 88,
     "x": 40,
-    "y": 252,
+    "y": 266,
   },
   {
     "height": 10,
@@ -112,7 +112,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:exp-2:dates",
     "width": 92,
     "x": 464,
-    "y": 252,
+    "y": 266,
   },
   {
     "height": 10,
@@ -120,7 +120,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:exp-2:subtitle",
     "width": 115,
     "x": 40,
-    "y": 265,
+    "y": 280,
   },
   {
     "height": 10,
@@ -128,7 +128,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:exp-2:description",
     "width": 259,
     "x": 40,
-    "y": 279,
+    "y": 293,
   },
   {
     "height": 12,
@@ -136,7 +136,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "section:education",
     "width": 70,
     "x": 40,
-    "y": 311,
+    "y": 325,
   },
   {
     "height": 10,
@@ -144,7 +144,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:edu-1:title",
     "width": 110,
     "x": 40,
-    "y": 333,
+    "y": 348,
   },
   {
     "height": 10,
@@ -152,7 +152,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:edu-1:dates",
     "width": 93,
     "x": 463,
-    "y": 333,
+    "y": 348,
   },
   {
     "height": 10,
@@ -160,7 +160,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:edu-1:subtitle",
     "width": 96,
     "x": 40,
-    "y": 346,
+    "y": 361,
   },
   {
     "height": 12,
@@ -168,7 +168,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "section:skills",
     "width": 43,
     "x": 40,
-    "y": 375,
+    "y": 391,
   },
   {
     "height": 10,
@@ -176,7 +176,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:skill-1:title",
     "width": 41,
     "x": 40,
-    "y": 397,
+    "y": 413,
   },
   {
     "height": 10,
@@ -184,7 +184,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:skill-1:keywords",
     "width": 104,
     "x": 40,
-    "y": 411,
+    "y": 427,
   },
   {
     "height": 10,
@@ -192,7 +192,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:skill-2:title",
     "width": 43,
     "x": 40,
-    "y": 430,
+    "y": 446,
   },
   {
     "height": 10,
@@ -200,7 +200,7 @@ exports[`the page map > finds every field of the sample Resume on page 1 (snapsh
     "ref": "entry:skill-2:keywords",
     "width": 78,
     "x": 40,
-    "y": 444,
+    "y": 460,
   },
 ]
 `;
@@ -221,7 +221,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "basics.headline",
     "width": 137,
     "x": 40,
-    "y": 54,
+    "y": 66,
   },
   {
     "height": 10,
@@ -229,7 +229,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "basics.email",
     "width": 388,
     "x": 40,
-    "y": 72,
+    "y": 85,
   },
   {
     "height": 12,
@@ -237,7 +237,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "summary",
     "width": 61,
     "x": 40,
-    "y": 103,
+    "y": 116,
   },
   {
     "height": 10,
@@ -245,7 +245,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "summary",
     "width": 446,
     "x": 40,
-    "y": 125,
+    "y": 139,
   },
   {
     "height": 12,
@@ -253,7 +253,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "section:experience",
     "width": 77,
     "x": 40,
-    "y": 151,
+    "y": 165,
   },
   {
     "height": 10,
@@ -261,7 +261,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:exp-1:title",
     "width": 122,
     "x": 40,
-    "y": 173,
+    "y": 188,
   },
   {
     "height": 10,
@@ -269,7 +269,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:exp-1:dates",
     "width": 86,
     "x": 470,
-    "y": 173,
+    "y": 188,
   },
   {
     "height": 10,
@@ -277,7 +277,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:exp-1:subtitle",
     "width": 110,
     "x": 40,
-    "y": 187,
+    "y": 201,
   },
   {
     "height": 10,
@@ -285,7 +285,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:exp-1:description",
     "width": 222,
     "x": 54,
-    "y": 200,
+    "y": 215,
   },
   {
     "height": 10,
@@ -293,7 +293,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:exp-1:description",
     "width": 225,
     "x": 54,
-    "y": 215,
+    "y": 229,
   },
   {
     "height": 10,
@@ -301,7 +301,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:exp-1:keywords",
     "width": 80,
     "x": 40,
-    "y": 232,
+    "y": 247,
   },
   {
     "height": 10,
@@ -309,7 +309,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:exp-2:title",
     "width": 88,
     "x": 40,
-    "y": 252,
+    "y": 266,
   },
   {
     "height": 10,
@@ -317,7 +317,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:exp-2:dates",
     "width": 92,
     "x": 464,
-    "y": 252,
+    "y": 266,
   },
   {
     "height": 10,
@@ -325,7 +325,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:exp-2:subtitle",
     "width": 115,
     "x": 40,
-    "y": 265,
+    "y": 280,
   },
   {
     "height": 10,
@@ -333,7 +333,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:exp-2:description",
     "width": 259,
     "x": 40,
-    "y": 279,
+    "y": 293,
   },
   {
     "height": 12,
@@ -341,7 +341,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "section:education",
     "width": 70,
     "x": 40,
-    "y": 311,
+    "y": 325,
   },
   {
     "height": 10,
@@ -349,7 +349,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:edu-1:title",
     "width": 110,
     "x": 40,
-    "y": 333,
+    "y": 348,
   },
   {
     "height": 10,
@@ -357,7 +357,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:edu-1:dates",
     "width": 93,
     "x": 463,
-    "y": 333,
+    "y": 348,
   },
   {
     "height": 10,
@@ -365,7 +365,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:edu-1:subtitle",
     "width": 96,
     "x": 40,
-    "y": 346,
+    "y": 361,
   },
   {
     "height": 12,
@@ -373,7 +373,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "section:skills",
     "width": 43,
     "x": 40,
-    "y": 375,
+    "y": 391,
   },
   {
     "height": 10,
@@ -381,7 +381,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:skill-1:title",
     "width": 41,
     "x": 40,
-    "y": 397,
+    "y": 413,
   },
   {
     "height": 10,
@@ -389,7 +389,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:skill-1:keywords",
     "width": 104,
     "x": 40,
-    "y": 411,
+    "y": 427,
   },
   {
     "height": 10,
@@ -397,7 +397,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:skill-2:title",
     "width": 43,
     "x": 40,
-    "y": 430,
+    "y": 446,
   },
   {
     "height": 10,
@@ -405,7 +405,7 @@ exports[`the page map > the classic template prints every section and the map fi
     "ref": "entry:skill-2:keywords",
     "width": 78,
     "x": 40,
-    "y": 444,
+    "y": 460,
   },
 ]
 `;
@@ -426,7 +426,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "basics.headline",
     "width": 137,
     "x": 40,
-    "y": 54,
+    "y": 66,
   },
   {
     "height": 10,
@@ -434,7 +434,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "basics.email",
     "width": 388,
     "x": 40,
-    "y": 72,
+    "y": 85,
   },
   {
     "height": 12,
@@ -442,7 +442,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "summary",
     "width": 61,
     "x": 40,
-    "y": 129,
+    "y": 142,
   },
   {
     "height": 10,
@@ -450,7 +450,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "summary",
     "width": 446,
     "x": 40,
-    "y": 148,
+    "y": 162,
   },
   {
     "height": 12,
@@ -458,7 +458,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "section:experience",
     "width": 77,
     "x": 40,
-    "y": 174,
+    "y": 188,
   },
   {
     "height": 10,
@@ -466,7 +466,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:exp-1:title",
     "width": 122,
     "x": 40,
-    "y": 193,
+    "y": 208,
   },
   {
     "height": 10,
@@ -474,7 +474,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:exp-1:dates",
     "width": 86,
     "x": 470,
-    "y": 193,
+    "y": 208,
   },
   {
     "height": 10,
@@ -482,7 +482,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:exp-1:subtitle",
     "width": 110,
     "x": 40,
-    "y": 207,
+    "y": 221,
   },
   {
     "height": 10,
@@ -490,7 +490,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:exp-1:description",
     "width": 222,
     "x": 54,
-    "y": 220,
+    "y": 235,
   },
   {
     "height": 10,
@@ -498,7 +498,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:exp-1:description",
     "width": 225,
     "x": 54,
-    "y": 235,
+    "y": 249,
   },
   {
     "height": 10,
@@ -506,7 +506,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:exp-1:keywords",
     "width": 80,
     "x": 40,
-    "y": 252,
+    "y": 267,
   },
   {
     "height": 10,
@@ -514,7 +514,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:exp-2:title",
     "width": 88,
     "x": 40,
-    "y": 272,
+    "y": 286,
   },
   {
     "height": 10,
@@ -522,7 +522,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:exp-2:dates",
     "width": 92,
     "x": 464,
-    "y": 272,
+    "y": 286,
   },
   {
     "height": 10,
@@ -530,7 +530,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:exp-2:subtitle",
     "width": 115,
     "x": 40,
-    "y": 285,
+    "y": 300,
   },
   {
     "height": 10,
@@ -538,7 +538,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:exp-2:description",
     "width": 259,
     "x": 40,
-    "y": 299,
+    "y": 313,
   },
   {
     "height": 12,
@@ -546,7 +546,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "section:education",
     "width": 70,
     "x": 40,
-    "y": 331,
+    "y": 345,
   },
   {
     "height": 10,
@@ -554,7 +554,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:edu-1:title",
     "width": 110,
     "x": 40,
-    "y": 350,
+    "y": 365,
   },
   {
     "height": 10,
@@ -562,7 +562,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:edu-1:dates",
     "width": 93,
     "x": 463,
-    "y": 350,
+    "y": 365,
   },
   {
     "height": 10,
@@ -570,7 +570,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:edu-1:subtitle",
     "width": 96,
     "x": 40,
-    "y": 363,
+    "y": 378,
   },
   {
     "height": 12,
@@ -578,7 +578,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "section:skills",
     "width": 43,
     "x": 40,
-    "y": 392,
+    "y": 408,
   },
   {
     "height": 10,
@@ -586,7 +586,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:skill-1:title",
     "width": 41,
     "x": 40,
-    "y": 411,
+    "y": 427,
   },
   {
     "height": 10,
@@ -594,7 +594,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:skill-1:keywords",
     "width": 104,
     "x": 40,
-    "y": 425,
+    "y": 441,
   },
   {
     "height": 10,
@@ -602,7 +602,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:skill-2:title",
     "width": 43,
     "x": 40,
-    "y": 444,
+    "y": 460,
   },
   {
     "height": 10,
@@ -610,7 +610,7 @@ exports[`the page map > the modern template prints every section and the map fin
     "ref": "entry:skill-2:keywords",
     "width": 78,
     "x": 40,
-    "y": 458,
+    "y": 474,
   },
 ]
 `;
@@ -631,7 +631,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "basics.headline",
     "width": 137,
     "x": 40,
-    "y": 54,
+    "y": 66,
   },
   {
     "height": 10,
@@ -639,7 +639,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "basics.email",
     "width": 388,
     "x": 40,
-    "y": 72,
+    "y": 85,
   },
   {
     "height": 12,
@@ -647,7 +647,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "section:skills",
     "width": 43,
     "x": 40,
-    "y": 103,
+    "y": 116,
   },
   {
     "height": 10,
@@ -655,7 +655,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:skill-1:title",
     "width": 41,
     "x": 40,
-    "y": 125,
+    "y": 139,
   },
   {
     "height": 10,
@@ -663,7 +663,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:skill-1:keywords",
     "width": 104,
     "x": 40,
-    "y": 139,
+    "y": 152,
   },
   {
     "height": 10,
@@ -671,7 +671,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:skill-2:title",
     "width": 43,
     "x": 40,
-    "y": 158,
+    "y": 172,
   },
   {
     "height": 10,
@@ -679,7 +679,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:skill-2:keywords",
     "width": 78,
     "x": 40,
-    "y": 172,
+    "y": 185,
   },
   {
     "height": 12,
@@ -687,7 +687,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "summary",
     "width": 61,
     "x": 210,
-    "y": 103,
+    "y": 116,
   },
   {
     "height": 24,
@@ -695,7 +695,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "summary",
     "width": 345,
     "x": 210,
-    "y": 125,
+    "y": 139,
   },
   {
     "height": 12,
@@ -703,7 +703,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "section:experience",
     "width": 77,
     "x": 210,
-    "y": 165,
+    "y": 178,
   },
   {
     "height": 10,
@@ -711,7 +711,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:exp-1:title",
     "width": 122,
     "x": 210,
-    "y": 187,
+    "y": 201,
   },
   {
     "height": 10,
@@ -719,7 +719,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:exp-1:dates",
     "width": 86,
     "x": 470,
-    "y": 187,
+    "y": 201,
   },
   {
     "height": 10,
@@ -727,7 +727,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:exp-1:subtitle",
     "width": 110,
     "x": 210,
-    "y": 200,
+    "y": 215,
   },
   {
     "height": 10,
@@ -735,7 +735,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:exp-1:description",
     "width": 222,
     "x": 224,
-    "y": 214,
+    "y": 228,
   },
   {
     "height": 10,
@@ -743,7 +743,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:exp-1:description",
     "width": 225,
     "x": 224,
-    "y": 228,
+    "y": 243,
   },
   {
     "height": 10,
@@ -751,7 +751,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:exp-1:keywords",
     "width": 80,
     "x": 210,
-    "y": 246,
+    "y": 260,
   },
   {
     "height": 10,
@@ -759,7 +759,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:exp-2:title",
     "width": 88,
     "x": 210,
-    "y": 265,
+    "y": 280,
   },
   {
     "height": 10,
@@ -767,7 +767,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:exp-2:dates",
     "width": 92,
     "x": 464,
-    "y": 265,
+    "y": 280,
   },
   {
     "height": 10,
@@ -775,7 +775,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:exp-2:subtitle",
     "width": 115,
     "x": 210,
-    "y": 279,
+    "y": 293,
   },
   {
     "height": 10,
@@ -783,7 +783,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:exp-2:description",
     "width": 259,
     "x": 210,
-    "y": 292,
+    "y": 307,
   },
   {
     "height": 12,
@@ -791,7 +791,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "section:education",
     "width": 70,
     "x": 210,
-    "y": 324,
+    "y": 339,
   },
   {
     "height": 10,
@@ -799,7 +799,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:edu-1:title",
     "width": 110,
     "x": 210,
-    "y": 346,
+    "y": 361,
   },
   {
     "height": 10,
@@ -807,7 +807,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:edu-1:dates",
     "width": 93,
     "x": 463,
-    "y": 346,
+    "y": 361,
   },
   {
     "height": 10,
@@ -815,7 +815,7 @@ exports[`the page map > the sidebar template prints every section and the map fi
     "ref": "entry:edu-1:subtitle",
     "width": 96,
     "x": 210,
-    "y": 360,
+    "y": 375,
   },
 ]
 `;
