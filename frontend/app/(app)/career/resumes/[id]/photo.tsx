@@ -23,8 +23,9 @@ function Slider({ label, value, min, max, onChange }: { label: string; value: nu
   );
 }
 
-// The photo in Write mode: pick one of your PNG or JPEG Assets or upload a new one (kept as an Asset, so it can be reused),
-// then its frame (show, size, shape) and crop (where the picture sits in the frame, and how much it is zoomed).
+// The photo in Write mode, inside its card (which gives it the heading): pick one of your PNG or JPEG Assets or upload a
+// new one (kept as an Asset, so it can be reused), then its frame (show, size, shape) and crop (where the picture sits in
+// the frame, and how much it is zoomed).
 export function PhotoSection({ photo, photoSrc, dispatch }: { photo: Photo; photoSrc: string | null; dispatch: Dispatch<Action> }) {
   const [assets, setAssets] = useState<ImageAsset[]>([]);
   const [message, setMessage] = useState("");
@@ -60,10 +61,7 @@ export function PhotoSection({ photo, photoSrc, dispatch }: { photo: Photo; phot
 
   const has = photo.assetId !== "";
   return (
-    <section aria-labelledby="photo" className="grid gap-3">
-      <h2 id="photo" className="text-lg font-semibold">
-        Photo
-      </h2>
+    <div className="grid gap-3">
       <div className="flex flex-wrap items-center gap-3">
         <div className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-lg border border-border bg-surface text-muted-foreground">
           {has && photoSrc ? (
@@ -139,6 +137,6 @@ export function PhotoSection({ photo, photoSrc, dispatch }: { photo: Photo; phot
           <Slider label="Zoom (%)" value={photo.zoom} min={100} max={300} onChange={(zoom) => set({ zoom })} />
         </div>
       )}
-    </section>
+    </div>
   );
 }

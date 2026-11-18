@@ -50,6 +50,7 @@ export const ImproveProvider = ImproveContext.Provider;
 export const Locked = ({ value, children }: { value: boolean; children: React.ReactNode }) => (
   <LockedContext.Provider value={value}>{children}</LockedContext.Provider>
 );
+export const useLocked = () => useContext(LockedContext);
 
 const tool =
   "inline-flex size-8 items-center justify-center rounded-md border border-transparent hover:bg-surface aria-pressed:border-border aria-pressed:bg-surface";

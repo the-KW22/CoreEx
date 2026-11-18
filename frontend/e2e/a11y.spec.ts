@@ -3120,7 +3120,8 @@ test("Resume downloads Word, Markdown and a JSON backup", async ({ page, context
   await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
   const preview = page.getByRole("region", { name: "Page preview" });
   for (const [label, extension] of [["Word", "docx"], ["Markdown", "md"], ["JSON", "json"]] as const) {
-    const [download] = await Promise.all([page.waitForEvent("download"), preview.getByRole("button", { name: `Download ${label}` }).click()]);
+    await preview.getByRole("button", { name: "Download", exact: true }).click();
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: `Download ${label}` }).click()]);
     expect(download.suggestedFilename()).toMatch(new RegExp(`\\.${extension}$`));
     const bytes = await readFile(await download.path());
     if (extension === "docx") {
@@ -3137,7 +3138,8 @@ test("Resume downloads Word, Markdown and a JSON backup", async ({ page, context
   await other.goto(page.url());
   await other.getByLabel("Name", { exact: true }).fill("Changed elsewhere");
   await expect(other.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
-  await preview.getByRole("button", { name: "Download Markdown" }).click();
+  await preview.getByRole("button", { name: "Download", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Download Markdown" }).click();
   await expect(preview.getByRole("alert")).toContainText("Could not download");
   await other.close();
 });
@@ -3221,7 +3223,9 @@ test("the Resume preview shows the page at real size, follows typing, zooms, and
   const preview = page.getByRole("region", { name: "Page preview" });
   const sheet = preview.getByRole("img", { name: "Page 1 of 1" });
   await expect(sheet).toBeVisible({ timeout: 30_000 });
-  // A4 at 100% is 595 points wide, which is about 794 CSS pixels.
+  // The page opens fitted to the width of its column; Reset zoom goes to 100%, where A4 is 595 points wide, about 794 CSS pixels.
+  await preview.getByRole("button", { name: "Reset zoom" }).click();
+  await expect(preview.getByRole("button", { name: "Reset zoom" })).toHaveText("100%");
   const before = (await sheet.boundingBox())!;
   expect(Math.round(before.width)).toBeGreaterThan(780);
   expect(Math.round(before.width)).toBeLessThan(810);
@@ -3241,7 +3245,8 @@ test("the Resume preview shows the page at real size, follows typing, zooms, and
   await preview.getByRole("button", { name: "Reset zoom" }).click();
 
   // The download is a PDF named after the Resume, with real text in it.
-  const [download] = await Promise.all([page.waitForEvent("download"), preview.getByRole("button", { name: "Download PDF" }).click()]);
+  await preview.getByRole("button", { name: "Download", exact: true }).click();
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download PDF" }).click()]);
   expect(download.suggestedFilename()).toBe(`${name}.pdf`);
   const path = await download.path();
   const { readFile } = await import("node:fs/promises");
@@ -3287,7 +3292,11 @@ test("sections and entries are added, reordered, hidden and printed in one date 
   const names = page.getByRole("textbox", { name: "Section name" });
   await expect(names.nth(0)).toHaveValue("Education");
   await expect(names.nth(1)).toHaveValue("Experience");
-  const again = page.getByRole("region", { name: "Experience", exact: true }).getByRole("list", { name: "Entries of Experience" }).getByRole("listitem").filter({ has: page.getByLabel("Title", { exact: true }) });
+  // Entries come back as one line each after a reload: open them to read their fields.
+  const listed = page.getByRole("region", { name: "Experience", exact: true }).getByRole("list", { name: "Entries of Experience" }).getByRole("listitem");
+  await listed.nth(0).getByRole("button", { name: /^Designer/ }).click();
+  await listed.nth(1).getByRole("button", { name: /^Engineer/ }).click();
+  const again = listed.filter({ has: page.getByLabel("Title", { exact: true }) });
   await expect(again.nth(0).getByLabel("Title", { exact: true })).toHaveValue("Designer");
   await expect(again.nth(1).getByLabel("Title", { exact: true })).toHaveValue("Engineer");
   await expect(page.getByRole("button", { name: "Show Engineer" })).toBeVisible();
@@ -3524,7 +3533,8 @@ test("a photo is uploaded as an Asset, reaches the PDF, changes its frame, survi
 
   // The downloaded PDF has an image in it only while there is a photo.
   const hasImage = async () => {
-    const [download] = await Promise.all([page.waitForEvent("download"), preview.getByRole("button", { name: "Download PDF" }).click()]);
+    await preview.getByRole("button", { name: "Download", exact: true }).click();
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download PDF" }).click()]);
     const { readFile } = await import("node:fs/promises");
     return /\/Subtype\s*\/Image/.test((await readFile(await download.path())).toString("latin1"));
   };
@@ -3616,6 +3626,8 @@ test("the library searches and sorts Resumes, draws their first page, files them
 
   // A Folder and a Tag, set on the Resume's page (a Resume is an Item).
   await list.getByRole("link", { name: alpha }).click();
+  // The Folder, Tags and Backlinks are folded under Details until asked for.
+  await page.getByRole("button", { name: "Details", exact: true }).click();
   const organise = page.getByRole("region", { name: "Folder and Tags" });
   await expect(page.getByRole("heading", { name: "Backlinks" })).toBeVisible();
   await chooseFolder(page, organise, "Folder", folderName);
