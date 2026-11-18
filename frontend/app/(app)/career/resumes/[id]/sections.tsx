@@ -19,7 +19,7 @@ import { DATE_FORMATS } from "@/lib/resume/dates";
 import { cn } from "@/lib/utils";
 
 import { EditorCard, useOpenState } from "./cards";
-import { RichText } from "./rich-text";
+import { RichText, useLocked } from "./rich-text";
 import { type Action, DEFAULT_TITLES, type Entry, type Kind, type ResumeDocument, type Role, type Section } from "./store";
 
 const input = "h-9 w-full rounded-lg border border-border bg-surface px-3";
@@ -125,7 +125,8 @@ function EntryForm({
   const [keywords, setKeywords] = useState(entry.keywords.join(", "));
   const { isOpen, setOpen } = useOpenState();
   const key = `entry:${entry.id}`;
-  const open = isOpen(key, false);
+  // A locked Resume disables the form, open buttons included, so its entries start open to stay readable.
+  const open = isOpen(key, useLocked());
   const dates = [entry.startDate, entry.endDate].filter(Boolean).map((d) => (d === "present" ? "Present" : d)).join(" – ");
   const summary = [entry.subtitle, dates].filter(Boolean).join(" · ");
   return (
