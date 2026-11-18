@@ -495,7 +495,9 @@ export function ResumeEditor({
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-0">
-        <div className="grid min-w-0 content-start gap-6 lg:border-r lg:border-border lg:pr-8">
+        {/* Every grid item in the editor may shrink: a collapsed entry's one-line (truncated) summary would otherwise
+            widen the column to its full length and push the fields under the preview. */}
+        <div className="grid min-w-0 content-start gap-6 lg:border-r lg:border-border lg:pr-8 [&_.grid>*]:min-w-0">
         {mode === "write" && (
           <nav aria-label="Jump to" className="flex flex-wrap gap-2">
             {jumps.map((j) => (
