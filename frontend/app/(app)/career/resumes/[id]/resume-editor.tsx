@@ -291,8 +291,8 @@ export function ResumeEditor({
     if (ref.startsWith("basics.")) return ["card:contact"];
     if (ref === "summary") return ["card:summary"];
     if (ref.startsWith("section:")) return [`card:${ref}`];
-    const entryId = /^entry:([^:]+):/.exec(ref)?.[1];
-    const roleId = /^role:([^:]+):/.exec(ref)?.[1];
+    const entryId = /^entry:([^:]+)/.exec(ref)?.[1];
+    const roleId = /^role:([^:]+)/.exec(ref)?.[1];
     const hit = doc.sections.flatMap((s) => s.entries.map((entry) => ({ section: s, entry }))).find(
       ({ entry }) => entry.id === entryId || entry.roles.some((role) => role.id === roleId),
     );
