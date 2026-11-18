@@ -1,11 +1,12 @@
 "use client";
 
-import { ChevronLeftIcon, LockIcon, LockOpenIcon, PlusIcon, Redo2Icon, Undo2Icon, XIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronLeftIcon, LockIcon, LockOpenIcon, PlusIcon, Redo2Icon, Undo2Icon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { parseCss, partOf } from "@/lib/resume/custom-css";
 import { fitToPage, intendedPages, LIMITS } from "@/lib/resume/fit";
 import { createMeasurer } from "@/lib/resume/measure";
@@ -27,6 +28,7 @@ import {
   type Review,
 } from "./actions";
 import { AiReview, matchingReview } from "./ai-review";
+import { cardDomId, EditorCard, OpenContext, type OpenState } from "./cards";
 import { Preview } from "./preview";
 import { Controls } from "./controls";
 import { Design } from "./design";
@@ -36,7 +38,7 @@ import { History } from "./history";
 import { PhotoSection } from "./photo";
 import { ImproveProvider, Locked, RichText } from "./rich-text";
 import { Sections } from "./sections";
-import { type Action, init, reduce, type ResumeDocument } from "./store";
+import { DEFAULT_TITLES, type Action, init, reduce, type ResumeDocument } from "./store";
 
 const DEBOUNCE_MS = 1000;
 const STORE_MS = 300;
@@ -50,6 +52,8 @@ const CONTACT = [
   { field: "location", label: "Location", autoComplete: "address-level2" },
   { field: "website", label: "Website", autoComplete: "url" },
 ] as const;
+
+const MODES = ["write", "design", "check", "history"] as const;
 
 // The Resume editor, Write mode: contact details and the summary, saved as you type. The text stays in the browser
 // until it is saved, so a closed tab or an unreachable API loses nothing.
@@ -69,6 +73,8 @@ export function ResumeEditor({
   // Bumped when the stored Resume replaces the text, so the rich text field starts again from it.
   const [generation, setGeneration] = useState(0);
   const [notice, setNotice] = useState("");
+  // Why Fit to page could not fit the Resume. It is shown in the overflow banner beside the page, not up here.
+  const [fitNote, setFitNote] = useState("");
   const [reviews, setReviews] = useState<Review[]>([]);
   const [locked, setLocked] = useState(initial.locked);
   const [mode, setMode] = useState<"write" | "design" | "check" | "history">("write");
@@ -78,6 +84,10 @@ export function ResumeEditor({
   const [historyRefresh, setHistoryRefresh] = useState(0);
   const [restoring, setRestoring] = useState(false);
   const [fitting, setFitting] = useState(false);
+  // The Folder, Tags and Backlinks, folded away until asked for.
+  const [details, setDetails] = useState(false);
+  // Cards and entries the User opened or closed. Anything not in here keeps its default.
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
   // The photo picture for an Asset id, once it has been fetched (null: it cannot be shown).
   const [loadedPhoto, setLoadedPhoto] = useState<{ id: string; src: string | null } | null>(null);
   // Custom style text that has problems stays here, not in the document, until it is fixed. Null: the document's own.
@@ -167,6 +177,16 @@ export function ResumeEditor({
     (field.querySelector<HTMLElement>("[contenteditable=true]") ?? field).focus();
   }
 
+  // The open state of the cards and entries, shared with the form below.
+  const openState = useMemo<OpenState>(
+    () => ({
+      isOpen: (key, fallback) => (key in overrides ? overrides[key] : fallback),
+      setOpen: (key, open) => setOverrides((prev) => ({ ...prev, [key]: open })),
+      reveal: (keys) => setOverrides((prev) => ({ ...prev, ...Object.fromEntries(keys.map((key) => [key, true])) })),
+    }),
+    [overrides],
+  );
+
   // The picture of the photo, fetched whenever another Asset is chosen. It is shown only for the Asset it was fetched for.
   const photoId = state.doc.basics.photo.assetId;
   useEffect(() => {
@@ -221,12 +241,13 @@ export function ResumeEditor({
   async function fit() {
     setFitting(true);
     setNotice("");
+    setFitNote("");
     const measurer = createMeasurer(photoSrc);
     try {
       const pages = intendedPages(doc);
       const result = await fitToPage(doc, measurer.pagesFor);
       if (!result) {
-        setNotice(
+        setFitNote(
           `This Resume does not fit on ${pages === 1 ? "one page" : `${pages} pages`} even with compact density, ${LIMITS.margin} pt margins and ${LIMITS.fontSize} pt text, so nothing was changed. Add a page, or shorten the text.`,
         );
       } else if (Object.keys(result.patch).length > 0) {
@@ -265,15 +286,38 @@ export function ResumeEditor({
     requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-field="custom-css"]')?.focus());
   }
 
+  // The cards and entries a reference sits in: they must be open before its field can be reached.
+  function cardsFor(ref: string): string[] {
+    if (ref.startsWith("basics.")) return ["card:contact"];
+    if (ref === "summary") return ["card:summary"];
+    if (ref.startsWith("section:")) return [`card:${ref}`];
+    const entryId = /^entry:([^:]+):/.exec(ref)?.[1];
+    const roleId = /^role:([^:]+):/.exec(ref)?.[1];
+    const hit = doc.sections.flatMap((s) => s.entries.map((entry) => ({ section: s, entry }))).find(
+      ({ entry }) => entry.id === entryId || entry.roles.some((role) => role.id === roleId),
+    );
+    return hit ? [`card:section:${hit.section.id}`, `entry:${hit.entry.id}`] : [];
+  }
+
   // A click on the page: jump to the field it came from. From Design mode the form comes back first.
   function select(ref: string) {
     if (picking) return pick(ref);
     if (ref === "design") { setMode("design"); return; }
-    if (mode === "write") return focusField(ref);
-    setMode("write");
-    setCandidate(null);
-    setViewing(null);
+    if (mode !== "write") {
+      setMode("write");
+      setCandidate(null);
+      setViewing(null);
+    }
+    const keys = cardsFor(ref);
+    if (keys.length > 0) openState.reveal(keys);
+    // The form is drawn after the cards open, so the field is looked for on the next frame.
     requestAnimationFrame(() => focusField(ref));
+  }
+
+  // The jump list: opens a card and scrolls to it.
+  function jump(key: string) {
+    openState.reveal([key]);
+    requestAnimationFrame(() => document.getElementById(cardDomId(key))?.scrollIntoView({ block: "start", behavior: "smooth" }));
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -356,10 +400,18 @@ export function ResumeEditor({
     [doc, candidate, viewing],
   );
   const unsavedLabel = state.status === "error" ? "Not saved" : state.status === "saving" ? "Saving…" : state.status === "unsaved" ? "Unsaved changes" : "Saved";
+  // The jump list: the editor's cards in the order they are drawn.
+  const jumps = [
+    { key: "card:contact", label: "Contact" },
+    { key: "card:summary", label: "Summary" },
+    ...doc.sections.map((s) => ({ key: `card:section:${s.id}`, label: s.title.trim() || DEFAULT_TITLES[s.kind] })),
+    { key: "card:notes", label: "Private notes" },
+  ];
 
   return (
+    <OpenContext.Provider value={openState}>
     <div className="mx-auto grid max-w-7xl gap-6" onKeyDown={onKeyDown}>
-      <header className="grid gap-3">
+      <header className="grid gap-3 border-b border-border pb-4">
         <Link href="/career/library" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ChevronLeftIcon aria-hidden className="size-4" />
           Resumes &amp; Letters
@@ -399,12 +451,29 @@ export function ResumeEditor({
             This Resume is locked. Unlock it to change it.
           </p>
         )}
-        <section aria-label="Folder and Tags" className="flex flex-wrap items-start gap-x-8 gap-y-3 text-sm">
-          {organise}
-        </section>
-        {backlinks}
-        <nav aria-label="Mode" className="flex gap-2 text-sm">
-          {(["write", "design", "check", "history"] as const).map((m) => (
+        <Collapsible open={details} onOpenChange={setDetails} className="grid gap-3">
+          <div>
+            <CollapsibleTrigger asChild>
+              <Button type="button" variant="ghost" size="sm">
+                <ChevronDownIcon aria-hidden className={cn("transition-transform", !details && "-rotate-90")} />
+                Details
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent className="grid gap-3">
+            <section aria-label="Folder and Tags" className="flex flex-wrap items-start gap-x-8 gap-y-3 text-sm">
+              {organise}
+            </section>
+            {backlinks}
+          </CollapsibleContent>
+        </Collapsible>
+        {notice && (
+          <p role="status" className="rounded-lg border border-border bg-surface px-3 py-2 text-sm">
+            {notice}
+          </p>
+        )}
+        <nav aria-label="Mode" className="-mb-px flex gap-1 text-sm">
+          {MODES.map((m) => (
             <button
               key={m}
               type="button"
@@ -414,20 +483,28 @@ export function ResumeEditor({
                 if (m !== "design") setCandidate(null);
                 if (m !== "history") setViewing(null);
               }}
-              className={cn("rounded-lg border border-border px-3 py-1.5 hover:bg-surface", mode === m && "bg-surface font-medium")}
+              className={cn(
+                "-mb-px border-b-2 px-3 py-2 text-muted-foreground hover:text-foreground",
+                mode === m ? "border-link font-medium text-foreground" : "border-transparent",
+              )}
             >
               {m === "write" ? "Write" : m === "design" ? "Design" : m === "check" ? "Check" : "History"}
             </button>
           ))}
         </nav>
-        {notice && (
-          <p role="status" className="rounded-lg border border-border bg-surface px-3 py-2 text-sm">
-            {notice}
-          </p>
-        )}
       </header>
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-0">
+        <div className="grid min-w-0 content-start gap-6 lg:border-r lg:border-border lg:pr-8">
+        {mode === "write" && (
+          <nav aria-label="Jump to" className="flex flex-wrap gap-2">
+            {jumps.map((j) => (
+              <Button key={j.key} type="button" variant="outline" size="sm" className="rounded-full" onClick={() => jump(j.key)}>
+                {j.label}
+              </Button>
+            ))}
+          </nav>
+        )}
         <ImproveProvider value={{ id, version: state.version, ready: state.status === "saved" && !locked && !viewing, applied: (value) => {
           if (latest.current.status !== "saved" || latest.current.version !== value.version - 1) {
             void keepMineAndReload();
@@ -437,10 +514,7 @@ export function ResumeEditor({
           setGeneration((g) => g + 1); setHistoryRefresh((n) => n + 1); clearUnsaved(id, session);
         } }}><Locked value={locked}>
         <fieldset disabled={locked} className={cn("m-0 grid min-w-0 content-start gap-6 border-0 p-0", mode !== "write" && "hidden")}>
-          <section aria-labelledby="contact" className="grid gap-3">
-            <h2 id="contact" className="text-lg font-semibold">
-              Contact details
-            </h2>
+          <EditorCard cardKey="card:contact" label="Contact details" title={<h2 className="min-w-0 flex-1 text-lg font-semibold">Contact details</h2>}>
             <div className="grid gap-3 sm:grid-cols-2">
               {CONTACT.map(({ field, label, autoComplete }) => (
                 <label key={field} className="grid gap-1 text-sm font-medium">
@@ -489,23 +563,19 @@ export function ResumeEditor({
                 Add a detail
               </Button>
             </div>
-          </section>
+          </EditorCard>
 
-          <PhotoSection photo={doc.basics.photo} photoSrc={photoSrc} dispatch={dispatch} />
+          <EditorCard cardKey="card:photo" label="Photo" title={<h2 className="min-w-0 flex-1 text-lg font-semibold">Photo</h2>}>
+            <PhotoSection photo={doc.basics.photo} photoSrc={photoSrc} dispatch={dispatch} />
+          </EditorCard>
 
-          <section aria-labelledby="summary" className="grid gap-2">
-            <h2 id="summary" className="text-lg font-semibold">
-              Summary
-            </h2>
+          <EditorCard cardKey="card:summary" label="Summary" title={<h2 className="min-w-0 flex-1 text-lg font-semibold">Summary</h2>}>
             <RichText key={generation} label="Summary" field="summary" html={doc.summary} onChange={(html) => dispatch({ type: "summary", html })} />
-          </section>
+          </EditorCard>
 
           <Sections key={generation} doc={doc} dispatch={act} />
 
-          <section aria-labelledby="notes" className="grid gap-2">
-            <h2 id="notes" className="text-lg font-semibold">
-              Private notes
-            </h2>
+          <EditorCard cardKey="card:notes" label="Private notes" title={<h2 className="min-w-0 flex-1 text-lg font-semibold">Private notes</h2>}>
             <label className="grid gap-1 text-sm">
               <span className="text-muted-foreground">Only you see these. They are excluded from PDF, Word and Markdown; the JSON backup includes them.</span>
               <textarea
@@ -516,7 +586,7 @@ export function ResumeEditor({
                 className="w-full rounded-lg border border-border bg-surface px-3 py-2"
               />
             </label>
-          </section>
+          </EditorCard>
         </fieldset>
         </Locked></ImproveProvider>
         {mode === "check" && <div className="grid min-w-0 content-start gap-6"><Check score={checks.score} issues={checks.issues} locked={locked} select={select}
@@ -571,13 +641,17 @@ export function ResumeEditor({
             </fieldset>
           </div>
         )}
+        </div>
 
-        <Preview checkMode={mode === "check"} pins={mode === "check" ? [...checks.issues.filter((i) => !i.ignored), ...reviewPins] : []} doc={shown} photoSrc={photoSrc} title={state.title} markdownAvailable={!viewing && !candidate && state.status === "saved"} onMarkdown={async () => {
-          const version = latest.current.version;
-          const result = await resumeMarkdown(id);
-          return result && result.version === version && latest.current.version === version && latest.current.status === "saved" ? result.markdown : null;
-        }} onSelect={select} fitting={fitting} onFit={() => void fit()} onAddPage={() => dispatch({ type: "design", patch: { pageCount: intendedPages(doc) + 1 } })} />
+        <div className="min-w-0 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:self-start lg:pl-8">
+          <Preview fill fitNote={fitNote} checkMode={mode === "check"} pins={mode === "check" ? [...checks.issues.filter((i) => !i.ignored), ...reviewPins] : []} doc={shown} photoSrc={photoSrc} title={state.title} markdownAvailable={!viewing && !candidate && state.status === "saved"} onMarkdown={async () => {
+            const version = latest.current.version;
+            const result = await resumeMarkdown(id);
+            return result && result.version === version && latest.current.version === version && latest.current.status === "saved" ? result.markdown : null;
+          }} onSelect={select} fitting={fitting} onFit={() => void fit()} onAddPage={() => dispatch({ type: "design", patch: { pageCount: intendedPages(doc) + 1 } })} />
+        </div>
       </div>
     </div>
+    </OpenContext.Provider>
   );
 }

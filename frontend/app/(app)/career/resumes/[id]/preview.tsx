@@ -1,9 +1,10 @@
 "use client";
 
-import { DownloadIcon, PrinterIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
+import { DownloadIcon, Maximize2Icon, PrinterIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { components } from "@/lib/api/schema";
 import { resumeBlocks } from "@/lib/resume/blocks";
 import { intendedPages, overflows } from "@/lib/resume/fit";
@@ -11,12 +12,15 @@ import { type Box, buildPageMap, readPages, segmentsOf } from "@/lib/resume/page
 import { useResumePdf } from "@/lib/resume/use-resume-pdf";
 import type { CheckIssue } from "@/lib/resume/check";
 import { comparePdfText, extractedText } from "@/lib/resume/parser";
+import { cn } from "@/lib/utils";
 
 type Doc = components["schemas"]["ResumeDocument"];
 
 // A PDF point is 1/72 inch; a CSS pixel 1/96, so 100% is the size the page prints at.
 const POINT = 96 / 72;
 const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+// The pages region's padding (p-4) on both sides, in CSS pixels.
+const GUTTER = 32;
 
 // An open PDF and the task that holds it open (pdfjs frees it through the task).
 type Open = { pdf: import("pdfjs-dist").PDFDocumentProxy; task: import("pdfjs-dist").PDFDocumentLoadingTask };
@@ -28,6 +32,7 @@ function fileName(title: string) {
 // The page as it will print: the PDF the worker made, drawn at real size with pdfjs. Download and Print use those very
 // bytes, so what is shown is what is saved. Over each page lie the boxes of the page map: hover outlines a field and a
 // click calls `onSelect` with its reference, so the editor can jump to it.
+// With `fill`, the column takes the height its parent gives it and the pages scroll inside it (the editor's sticky column).
 export function Preview({
   doc,
   title,
@@ -35,6 +40,8 @@ export function Preview({
   onFit,
   onAddPage,
   fitting,
+  fitNote = "",
+  fill = false,
   photoSrc,
   onMarkdown,
   markdownAvailable,
@@ -48,6 +55,9 @@ export function Preview({
   onFit: () => void;
   onAddPage: () => void;
   fitting: boolean;
+  // Why Fit to page could not fit the Resume. It is shown in the overflow banner, which it describes.
+  fitNote?: string;
+  fill?: boolean;
   photoSrc: string | null;
   onMarkdown: () => Promise<string | null>;
   markdownAvailable: boolean;
@@ -57,7 +67,10 @@ export function Preview({
 }) {
   const isLetter = !!letterDocument;
   const { bytes, doc: rendered, error, busy } = useResumePdf(doc, photoSrc, isLetter);
+  // Fit width (the default) makes the page as wide as the pages region; a zoom step or 100% leaves it.
+  const [fit, setFit] = useState(true);
   const [zoom, setZoom] = useState(1);
+  const [width, setWidth] = useState(0);
   const [sizes, setSizes] = useState<{ width: number; height: number }[]>([]);
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [loaded, setLoaded] = useState<Open | null>(null);
@@ -68,7 +81,17 @@ export function Preview({
   const [parsedDoc, setParsedDoc] = useState<Doc | null>(null);
   const [pdfWarnings, setPdfWarnings] = useState<string[] | null>(null);
   const canvases = useRef<(HTMLCanvasElement | null)[]>([]);
+  const region = useRef<HTMLDivElement>(null);
   const pages = sizes.length;
+
+  // The width of the pages region, so Fit width can work out the zoom that fills it.
+  useEffect(() => {
+    const el = region.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setWidth(el.clientWidth));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // A new PDF: read its pages and, from its text, the page map. pdfjs is loaded here, not at the top, because it needs
   // the browser.
@@ -103,6 +126,13 @@ export function Preview({
     };
   }, [bytes, rendered, isLetter]);
 
+  // The zoom in use: the width fit, rounded down so the page never spills, or the chosen one.
+  const pageWidth = sizes[0]?.width ?? 0;
+  const fitZoom = pageWidth && width > GUTTER ? Math.floor(((width - GUTTER) / (pageWidth * POINT)) * 100) / 100 : 1;
+  const effective = fit ? fitZoom : zoom;
+  const up = ZOOMS.find((z) => z > effective + 0.001);
+  const down = [...ZOOMS].reverse().find((z) => z < effective - 0.001);
+
   // Draws every page, again when the PDF or the zoom changes. Each page is drawn off screen and then copied, so the old
   // page stays in view until the new one is ready.
   useEffect(() => {
@@ -113,7 +143,7 @@ export function Preview({
         const ratio = window.devicePixelRatio || 1;
         for (let n = 1; n <= loaded.pdf.numPages; n++) {
           const page = await loaded.pdf.getPage(n);
-          const viewport = page.getViewport({ scale: POINT * zoom * ratio });
+          const viewport = page.getViewport({ scale: POINT * effective * ratio });
           const off = document.createElement("canvas");
           off.width = Math.floor(viewport.width);
           off.height = Math.floor(viewport.height);
@@ -131,7 +161,7 @@ export function Preview({
     return () => {
       stale = true;
     };
-  }, [loaded, zoom, sizes]);
+  }, [loaded, effective, sizes]);
 
   // A PDF that a newer one has replaced is let go (after its drawing was marked stale above).
   useEffect(
@@ -203,41 +233,51 @@ export function Preview({
     document.body.append(frame);
   }
 
-  const step = (direction: 1 | -1) => {
-    const at = ZOOMS.indexOf(zoom);
-    setZoom(ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, at + direction))]);
-  };
-
-  const scale = POINT * zoom;
+  const scale = POINT * effective;
   return (
-    <section aria-label="Page preview" className="grid min-w-0 content-start gap-3">
+    <section aria-label="Page preview" className={cn("flex min-w-0 flex-col gap-3", fill && "lg:h-full")}>
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" size="icon" aria-label="Zoom out" disabled={zoom === ZOOMS[0]} onClick={() => step(-1)}>
+        <Button type="button" variant="outline" size="icon" aria-label="Zoom out" disabled={!down} onClick={() => { if (down) { setFit(false); setZoom(down); } }}>
           <ZoomOutIcon aria-hidden />
         </Button>
-        <Button type="button" variant="outline" size="sm" aria-label={`Reset zoom, now ${Math.round(zoom * 100)}%`} onClick={() => setZoom(1)}>
-          {Math.round(zoom * 100)}%
+        <Button type="button" variant="outline" size="sm" aria-label={`Reset zoom, now ${Math.round(effective * 100)}%`} onClick={() => { setFit(false); setZoom(1); }}>
+          {Math.round(effective * 100)}%
         </Button>
-        <Button type="button" variant="outline" size="icon" aria-label="Zoom in" disabled={zoom === ZOOMS.at(-1)} onClick={() => step(1)}>
+        <Button type="button" variant="outline" size="icon" aria-label="Zoom in" disabled={!up} onClick={() => { if (up) { setFit(false); setZoom(up); } }}>
           <ZoomInIcon aria-hidden />
         </Button>
+        <Button type="button" variant="outline" size="sm" aria-pressed={fit} className={cn(fit && "bg-surface font-medium")} onClick={() => setFit(true)}>
+          <Maximize2Icon aria-hidden />
+          Fit width
+        </Button>
         <div className="ml-auto flex gap-2">
-          <Button type="button" variant="outline" size="sm" disabled={!bytes} onClick={download}>
-            <DownloadIcon aria-hidden />
-            Download PDF
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" size="sm">
+                <DownloadIcon aria-hidden />
+                Download
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem disabled={!bytes} onSelect={download}>
+                Download PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void downloadFormat("docx")}>Download Word</DropdownMenuItem>
+              <DropdownMenuItem disabled={!markdownAvailable} onSelect={() => void downloadFormat("md")}>
+                Download Markdown
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void downloadFormat("json")}>
+                Download JSON
+                {!letterDocument && <span className="block text-xs text-muted-foreground">The JSON backup includes private notes.</span>}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button type="button" variant="outline" size="sm" disabled={!bytes} onClick={print}>
             <PrinterIcon aria-hidden />
             Print
           </Button>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={() => void downloadFormat("docx")}>Download Word</Button>
-        <Button type="button" variant="outline" size="sm" disabled={!markdownAvailable} onClick={() => void downloadFormat("md")}>Download Markdown</Button>
-        <Button type="button" variant="outline" size="sm" onClick={() => void downloadFormat("json")}>Download JSON</Button>
-      </div>
-      {!letterDocument && <p className="text-sm text-muted-foreground">The JSON backup includes private notes.</p>}
       {checkMode && <div className="flex flex-wrap gap-2">
         <Button type="button" variant="outline" size="sm" disabled={!loaded || busy || rendered !== parsedDoc} onClick={() => setParser(!parser)}>{parser ? "Hide parser text" : "See what a parser reads"}</Button>
         <Button type="button" variant="outline" size="sm" disabled={!rendered || busy || !loaded || rendered !== parsedDoc} onClick={() => setPdfWarnings(comparePdfText(segmentsOf(resumeBlocks(rendered!)).map((s) => s.text), extracted))}>Check exported PDF</Button>
@@ -258,6 +298,7 @@ export function Preview({
           <Button type="button" variant="outline" size="sm" disabled={fitting} onClick={onAddPage}>
             Add a page
           </Button>
+          {fitNote && <p className="w-full">{fitNote}</p>}
         </div>
       )}
       {(error || drawError) && (
@@ -265,8 +306,18 @@ export function Preview({
           {error ?? drawError}
         </p>
       )}
-      <div className={checkMode && parser ? "grid gap-4 lg:grid-cols-2" : ""}>
-      <div role="region" aria-label="Pages" tabIndex={0} className="flex max-h-[80vh] flex-col gap-4 overflow-auto rounded-lg border border-border bg-muted p-4">
+      <div className={cn("flex min-h-0 flex-1 flex-col gap-4", checkMode && parser && "lg:flex-row")}>
+      <div
+        ref={region}
+        role="region"
+        aria-label="Pages"
+        tabIndex={0}
+        className={cn(
+          "flex min-w-0 flex-col gap-4 overflow-auto rounded-lg border border-border bg-muted p-4",
+          // Fills the column when it is given a height; on a phone it keeps the cap of the page list.
+          fill ? "max-h-[80vh] min-h-0 flex-1 lg:max-h-none" : "max-h-[80vh]",
+        )}
+      >
         {sizes.map((size, i) => (
           <div key={i} data-page={i + 1} className="relative mx-auto shrink-0 bg-white shadow-sm" style={{ width: size.width * scale, height: size.height * scale }}>
             <canvas
@@ -298,7 +349,7 @@ export function Preview({
           </div>
         ))}
       </div>
-      {checkMode && parser && <section aria-label="Text read from PDF" className="max-h-[80vh] overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-surface p-4">{extracted || "No selectable text was found."}</section>}
+      {checkMode && parser && <section aria-label="Text read from PDF" className="max-h-[80vh] min-w-0 flex-1 overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-surface p-4 lg:max-h-none">{extracted || "No selectable text was found."}</section>}
       </div>
     </section>
   );

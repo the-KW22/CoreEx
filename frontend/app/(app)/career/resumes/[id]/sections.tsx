@@ -3,6 +3,7 @@
 import {
   ArrowDownIcon,
   ArrowUpIcon,
+  ChevronDownIcon,
   CopyIcon,
   EyeIcon,
   EyeOffIcon,
@@ -13,8 +14,11 @@ import {
 import { useRef, useState, type Dispatch, type RefObject } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DATE_FORMATS } from "@/lib/resume/dates";
+import { cn } from "@/lib/utils";
 
+import { EditorCard, useOpenState } from "./cards";
 import { RichText } from "./rich-text";
 import { type Action, DEFAULT_TITLES, type Entry, type Kind, type ResumeDocument, type Role, type Section } from "./store";
 
@@ -97,6 +101,7 @@ function RoleForm({ section, entry, role, dispatch }: { section: string; entry: 
   );
 }
 
+// An entry is one line (its title, then its subtitle and dates) until it is opened. Its buttons stay on that line.
 function EntryForm({
   section,
   sections,
@@ -118,6 +123,11 @@ function EntryForm({
   const label = entry.title.trim() || "Untitled entry";
   const others = sections.filter((s) => s.kind === section.kind && s.id !== section.id);
   const [keywords, setKeywords] = useState(entry.keywords.join(", "));
+  const { isOpen, setOpen } = useOpenState();
+  const key = `entry:${entry.id}`;
+  const open = isOpen(key, false);
+  const dates = [entry.startDate, entry.endDate].filter(Boolean).map((d) => (d === "present" ? "Present" : d)).join(" – ");
+  const summary = [entry.subtitle, dates].filter(Boolean).join(" · ");
   return (
     <li
       className="grid gap-3 rounded-lg border border-border bg-surface p-3"
@@ -131,112 +141,131 @@ function EntryForm({
         dragRef.current = null;
       }}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <span
-          draggable
-          aria-hidden
-          onDragStart={() => (dragRef.current = { type: "entry", id: entry.id, section: section.id })}
-          className="cursor-grab text-muted-foreground"
-        >
-          <GripVerticalIcon className="size-4" />
-        </span>
-        <p className={`min-w-0 flex-1 truncate font-medium ${entry.hidden ? "text-muted-foreground line-through" : ""}`}>{label}</p>
-        <IconButton label={`Move ${label} up`} disabled={index === 0} onClick={() => dispatch({ type: "moveEntry", section: section.id, id: entry.id, to: index - 1 })}>
-          <ArrowUpIcon aria-hidden />
-        </IconButton>
-        <IconButton label={`Move ${label} down`} disabled={index === count - 1} onClick={() => dispatch({ type: "moveEntry", section: section.id, id: entry.id, to: index + 1 })}>
-          <ArrowDownIcon aria-hidden />
-        </IconButton>
-        <IconButton label={`Duplicate ${label}`} onClick={() => dispatch({ type: "duplicateEntry", section: section.id, id: entry.id, newId: crypto.randomUUID() })}>
-          <CopyIcon aria-hidden />
-        </IconButton>
-        <IconButton label={`${entry.hidden ? "Show" : "Hide"} ${label}`} onClick={() => dispatch({ type: "toggleEntry", section: section.id, id: entry.id })}>
-          {entry.hidden ? <EyeOffIcon aria-hidden /> : <EyeIcon aria-hidden />}
-        </IconButton>
-        <IconButton label={`Delete ${label}`} onClick={() => dispatch({ type: "removeEntry", section: section.id, id: entry.id })}>
-          <Trash2Icon aria-hidden />
-        </IconButton>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1 text-sm font-medium">
-          Title
-          <input data-field={`entry:${entry.id}:title`} value={entry.title} maxLength={200} onChange={(e) => edit({ title: e.target.value })} className={input} />
-        </label>
-        <label className="grid gap-1 text-sm font-medium">
-          Subtitle
-          <input data-field={`entry:${entry.id}:subtitle`} value={entry.subtitle} maxLength={200} onChange={(e) => edit({ subtitle: e.target.value })} className={input} />
-        </label>
-        <label className="grid gap-1 text-sm font-medium">
-          Location
-          <input value={entry.location} maxLength={200} onChange={(e) => edit({ location: e.target.value })} className={input} />
-        </label>
-        <label className="grid gap-1 text-sm font-medium">
-          Link
-          <input type="url" data-field={`entry:${entry.id}:url`} value={entry.url} maxLength={500} onChange={(e) => edit({ url: e.target.value })} className={input} />
-        </label>
-        <DateField label="Start" field={`entry:${entry.id}:dates`} value={entry.startDate} onChange={(v) => edit({ startDate: v })} />
-        <DateField label="End" value={entry.endDate} onChange={(v) => edit({ endDate: v })} canBePresent />
-        {WITH_LEVEL.includes(section.kind) && (
-          <label className="grid gap-1 text-sm font-medium">
-            Level
-            <input value={entry.level} maxLength={100} onChange={(e) => edit({ level: e.target.value })} className={input} />
-          </label>
-        )}
-        <label className="grid gap-1 text-sm font-medium">
-          Keywords, separated by commas
-          <input
-            data-field={`entry:${entry.id}:keywords`}
-            value={keywords}
-            onChange={(e) => {
-              setKeywords(e.target.value);
-              edit({ keywords: e.target.value.split(",").map((k) => k.trim()).filter(Boolean) });
-            }}
-            className={input}
-          />
-        </label>
-      </div>
-
-      <div className="grid gap-1 text-sm font-medium">
-        Description
-        <RichText label={`${label} description`} field={`entry:${entry.id}:description`} html={entry.description} onChange={(html) => edit({ description: html })} />
-      </div>
-
-      {section.kind === "EXPERIENCE" && (
-        <div className="grid gap-2">
-          {entry.roles.length > 0 && (
-            <ul className="grid gap-2" aria-label={`Roles at ${label}`}>
-              {entry.roles.map((role) => (
-                <RoleForm key={role.id} section={section.id} entry={entry.id} role={role} dispatch={dispatch} />
-              ))}
-            </ul>
-          )}
-          <div>
-            <Button type="button" variant="outline" size="sm" onClick={() => dispatch({ type: "addRole", section: section.id, entry: entry.id, id: crypto.randomUUID() })}>
-              <PlusIcon aria-hidden />
-              Add a role
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {others.length > 0 && (
-        <label className="flex items-center gap-2 text-sm">
-          Move to
-          <select
-            value=""
-            onChange={(e) => e.target.value && dispatch({ type: "moveEntryTo", section: section.id, id: entry.id, target: e.target.value })}
-            className="h-9 rounded-lg border border-border bg-surface px-2"
+      <Collapsible open={open} onOpenChange={(next) => setOpen(key, next)} className="grid gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            draggable
+            aria-hidden
+            onDragStart={() => (dragRef.current = { type: "entry", id: entry.id, section: section.id })}
+            className="cursor-grab text-muted-foreground"
           >
-            <option value="">Another {DEFAULT_TITLES[section.kind].toLowerCase()} section…</option>
-            {others.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.title || DEFAULT_TITLES[o.kind]}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+            <GripVerticalIcon className="size-4" />
+          </span>
+          <CollapsibleTrigger asChild>
+            <button type="button" className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left">
+              <ChevronDownIcon aria-hidden className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} />
+              <span className="min-w-0 flex-1">
+                <span className={`block truncate font-medium ${entry.hidden ? "text-muted-foreground line-through" : ""}`}>{label}</span>
+                {summary && <span className="block truncate text-sm text-muted-foreground">{summary}</span>}
+              </span>
+            </button>
+          </CollapsibleTrigger>
+          <IconButton label={`Move ${label} up`} disabled={index === 0} onClick={() => dispatch({ type: "moveEntry", section: section.id, id: entry.id, to: index - 1 })}>
+            <ArrowUpIcon aria-hidden />
+          </IconButton>
+          <IconButton label={`Move ${label} down`} disabled={index === count - 1} onClick={() => dispatch({ type: "moveEntry", section: section.id, id: entry.id, to: index + 1 })}>
+            <ArrowDownIcon aria-hidden />
+          </IconButton>
+          <IconButton
+            label={`Duplicate ${label}`}
+            onClick={() => {
+              const newId = crypto.randomUUID();
+              setOpen(`entry:${newId}`, true);
+              dispatch({ type: "duplicateEntry", section: section.id, id: entry.id, newId });
+            }}
+          >
+            <CopyIcon aria-hidden />
+          </IconButton>
+          <IconButton label={`${entry.hidden ? "Show" : "Hide"} ${label}`} onClick={() => dispatch({ type: "toggleEntry", section: section.id, id: entry.id })}>
+            {entry.hidden ? <EyeOffIcon aria-hidden /> : <EyeIcon aria-hidden />}
+          </IconButton>
+          <IconButton label={`Delete ${label}`} onClick={() => dispatch({ type: "removeEntry", section: section.id, id: entry.id })}>
+            <Trash2Icon aria-hidden />
+          </IconButton>
+        </div>
+
+        <CollapsibleContent className="grid gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-1 text-sm font-medium">
+              Title
+              <input data-field={`entry:${entry.id}:title`} value={entry.title} maxLength={200} onChange={(e) => edit({ title: e.target.value })} className={input} />
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Subtitle
+              <input data-field={`entry:${entry.id}:subtitle`} value={entry.subtitle} maxLength={200} onChange={(e) => edit({ subtitle: e.target.value })} className={input} />
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Location
+              <input value={entry.location} maxLength={200} onChange={(e) => edit({ location: e.target.value })} className={input} />
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Link
+              <input type="url" data-field={`entry:${entry.id}:url`} value={entry.url} maxLength={500} onChange={(e) => edit({ url: e.target.value })} className={input} />
+            </label>
+            <DateField label="Start" field={`entry:${entry.id}:dates`} value={entry.startDate} onChange={(v) => edit({ startDate: v })} />
+            <DateField label="End" value={entry.endDate} onChange={(v) => edit({ endDate: v })} canBePresent />
+            {WITH_LEVEL.includes(section.kind) && (
+              <label className="grid gap-1 text-sm font-medium">
+                Level
+                <input value={entry.level} maxLength={100} onChange={(e) => edit({ level: e.target.value })} className={input} />
+              </label>
+            )}
+            <label className="grid gap-1 text-sm font-medium">
+              Keywords, separated by commas
+              <input
+                data-field={`entry:${entry.id}:keywords`}
+                value={keywords}
+                onChange={(e) => {
+                  setKeywords(e.target.value);
+                  edit({ keywords: e.target.value.split(",").map((k) => k.trim()).filter(Boolean) });
+                }}
+                className={input}
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-1 text-sm font-medium">
+            Description
+            <RichText label={`${label} description`} field={`entry:${entry.id}:description`} html={entry.description} onChange={(html) => edit({ description: html })} />
+          </div>
+
+          {section.kind === "EXPERIENCE" && (
+            <div className="grid gap-2">
+              {entry.roles.length > 0 && (
+                <ul className="grid gap-2" aria-label={`Roles at ${label}`}>
+                  {entry.roles.map((role) => (
+                    <RoleForm key={role.id} section={section.id} entry={entry.id} role={role} dispatch={dispatch} />
+                  ))}
+                </ul>
+              )}
+              <div>
+                <Button type="button" variant="outline" size="sm" onClick={() => dispatch({ type: "addRole", section: section.id, entry: entry.id, id: crypto.randomUUID() })}>
+                  <PlusIcon aria-hidden />
+                  Add a role
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {others.length > 0 && (
+            <label className="flex items-center gap-2 text-sm">
+              Move to
+              <select
+                value=""
+                onChange={(e) => e.target.value && dispatch({ type: "moveEntryTo", section: section.id, id: entry.id, target: e.target.value })}
+                className="h-9 rounded-lg border border-border bg-surface px-2"
+              >
+                <option value="">Another {DEFAULT_TITLES[section.kind].toLowerCase()} section…</option>
+                {others.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.title || DEFAULT_TITLES[o.kind]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
     </li>
   );
 }
@@ -246,6 +275,7 @@ export function Sections({ doc, dispatch }: { doc: ResumeDocument; dispatch: Dis
   const [kind, setKind] = useState<Kind>("EXPERIENCE");
   const dragRef = useRef<Drag>(null);
   const { sections } = doc;
+  const { setOpen } = useOpenState();
 
   return (
     <div className="grid gap-6">
@@ -290,10 +320,10 @@ export function Sections({ doc, dispatch }: { doc: ResumeDocument; dispatch: Dis
       {sections.map((section, index) => {
         const name = section.title.trim() || DEFAULT_TITLES[section.kind];
         return (
-          <section
+          <EditorCard
             key={section.id}
-            aria-label={name}
-            className="grid gap-3 rounded-lg border border-border p-3"
+            cardKey={`card:section:${section.id}`}
+            label={name}
             onDragOver={(e) => {
               if (dragRef.current?.type === "section") e.preventDefault();
             }}
@@ -303,39 +333,46 @@ export function Sections({ doc, dispatch }: { doc: ResumeDocument; dispatch: Dis
               dispatch({ type: "moveSection", id: dragRef.current.id, to: index });
               dragRef.current = null;
             }}
+            title={
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <span
+                  draggable
+                  aria-hidden
+                  onDragStart={() => (dragRef.current = { type: "section", id: section.id })}
+                  className="cursor-grab text-muted-foreground"
+                >
+                  <GripVerticalIcon className="size-4" />
+                </span>
+                <label className="min-w-0 flex-1">
+                  <span className="sr-only">Section name</span>
+                  <input
+                    data-field={`section:${section.id}`}
+                    value={section.title}
+                    maxLength={200}
+                    onChange={(e) => dispatch({ type: "renameSection", id: section.id, title: e.target.value })}
+                    className="h-9 w-full rounded-lg border border-transparent bg-transparent px-2 text-base font-semibold hover:border-border focus:border-link"
+                  />
+                </label>
+                <span className="shrink-0 text-sm text-muted-foreground">· {section.entries.length}</span>
+              </div>
+            }
+            actions={
+              <>
+                <IconButton label={`Move ${name} up`} disabled={index === 0} onClick={() => dispatch({ type: "moveSection", id: section.id, to: index - 1 })}>
+                  <ArrowUpIcon aria-hidden />
+                </IconButton>
+                <IconButton label={`Move ${name} down`} disabled={index === sections.length - 1} onClick={() => dispatch({ type: "moveSection", id: section.id, to: index + 1 })}>
+                  <ArrowDownIcon aria-hidden />
+                </IconButton>
+                <IconButton label={`${section.hidden ? "Show" : "Hide"} ${name}`} onClick={() => dispatch({ type: "toggleSection", id: section.id })}>
+                  {section.hidden ? <EyeOffIcon aria-hidden /> : <EyeIcon aria-hidden />}
+                </IconButton>
+                <IconButton label={`Remove ${name}`} onClick={() => dispatch({ type: "removeSection", id: section.id })}>
+                  <Trash2Icon aria-hidden />
+                </IconButton>
+              </>
+            }
           >
-            <div className="flex flex-wrap items-center gap-2">
-              <span
-                draggable
-                aria-hidden
-                onDragStart={() => (dragRef.current = { type: "section", id: section.id })}
-                className="cursor-grab text-muted-foreground"
-              >
-                <GripVerticalIcon className="size-4" />
-              </span>
-              <label className="min-w-0 flex-1">
-                <span className="sr-only">Section name</span>
-                <input
-                  data-field={`section:${section.id}`}
-                  value={section.title}
-                  maxLength={200}
-                  onChange={(e) => dispatch({ type: "renameSection", id: section.id, title: e.target.value })}
-                  className="h-9 w-full rounded-lg border border-transparent bg-transparent px-2 text-base font-semibold hover:border-border focus:border-link"
-                />
-              </label>
-              <IconButton label={`Move ${name} up`} disabled={index === 0} onClick={() => dispatch({ type: "moveSection", id: section.id, to: index - 1 })}>
-                <ArrowUpIcon aria-hidden />
-              </IconButton>
-              <IconButton label={`Move ${name} down`} disabled={index === sections.length - 1} onClick={() => dispatch({ type: "moveSection", id: section.id, to: index + 1 })}>
-                <ArrowDownIcon aria-hidden />
-              </IconButton>
-              <IconButton label={`${section.hidden ? "Show" : "Hide"} ${name}`} onClick={() => dispatch({ type: "toggleSection", id: section.id })}>
-                {section.hidden ? <EyeOffIcon aria-hidden /> : <EyeIcon aria-hidden />}
-              </IconButton>
-              <IconButton label={`Remove ${name}`} onClick={() => dispatch({ type: "removeSection", id: section.id })}>
-                <Trash2Icon aria-hidden />
-              </IconButton>
-            </div>
             {section.entries.length > 0 && (
               <ul className="grid gap-2" aria-label={`Entries of ${name}`}>
                 {section.entries.map((entry, i) => (
@@ -344,12 +381,21 @@ export function Sections({ doc, dispatch }: { doc: ResumeDocument; dispatch: Dis
               </ul>
             )}
             <div>
-              <Button type="button" variant="outline" size="sm" onClick={() => dispatch({ type: "addEntry", section: section.id, id: crypto.randomUUID() })}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const id = crypto.randomUUID();
+                  setOpen(`entry:${id}`, true);
+                  dispatch({ type: "addEntry", section: section.id, id });
+                }}
+              >
                 <PlusIcon aria-hidden />
                 Add an entry
               </Button>
             </div>
-          </section>
+          </EditorCard>
         );
       })}
     </div>
