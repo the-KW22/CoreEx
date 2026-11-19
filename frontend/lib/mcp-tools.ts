@@ -340,11 +340,4 @@ export const MCP_TOOLS: McpTool[] = [
     summary: "Switch a Career Fact off for AI. It stays in Knowledge but is hidden from Agents and never used; only the User can switch it back on in the app.",
     useWhen: "The User says a Fact is out of date or should not be used for now.",
   },
-  {
-    name: "forget_fact",
-    group: "Career Facts",
-    kind: "change",
-    summary: "Forget a Career Fact for good. Its text is deleted, and a line pulled from a Resume or Note cannot be added again. This cannot be undone.",
-    useWhen: "The User asks to delete a Fact that is wrong. Confirm with them first.",
-  },
 ];
