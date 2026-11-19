@@ -1,12 +1,89 @@
 # CoreEx
 
-A personal knowledge base: write Markdown Notes, upload Assets, organize them with Folders and Tags, and connect them with Links. Terms are defined in [CONTEXT.md](CONTEXT.md), decisions in [docs/adr/](docs/adr/), and how we work in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+[![CI](https://github.com/the-KW22/CoreEx/actions/workflows/ci.yml/badge.svg?branch=staging)](https://github.com/the-KW22/CoreEx/actions/workflows/ci.yml)
+
+A personal knowledge base with a job-search tracker built in. Write Markdown Notes, upload images and PDFs, organise everything with Folders and Tags, connect it with `[[Links]]`, and find it again by words or by meaning. AI agents such as Claude Code can work with it too, through a built-in MCP server.
+
+**Live:** <https://core-ex.vercel.app> (invite-only; for a demo account, contact me through my [GitHub profile](https://github.com/the-KW22)). The API runs on a free Render instance, so the first request after a quiet spell can take up to a minute.
+
+I built CoreEx to learn how production software is made end to end: a typed REST API, a separate frontend, per-user data isolation, migrations, CI, staged releases, and an operated deployment.
+
+## Features
+
+- **Notes** in Markdown with a live-preview editor, autosave and conflict detection when the same Note changes in two places.
+- **Assets:** images and PDFs uploaded straight to private storage with short-lived signed links; the API checks the real size and type before accepting them.
+- **Folders, Tags, Links and Backlinks.** Links survive renames and moves, and a Graph view shows how everything connects.
+- **Search** by words (Postgres full-text search with filters, snippets and a typo-tolerant Ctrl+K switcher) and by meaning (vector embeddings).
+- **Trash** with restore, a 30-day purge and storage quotas per User.
+- **Career:** track job Applications through stages on a list, board and calendar, write Resumes and Cover Letters that render to PDF, Word and Markdown, and fill an Application's fields from a pasted posting with AI.
+- **MCP server and Access tokens:** an AI agent can read, write and organise your knowledge base with a revocable, rate-limited token, and can never delete anything for good.
+- **Admin:** invite-only sign-up, Users, quotas and totals. Admins never see anyone else's content.
+
+A full walkthrough is in the [User Guide](docs/USER_GUIDE.md).
+
+## Architecture
+
+```mermaid
+flowchart LR
+  B[Browser] --> F[Next.js frontend<br/>Vercel]
+  A[AI agent<br/>Claude Code, Codex] -- Access token --> M
+  F -- typed client generated<br/>from OpenAPI --> API
+  subgraph API [Spring Boot API, Render]
+    R[REST controllers] --> S[Services: every business rule]
+    M[MCP server /mcp] --> S
+  end
+  S --> P[(Postgres<br/>coreex schema + RLS)]
+  S --> ST[Supabase Storage<br/>private bucket]
+  S --> E[Edge Function<br/>embeddings]
+  S --> C[Claude API<br/>daily budget per User]
+  F -. sign-in .-> AU[Supabase Auth]
+  S -. verifies JWT via JWKS .-> AU
+```
+
+The frontend never touches the database: it calls only the REST API, through a client generated from the API's OpenAPI spec. The REST API and the MCP server call the same services, so a rule is written once.
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS 4, shadcn/ui, Motion |
+| Backend | Java 21, Spring Boot 4, Spring Security (JWT resource server), Spring AI MCP server, Flyway |
+| Data | Postgres on Supabase (row level security on every table, `pg_trgm`, vector embeddings), Supabase Storage and Auth |
+| Testing | JUnit with Testcontainers Postgres, Vitest, Playwright |
+| Delivery | GitHub Actions, Vercel, Render, semantic-versioned releases |
+
+## Engineering decisions
+
+Hard-to-reverse choices are written down as Architecture Decision Records in [`docs/adr/`](docs/adr/). The ones that shape the most code:
+
+- **Every read and write is scoped to the signed-in User** ([ADR 0001](docs/adr/0001-private-per-user-data-from-day-one.md)). Another User's data answers 404, not 403, so nothing leaks about what exists.
+- **Admins can't read User content** ([ADR 0004](docs/adr/0004-admins-cannot-read-user-content.md)). Admin screens show account facts and totals only.
+- **Defence in depth in the database** ([ADR 0005](docs/adr/0005-tables-live-in-a-dedicated-schema-with-rls.md)). Tables live in their own schema with row level security on, so Supabase's public API can't reach them even if the app layer had a bug.
+- **One API, one contract** ([ADR 0003](docs/adr/0003-nextjs-frontend-spring-boot-api-supabase.md)). CI fails if the committed OpenAPI spec or the generated TypeScript client drifts from the code.
+- **Notes are stored as Markdown** ([ADR 0002](docs/adr/0002-markdown-is-the-note-storage-format.md)), so data stays portable and exportable.
+- **MCP runs inside the API with hashed Access tokens** ([ADR 0007](docs/adr/0007-mcp-runs-in-process-with-access-tokens.md)) rather than as a separate service with its own copy of the rules.
+- **AI costs are bounded** ([ADR 0009](docs/adr/0009-chat-uses-a-hosted-model-on-a-shared-key-with-a-daily-budget.md), [ADR 0013](docs/adr/0013-career-ai-works-only-from-the-users-evidence.md)): a daily budget per User, and Career AI works only from evidence the User wrote.
+
+Domain terms are defined once in [CONTEXT.md](CONTEXT.md), and the UI follows the design system in [docs/DESIGN.md](docs/DESIGN.md).
+
+## How it's tested
+
+- **Backend:** API tests start the real application against a throwaway Postgres in Docker (Testcontainers), covering authorization (another User gets 404), validation and the standard error codes.
+- **Frontend:** Vitest unit and component tests, plus Playwright end-to-end tests for the main flows.
+- **CI** runs on every pull request: `mvnw verify`, the OpenAPI and generated-client drift checks, typecheck, lint, tests and a production build.
+
+## How it's built
+
+The project runs like a small team's: GitHub Issues with sub-issues and acceptance criteria, one branch and pull request per piece of work, Conventional Commits, squash merges into `staging`, and release pull requests from `staging` to `main` tagged with semantic versions. The full process, including the Definition of Done, is in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
+I build with AI coding agents (Claude Code, Codex), and the setup is checked in on purpose: [AGENTS.md](AGENTS.md) gives agents the rules, and [`.agents/skills/`](.agents/skills/) holds the third-party skills they use, pinned by source and hash in [`skills-lock.json`](skills-lock.json). Every change still goes through tests, a review pass and green CI before it merges.
+
+## Repository layout
 
 | Folder | What |
 |---|---|
-| `backend/` | Spring Boot REST API (Java 21, Maven). Owns all business rules and the database. |
+| `backend/` | Spring Boot REST API and MCP server (Java 21, Maven). Owns all business rules and the database. |
 | `frontend/` | Next.js UI (TypeScript). Calls only the API, through a client generated from its OpenAPI spec. |
-| `supabase/` | Local Supabase config (Postgres, Auth, Storage in Docker). |
+| `supabase/` | Local Supabase config (Postgres, Auth, Storage in Docker) and the embeddings Edge Function. |
+| `docs/` | ADRs, the development process, design system, deployment and the User Guide. |
 
 ## Prerequisites
 
@@ -43,67 +120,9 @@ JDK 21, Node.js 24, Docker Desktop (running), and the [Supabase CLI](https://sup
 
 CoreEx's tables live in the `coreex` schema (ADR 0005). If you ran an older version, `public.users` and `public.invites` are unused leftovers; `supabase db reset` clears them.
 
-### Inviting someone
+## Using CoreEx
 
-CoreEx is invite-only. Sign in as the owner (`OWNER_EMAIL`), open **Admin** in the sidebar, enter the person's email and select **Create Invite**. Use **Copy sign-up link** and send it to them; the link opens the sign-up page with their email filled in. An Invite can be revoked while it is pending. Without a pending Invite a person sees the "invite-only" screen.
-
-Disable, enable and remove Users in Admin > Users.
-
-### Writing Notes
-
-The home page lists your Items, newest first. **New Note** opens an editor where Markdown renders as you type (headings, emphasis, lists, checkboxes, code); the markup shows on the line your cursor is on. The Note saves by itself about a second after you stop typing. If it was changed somewhere else in the meantime, the editor offers to reload that version or overwrite it with yours. **Move to Trash** hides the Note; the Trash screen itself comes later.
-
-### Folders
-
-The sidebar shows your Folders as a tree; use the arrow to collapse one. Type a name under **Folders** to add a top-level Folder. A Folder's page lists its subfolders and Items, and lets you create a Note or subfolder there, rename it, move it (a Folder cannot go into itself or its own subfolders), or move it to the Trash. The Trash confirmation says how many Folders and Items go with it. To file a Note, use the **Folder** menu on its page; **Top level** takes it out of any Folder.
-
-### Tags
-
-On a Note's page, type a name under **Add a Tag**; your existing Tags are suggested as you type, and a new name creates a Tag. `Research` and `research` are the same Tag, shown with the casing it was first typed in. **×** takes a Tag off one Note. **Tags** in the sidebar lists every Tag with how many live Items use it; a Tag's page lists those Items and lets you rename it (to a name you already have is refused) or delete it from all Items at once. The Items themselves are never touched.
-
-### Links and Backlinks
-
-In a Note, type `[[` and your Items are suggested by title, with their type and Folder; choosing one inserts a Link. Links show the target's current title, so they keep working after a rename or a move, and clicking one opens it. You can also type `[[Exact Title]]`: when exactly one of your Items has that title, the next save turns it into a Link; with no match, several matches, or an Item in the Trash it stays as written and is shown as an unresolved Link (dashed). Links inside code are left alone. Under every Note, **Backlinks** lists the Notes that link to it. The text of a Link is stored as `[[<item-id>|<title>]]`, which is plain Markdown. Click into the editor to edit a Link's raw text on its line.
-
-### Assets
-
-On the home page or a Folder's page, drop images or PDFs (PNG, JPG, WebP, GIF, PDF; up to 5 MB each) on the upload box or choose them. The title starts as the file name. An Asset's page shows an image inline or a PDF in the viewer, offers **Download**, lets you rename it and add a description, and works like a Note for Folders, Tags, Links and Backlinks (`[[` suggests Assets too). **Move to Trash** hides it, but its file still counts toward your storage (100 MB by default) until the Trash is emptied. The home page shows how much you have used.
-
-Files live in a private Supabase Storage bucket. The browser uploads straight to Storage with a short-lived link from the API, and the API checks the stored file's real size and type before creating the Asset. To use Assets locally, `supabase start` creates the `assets` bucket from `supabase/config.toml`, and `backend/.env` needs `STORAGE_URL`, `STORAGE_SERVICE_KEY` and `STORAGE_BUCKET` (see `backend/.env.example`). Without them everything else works and Asset endpoints answer 503. Production setup is in `docs/DEPLOY.md`.
-
-### Admin: Users and Overview
-
-Next to **Invites**, the Admin area has **Users** and **Overview** (visible to Admins only). Users lists every account with its status, sign-up date, last active time, number of Items and storage used against its quota. You can change a User's quota in megabytes (or go back to the default), and Disable or Enable the account: a disabled User is refused on their very next request, nothing they own is touched, and enabling restores everything. You cannot disable yourself. **Remove…** (with a confirmation) deletes a person's Notes, files and Supabase sign-in for good so their email can be invited again; it needs `STORAGE_SERVICE_KEY` (and Storage's URL) on the backend, is safe to retry if a step fails (the person stays disabled meanwhile), and is not offered for Admins. Delete people here, not in Supabase Authentication, or their CoreEx account stays behind. Overview shows the number of Users and the total storage used against the hosting limit (1 GB on the Supabase free tier, `coreex.admin.hosting-limit-bytes`). These screens show account facts and totals only, never anyone's Notes, Assets or Folders (ADR 0004).
-
-### Importing Markdown and text files
-
-The same box on the home page and a Folder's page also takes `.md` and `.txt` files: each becomes a new Note, titled after the file name without its extension, with the file's text stored exactly as written. Several files can be added at once, and a bad file (another type, over 1 MB, or not valid UTF-8) is refused on its own with a message while the rest are imported. `[[Exact Title]]` in an imported file becomes a Link under the same rules as when you write it, including links between files imported together. On a Folder's page the Notes land in that Folder. The original file is not kept.
-
-### Search and the quick switcher
-
-**Search** in the sidebar (or `/search`) finds your Items by Note title and text, Asset title and description, and Tag name. Words are matched exactly as written, ignoring case, in any language (Malay, French, ...; accents count, so `cafe` does not find `café`). A file name such as `Q3_report-final.v2.pdf` is found by its words. Use `"quotes"` for a phrase, `or` for either word and `-word` to leave one out. Narrow results by type, Folder (subfolders included) and Tag; each result shows a snippet with the matches highlighted, and trashed Items never appear. Only the first 200,000 characters of a Note are searched.
-
-Press **Ctrl+K** (**Cmd+K** on a Mac) on any page to open the quick switcher: type part of a title (a typo is fine) and press Enter to open it; with nothing typed it lists the Items you opened most recently.
-
-### Trash
-
-**Move to Trash** (on a Note, Asset or Folder) hides it; **Trash** in the sidebar lists what is there with the days left before it is removed for good (30). A deleted Folder is one row ("with 2 Folders and 5 Items"). **Restore** brings an Item back together with any trashed Folders above it (not what else was in them), and brings a Folder back with exactly what was deleted with it. Links to a restored Item work again. **Delete forever** and **Empty Trash** remove things for good, including the files in Storage, which frees your storage quota. Anything older than 30 days is removed by a background job every 6 hours while the app is awake, and by a daily scheduled GitHub Actions run that also wakes the free host (setup in `docs/DEPLOY.md`).
-
-### Applications (first part of Career)
-
-**Career** in the sidebar opens the Applications list, grouped by Stage and sorted by what each needs next (a **Needs you** filter keeps only those due now), with a panel beside the rail. **New Application** there takes a company, a role and the pasted posting, and opens the Application's page: its fields, a stepper through the six Stages (Saved, Applied, Screening, Interview, Offer, Closed; Closed asks why) and a timeline of every move, with notes, follow-ups and replies that can be back-dated, plus interviews and one follow-up reminder. Select several Applications in the list (a checkbox each, Shift for a range, one per Stage) to move them to a Stage, tag or untag them, or move them to the Trash together. The Board view puts each Stage in a column: drag a card (or use its Move to menu) to change its Stage, with Undo. The Calendar view shows interviews and follow-up reminders by day, a month at a time (a week on a phone), and Insights count what was applied to, the reply rate, how far they got and the median time to a reply. An Application sits in a Folder, takes Tags and goes to the Trash like any other Item, can be added from a link (CoreEx reads the page's job data, from public addresses only; the same posting is not tracked twice, and a company that never answered before is pointed out), can fill its fields with AI when the page or text has no structure (Claude, on the owner's key, within a daily budget per User), keeps the PDFs actually sent (attached with a label, kept as Assets), can be linked to from a Note, shows in the Graph, and is found by Search (by words and by meaning). The title is "Role at Company" until you rename it. The first move into Applied sets the applied date. Applications also show in All Items; Trash, Folders, Tags and Search for them come in later Career tickets (#223).
-
-### Resumes (second part of Career)
-
-**Resumes & Letters** in the Career panel lists your Resumes, newest change first. **New Resume** takes a name and starts blank or with made-up sample content; each row has **Rename** and **Duplicate** (the copy is named "<name> (copy)"). A Resume is one document (contact details, summary, sections, design) saved with a save counter, so two tabs never overwrite each other; its rich text is cleaned of anything but formatting (bold, italic, underline, lists, links, colour, alignment) every time it is saved. The editor previews and downloads PDF, and also downloads Word, Markdown and a JSON backup. Word and Markdown leave out private notes; JSON includes them for a complete backup. JSON import comes in a later ticket (#260).
-
-### Access tokens
-
-**Access tokens** in the Account menu (bottom of the sidebar) creates the secret an Agent such as Claude Code or Codex uses to work with your knowledge base. Give it a name and an expiry (90 days unless you choose otherwise, or never), then copy it from the dialog: it is shown once, and only a hash of it is stored. **Revoke** stops it at once. Up to 10 tokens can be live at a time, and each is limited to 60 calls a minute (`coreex.tokens.*`). An Access token works only on the MCP server at `/mcp`, never on the rest of the API, and stops working if your account is disabled.
-
-### MCP server
-
-The API also speaks MCP (Model Context Protocol) at `/mcp`, so an Agent (Claude Code, Codex, Claude Desktop) can read, write and organise your knowledge base with an Access token. It can never delete anything for good: the Trash is as far as it goes. A Note or Asset an Agent last changed shows **Edited by** in its Details panel. In the app, **Connect an Agent** in the Account menu opens a guide with the tools, how to connect each tool and what to watch out for; [docs/MCP.md](docs/MCP.md) is the same for readers of the repository.
+Inviting people, Notes, Folders, Tags, Links, Assets, Search, Trash, Career, Access tokens and the MCP server are described in the [User Guide](docs/USER_GUIDE.md).
 
 ## Deploying
 
@@ -136,3 +155,7 @@ Frontend checks: `npm run typecheck`, `npm run lint`, `npm run build` (in `front
 **Hosted Supabase projects (staging, production) must have "Confirm email" turned on** (Authentication > Providers > Email). The API trusts the token's email to recognise the owner and Invites, so without confirmation someone could sign up with an invited address before its owner does. Local Supabase has it off for convenience.
 
 No secrets are committed. Each app has an `.env.example` listing its variables. The local Supabase values in `backend/.env.example` are the fixed, public defaults of `supabase start`.
+
+## License
+
+All rights reserved. The source is public to read and review, not licensed for reuse. See [LICENSE](LICENSE). To report a security problem, see [SECURITY.md](SECURITY.md).
