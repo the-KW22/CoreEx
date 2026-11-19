@@ -333,4 +333,11 @@ export const MCP_TOOLS: McpTool[] = [
     summary: "Add a Career Fact the User gave, or pull one from a Resume or Note with the exact quote from it. A line already pulled, or one the User forgot, is refused.",
     useWhen: "The User states something about their career, or confirms a line from a Resume or Note that belongs in Knowledge.",
   },
+  {
+    name: "switch_off_fact",
+    group: "Career Facts",
+    kind: "change",
+    summary: "Switch a Career Fact off for AI. It stays in Knowledge but is hidden from Agents and never used; only the User can switch it back on in the app.",
+    useWhen: "The User says a Fact is out of date or should not be used for now.",
+  },
 ];
