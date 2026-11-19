@@ -96,6 +96,19 @@ class CareerTools {
 				Input.optional("quote", quote, FACT_MAX)));
 	}
 
+	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "switch_off_fact", description = "Switch a Fact off for AI: it stays in the User's Knowledge but is hidden from list_facts and get_fact and is never used. Only the User can switch it back on, in the app. A Fact already switched off, or one that does not exist, is \"no such Fact\".")
+	WriteTools.Done switchOffFact(McpTransportContext context, @McpToolParam(description = "The Fact's id") UUID id) {
+		getFact(context, id); // an off Fact is invisible to Agents, so it is "no such Fact" here too
+		knowledge.setStatus(owner(context), id, "OFF");
+		return new WriteTools.Done(id, "Switched off. Only the User can switch it back on, in the app.");
+	}
+
+	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = true), name = "forget_fact", description = "Forget a Fact for good: its text and revisions are deleted, and a line pulled from a Resume or Note can never be added again. This cannot be undone, so confirm with the User first. Works on a switched-off Fact too, given its id.")
+	WriteTools.Done forgetFact(McpTransportContext context, @McpToolParam(description = "The Fact's id") UUID id) {
+		knowledge.forget(owner(context), id);
+		return new WriteTools.Done(id, "Forgotten for good.");
+	}
+
 	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_application_results", description = "List what the Career AI made for one Application, newest first: a Fit check (a score and each requirement with the Facts it cites), an answer, interview prep, a practice review, an email or a reply from an employer. Each has its id, kind, result, resolution (null while an answer waits for Accept or Reject) and outOfDate, true when the Facts or posting it was made from have changed since.")
 	ResultList getApplicationResults(McpTransportContext context,
 			@McpToolParam(description = "The Application's id") UUID applicationId) {

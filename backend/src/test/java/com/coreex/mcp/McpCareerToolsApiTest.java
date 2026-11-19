@@ -32,7 +32,7 @@ class McpCareerToolsApiTest extends McpApiTest {
 		var names = new ArrayList<String>();
 		rpc(token, "tools/list", "{}").path("result").path("tools").forEach(t -> names.add(t.path("name").asString()));
 
-		assertThat(names).contains("list_facts", "get_fact", "add_fact", "get_application_results");
+		assertThat(names).contains("list_facts", "get_fact", "add_fact", "switch_off_fact", "forget_fact", "get_application_results");
 	}
 
 	@Test
@@ -74,6 +74,47 @@ class McpCareerToolsApiTest extends McpApiTest {
 		assertThat(delete("/api/knowledge/facts/" + forgotten, jwt).statusCode()).isEqualTo(204);
 		assertThat(listFacts().toString()).doesNotContain(forgotten);
 		assertThat(callFails("get_fact", "{\"id\":\"" + forgotten + "\"}")).containsIgnoringCase("no such");
+	}
+
+	@Test
+	void anAgentCanSwitchOffAFact() throws Exception {
+		var id = addFact("Ran a hackathon", "EXPERIENCE");
+
+		assertThat(call("switch_off_fact", "{\"id\":\"" + id + "\"}").path("id").asString()).isEqualTo(id);
+
+		assertThat(listFacts().toString()).doesNotContain(id);
+		assertThat(callFails("get_fact", "{\"id\":\"" + id + "\"}")).containsIgnoringCase("no such");
+		assertThat(get("/api/knowledge/facts?status=OFF", jwt).body()).contains(id);
+		// An Agent cannot see an off Fact, so switching it off again is "no such Fact".
+		assertThat(callFails("switch_off_fact", "{\"id\":\"" + id + "\"}")).containsIgnoringCase("no such");
+	}
+
+	@Test
+	void anAgentCanForgetAFactForGood() throws Exception {
+		var noteId = note(jwt, "Billing", "Built the billing service in Go.", null);
+		var args = "{\"text\":\"Built the billing service\",\"category\":\"EXPERIENCE\",\"sourceKind\":\"NOTE\",\"sourceId\":\""
+				+ noteId + "\",\"quote\":\"Built the billing service in Go\"}";
+		var pulled = call("add_fact", args).path("id").asString();
+		var off = addFact("Taught a course", "EDUCATION");
+		call("switch_off_fact", "{\"id\":\"" + off + "\"}");
+
+		call("forget_fact", "{\"id\":\"" + pulled + "\"}");
+		call("forget_fact", "{\"id\":\"" + off + "\"}");
+
+		assertThat(get("/api/knowledge/facts", jwt).body()).doesNotContain(pulled).doesNotContain(off);
+		assertThat(callFails("add_fact", args)).isNotBlank();
+		assertThat(callFails("forget_fact", "{\"id\":\"" + pulled + "\"}")).containsIgnoringCase("no such");
+	}
+
+	@Test
+	void anotherUsersFactCannotBeSwitchedOffOrForgotten() throws Exception {
+		var mine = addFact("Shipped a payments API", "ACHIEVEMENT");
+		var otherToken = newToken(newUser("b@example.com"));
+
+		assertThat(failsFor(otherToken, "switch_off_fact", "{\"id\":\"" + mine + "\"}")).containsIgnoringCase("no such");
+		assertThat(failsFor(otherToken, "forget_fact", "{\"id\":\"" + mine + "\"}")).containsIgnoringCase("no such");
+		assertThat(callFails("forget_fact", "{\"id\":\"" + UUID.randomUUID() + "\"}")).containsIgnoringCase("no such");
+		assertThat(call("get_fact", "{\"id\":\"" + mine + "\"}").path("text").asString()).isEqualTo("Shipped a payments API");
 	}
 
 	@Test
