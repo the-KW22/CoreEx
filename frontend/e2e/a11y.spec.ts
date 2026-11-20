@@ -198,11 +198,12 @@ test("the phone menu closes on Escape, gives focus back and keeps Tab inside", a
   }
 });
 
-test("on a tablet the Knowledge Base panel opens from the rail", async ({ page }) => {
+test("on a tablet the Knowledge Base panel is in the rail, and a collapsed rail opens it in a Sheet", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await signIn(page);
   await page.goto("/items");
-  await expect(page.getByRole("heading", { name: "Knowledge Base", exact: true })).toBeHidden();
+  await expect(page.getByRole("complementary", { name: "Knowledge Base" }).getByRole("radio", { name: "Folders" })).toBeVisible();
+  await page.getByRole("button", { name: "Collapse sidebar" }).click();
   await page.getByRole("button", { name: "Show the Knowledge Base panel" }).click();
   await expect(page.getByRole("dialog", { name: "Knowledge Base" }).getByRole("radio", { name: "Folders" })).toBeVisible();
 });

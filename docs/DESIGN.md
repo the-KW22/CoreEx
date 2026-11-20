@@ -38,14 +38,16 @@ The agreed design for the frontend redesign. It records **what** the UI looks li
 - Each icon has an accessible name; when collapsed it also has a Tooltip.
 - **Assets** are sources for Notes (and later for text extraction and image analysis), so they are a module of their own, not part of the Knowledge Base. Their pages have no panel beside the rail.
 
-### 3.2 Knowledge Base panel (beside the rail)
+### 3.2 Knowledge Base panel (in the rail)
 
 The panel belongs to the Knowledge Base module: it shows only on Knowledge Base routes (All Items, Folders, Tags, Notes, Search). Home, Assets, Trash, Admin, Settings and Help use the full width, and a future module brings its own panel or none.
+
+**One sidebar, not two (#358).** The panel is not a column of its own: it takes the rail's place. The rail opens on the module list; on a Knowledge Base or Career page it is already showing the panel, under a **Back** button. Choosing Knowledge Base or Career slides the list left and the panel in (a short slide and fade, instant with reduced motion); **Back** slides the list back without leaving the page, so the User can go to another module. Back is forgotten when the module changes. The view out of sight is `inert`, and focus follows the swap (to Back, or to the module's link). While the panel shows, the rail is at least 18rem wide, the width the panel had as a column. A collapsed rail has no room for it: the Knowledge Base and Career icons only navigate, and a **Show the panel** button opens the panel in a Sheet. On phones the menu Sheet drills in the same way.
 
 - Header "Knowledge Base" with a "+" button that follows the active tab: **New Note** on Notes, **New Folder** on Folders, **New Tag** on Tags (the last two ask for a name in a small popover; a duplicate Tag name is refused with a message).
 - A **filter field** that narrows the active tab's list in place. Folders and Tags filter in the browser (Folders then show as a flat list, since a match can sit deep in the tree). Notes ask `/panel-notes`, which searches every Note by title. It does not open the command palette.
 - A **Notes | Folders | Tags** toggle. The first tab follows the route: Tags on `/tags`, Notes on a Note, otherwise Folders.
-- Notes: the 50 most recently updated Notes (the current one marked). Folders: the Folder tree (collapsible, no Item counts yet) and the "In <Folder>" list of Items when one Folder is selected. Tags: the Tag pills and "Manage Tags".
+- Notes: the 50 most recently updated Notes (the current one marked). Folders: the Folder tree (collapsible, no Item counts yet) and the "In <Folder>" list of Items when one Folder is selected. Tags: one Tag a row (its colour as a dot, then its name) and **Manage Tags**, pinned under the list. Only the list scrolls: the header, filter and toggle stay put, so Manage Tags is always in reach.
 
 ### 3.3 Routes
 
@@ -67,7 +69,7 @@ The panel belongs to the Knowledge Base module: it shows only on Knowledge Base 
 Agreed 2026-11-14 ([ADR 0010](adr/0010-career-items-are-applications-resumes-and-cover-letters.md), decision records in `docs/career/`). The rail entry, the panel and the Applications list are built (#228); each other screen is designed in its own ticket and recorded here when it lands.
 
 - **One rail entry, "Career"**, after Graph. Applications, Resumes and Cover Letters are Items, so they also show in All Items, Folders, Tags, Search and the Graph, and open their Career page from there.
-- **A Career panel beside the rail**, like the Knowledge Base panel (the same width, and in a Sheet below 1280px, opened by the rail's "Panel" button), shown only on Career routes: **Today**, **Applications**, **Resumes & Letters**, **Knowledge** (Facts, Stories, Preferences), **Offers**. Only entries whose screen exists are shown: for now **Applications** and **Resumes & Letters**.
+- **A Career panel in the rail**, like the Knowledge Base panel (section 3.2: it replaces the module list under a Back button), shown only on Career routes: **Today**, **Applications**, **Resumes & Letters**, **Knowledge** (Facts, Stories, Preferences), **Offers**. Only entries whose screen exists are shown: for now **Applications** and **Resumes & Letters**.
 - **Applications** has four views: List (grouped by Stage, sorted by Next step), Board (drag between Stages, with Undo), Calendar (interviews) and Insights. One Application opens its details and its workspace tabs: Fit, Apply, Interview prep, Practice, Debrief, Messages (where Application emails live), Library.
 - **The Resume and Cover Letter editor** uses the full width with the panel hidden: a form panel beside a real-size page preview, with Write, Design and Check modes (Cover Letters: Write and Design), and the same save status as the Note editor.
 - Every AI button carries its one-line "Sends: …" disclosure ([ADR 0013](adr/0013-career-ai-works-only-from-the-users-evidence.md)).
@@ -342,9 +344,9 @@ The Admin storage "Chart" is a stacked bar drawn with divs and the Tag colour to
 
 | Width | Layout |
 |---|---|
-| ≥ 1280px | Rail + KB panel + content + Details panel (open by default) |
-| 768–1279px | Rail + content; KB panel and Details panel open as overlays from toggles |
-| < 768px | Slim top bar (menu, title, search); rail + KB panel in a **Sheet**; Details in a bottom **Drawer**; tables become stacked Item rows; command palette full-screen |
+| ≥ 1280px | Rail (showing the KB or Career panel in its place, section 3.2) + content + Details panel (open by default) |
+| 768–1279px | Rail (the same) + content; Details panel opens as an overlay from its toggle |
+| < 768px | Slim top bar (menu, title, search); the same rail in a **Sheet**; Details in a bottom **Drawer**; tables become stacked Item rows; command palette full-screen |
 
 Touch targets are at least 44px on touch devices. No horizontal page scroll at any width.
 
