@@ -400,6 +400,9 @@ for (const colorScheme of ["dark", "light"] as const) {
           await scan(page, failures, "phone menu");
         } else {
           await page.setViewportSize({ width: 1024, height: 768 });
+          await expect(page.getByRole("complementary", { name: "Knowledge Base" })).toBeVisible();
+          await scan(page, failures, "tablet panel in the rail");
+          await page.getByRole("button", { name: "Collapse sidebar" }).click();
           await page.getByRole("button", { name: "Show the Knowledge Base panel" }).click();
           await expect(page.getByRole("dialog", { name: "Knowledge Base" })).toBeVisible();
           await scan(page, failures, "tablet panel");

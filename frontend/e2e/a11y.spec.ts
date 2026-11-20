@@ -198,11 +198,12 @@ test("the phone menu closes on Escape, gives focus back and keeps Tab inside", a
   }
 });
 
-test("on a tablet the Knowledge Base panel opens from the rail", async ({ page }) => {
+test("on a tablet the Knowledge Base panel is in the rail, and a collapsed rail opens it in a Sheet", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await signIn(page);
   await page.goto("/items");
-  await expect(page.getByRole("heading", { name: "Knowledge Base", exact: true })).toBeHidden();
+  await expect(page.getByRole("complementary", { name: "Knowledge Base" }).getByRole("radio", { name: "Folders" })).toBeVisible();
+  await page.getByRole("button", { name: "Collapse sidebar" }).click();
   await page.getByRole("button", { name: "Show the Knowledge Base panel" }).click();
   await expect(page.getByRole("dialog", { name: "Knowledge Base" }).getByRole("radio", { name: "Folders" })).toBeVisible();
 });
@@ -3034,6 +3035,8 @@ test("Career opens from the rail with its panel and the Applications list, and N
   await page.goto("/items");
 
   // The rail entry opens Career, which lands on Applications, and the entry shows as the current page.
+  // On a Knowledge Base page the rail shows its panel, so Back brings the module list first.
+  await page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: "Back to the menu" }).click();
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Career" }).click();
   await expect(page).toHaveURL(/\/career\/applications$/);
   await expect(page.getByRole("heading", { name: "Applications", level: 1 })).toBeVisible();

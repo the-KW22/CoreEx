@@ -20,7 +20,7 @@ const ENTRIES = [
 export function CareerPanel() {
   const pathname = usePathname();
   return (
-    <div className="flex h-full w-72 max-w-full flex-col gap-4 overflow-y-auto border-r border-border bg-panel p-4">
+    <div className="flex h-full w-full flex-col gap-4 overflow-y-auto p-4">
       <h2 className="text-sm font-semibold">Career</h2>
       <nav aria-label="Career">
         <ul className="grid gap-0.5">

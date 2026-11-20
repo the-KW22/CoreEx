@@ -6,14 +6,13 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { TagBadge } from "@/components/tag-badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { matches } from "@/lib/filter";
 import { type Folder, viewingFolderId } from "@/lib/folders";
 import { itemHref } from "@/lib/items";
-import type { TagColour } from "@/lib/tag-colour";
+import { tagColour, type TagColour } from "@/lib/tag-colour";
 
 import { createFolder } from "./folders/actions";
 import { FolderTree } from "./folders/folder-tree";
@@ -210,7 +209,7 @@ export function KbPanel({ folders, tags }: { folders: Folder[] | null; tags: Tag
   const shownTags = tags?.filter((t) => matches(t.name, text));
 
   return (
-    <div className="flex h-full w-72 max-w-full flex-col gap-4 overflow-y-auto border-r border-border bg-panel p-4">
+    <div className="flex h-full w-full flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">Knowledge Base</h2>
         {view === "notes" ? (
@@ -253,6 +252,8 @@ export function KbPanel({ folders, tags }: { folders: Folder[] | null; tags: Tag
         <ToggleGroupItem value="tags" className={viewButton}>Tags</ToggleGroupItem>
       </ToggleGroup>
 
+      {/* Only the list scrolls: the header, filter and tabs stay put, and Manage Tags stays in reach. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
       {view === "notes" ? (
         <NotesList text={text} refresh={folders} />
       ) : view === "folders" ? (
@@ -283,26 +284,29 @@ export function KbPanel({ folders, tags }: { folders: Folder[] | null; tags: Tag
           {folder && !filtering && <FolderItems folder={folder} />}
         </>
       ) : shownTags ? (
-        <div className="grid gap-3">
-          {shownTags.length === 0 ? (
-            <p className="px-2 text-sm text-muted-foreground">{filtering ? "No Tags match." : "No Tags yet."}</p>
-          ) : (
-            <ul className="flex flex-wrap gap-1.5">
-              {shownTags.map((tag) => (
-                <li key={tag.id}>
-                  <Link href={`/tags/${tag.id}`} className="rounded-full">
-                    <TagBadge name={tag.name} colour={tag.colour} />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-          <Link href="/tags" className="px-2 text-sm text-link underline-offset-4 hover:underline">
-            Manage Tags
-          </Link>
-        </div>
+        shownTags.length === 0 ? (
+          <p className="px-2 text-sm text-muted-foreground">{filtering ? "No Tags match." : "No Tags yet."}</p>
+        ) : (
+          // One Tag a row, in the API's order (by name), instead of a cloud of pills.
+          <ul aria-label="Tags" className="grid gap-0.5">
+            {shownTags.map((tag) => (
+              <li key={tag.id}>
+                <Link href={`/tags/${tag.id}`} className={itemLink}>
+                  <span aria-hidden data-colour={tag.colour ?? tagColour(tag.name)} className="size-2.5 shrink-0 rounded-full bg-(--tag)" />
+                  <span className="truncate">{tag.name}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )
       ) : (
         <p role="alert" className="px-2 text-sm">Could not load Tags.</p>
+      )}
+      </div>
+      {view === "tags" && (
+        <Link href="/tags" className="border-t border-border-subtle px-2 pt-3 text-sm text-link underline-offset-4 hover:underline">
+          Manage Tags
+        </Link>
       )}
     </div>
   );
