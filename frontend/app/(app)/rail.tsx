@@ -224,7 +224,7 @@ export function Rail({
           </Hint>
         )}
       </div>
-      <div className="relative min-h-0 flex-1 overflow-hidden">
+      <div className="relative min-h-0 w-full flex-1 overflow-hidden">
       <div inert={drilled} className={cn(pane, "gap-1", collapsed ? "items-center" : "px-3", drilled && cn(away, "-translate-x-full"))}>
       {MODULES.map((m) => (
         <RailLink

@@ -14,13 +14,13 @@ test("the Knowledge Base panel is inside the rail, and Back shows the module lis
   await expect(panel).toBeVisible();
   // One sidebar column: nothing beside the rail but the page.
   await expect(page.getByRole("complementary", { name: "Knowledge Base" })).toHaveCount(1);
-  // The module list is out of reach while the panel shows.
-  await expect(rail.getByRole("link", { name: "Home" })).toHaveCount(0);
+  // The module list is inert (not focusable, not clickable) while the panel shows.
+  await expect(rail.locator("[inert]").getByRole("link", { name: "Home" })).toHaveCount(1);
 
   await rail.getByRole("button", { name: "Back to the menu" }).click();
   await expect(rail.getByRole("link", { name: "Home" })).toBeVisible();
   await expect(rail.getByRole("link", { name: "Knowledge Base" })).toBeFocused();
-  await expect(panel).toHaveCount(0);
+  await expect(rail.locator("[inert]").getByRole("complementary", { name: "Knowledge Base" })).toHaveCount(1);
   await expect(page).toHaveURL(/\/items$/);
 
   // Choosing the module again drills back in, with focus on Back.
