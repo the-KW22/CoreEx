@@ -21,13 +21,15 @@ export function ViewToggle({
 }) {
   const router = useRouter();
   const view = useView(saved === "graph" ? "grid" : saved);
+  // What is shown now: the saved first paint changes only on navigation, so compare with this, not with `saved`.
+  const shown = saved === "graph" ? "graph" : view;
   return (
     <ToggleGroup
       type="single"
       variant="outline"
-      value={saved === "graph" ? "graph" : view}
+      value={shown}
       onValueChange={(value) => {
-        if (!value || value === saved) return;
+        if (!value || value === shown) return;
         if (value === "graph") {
           if (graphHref) router.push(graphHref);
           return;
