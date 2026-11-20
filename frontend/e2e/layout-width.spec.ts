@@ -1,32 +1,28 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-import { newApplication, newNote, signIn } from "./helpers";
+import { expectSaved, newNote, signIn } from "./helpers";
 
-// DESIGN.md section 8: the page never scrolls sideways, even with the Details panel open (issue #359).
-async function expectNoSideScroll(page: Page) {
-  await expect(page.getByRole("complementary", { name: "Details" })).toBeVisible();
-  const fits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
-  expect(fits).toBe(true);
-}
+// The case behind #359: the Details panel lists the Notes that link here, and a very long title in one of those cards
+// used to set the panel's width and push the whole page sideways (DESIGN.md section 8: no horizontal page scroll).
+for (const width of [1280, 1920]) {
+  test(`a long-titled Backlink does not make the page scroll sideways at ${width} px`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.context().addCookies([{ name: "details", value: "open", url: baseURL! }]);
+    await signIn(page);
+    const stamp = Date.now();
+    const short = `Backlink target ${stamp}`;
+    await newNote(page, short);
+    const target = page.url();
+    await newNote(page, `A deliberately very long title that links back to the target ${"x".repeat(120)} ${stamp}`);
+    await page.getByRole("textbox", { name: "Note content" }).click();
+    await page.keyboard.type(`See [[${short}`);
+    await page.getByRole("option", { name: new RegExp(short) }).click();
+    await page.keyboard.type(" ");
+    await expectSaved(page);
 
-for (const width of [1280, 1440, 1920]) {
-  test.describe(`${width} px`, () => {
-    test.use({ viewport: { width, height: 900 } });
-
-    test("a Note with its Details panel open does not scroll sideways", async ({ page, baseURL }) => {
-      // The Details choice is remembered in a cookie: open it explicitly rather than rely on the screen width.
-      await page.context().addCookies([{ name: "details", value: "open", url: baseURL! }]);
-      await signIn(page);
-      // A long title, which is what makes the panel's list items wide.
-      await newNote(page, `Layout width probe with a deliberately very long title ${Date.now()} ${"x".repeat(120)}`);
-      await expectNoSideScroll(page);
-    });
-
-    test("an Application with its Details panel open does not scroll sideways", async ({ page, baseURL }) => {
-      await page.context().addCookies([{ name: "details", value: "open", url: baseURL! }]);
-      await signIn(page);
-      await newApplication(page, `Width Probe Co ${Date.now()}`, "Engineer");
-      await expectNoSideScroll(page);
-    });
+    await page.goto(target);
+    const details = page.getByRole("complementary", { name: "Details" });
+    await expect(details.getByRole("region", { name: "Backlinks" }).getByRole("link")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 }
