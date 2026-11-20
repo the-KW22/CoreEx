@@ -1854,6 +1854,13 @@ test("a Folder opens as a Graph, its Items reached by keyboard", async ({ page }
   await trashRows(page, [source, target]);
 });
 
+// The Graph's Filters popover: open it, run `choose`, and close it again.
+async function inFilters(page: Page, choose: () => Promise<unknown>) {
+  await page.getByRole("button", { name: /^Filters/ }).click();
+  await choose();
+  await page.keyboard.press("Escape");
+}
+
 test("the Graph filters by Tag and type and colours by Tag, all kept in the address", async ({ page }) => {
   test.setTimeout(90_000);
   await signIn(page);
@@ -1865,7 +1872,10 @@ test("the Graph filters by Tag and type and colours by Tag, all kept in the addr
   await noteWithTag(page, tagged, tagName);
 
   await page.goto("/graph");
-  await page.getByRole("toolbar", { name: "Filter by Tag" }).getByRole("button", { name: tagName }).click();
+  await inFilters(page, async () => {
+    await page.getByRole("combobox", { name: "Find a Tag" }).fill(tagName);
+    await page.getByRole("option", { name: tagName }).click();
+  });
   await expect(page).toHaveURL(/[?&]tag=/);
   // The other Note fades, and a keyboard User can still reach it and hear why.
   const faded = page.getByRole("link", { name: new RegExp(`^${plain}, .*not in the filter$`) });
@@ -1873,7 +1883,7 @@ test("the Graph filters by Tag and type and colours by Tag, all kept in the addr
   await expect(faded).toHaveClass(/opacity-25/);
   await expect(page.getByRole("link", { name: new RegExp(`^${tagged}, .*Tags: ${tagName}$`) })).toBeVisible();
 
-  await page.getByRole("radiogroup", { name: "Colour by" }).getByRole("radio", { name: "Tag" }).click();
+  await inFilters(page, () => page.getByRole("combobox", { name: "Colour by" }).selectOption("tag"));
   await expect(page.getByRole("list", { name: "Colours" }).getByText(tagName)).toBeVisible();
   await expectNoViolations(page);
 
@@ -1882,14 +1892,14 @@ test("the Graph filters by Tag and type and colours by Tag, all kept in the addr
   await expect(page.getByRole("list", { name: "Colours" }).getByText(tagName)).toBeVisible();
 
   // Type: nothing that is an Asset here, so the Note fades too and Clear filters brings everything back.
-  await page.getByRole("radiogroup", { name: "Show only" }).getByRole("radio", { name: "Assets" }).click();
+  await inFilters(page, () => page.getByRole("combobox", { name: "Type" }).selectOption("ASSET"));
   await expect(page.getByRole("link", { name: new RegExp(`^${tagged}, .*not in the filter$`) })).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page.getByRole("link", { name: new RegExp(`^${plain}, Note`) })).toBeVisible();
   await expect(page.getByRole("link", { name: /not in the filter$/ })).toHaveCount(0);
 
   // Only linked Items hides what has no Links.
-  await page.getByRole("button", { name: "Only linked Items" }).click();
+  await inFilters(page, () => page.getByRole("checkbox", { name: "Only linked Items" }).check());
   await expect(page).toHaveURL(/linked=1/);
   await expect(page.getByRole("link", { name: new RegExp(`^${plain}, Note`) })).toHaveCount(0);
 
@@ -2082,7 +2092,7 @@ test("the Graph's Similar switch says what it finds, and is kept in the address"
   const title = await page.getByRole("textbox", { name: "Title" }).inputValue();
 
   await page.goto("/graph");
-  await page.getByRole("button", { name: "Similar" }).click();
+  await inFilters(page, () => page.getByRole("checkbox", { name: "Similar" }).check());
   await expect(page).toHaveURL(/similar=1/);
   // Whether or not this stack can embed, the answer is said in words, and nothing is drawn as a Link.
   await expect(page.getByRole("status").filter({ hasText: /similar/i })).toBeVisible();

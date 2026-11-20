@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { expectNoViolations, newNote, signIn } from "./helpers";
+import { deleteTag, expectNoViolations, newNote, signIn } from "./helpers";
 
 // The List view: capped Tags, buttons in the row, a row that opens the Item, and the bulk bar.
 async function listOf(page: Page, titles: string[]) {
@@ -52,6 +52,8 @@ test("a row with many Tags shows two and a +N chip, and its buttons and row clic
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
+  await page.goto("/tags");
+  for (const tag of ["alpha", "bravo", "charlie", "delta"]) await deleteTag(page, `${tag}-${stamp}`);
 });
 
 test("select Items in the list, tag them together, then move them to the Trash and Undo", async ({ page }) => {
@@ -109,6 +111,8 @@ test("select Items in the list, tag them together, then move them to the Trash a
   await two.getByRole("button", { name: `Move ${titles[1]} to the Trash` }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(two).toHaveCount(0);
+  await page.goto("/tags");
+  await deleteTag(page, `bulk-${stamp}`);
 });
 
 test("on a phone the row's buttons and checkbox stay reachable and nothing scrolls sideways", async ({ page }) => {

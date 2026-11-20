@@ -10,11 +10,9 @@ import { Alert } from "@/components/alert";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { TagBadge } from "@/components/tag-badge";
-import { Toggle } from "@/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { components } from "@/lib/api/schema";
-import { graphFolderChoices, type Folder } from "@/lib/folders";
+import type { Folder } from "@/lib/folders";
 import {
   aroundNode,
   findNodes,
@@ -26,15 +24,14 @@ import {
   type GraphEdge,
   type GraphFilter,
   type GraphNode,
-  type GraphTag,
   type SuggestedLink,
 } from "@/lib/graph";
 import { graphHref, startCollapsed, treeGraph, type GraphMode } from "@/lib/graph-tree";
 import type { TagColour } from "@/lib/tag-colour";
 
-import { FolderSelect } from "../folders/folder-select";
 import { loadNeighbours, loadSuggestions, resetLayout, savePosition } from "./actions";
 import { GraphCanvas } from "./graph-canvas";
+import { ActiveFilters, FiltersButton } from "./graph-filters";
 import { GraphFolders } from "./graph-folders";
 
 /** What is lit in the canvas: which Find or Item it came from, and the Items in it. */
@@ -67,7 +64,8 @@ export function GraphView({
     const own = new Set(graph.edges.map((e) => `${e.source} ${e.target}`));
     return [...graph.edges, ...added.edges.filter((e) => !own.has(`${e.source} ${e.target}`))];
   }, [graph.edges, added.edges]);
-  const asked = useMemo(() => readFilter(params), [params]);
+  // The filter lives here and in the address (so a link shares it); the address is only written, as nothing needs fetching.
+  const [asked, setAsked] = useState(() => readFilter(params));
   // A Tag from another Folder's graph (the filter follows the User between Folders) cannot match here, so it is ignored.
   const filter = useMemo(
     () => ({ ...asked, tags: asked.tags.filter((id) => graph.tags.some((t) => t.id === id)) }),
@@ -158,6 +156,7 @@ export function GraphView({
     writeFilter(query, next);
     const text = query.toString();
     window.history.replaceState(null, "", text ? `/graph?${text}` : "/graph");
+    setAsked(next);
     setHighlight(null);
     setFocusOn(null);
   }
@@ -175,29 +174,21 @@ export function GraphView({
   const scope = folderId ? (folders.find((f) => f.id === folderId)?.name ?? "this Folder") : "All Items";
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex flex-wrap items-end gap-4">
-          <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Graph</h1>
-          <FolderSelect
-            name="folderId"
-            label="Folder"
-            folders={graphFolderChoices(folders, folderId)}
-            selected={folderId}
-            emptyLabel="All Items"
-            onChange={(id) => router.push(href(id))}
-            className="w-56"
-          />
-        </div>
+    // The page is as tall as the window (less the app frame's padding), so the picture takes what the toolbar leaves.
+    <div className="mx-auto flex h-[calc(100dvh-6.5rem)] max-w-6xl flex-col gap-3 md:h-[calc(100dvh-4rem)]">
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Graph</h1>
+        {/* The same toolbar in Links and Tree: nothing moves when the mode changes. */}
         <div className="flex flex-wrap items-center gap-2">
-          {mode === "links" && allNodes.length > 0 && <GraphFind nodes={nodes} inputRef={findBox} big={graph.truncated} onFind={find} />}
-          <Button variant="outline" className="hidden md:inline-flex" aria-pressed={panel} onClick={togglePanel}>
+          {allNodes.length > 0 && <GraphFind nodes={nodes} inputRef={findBox} big={graph.truncated} onFind={find} />}
+          {/* With the panel hidden, this button names the Folder being shown and brings the picker back. */}
+          <Button variant="outline" className="hidden max-w-56 md:inline-flex" aria-pressed={panel} onClick={togglePanel}>
             <FolderTreeIcon aria-hidden />
-            Folders
+            <span className="truncate">{panel ? "Folders" : `Folders: ${scope}`}</span>
           </Button>
-          <Button variant="outline" className="md:hidden" onClick={() => setSheet(true)}>
+          <Button variant="outline" className="max-w-56 md:hidden" onClick={() => setSheet(true)}>
             <FolderTreeIcon aria-hidden />
-            Folders
+            <span className="truncate">Folders: {scope}</span>
           </Button>
           <ToggleGroup
             type="single"
@@ -209,6 +200,7 @@ export function GraphView({
             <ToggleGroupItem value="links">Links</ToggleGroupItem>
             <ToggleGroupItem value="tree">Tree</ToggleGroupItem>
           </ToggleGroup>
+          {allNodes.length > 0 && <FiltersButton filter={filter} tags={graph.tags} mode={mode} onChange={setFilter} />}
         </div>
       </header>
 
@@ -225,21 +217,30 @@ export function GraphView({
       )}
 
       {allNodes.length > 0 && (
-        <GraphFilters
+        <ActiveFilters
           filter={filter}
           tags={graph.tags}
           mode={mode}
           matching={nodes.length - dimmed.size}
           total={allNodes.length}
           onChange={setFilter}
-          similarCount={similar?.length ?? null}
-          similarFailed={wantsSimilar && pairs?.items === null}
+          similarNote={
+            !wantsSimilar
+              ? null
+              : pairs?.items === null
+                ? "Could not load similar Notes."
+                : !similar
+                  ? "Looking for similar Notes…"
+                  : similar.length === 0
+                    ? "No similar Notes yet. New Notes take a few minutes to be read."
+                    : `${similar.length} similar ${similar.length === 1 ? "pair" : "pairs"}, shown as dotted lines. They are suggestions, not Links.`
+          }
         />
       )}
 
-      <div className={`grid gap-4 ${columns}`}>
+      <div className={`grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] gap-4 ${columns}`}>
         {panel && (
-          <aside aria-label="Folders" className="hidden h-[70vh] min-h-96 overflow-y-auto rounded-[14px] border border-border p-2 md:block">
+          <aside aria-label="Folders" className="relative hidden min-h-0 overflow-y-auto rounded-[14px] border border-border p-2 md:block">
             <GraphFolders folders={folders} current={folderId} href={href} />
           </aside>
         )}
@@ -272,6 +273,9 @@ export function GraphView({
             colours={painted?.colours}
             tagNames={tagNames}
             legend={painted && <Legend {...painted} />}
+            highlight={highlight?.ids}
+            focusOn={focusOn}
+            onBackgroundClick={() => setHighlight(null)}
           />
         ) : (
           <GraphCanvas
@@ -289,7 +293,7 @@ export function GraphView({
             similar={similar ?? undefined}
             onBackgroundClick={() => setHighlight(null)}
             label={`Graph of ${scope}: ${nodes.length} Items. Tab to an Item, arrow keys move along its Links, E loads its neighbours where there may be more.`}
-            className="h-[70vh] min-h-96"
+            className="h-full min-h-72"
             onDrop={async (id, x, y) => {
               if (!(await savePosition(id, folderId, x, y))) toast.error("Could not save where you put it. Try again.");
             }}
@@ -329,6 +333,9 @@ function FolderTreeGraph({
   colours,
   tagNames,
   legend,
+  highlight,
+  focusOn,
+  onBackgroundClick,
 }: {
   items: GraphNode[];
   folders: Folder[];
@@ -336,6 +343,9 @@ function FolderTreeGraph({
   scope: string;
   big: boolean;
   dimmed: Set<string>;
+  highlight?: string[];
+  focusOn: { id: string; move: boolean } | null;
+  onBackgroundClick: () => void;
   colours?: Map<string, TagColour>;
   tagNames: Map<string, string[]>;
   legend: React.ReactNode;
@@ -363,8 +373,11 @@ function FolderTreeGraph({
       colours={colours}
       tagNames={tagNames}
       legend={legend}
+      highlight={highlight}
+      focusOn={focusOn}
+      onBackgroundClick={onBackgroundClick}
       label={`Tree of ${scope}: ${nodes.length} Folders and Items. Tab to one, arrow keys move along the tree, Enter opens an Item or opens and shuts a Folder.`}
-      className="h-[70vh] min-h-96"
+      className="h-full min-h-72"
     />
   );
 }
@@ -415,109 +428,6 @@ function GraphFind({
         ))}
       </CommandList>
     </Command>
-  );
-}
-
-function GraphFilters({
-  filter,
-  tags,
-  mode,
-  matching,
-  total,
-  onChange,
-  similarCount,
-  similarFailed,
-}: {
-  filter: GraphFilter;
-  tags: GraphTag[];
-  mode: GraphMode;
-  matching: number;
-  total: number;
-  onChange: (filter: GraphFilter) => void;
-  similarCount: number | null;
-  similarFailed: boolean;
-}) {
-  const filtering = filter.tags.length > 0 || filter.type || (filter.linkedOnly && mode === "links");
-  return (
-    <div className="grid gap-3">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          value={filter.type ?? "ALL"}
-          onValueChange={(value) => value && onChange({ ...filter, type: value === "ALL" ? null : (value as GraphFilter["type"]) })}
-          aria-label="Show only"
-        >
-          <ToggleGroupItem value="ALL">All</ToggleGroupItem>
-          <ToggleGroupItem value="NOTE">Notes</ToggleGroupItem>
-          <ToggleGroupItem value="ASSET">Assets</ToggleGroupItem>
-          <ToggleGroupItem value="APPLICATION">Applications</ToggleGroupItem>
-          <ToggleGroupItem value="RESUME">Resumes</ToggleGroupItem>
-          <ToggleGroupItem value="COVER_LETTER">Cover Letters</ToggleGroupItem>
-        </ToggleGroup>
-        {mode === "links" && (
-          <Toggle variant="outline" pressed={filter.linkedOnly} onPressedChange={(linkedOnly) => onChange({ ...filter, linkedOnly })}>
-            Only linked Items
-          </Toggle>
-        )}
-        {mode === "links" && (
-          <Toggle variant="outline" pressed={filter.similar} onPressedChange={(similar) => onChange({ ...filter, similar })}>
-            Similar
-          </Toggle>
-        )}
-        {mode === "links" && filter.similar && (
-          <p role="status" className="text-sm text-muted-foreground">
-            {similarFailed
-              ? "Could not load similar Notes."
-              : similarCount === null
-                ? "Looking for similar Notes…"
-                : similarCount === 0
-                  ? "No similar Notes yet. New Notes take a few minutes to be read."
-                  : `${similarCount} similar ${similarCount === 1 ? "pair" : "pairs"}, shown as dotted lines. They are suggestions, not Links.`}
-          </p>
-        )}
-        <div className="flex items-center gap-2">
-          <span id="graph-colour-by" className="text-sm text-muted-foreground">
-            Colour by
-          </span>
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            value={filter.colour ?? "none"}
-            onValueChange={(value) => value && onChange({ ...filter, colour: value === "none" ? null : (value as GraphFilter["colour"]) })}
-            aria-labelledby="graph-colour-by"
-          >
-            <ToggleGroupItem value="none">None</ToggleGroupItem>
-            <ToggleGroupItem value="tag">Tag</ToggleGroupItem>
-            <ToggleGroupItem value="folder">Folder</ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-        <p role="status" className="text-sm text-muted-foreground">
-          {filtering ? `${matching} of ${total} Items` : ""}
-        </p>
-        {filtering && (
-          <Button variant="ghost" onClick={() => onChange({ ...filter, tags: [], type: null, linkedOnly: false })}>
-            Clear filters
-          </Button>
-        )}
-      </div>
-      {tags.length > 0 && (
-        <ToggleGroup
-          type="multiple"
-          value={filter.tags}
-          onValueChange={(ids) => onChange({ ...filter, tags: ids })}
-          aria-label="Filter by Tag"
-          // shortcut: a very long list of Tags scrolls in two rows, add a search box if a real vault outgrows that.
-          className="flex max-h-20 w-full flex-wrap justify-start gap-1 overflow-y-auto"
-        >
-          {tags.map((t) => (
-            <ToggleGroupItem key={t.id} value={t.id} className="h-auto min-w-0 rounded-full px-1 py-0.5 aria-checked:ring-2 aria-checked:ring-ring aria-pressed:ring-2 aria-pressed:ring-ring">
-              <TagBadge name={t.name} colour={t.colour} className="block max-w-40 truncate" />
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      )}
-    </div>
   );
 }
 
