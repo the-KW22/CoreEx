@@ -1813,7 +1813,7 @@ test("a Note's first-line heading and its title stay in step, both ways", async 
   await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
 });
 
-test("a Folder opens as a Graph, its Items reached by keyboard and listed as a table", async ({ page }) => {
+test("a Folder opens as a Graph, its Items reached by keyboard", async ({ page }) => {
   test.setTimeout(60_000);
   await signIn(page);
   const stamp = Date.now();
@@ -1846,12 +1846,6 @@ test("a Folder opens as a Graph, its Items reached by keyboard and listed as a t
   }
   await expect(targetNode).toBeFocused();
 
-  // The same graph as a table.
-  await page.getByRole("button", { name: "Show as table" }).click();
-  await expect(page.getByRole("row", { name: `${source} Note ${target} None` })).toBeVisible();
-  await expectNoViolations(page);
-  await page.getByRole("button", { name: "Show as graph" }).click();
-  await targetNode.focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/notes\//);
   await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(target);
@@ -1883,13 +1877,9 @@ test("the Graph filters by Tag and type and colours by Tag, all kept in the addr
   await expect(page.getByRole("list", { name: "Colours" }).getByText(tagName)).toBeVisible();
   await expectNoViolations(page);
 
-  // A reload keeps the view, and the table lists only what matches.
+  // A reload keeps the view.
   await page.reload();
   await expect(page.getByRole("list", { name: "Colours" }).getByText(tagName)).toBeVisible();
-  await page.getByRole("button", { name: "Show as table" }).click();
-  await expect(page.getByRole("rowheader", { name: tagged })).toBeVisible();
-  await expect(page.getByRole("rowheader", { name: plain })).toHaveCount(0);
-  await page.getByRole("button", { name: "Show as graph" }).click();
 
   // Type: nothing that is an Asset here, so the Note fades too and Clear filters brings everything back.
   await page.getByRole("radiogroup", { name: "Show only" }).getByRole("radio", { name: "Assets" }).click();
@@ -1907,57 +1897,6 @@ test("the Graph filters by Tag and type and colours by Tag, all kept in the addr
   await trashRows(page, [plain, tagged]);
   await page.goto("/tags");
   await deleteTag(page, tagName);
-});
-
-test("Graph Insights answer in the canvas, and the table sorts and shows only orphans", async ({ page }) => {
-  await signIn(page);
-  const stamp = Date.now();
-  const target = `Insight hub ${stamp}`;
-  const source = `Insight source ${stamp}`;
-  const lone = `Insight lone ${stamp}`;
-  await newNote(page, lone);
-  await newNote(page, target);
-  await newNote(page, source);
-  await page.getByRole("textbox", { name: "Note content" }).click();
-  await page.keyboard.press("Control+End");
-  await page.keyboard.type(`See [[${target}`);
-  await page.getByRole("option", { name: new RegExp(target) }).click();
-  await page.keyboard.press("Enter");
-  await expectSaved(page);
-
-  await page.goto("/graph");
-  await page.getByRole("button", { name: "Insights" }).click();
-  const panel = page.getByRole("complementary", { name: "Insights" });
-  await expectNoViolations(page);
-
-  // An answer lights its nodes and dims the rest; pressing it again clears it.
-  const groupHeading = panel.getByRole("heading", { name: /separate group/ });
-  await expect(groupHeading).toBeVisible();
-  const answer = panel.getByRole("button", { name: /Items? with no Links/ });
-  const hub = page.getByRole("link", { name: new RegExp(`^${target}, Note`) });
-  await answer.click();
-  await expect(answer).toHaveAttribute("aria-pressed", "true");
-  await expect(hub).toHaveClass(/opacity-25/);
-  await expect(page.getByRole("link", { name: new RegExp(`^${lone}, Note`) })).toHaveClass(/opacity-100/);
-  await answer.click();
-  await expect(hub).toHaveClass(/opacity-100/);
-
-  // Kept open across a reload.
-  await page.reload();
-  await expect(panel).toBeVisible();
-
-  await page.getByRole("button", { name: "Show as table" }).click();
-  await page.getByRole("button", { name: "Linked from" }).click();
-  await expect(page.getByRole("columnheader", { name: "Linked from" })).toHaveAttribute("aria-sort", "descending");
-  await page.getByRole("button", { name: "Only orphans" }).click();
-  await expect(page.getByRole("rowheader", { name: lone })).toBeVisible();
-  await expect(page.getByRole("rowheader", { name: target })).toHaveCount(0);
-
-  // Leave the panel closed for the tests that follow.
-  await page.getByRole("button", { name: "Show as graph" }).click();
-  await page.getByRole("button", { name: "Insights" }).click();
-  await page.goto("/items");
-  await trashRows(page, [source, target, lone]);
 });
 
 test("the Graph finds a node by title, with / and from the palette, and keeps it lit until you click away", async ({ page }) => {
@@ -2148,10 +2087,7 @@ test("the Graph's Similar switch says what it finds, and is kept in the address"
   // Whether or not this stack can embed, the answer is said in words, and nothing is drawn as a Link.
   await expect(page.getByRole("status").filter({ hasText: /similar/i })).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "Looking for" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Insights" }).click();
-  await expect(page.getByRole("complementary", { name: "Insights" }).getByRole("heading", { name: "Suggested Links" })).toBeVisible();
   await expectNoViolations(page);
-  await page.getByRole("button", { name: "Insights" }).click();
 
   await page.goto("/items");
   await trashRows(page, [title]);

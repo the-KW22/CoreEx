@@ -5,7 +5,6 @@ import {
   centreOn,
   findNodes,
   fit,
-  graphInsights,
   graphIsNotFound,
   labelOpacity,
   linkedOnly,
@@ -17,7 +16,6 @@ import {
   readFilter,
   step,
   typeName,
-  suggestionsForOrphans,
   visibleLabels,
   writeFilter,
   type GraphFilter,
@@ -201,60 +199,6 @@ describe("nodeColours", () => {
   });
 });
 
-describe("graphInsights", () => {
-  const nodes = [
-    node({ id: "hub", title: "Hub" }),
-    node({ id: "a", title: "A" }),
-    node({ id: "b", title: "B" }),
-    node({ id: "x", title: "X" }),
-    node({ id: "y", title: "Y" }),
-    node({ id: "only-stub", title: "Only stub" }),
-    node({ id: "lone", title: "Lone" }),
-    node({ id: "stub", title: "Stub", stub: true }),
-  ];
-  const edges = [
-    { source: "a", target: "hub" },
-    { source: "b", target: "hub" },
-    { source: "x", target: "y" },
-    { source: "only-stub", target: "stub" },
-  ];
-
-  it("counts an Item linked only to a stub as an orphan, and never a stub itself", () => {
-    expect(graphInsights(nodes, edges).orphans).toEqual(["only-stub", "lone"]);
-  });
-
-  it("finds the most linked, with what lights up around each", () => {
-    const { hubs } = graphInsights(nodes, edges);
-    expect(hubs[0]).toEqual({ id: "hub", title: "Hub", links: 2, ids: ["hub", "a", "b"] });
-    expect(hubs.map((h) => h.title)).toEqual(["Hub", "A", "B", "X", "Y"]);
-  });
-
-  it("leaves index and log pages out of the most linked", () => {
-    const { hubs } = graphInsights(
-      [node({ id: "i", title: "Index" }), node({ id: "l", title: "log" }), node({ id: "n", title: "Note" })],
-      [{ source: "i", target: "n" }, { source: "l", target: "n" }, { source: "i", target: "l" }],
-    );
-    expect(hubs.map((h) => h.title)).toEqual(["Note"]);
-  });
-
-  it("names each separate group after its most linked Item, biggest first", () => {
-    const { groups } = graphInsights(nodes, edges);
-    expect(groups.map((g) => [g.name, g.ids.length])).toEqual([["Hub", 3], ["X", 2]]);
-  });
-
-  it("does not join groups that only meet through a stub", () => {
-    const { groups } = graphInsights(
-      [node({ id: "a" }), node({ id: "b" }), node({ id: "c" }), node({ id: "d" }), node({ id: "s", stub: true })],
-      [{ source: "a", target: "b" }, { source: "c", target: "d" }, { source: "a", target: "s" }, { source: "c", target: "s" }],
-    );
-    expect(groups).toHaveLength(2);
-  });
-
-  it("has nothing to say about an empty graph", () => {
-    expect(graphInsights([], [])).toEqual({ orphans: [], hubs: [], groups: [] });
-  });
-});
-
 describe("finding a node", () => {
   it("puts the node in the middle, zooming in only if it has to", () => {
     expect(centreOn({ x: 10, y: 20 }, 100, 200, 0.5)).toEqual({ k: 1.5, x: 35, y: 70 });
@@ -322,23 +266,5 @@ describe("pinchView", () => {
 
   it("survives two fingers starting on the same spot", () => {
     expect(Number.isFinite(pinchView(view, [{ x: 5, y: 5 }, { x: 5, y: 5 }], [{ x: 0, y: 5 }, { x: 10, y: 5 }]).x)).toBe(true);
-  });
-});
-
-describe("suggestionsForOrphans", () => {
-  const pair = (source: string, target: string) => ({ source, sourceTitle: source.toUpperCase(), target, targetTitle: target.toUpperCase(), similarity: 0.9 });
-
-  it("lists an orphan from either side of a pair, and skips pairs with no orphan", () => {
-    const rows = suggestionsForOrphans(["o"], [pair("o", "a"), pair("b", "o"), pair("a", "b")]);
-    expect(rows).toEqual([{ id: "o", title: "O", closeTo: [{ id: "a", title: "A" }, { id: "b", title: "B" }] }]);
-  });
-
-  it("keeps to the closest few", () => {
-    const rows = suggestionsForOrphans(["o"], [pair("o", "a"), pair("o", "b"), pair("o", "c")]);
-    expect(rows[0].closeTo.map((c) => c.id)).toEqual(["a", "b"]);
-  });
-
-  it("lists both when two orphans are close", () => {
-    expect(suggestionsForOrphans(["x", "y"], [pair("x", "y")]).map((r) => r.id)).toEqual(["x", "y"]);
   });
 });
