@@ -66,6 +66,13 @@ export function GraphView({
   }, [graph.edges, added.edges]);
   // The filter lives here and in the address (so a link shares it); the address is only written, as nothing needs fetching.
   const [asked, setAsked] = useState(() => readFilter(params));
+  // Back and Forward change the address for real: read it again then.
+  const query = params.toString();
+  const [seen, setSeen] = useState(query);
+  if (seen !== query) {
+    setSeen(query);
+    setAsked(readFilter(params));
+  }
   // A Tag from another Folder's graph (the filter follows the User between Folders) cannot match here, so it is ignored.
   const filter = useMemo(
     () => ({ ...asked, tags: asked.tags.filter((id) => graph.tags.some((t) => t.id === id)) }),

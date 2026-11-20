@@ -94,6 +94,17 @@ test("Filters is one control: Type, Tags and the rest, shown as chips that remov
   await page.reload();
   await expect(chips.getByRole("button", { name: "Remove filter: Note" })).toBeVisible();
 
+  // Back puts the filters of the earlier address back: Tree is a new entry, the chip is removed there, Back restores it.
+  await expect(async () => {
+    await page.getByRole("radiogroup", { name: "Draw the graph by" }).getByRole("radio", { name: "Tree" }).click();
+    await expect(page).toHaveURL(/mode=tree/, { timeout: 2000 });
+  }).toPass();
+  await chips.getByRole("button", { name: "Remove filter: Note" }).click();
+  await expect(chips.getByRole("button", { name: "Remove filter: Note" })).toHaveCount(0);
+  await page.goBack();
+  await expect(page).not.toHaveURL(/mode=tree/);
+  await expect(chips.getByRole("button", { name: "Remove filter: Note" })).toBeVisible();
+
   await chips.getByRole("button", { name: "Remove filter: Note" }).click();
   await expect(page).not.toHaveURL(/type=NOTE/);
   await page.getByRole("button", { name: "Clear filters" }).click();
