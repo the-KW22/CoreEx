@@ -35,7 +35,7 @@ export async function ItemMentions({ itemId, size, depth }: { itemId: string; si
         <>
           <ul className="grid gap-2">
             {mentions.data.items.map((m) => (
-              <li key={m.id} className="grid gap-2 rounded-[10px] border border-border bg-surface px-3 py-2 text-sm">
+              <li key={m.id} className="grid min-w-0 gap-2 rounded-[10px] border border-border bg-surface px-3 py-2 text-sm">
                 <Link href={itemHref({ id: m.id, type: "NOTE" })} className="flex items-center gap-2 font-medium hover:underline">
                   <FileTextIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
                   <span className="truncate">{m.title || "Untitled"}</span>
