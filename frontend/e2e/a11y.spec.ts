@@ -3035,6 +3035,8 @@ test("Career opens from the rail with its panel and the Applications list, and N
   await page.goto("/items");
 
   // The rail entry opens Career, which lands on Applications, and the entry shows as the current page.
+  // On a Knowledge Base page the rail shows its panel, so Back brings the module list first.
+  await page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: "Back to the menu" }).click();
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Career" }).click();
   await expect(page).toHaveURL(/\/career\/applications$/);
   await expect(page.getByRole("heading", { name: "Applications", level: 1 })).toBeVisible();

@@ -40,7 +40,7 @@ The agreed design for the frontend redesign. It records **what** the UI looks li
 
 ### 3.2 Knowledge Base panel (in the rail)
 
-The panel belongs to the Knowledge Base module: it shows only on Knowledge Base routes (All Items, Folders, Tags, Notes, Search). Home, Assets, Trash, Admin, Settings and Help use the full width, and a future module brings its own panel or none.
+The panel belongs to the Knowledge Base module: it shows only on Knowledge Base routes (All Items, Folders, Tags, Notes). The Search page, which has an entry of its own in the rail, keeps the module list in view. Home, Assets, Trash, Admin, Settings and Help use the full width, and a future module brings its own panel or none.
 
 **One sidebar, not two (#358).** The panel is not a column of its own: it takes the rail's place. The rail opens on the module list; on a Knowledge Base or Career page it is already showing the panel, under a **Back** button. Choosing Knowledge Base or Career slides the list left and the panel in (a short slide and fade, instant with reduced motion); **Back** slides the list back without leaving the page, so the User can go to another module. Back is forgotten when the module changes. The view out of sight is `inert`, and focus follows the swap (to Back, or to the module's link). While the panel shows, the rail is at least 18rem wide, the width the panel had as a column. A collapsed rail has no room for it: the Knowledge Base and Career icons only navigate, and a **Show the panel** button opens the panel in a Sheet. On phones the menu Sheet drills in the same way.
 

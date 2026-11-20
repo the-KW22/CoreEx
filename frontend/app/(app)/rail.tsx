@@ -170,7 +170,8 @@ export function Rail({
   // The panel shows while the User is in its module, until they press Back; leaving the module forgets Back.
   const [backFrom, setBackFrom] = useState<Module | null>(null);
   if (backFrom && backFrom !== active) setBackFrom(null);
-  const drilled = !!panel && !collapsed && backFrom !== active;
+  // Search is a Knowledge Base page with an entry of its own, so it keeps the module list (and its Search entry) in view.
+  const drilled = !!panel && !collapsed && backFrom !== active && !onSearch;
   // Set by a press in the rail, so focus follows the swap only then, not when a page link or Ctrl+K changes the module.
   const pressed = useRef(false);
   useEffect(() => {

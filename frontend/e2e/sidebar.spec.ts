@@ -80,3 +80,12 @@ test("the Tags view lists Tags one a row, with Manage Tags always in reach", asy
   await expect(panel.getByRole("link", { name: "Manage Tags" })).toBeInViewport();
   await expect(panel.getByRole("list", { name: "Tags" }).or(panel.getByText("No Tags yet."))).toBeVisible();
 });
+
+test("the Search page keeps the module list, so Search stays the current entry", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signIn(page);
+  await page.goto("/search");
+  await expect(main(page).getByRole("link", { name: "Search", exact: true })).toHaveAttribute("aria-current", "page");
+  // The panel is there but inert, as after Back.
+  await expect(main(page).locator("[inert]").getByRole("button", { name: "Back to the menu" })).toHaveCount(1);
+});
