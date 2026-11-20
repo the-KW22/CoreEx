@@ -68,6 +68,7 @@ test("from the keyboard: sign in, open a Note from the palette, tag it and move 
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await page.goto("/trash");
   const row = page.getByRole("row").filter({ hasText: title });
   await row.getByRole("button", { name: `Delete forever: ${title}` }).click();

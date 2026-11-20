@@ -2,8 +2,9 @@
 
 import { ChevronRightIcon, PanelRightIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
-import { useState, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 
+import { ConfirmTrash } from "@/components/confirm-trash";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -40,6 +41,9 @@ type Props = {
 export function ItemFrame({ crumbs, current, status, extra, trash, detailsCookie, details, children }: Props) {
   const [detailsChoice, setDetailsChoice] = useState(detailsCookie);
   const [drawer, setDrawer] = useState(false);
+  // The Trash confirm: the names it asks about, or null when closed. Confirming submits the hidden form.
+  const [confirming, setConfirming] = useState<string[] | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const isWide = useSyncExternalStore(wide.subscribe, wide.get, () => false);
   const isTablet = useSyncExternalStore(tablet.subscribe, tablet.get, () => false);
 
@@ -84,11 +88,11 @@ export function ItemFrame({ crumbs, current, status, extra, trash, detailsCookie
           </nav>
           {status}
           {extra}
-          <form action={trash.action}>
+          <form ref={formRef} action={trash.action}>
             <input type="hidden" name="id" value={trash.id} />
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button type="submit" variant="ghost" size="icon" aria-label="Move to Trash">
+                <Button type="button" variant="ghost" size="icon" onClick={() => setConfirming([current])} aria-label="Move to Trash">
                   <Trash2Icon aria-hidden />
                 </Button>
               </TooltipTrigger>
@@ -131,6 +135,14 @@ export function ItemFrame({ crumbs, current, status, extra, trash, detailsCookie
           {body}
         </SheetContent>
       </Sheet>
+      <ConfirmTrash
+        names={confirming}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          formRef.current?.requestSubmit();
+          setConfirming(null);
+        }}
+      />
     </div>
   );
 }

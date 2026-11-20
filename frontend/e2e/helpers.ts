@@ -126,6 +126,7 @@ export async function deleteTag(page: Page, tagName: string) {
 export async function trashedNote(page: Page, title: string) {
   await newNote(page, title);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 }
 
@@ -135,8 +136,8 @@ export async function trashRows(page: Page, titles: string[]) {
   for (const title of titles) {
     await page.goto("/items");
     const row = page.getByRole("row").filter({ hasText: title });
-    await row.getByRole("button", { name: `Actions for ${title}` }).click();
-    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+    await row.getByRole("button", { name: `Move ${title} to the Trash` }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
     await expect(row).toHaveCount(0);
   }
 }

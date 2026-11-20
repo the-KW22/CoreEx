@@ -48,6 +48,7 @@ test("smoke: write, link, upload, search, and tidy up", async ({ page }) => {
   await expect(page).toHaveURL(/\/assets\//);
   await expect(page.getByRole("img", { name: image })).toBeVisible();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 
   // 5. Search finds the first Note by a word in its body and opens it from the result.
@@ -57,12 +58,13 @@ test("smoke: write, link, upload, search, and tidy up", async ({ page }) => {
   await hit.getByRole("link", { name: first }).click();
   await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(first);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 
   // 6. Tidy up: the second Note to the Trash, then all three deleted for good.
   const secondRow = page.getByRole("row").filter({ hasText: second });
-  await secondRow.getByRole("button", { name: `Actions for ${second}` }).click();
-  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await secondRow.getByRole("button", { name: `Move ${second} to the Trash` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(secondRow).toHaveCount(0);
 
   await page.goto("/trash");

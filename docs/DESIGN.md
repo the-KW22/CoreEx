@@ -177,13 +177,14 @@ The same tokens are used by CSS, Motion and View Transitions. They are defined o
 - The **Folders** and **Items** sections fold away from their headings, and each remembers its state (the `collapsed` cookie).
 - **Folder cards** (drawn folder illustration): top-level Folders on All Items, sub-Folders on a Folder page, none on a Tag page. No Item counts yet.
 - **Items, Grid:** a card per Item (icon, title, Folder and date). The title's link covers the card.
-- **Items, List:** a table with Title (with Note or Asset icon), Folder, Updated; cards on a phone.
-- Both are paginated by the API and share one menu: right-click (Context Menu) and a "⋯" button give Open, Open in new tab, Move to Folder, Add Tag, Move to Trash (with Undo). The Assets page uses the same layout.
+- **Items, List:** a table with a checkbox, Title (with Note or Asset icon), Folder, Tags, Size and Updated, and three icon buttons per row (Move to Folder, Add Tag, Move to Trash, each with a Tooltip and a name); stacked cards on a phone. The Tags column is capped: two Tags and a **+N** chip that opens the rest, so a row never widens. There is no "Open" button: the whole row opens the Item (Ctrl/Cmd-click or a middle click opens a new tab; the title link is the keyboard stop).
+- **Selecting (List):** a checkbox on each row and one in the header for the page. While any are selected a bar shows "N selected" with **Add Tag**, **Move to Folder**, **Move to Trash** and **Clear**. Each runs once per Item; a toast says how many worked and how many did not, and the failed ones stay selected. Paging or filtering drops the selection. The Grid has no checkboxes yet.
+- Both are paginated by the API and share a right-click menu (Context Menu): Open in new tab, Move to Folder, Add Tag, Move to Trash; the Grid cards also have it in a "⋯" button. **Move to Trash** always asks first (an alert Dialog: "Move X to the Trash?", says it can be restored, Cancel and Escape do nothing), in the header of a Note and an Asset too, then the toast with **Undo** follows. The Assets page uses the same layout.
 - No type filter (the API cannot filter by type; a client-side filter on one page would show wrong totals).
 
 ### 6.3 Note (`/notes/[id]`)
 
-- **Header bar:** Folder breadcrumb, save status (Saved, Saving, Unsaved), Move to Trash (icon button with Tooltip), Details toggle.
+- **Header bar:** Folder breadcrumb, save status (Saved, Saving, Unsaved), Move to Trash (icon button with Tooltip; it asks first), Details toggle.
 - **Conflict:** a clear Alert banner above the editor with **Keep mine** and **Load theirs**. Load theirs first keeps what was typed as a new Note named "<title> (mine)" (same Folder, same Tags, its heading renamed to match), then loads the stored Note and shows a status line above the title with a link to the copy and **Dismiss**. If the copy cannot be made, nothing is loaded and the banner says why; if only its Tags fail, the line says so.
 - **Unsaved text is kept in the browser** (`localStorage`, one entry per tab and Note, under `coreex:unsaved:`) from every edit until it is saved. Opening a Note puts back the newest entry that differs from the stored Note, with "Restored changes that were not saved yet" (a card with **Dismiss**) and saves it; if the Note was saved elsewhere since, the Note opens in the conflict state instead. Entries older than 7 days are dropped, and **Log out** clears them all.
 - **Changes made elsewhere show up on their own.** While the tab is visible, an open Note asks every 10 seconds (and once when the tab becomes visible again) whether it was changed by an Agent or in another tab (`GET /api/notes/{id}/latest`, no text). With nothing unsaved, the new text is loaded and a card says "Changed by ‹Access token› just now" (or "Changed in another tab or device"); with unsaved text the conflict banner opens at once and names who changed it. The three cards above the title (a kept copy, restored text, a loaded change) share one place and one **Dismiss**. Items lists, Folders and the Graph do not update live.
@@ -368,7 +369,7 @@ Expressive, but calm where people write.
 
 - Target: **WCAG 2.2 AA** in both themes.
 - Text contrast ≥ 4.5:1 (large text ≥ 3:1), including muted labels, Tag colours and Mint used as text.
-- Visible focus ring (`--ring`) on every interactive element; no hover-only actions (Hover Cards also open on focus; Context Menu actions are also in the row "⋯" menu).
+- Visible focus ring (`--ring`) on every interactive element; no hover-only actions (Hover Cards also open on focus; Context Menu actions are also buttons in the row or in the card's "⋯" menu).
 - Targets ≥ 24px (44px on touch). Dialogs and Sheets trap focus and restore it on close.
 - Checks: an **axe** scan of each main screen in both themes inside the Playwright smoke run, plus a keyboard (and Narrator) pass per screen ticket.
 

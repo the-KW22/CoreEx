@@ -80,6 +80,7 @@ test.beforeAll(async ({ browser }) => {
 
   await newNote(page, trashed);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 
   await page.goto("/items");
@@ -301,6 +302,7 @@ for (const colorScheme of ["dark", "light"] as const) {
         await scan(page, failures, "upload dialog with a file");
         await upload.getByRole("link", { name: extra }).click();
         await page.getByRole("button", { name: "Move to Trash" }).click();
+        await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
         await expect(page).toHaveURL(/\/items$/);
         // The page's title arrives a moment after the address changes; axe fails a page without one.
         await expect(page).toHaveTitle(/.+/);
@@ -316,14 +318,11 @@ for (const colorScheme of ["dark", "light"] as const) {
 
         // The Item row menu, its right-click menu, and the two dialogs it opens.
         await page.goto("/items");
-        const menu = page.getByRole("button", { name: `Actions for ${noteA}` });
-        await menu.click();
-        await scan(page, failures, "row menu");
-        await page.getByRole("menuitem", { name: "Move to Folder…" }).click();
+        await scan(page, failures, "row buttons");
+        await page.getByRole("button", { name: `Move ${noteA} to a Folder` }).click();
         await scan(page, failures, "move dialog");
         await page.keyboard.press("Escape");
-        await menu.click();
-        await page.getByRole("menuitem", { name: "Add Tag…" }).click();
+        await page.getByRole("button", { name: `Add a Tag to ${noteA}` }).click();
         await scan(page, failures, "add tag dialog");
         await page.keyboard.press("Escape");
         if (!phone) {
