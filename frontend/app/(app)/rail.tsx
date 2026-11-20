@@ -233,7 +233,8 @@ export function Rail({
           {...m}
           id={`rail-${m.id}`}
           onClick={() => {
-            pressed.current = true;
+            // Only when this press changes the module or the view: otherwise the flag would wait for a later, unrelated page change.
+            if (m.id !== active || backFrom === active) pressed.current = true;
             setBackFrom(null);
           }}
           current={active === m.id && !onSearch}
