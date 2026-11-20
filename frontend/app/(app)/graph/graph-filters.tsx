@@ -61,6 +61,7 @@ function FilterForm({ filter, tags, mode, onChange }: Props) {
                   >
                     <CheckIcon aria-hidden className={on ? "size-4" : "size-4 opacity-0"} />
                     <TagBadge name={tag.name} colour={tag.colour} className="max-w-48 truncate" />
+                    {on && <span className="sr-only">(chosen)</span>}
                   </CommandItem>
                 );
               })}
