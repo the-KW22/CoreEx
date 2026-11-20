@@ -58,6 +58,7 @@ for (const [colorScheme, background] of [
       await expect(page.getByRole("complementary", { name: "Details" })).toBeVisible();
       await expectNoViolations(page);
       await page.getByRole("button", { name: "Move to Trash" }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
       await expect(page).toHaveURL(/\/items$/);
     });
 
@@ -89,8 +90,8 @@ for (const [colorScheme, background] of [
       await expect(page.getByRole("link", { name: tagName })).toHaveCount(0);
 
       await page.goto("/items");
-      await page.getByRole("button", { name: `Actions for Tag probe ${stamp}` }).click();
-      await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+      await page.getByRole("button", { name: `Move Tag probe ${stamp} to the Trash` }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
     });
 
     test("the Trash and Search pages have no WCAG 2.2 AA violations", async ({ page }) => {
@@ -109,6 +110,7 @@ for (const [colorScheme, background] of [
 
       await page.getByRole("link", { name: new RegExp(word) }).click();
       await page.getByRole("button", { name: "Move to Trash" }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
       await expect(page).toHaveURL(/\/items$/);
       await page.goto("/trash");
       const row = page.getByRole("row").filter({ hasText: word });
@@ -260,6 +262,7 @@ test("the command palette finds a Note by title and searches all text", async ({
   await palette.getByRole("option", { name: title, exact: true }).click();
   await expect(page).toHaveURL(/\/notes\//);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).not.toHaveURL(/\/notes\//);
 });
 
@@ -339,6 +342,7 @@ test("Import Markdown from the command palette adds the Note and says so", async
   await added.getByRole("button", { name: "Open" }).click();
   await expect(page).toHaveURL(/\/notes\//);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).not.toHaveURL(/\/notes\//);
 });
 
@@ -377,16 +381,16 @@ test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
 
   await page.goto("/items");
   const row = page.getByRole("row").filter({ hasText: title });
-  const menu = row.getByRole("button", { name: `Actions for ${title}` });
+  const moveButton = row.getByRole("button", { name: `Move ${title} to a Folder` });
+  const trashButton = row.getByRole("button", { name: `Move ${title} to the Trash` });
   await expectNoViolations(page);
 
-  await menu.click();
-  await page.getByRole("menuitem", { name: "Move to Folder…" }).click();
+  await moveButton.click();
   const move = page.getByRole("dialog", { name: "Move to Folder" });
   await chooseFolder(page, move, "Folder", folderName);
   await move.getByRole("button", { name: "Move" }).click();
   await expect(row.getByRole("cell", { name: folderName })).toBeVisible();
-  await expect(menu).toBeFocused();
+  await expect(moveButton).toBeFocused();
 
   // The right-click menu has the same actions.
   await row.click({ button: "right" });
@@ -399,15 +403,15 @@ test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
   const [tab] = await Promise.all([
     page.waitForEvent("popup"),
     (async () => {
-      await menu.click();
+      await row.click({ button: "right" });
       await page.getByRole("menuitem", { name: "Open in new tab" }).click();
     })(),
   ]);
   await expect(tab).toHaveURL(/\/notes\//);
   await tab.close();
 
-  await menu.click();
-  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await trashButton.click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(row).toHaveCount(0);
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(row).toBeVisible();
@@ -421,8 +425,8 @@ test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
   // Tidy up: the Note and the Folder go to the Trash, the Tag is deleted.
   await deleteTag(page, tagName);
   await page.goto("/items");
-  await menu.click();
-  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await trashButton.click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(row).toHaveCount(0);
   await page.getByRole("main").getByRole("link", { name: folderName }).click();
   await trashFolder(page, folderName);
@@ -437,13 +441,13 @@ test("on a phone Item rows stack and the page does not scroll sideways", async (
   await newNote(page, title);
   await page.goto("/items");
   const row = page.getByRole("row").filter({ hasText: title });
-  await expect(row.getByRole("button", { name: `Actions for ${title}` })).toBeVisible();
+  await expect(row.getByRole("button", { name: `Move ${title} to the Trash` })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Title" })).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   await expectNoViolations(page);
 
-  await row.getByRole("button", { name: `Actions for ${title}` }).click();
-  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await row.getByRole("button", { name: `Move ${title} to the Trash` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(row).toHaveCount(0);
 });
 
@@ -501,8 +505,8 @@ test("the Tags page sets a colour, renames, refuses a taken name and deletes aft
   await page.getByRole("button", { name: `Delete ${one}-renamed` }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete Tag" }).click();
   await page.goto("/items");
-  await page.getByRole("button", { name: `Actions for ${title}` }).click();
-  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await page.getByRole("button", { name: `Move ${title} to the Trash` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
 });
 
 test("the Trash shows days left, restores, and deletes for good after a confirm", async ({ page }) => {
@@ -523,8 +527,8 @@ test("the Trash shows days left, restores, and deletes for good after a confirm"
   await expect(item).toBeVisible();
 
   // Trash it again from the row menu; Cancel keeps it, the confirm deletes it.
-  await item.getByRole("button", { name: `Actions for ${title}` }).click();
-  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await item.getByRole("button", { name: `Move ${title} to the Trash` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await page.goto("/trash");
   await row.getByRole("button", { name: `Delete forever: ${title}` }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
@@ -580,6 +584,7 @@ test("Search highlights the match, filters by type and says when nothing matches
   await page.goto(`/search?q=${word}`);
   await hit.getByRole("link").click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -616,6 +621,7 @@ test("a Note card previews whole lines of its text, and an empty Note shows its 
   for (const title of [empty, full]) {
     await card(title).getByRole("link", { name: new RegExp(title) }).click();
     await page.getByRole("button", { name: "Move to Trash" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
     await expect(page).toHaveURL(/\/items$/);
   }
 });
@@ -638,6 +644,7 @@ test("a long Tag name keeps the Search filters inside the window", async ({ page
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(note);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
   await page.goto("/tags");
   await deleteTag(page, tagName);
@@ -788,6 +795,7 @@ test("an Agent's edit is named in the Details panel until you edit the Note your
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
   await page.goto("/settings/tokens");
   await page.getByRole("row").filter({ hasText: name }).getByRole("button", { name: `Revoke ${name}` }).click();
@@ -825,6 +833,7 @@ test("History keeps the text a save replaced, previews it, and restores it", asy
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -875,9 +884,11 @@ test("Load theirs keeps your text as a (mine) Note in the same Folder with the s
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
   await page.goto(original);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -916,6 +927,7 @@ test("text typed while the API cannot be reached comes back after a reload, and 
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -958,6 +970,7 @@ test("a Note changed in another tab shows the change without a reload", async ({
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -993,6 +1006,7 @@ test("unsaved text meeting a change made elsewhere opens the conflict by itself"
   await page.getByRole("button", { name: "Keep mine" }).click();
   await expect(page.getByRole("status").filter({ hasText: /^Saved at/ })).toBeVisible();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1022,6 +1036,7 @@ test("logging out removes the unsaved text kept in the browser", async ({ page }
   await signIn(page);
   await page.goto(noteUrl);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1062,6 +1077,7 @@ test("unsaved text for a Note that changed meanwhile comes back in conflict", as
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1099,6 +1115,7 @@ test("Export downloads a zip with the Note, and a second one inside the minute s
   // Tidy up.
   await page.goto(noteUrl);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1230,6 +1247,7 @@ test("Home shows a new Note under Recently edited and Jump back in", async ({ pa
   // Tidy up.
   await card.click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1266,6 +1284,7 @@ test("Home truncates a long title inside its Recently edited card, and other lis
 
   await page.getByRole("region", { name: "Recently edited" }).getByRole("link", { name: new RegExp(title) }).click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
   for (const size of sizes) {
     await page.setViewportSize(size);
@@ -1311,6 +1330,7 @@ test("the Note screen tags, moves, and remembers hidden Details", async ({ page 
 
   // Tidy up: the Note, the Folder and the Tag.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
   await page.getByRole("main").getByRole("link", { name: folderName }).click();
   await trashFolder(page, folderName);
@@ -1358,10 +1378,11 @@ test("hovering a Link previews its target", async ({ page }) => {
 
   // Tidy up both Notes.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await page.goto("/items");
   const row = page.getByRole("row").filter({ hasText: target });
-  await row.getByRole("button", { name: `Actions for ${target}` }).click();
-  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await row.getByRole("button", { name: `Move ${target} to the Trash` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(row).toHaveCount(0);
 });
 
@@ -1377,6 +1398,7 @@ test("on a phone the Note's Details open as a bottom Sheet", async ({ page }) =>
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1399,6 +1421,7 @@ test("dropping files anywhere in the Knowledge Base shows the overlay and upload
   // Tidy up.
   await dialog.getByRole("link", { name }).click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1452,6 +1475,8 @@ test("an uploaded image opens on the Asset screen, edits in place and downloads"
   await expect(details.getByLabel("Description")).toHaveValue("A single pixel, for testing.");
 
   await page.getByRole("button", { name: "Move to Trash" }).click();
+
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1555,6 +1580,7 @@ test("Ctrl+B is still bold in the Note editor, not the rail", async ({ page }) =
 
   await expectSaved(page);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1579,6 +1605,7 @@ test("the Assets page lists Assets only, with no Knowledge Base panel", async ({
 
   await page.getByRole("link", { name }).click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1639,6 +1666,7 @@ test("the panel has Notes, Folders and Tags tabs, a plus that follows them, and 
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
   await page.goto("/tags");
   await deleteTag(page, tagName);
@@ -1683,6 +1711,7 @@ test("the Items open as a grid, the view is chosen and remembered, and a section
   await view.getByRole("radio", { name: "Grid" }).click();
   await page.getByRole("button", { name: `Actions for ${title}` }).click();
   await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page.getByText(`Moved "${title}" to the Trash`)).toBeVisible();
   await expect(cards.getByRole("link", { name: title })).toHaveCount(0);
 });
@@ -1727,6 +1756,8 @@ test("the editor toolbar formats text, shows where the caret is, and moves with 
   }
 
   await page.getByRole("button", { name: "Move to Trash" }).click();
+
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1776,9 +1807,10 @@ test("a Note's first-line heading and its title stay in step, both ways", async 
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
-  await page.getByRole("button", { name: /^Actions for renamed/ }).first().click();
-  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await page.getByRole("button", { name: /^Move renamed.* to the Trash$/ }).first().click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
 });
 
 test("a Folder opens as a Graph, its Items reached by keyboard and listed as a table", async ({ page }) => {
@@ -2160,6 +2192,7 @@ test("a dragged Graph node stays where it was dropped, until Reset layout", asyn
   await node.locator("circle:not(.hidden)").click();
   await expect(page).toHaveURL(/\/notes\//);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -2745,6 +2778,7 @@ test("an Application sits in a Folder, takes a Tag shown on its row, and goes to
   // Move to Trash from its page; the Trash lists it and Restore brings it back with its Folder.
   await page.getByRole("link", { name: new RegExp(title) }).click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/career\/applications$/);
   await expect(page.getByRole("link", { name: new RegExp(title) })).toHaveCount(0);
   await page.goto("/trash");
@@ -2759,6 +2793,7 @@ test("an Application sits in a Folder, takes a Tag shown on its row, and goes to
   // Tidy up: trash it for good, then the Folder and the Tag.
   await page.getByRole("link", { name: new RegExp(title) }).click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await page.goto("/trash");
   await row.getByRole("button", { name: `Delete forever: ${title}` }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete forever" }).click();

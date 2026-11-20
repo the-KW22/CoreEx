@@ -1,11 +1,11 @@
 "use client";
 
 import { FileUpIcon, MoreHorizontalIcon, UploadIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmTrash } from "@/components/confirm-trash";
 import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -24,7 +24,10 @@ import { FolderSelect } from "../folders/folder-select";
 import { moveItemTo, restoreItem, tagItem, trashItem } from "./actions";
 
 export type Item = components["schemas"]["ItemResponse"];
-type Dialogs = { kind: "move" | "tag"; item: Item } | null;
+
+// What the Dialog or the confirmation is for: one Item (a menu) or several (the bulk bar). `onDone` gets the Items that
+// failed, so the bulk bar can keep them selected.
+type Op = { kind: "move" | "tag" | "trash"; items: Item[]; opener: HTMLElement | null; onDone?: (failed: Item[]) => void };
 
 export const itemTitle = (item: Item) => item.title || "Untitled";
 
@@ -39,31 +42,27 @@ export function PickButton({ kind, label }: { kind: "upload" | "import"; label?:
   );
 }
 
-// The same four actions in an Item's "⋯" menu and its right-click menu; `Entry` and `Separator` are the menu's parts.
+// The same actions in an Item's "⋯" menu and its right-click menu; `Entry` and `Separator` are the menu's parts. There is
+// no "Open": the Item's own card or row opens it.
 function RowActions({
   Entry,
   Separator,
-  onOpen,
   onOpenNewTab,
-  onDialog,
-  onTrash,
+  onOp,
 }: {
   Entry: typeof DropdownMenuItem | typeof ContextMenuItem;
   Separator: typeof DropdownMenuSeparator | typeof ContextMenuSeparator;
-  onOpen: () => void;
   onOpenNewTab: () => void;
-  onDialog: (kind: "move" | "tag") => void;
-  onTrash: () => void;
+  onOp: (kind: Op["kind"]) => void;
 }) {
   return (
     <>
-      <Entry onSelect={onOpen}>Open</Entry>
       {/* Our right-click menu replaces the browser's, so it keeps the browser's most-used choice. */}
       <Entry onSelect={onOpenNewTab}>Open in new tab</Entry>
-      <Entry onSelect={() => onDialog("move")}>Move to Folder…</Entry>
-      <Entry onSelect={() => onDialog("tag")}>Add Tag…</Entry>
+      <Entry onSelect={() => onOp("move")}>Move to Folder…</Entry>
+      <Entry onSelect={() => onOp("tag")}>Add Tag…</Entry>
       <Separator />
-      <Entry variant="destructive" onSelect={onTrash}>
+      <Entry variant="destructive" onSelect={() => onOp("trash")}>
         Move to Trash
       </Entry>
     </>
@@ -75,10 +74,17 @@ type Menus = {
   menuButton: (item: Item, className: string) => React.ReactNode;
   /** The right-click menu's content, for a ContextMenu around the Item. */
   contextMenu: (item: Item) => React.ReactNode;
+  /** Move, tag or trash these Items (the Dialog or the confirmation opens). `onDone` gets those that failed. */
+  run: (kind: Op["kind"], items: Item[], onDone?: (failed: Item[]) => void) => void;
+  /** Open an Item in a new tab. */
+  openNewTab: (item: Item) => void;
 };
 
-// The menus and Dialogs every way of showing Items shares (the list and the grid): Open, Move to Folder, Add Tag and Move
-// to Trash with Undo. `children` draws the Items and hands each its menus.
+const plural = (n: number) => (n === 1 ? "1 Item" : `${n} Items`);
+
+// The menus and Dialogs every way of showing Items shares (the list and the grid): Open in new tab, Move to Folder, Add Tag
+// and Move to Trash (after a confirmation, with Undo), for one Item or a selection. `children` draws the Items and hands
+// each its menus.
 export function ItemMenus({
   folders,
   tags,
@@ -88,30 +94,51 @@ export function ItemMenus({
   tags: { id: string; name: string }[];
   children: (menus: Menus) => React.ReactNode;
 }) {
-  const router = useRouter();
-  const [dialog, setDialog] = useState<Dialogs>(null);
+  const [op, setOp] = useState<Op | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // The Item a Dialog was for, kept past its closing: focus goes back to that Item's "⋯" button, as the menu item that
-  // opened the Dialog is gone.
-  const lastItem = useRef<Item>(null);
-  const openDialog = (kind: "move" | "tag", item: Item) => {
-    lastItem.current = item;
-    setDialog({ kind, item });
+  // What had focus when the Dialog opened: focus goes back there (a menu item that opened it is gone by then, so the
+  // Item's "⋯" button is the fallback).
+  const [open, setOpen] = useState(false);
+  const run: Menus["run"] = (kind, items, onDone) => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setOp({ kind, items, opener, onDone });
+    setOpen(true);
   };
 
-  function trash(item: Item) {
+  // shortcut: one server call per Item, so a big selection is slow and not atomic; add POST /api/items/bulk when
+  // selections pass about 100 Items.
+  async function each(items: Item[], call: (item: Item) => Promise<boolean>) {
+    const failed: Item[] = [];
+    for (const item of items) if (!(await call(item))) failed.push(item);
+    return { ok: items.filter((item) => !failed.includes(item)), failed };
+  }
+
+  // Some worked and some did not: say how many of each. True when it was such a mix.
+  function mixed(ok: Item[], failed: Item[], what: string) {
+    if (ok.length === 0 || failed.length === 0) return false;
+    toast.error(`${what} ${plural(ok.length)}; ${plural(failed.length)} could not be changed. Those stay selected.`);
+    return true;
+  }
+
+  function trash(current: Op) {
+    const { items, onDone } = current;
+    setOpen(false);
     startTransition(async () => {
-      if (!(await trashItem(item.id, item.type))) {
-        toast.error(`Could not move "${itemTitle(item)}" to the Trash. Try again.`);
+      const { ok, failed } = await each(items, (item) => trashItem(item.id, item.type));
+      onDone?.(failed);
+      if (ok.length === 0) {
+        toast.error(`Could not move ${items.length === 1 ? `"${itemTitle(items[0])}"` : plural(items.length)} to the Trash. Try again.`);
         return;
       }
-      toast.success(`Moved "${itemTitle(item)}" to the Trash`, {
+      mixed(ok, failed, "Moved");
+      toast.success(`Moved ${ok.length === 1 ? `"${itemTitle(ok[0])}"` : plural(ok.length)} to the Trash`, {
         action: {
           label: "Undo",
           onClick: () =>
             startTransition(async () => {
-              if (!(await restoreItem(item.id))) toast.error(`Could not bring back "${itemTitle(item)}". Try the Trash.`);
+              const back = await each(ok, (item) => restoreItem(item.id));
+              if (back.failed.length > 0) toast.error(`Could not bring back ${plural(back.failed.length)}. Try the Trash.`);
             }),
         },
       });
@@ -119,19 +146,20 @@ export function ItemMenus({
   }
 
   function submit(formData: FormData) {
-    if (!dialog) return;
-    const { kind, item } = dialog;
+    if (!op) return;
+    const { kind, items, onDone } = op;
     startTransition(async () => {
-      const ok =
-        kind === "move"
-          ? await moveItemTo(item.id, String(formData.get("folderId") ?? "") || null)
-          : await tagItem(item.id, String(formData.get("name") ?? ""));
-      if (!ok) {
+      const folderId = String(formData.get("folderId") ?? "") || null;
+      const name = String(formData.get("name") ?? "");
+      const { ok, failed } = await each(items, (item) => (kind === "move" ? moveItemTo(item.id, folderId) : tagItem(item.id, name)));
+      onDone?.(failed);
+      if (ok.length === 0) {
         toast.error(kind === "move" ? "Could not move the Item. Try again." : "Could not add the Tag. Try again.");
         return;
       }
-      setDialog(null);
-      toast.success(kind === "move" ? `Moved "${itemTitle(item)}"` : `Tagged "${itemTitle(item)}"`);
+      setOpen(false);
+      const what = kind === "move" ? "Moved" : "Tagged";
+      if (!mixed(ok, failed, what)) toast.success(`${what} ${ok.length === 1 ? `"${itemTitle(ok[0])}"` : plural(ok.length)}`);
     });
   }
 
@@ -139,14 +167,14 @@ export function ItemMenus({
     <RowActions
       Entry={menu === "dropdown" ? DropdownMenuItem : ContextMenuItem}
       Separator={menu === "dropdown" ? DropdownMenuSeparator : ContextMenuSeparator}
-      onOpen={() => router.push(itemHref(item))}
       onOpenNewTab={() => window.open(itemHref(item), "_blank", "noopener")}
-      onDialog={(kind) => openDialog(kind, item)}
-      onTrash={() => trash(item)}
+      onOp={(kind) => run(kind, [item])}
     />
   );
 
   const menus: Menus = {
+    run,
+    openNewTab: (item) => window.open(itemHref(item), "_blank", "noopener"),
     menuButton: (item, className) => (
       <DropdownMenu>
         <DropdownMenuTrigger id={`actions-${item.id}`} aria-label={`Actions for ${itemTitle(item)}`} className={className}>
@@ -160,26 +188,39 @@ export function ItemMenus({
     contextMenu: (item) => <ContextMenuContent className="min-w-44">{actions(item, "context")}</ContextMenuContent>,
   };
 
+  const dialog = open && op && op.kind !== "trash" ? op : null;
   return (
     <>
       {children(menus)}
 
-      <Dialog open={dialog !== null} onOpenChange={(open) => !open && setDialog(null)}>
+      <ConfirmTrash
+        names={open && op?.kind === "trash" ? op.items.map(itemTitle) : null}
+        onConfirm={() => op && trash(op)}
+        onCancel={() => setOpen(false)}
+      />
+
+      <Dialog open={dialog !== null} onOpenChange={(open) => !open && setOpen(false)}>
         <DialogContent
           className="border-border bg-popover sm:max-w-sm"
           onCloseAutoFocus={(event) => {
             event.preventDefault();
-            if (lastItem.current) document.getElementById(`actions-${lastItem.current.id}`)?.focus();
+            const back = op?.opener?.isConnected ? op.opener : document.getElementById(`actions-${op?.items[0]?.id}`);
+            back?.focus();
           }}
         >
           {dialog && (
             <form action={submit} className="grid gap-4">
               <DialogHeader>
                 <DialogTitle>{dialog.kind === "move" ? "Move to Folder" : "Add a Tag"}</DialogTitle>
-                <DialogDescription>{itemTitle(dialog.item)}</DialogDescription>
+                <DialogDescription>{dialog.items.length === 1 ? itemTitle(dialog.items[0]) : plural(dialog.items.length)}</DialogDescription>
               </DialogHeader>
               {dialog.kind === "move" ? (
-                <FolderSelect name="folderId" label="Folder" folders={folders} selected={dialog.item.folderId} />
+                <FolderSelect
+                  name="folderId"
+                  label="Folder"
+                  folders={folders}
+                  selected={dialog.items.length === 1 ? dialog.items[0].folderId : null}
+                />
               ) : (
                 <label className="grid gap-1.5 text-sm font-medium">
                   Tag name
@@ -200,7 +241,7 @@ export function ItemMenus({
                 </label>
               )}
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialog(null)}>
+                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={pending}>
