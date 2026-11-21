@@ -182,8 +182,6 @@ for (const colorScheme of ["dark", "light"] as const) {
         await screen(page, failures, "resumes library", "/career/library", heading("Resumes & Letters"));
         await screen(page, failures, "resumes library list", "/career/library?view=list", heading("Resumes & Letters"));
         await screen(page, failures, "knowledge", "/career/knowledge", heading("Knowledge"));
-        await screen(page, failures, "today", "/career", heading("Today"));
-        await screen(page, failures, "offers", "/career/offers", heading("Offers"));
         await screen(page, failures, "applications needs you", "/career/applications?needs=1", heading("Applications"));
         await screen(page, failures, "applications board", "/career/applications?view=board", heading("Applications"));
         await screen(page, failures, "applications calendar", "/career/applications?view=calendar", heading("Applications"));
@@ -203,25 +201,10 @@ for (const colorScheme of ["dark", "light"] as const) {
           await page.getByRole("tab", { name: "Emails" }).click();
           await expect(page.getByRole("heading", { name: "Emails", level: 2 })).toBeVisible();
         });
-        await screen(page, failures, "application messages", seed.application, async () => {
-          await page.getByRole("tab", { name: "Messages" }).click();
-          await expect(page.getByRole("heading", { name: "Messages", level: 2 })).toBeVisible();
-        });
+        // The Messages, Practice, Debrief and Library tabs are hidden (#366); their screens return with them in SHOWN in workspace.tsx.
         await screen(page, failures, "application interview prep", seed.application, async () => {
           await page.getByRole("tab", { name: "Interview prep" }).click();
           await expect(page.getByRole("heading", { name: "Interview prep", level: 2 })).toBeVisible();
-        });
-        await screen(page, failures, "application practice", seed.application, async () => {
-          await page.getByRole("tab", { name: "Practice" }).click();
-          await expect(page.getByRole("heading", { name: "Practice", level: 2, exact: true })).toBeVisible();
-        });
-        await screen(page, failures, "application debrief", seed.application, async () => {
-          await page.getByRole("tab", { name: "Debrief" }).click();
-          await expect(page.getByRole("heading", { name: "Debrief", level: 2 })).toBeVisible();
-        });
-        await screen(page, failures, "application library", seed.application, async () => {
-          await page.getByRole("tab", { name: "Library" }).click();
-          await expect(page.getByRole("heading", { name: "Library", level: 2 })).toBeVisible();
         });
         await screen(page, failures, "resume", seed.resume, async () => {
           await expect(page.getByRole("textbox", { name: "Resume name" })).toHaveValue(`Matrix ${word}`);

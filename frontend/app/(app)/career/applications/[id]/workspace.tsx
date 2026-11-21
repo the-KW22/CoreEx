@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/schema";
 import { formatDay } from "@/lib/applications";
 
-import { ApplyPanel } from "./apply";
+import { ApplyPanel, MarkApplied } from "./apply";
 import { OutOfDate } from "./apply-question";
 import { runFit } from "./career-actions";
 import { DebriefPanel } from "./debrief";
@@ -26,8 +26,14 @@ type Debrief = components["schemas"]["DebriefResponse"];
 type Linked = components["schemas"]["LinkedDocument"];
 type NextStep = components["schemas"]["NextStepResponse"];
 
-const TABS = ["Details", "Fit", "Apply", "Emails", "Messages", "Interview prep", "Practice", "Debrief", "Library"] as const;
-type Tab = (typeof TABS)[number];
+const ALL_TABS = ["Details", "Fit", "Apply", "Emails", "Messages", "Interview prep", "Practice", "Debrief", "Library"] as const;
+type Tab = (typeof ALL_TABS)[number];
+
+// The tabs shown (#366): the flow is the job description, the Fit check, the email and the interview. The others are hidden,
+// not deleted: their panels, API and data stay, and adding a name here brings its tab back. Mark as applied, which lived in
+// Apply, now sits at the bottom of Details.
+const SHOWN: readonly Tab[] = ["Details", "Fit", "Emails", "Interview prep"];
+const TABS = ALL_TABS.filter((name) => SHOWN.includes(name));
 
 // Ids cannot hold spaces, so "Interview prep" becomes "Interview-prep" in its tab and panel ids.
 const slug = (name: Tab) => name.replace(/ /g, "-");
@@ -87,7 +93,7 @@ export function Workspace({
   };
   return (
     <div className="grid gap-4">
-      <div role="tablist" aria-label="Application workspace" className="mx-auto flex w-full max-w-3xl gap-1 overflow-x-auto border-b border-border">
+      <div role="tablist" aria-label="Application workspace" className="mx-auto flex w-full max-w-3xl gap-1 border-b border-border">
         {TABS.map((name, index) => (
           <button
             key={name}
@@ -110,7 +116,16 @@ export function Workspace({
       </div>
       {TABS.map((name) => (
         <div key={name} role="tabpanel" id={`panel-${slug(name)}`} aria-labelledby={`tab-${slug(name)}`} hidden={tab !== name} className="grid gap-4">
-          {name === "Details" && details}
+          {name === "Details" && (
+            <>
+              {details}
+              {apply && !SHOWN.includes("Apply") && (
+                <div className="mx-auto w-full max-w-3xl">
+                  <MarkApplied applicationId={applicationId} stage={stage} apply={apply} />
+                </div>
+              )}
+            </>
+          )}
           {name === "Fit" && (
             <div className="mx-auto w-full max-w-3xl">
               {library ? <FitPanel applicationId={applicationId} library={library} /> : <Alert>Could not load the results. Reload to try again.</Alert>}
@@ -150,7 +165,7 @@ export function Workspace({
           {name === "Interview prep" && (
             <div className="mx-auto w-full max-w-3xl">
               {library ? (
-                <InterviewPrep applicationId={applicationId} library={library} timeline={timeline} onPractise={practise} />
+                <InterviewPrep applicationId={applicationId} library={library} timeline={timeline} onPractise={SHOWN.includes("Practice") ? practise : undefined} />
               ) : (
                 <Alert>Could not load the results. Reload to try again.</Alert>
               )}

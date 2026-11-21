@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import type { components } from "@/lib/api/schema";
 import { getApi, timezoneCookie } from "@/lib/api/server";
 import { formatLocal } from "@/lib/applications";
+import { SHOW } from "@/lib/career-entries";
 
 import { BriefingActions } from "./today-briefing";
 
@@ -10,6 +12,7 @@ type Entry = components["schemas"]["EntryResponse"];
 
 // Today (career-features-decisions.md C4): what needs the User now and what is coming up. Worked out when the page opens.
 export default async function CareerTodayPage() {
+  if (!SHOW.today) redirect("/career/applications");
   const api = await getApi();
   const today = await api.GET("/api/career/today").catch(() => null);
   if (!today?.data) {

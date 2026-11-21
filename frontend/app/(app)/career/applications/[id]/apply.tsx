@@ -95,7 +95,7 @@ function AddQuestion({ applicationId }: { applicationId: string }) {
   );
 }
 
-function MarkApplied({ applicationId, stage, apply }: { applicationId: string; stage: string; apply: Apply }) {
+export function MarkApplied({ applicationId, stage, apply }: { applicationId: string; stage: string; apply: Apply }) {
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   const mark = () =>

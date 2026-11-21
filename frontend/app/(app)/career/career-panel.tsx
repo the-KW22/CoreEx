@@ -4,17 +4,18 @@ import { BookOpenIcon, BriefcaseBusinessIcon, CalendarCheckIcon, FileUserIcon, H
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { SHOW } from "@/lib/career-entries";
 import { cn } from "@/lib/utils";
 
 import { itemLink } from "../kb-panel";
 
 // The Career entries of docs/DESIGN.md section 3.4.
 const ENTRIES = [
-  { href: "/career", label: "Today", icon: CalendarCheckIcon },
-  { href: "/career/applications", label: "Applications", icon: BriefcaseBusinessIcon },
-  { href: "/career/library", label: "Resumes & Letters", icon: FileUserIcon },
-  { href: "/career/knowledge", label: "Knowledge", icon: BookOpenIcon },
-  { href: "/career/offers", label: "Offers", icon: HandshakeIcon },
+  { href: "/career", label: "Today", icon: CalendarCheckIcon, show: SHOW.today },
+  { href: "/career/applications", label: "Applications", icon: BriefcaseBusinessIcon, show: true },
+  { href: "/career/library", label: "Resumes & Letters", icon: FileUserIcon, show: true },
+  { href: "/career/knowledge", label: "Knowledge", icon: BookOpenIcon, show: true },
+  { href: "/career/offers", label: "Offers", icon: HandshakeIcon, show: SHOW.offers },
 ];
 
 export function CareerPanel() {
@@ -24,7 +25,7 @@ export function CareerPanel() {
       <h2 className="text-sm font-semibold">Career</h2>
       <nav aria-label="Career">
         <ul className="grid gap-0.5">
-          {ENTRIES.map(({ href, label, icon: Icon }) => {
+          {ENTRIES.filter(({ show }) => show).map(({ href, label, icon: Icon }) => {
             // Today is /career itself, so only an exact match counts for it.
             const current = pathname === href || (href !== "/career" && pathname.startsWith(`${href}/`));
             return (

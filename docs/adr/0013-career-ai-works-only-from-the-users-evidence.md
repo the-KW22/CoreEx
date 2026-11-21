@@ -24,3 +24,7 @@ Each **Career result** stores a fingerprint of its inputs and shows "Out of date
 - Forgetting a Fact erases its text, keeps a content-free key so no import, retry or AI can bring it back, and removes it from every Career result.
 - Background AI (scheduled briefings, automatic job discovery) is out for now, so no AI runs without the User pressing a button.
 - Reading a posting from a link is the first time the backend fetches arbitrary URLs: it fetches only public hosts, with few redirects and a size cap, and reads the page's own job data before asking the model.
+
+## Update: tabs hidden for now (#366)
+
+An Application's workspace shows only **Details, Fit, Emails and Interview prep**, the User's own flow from the job description to the interview. **Apply, Messages, Practice, Debrief and Library** are hidden, not removed: their panels, API, data and AI results stay, so the rule above still holds for every result already stored, and a name added to `SHOWN` in `applications/[id]/workspace.tsx` brings a tab back. Mark as applied moved to Details; the employer's form questions and the answer library are hidden with Apply. Nothing in this ADR changes: the AI still works only from the User's evidence and only when a button is pressed.

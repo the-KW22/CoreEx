@@ -3024,8 +3024,8 @@ test("Career opens from the rail with its panel and the Applications list, and N
   await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Career" })).toHaveAttribute("aria-current", "page");
   const panel = page.getByRole("navigation", { name: "Career" });
   await expect(panel.getByRole("link", { name: "Applications" })).toHaveAttribute("aria-current", "page");
-  // Only Applications is live; the rest of the design's entries wait for their epics.
-  await expect(panel.getByRole("link")).toHaveCount(1);
+  // Today and Offers are hidden (#367), so the panel has three entries.
+  await expect(panel.getByRole("link")).toHaveCount(3);
   await expectNoViolations(page);
 
   // A new Application lands on its page, keeps the Career panel, and is listed when you go back.

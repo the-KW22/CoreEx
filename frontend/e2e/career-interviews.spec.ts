@@ -46,10 +46,6 @@ test("prepares for an upcoming interview from evidence and marks it Out of date"
   await expect(prep.getByText("Why do you want this role?", { exact: true }).first()).toBeVisible();
   await expectNoViolations(page);
 
-  // The Library lists the prep as its own kind of result.
-  await page.getByRole("tab", { name: "Library" }).click();
-  await expect(page.getByRole("tabpanel", { name: "Library" }).getByText("Interview prep", { exact: true })).toBeVisible();
-
   // Changing the cited Fact makes the prep Out of date until it is made again.
   await page.goto("/career/knowledge");
   const row = page.getByRole("listitem").filter({ hasText: cited }).first();
@@ -64,7 +60,8 @@ test("prepares for an upcoming interview from evidence and marks it Out of date"
   await expect(prep.getByText("Out of date.", { exact: true })).toHaveCount(0, { timeout: 30_000 });
 });
 
-test("types a practice answer and gets feedback quoting only that answer", async ({ page }) => {
+// The Practice tab is hidden (#366); add it back to SHOWN in workspace.tsx and remove .skip.
+test.skip("types a practice answer and gets feedback quoting only that answer", async ({ page }) => {
   test.skip(process.env.E2E_FAKE_AI !== "1", "Requires the local fake AI provider");
   test.setTimeout(180_000);
   const stamp = Date.now();
@@ -98,7 +95,8 @@ test("types a practice answer and gets feedback quoting only that answer", async
   await expectNoViolations(page);
 });
 
-test("records a Debrief for an interview and summarises what to improve", async ({ page }) => {
+// The Debrief tab is hidden (#366); add it back to SHOWN in workspace.tsx and remove .skip.
+test.skip("records a Debrief for an interview and summarises what to improve", async ({ page }) => {
   test.skip(process.env.E2E_FAKE_AI !== "1", "Requires the local fake AI provider");
   test.setTimeout(180_000);
   const stamp = Date.now();

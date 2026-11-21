@@ -32,7 +32,7 @@ export function BriefingActions({ applicationId, interviewSeq, sends }: { applic
         setError(result.message);
         return;
       }
-      router.push(`/career/applications/${applicationId}?tab=Practice&interview=${interviewSeq}`);
+      router.push(`/career/applications/${applicationId}?tab=Interview%20prep&interview=${interviewSeq}`);
     });
 
   return (

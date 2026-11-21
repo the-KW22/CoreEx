@@ -1,9 +1,13 @@
+import { redirect } from "next/navigation";
+
 import { getApi } from "@/lib/api/server";
+import { SHOW } from "@/lib/career-entries";
 
 import { OffersView } from "./offers-view";
 
 // Offers (docs/career/career-features-decisions.md): every Offer of the User's Applications, with its terms and checks.
 export default async function OffersPage() {
+  if (!SHOW.offers) redirect("/career/applications");
   const api = await getApi();
   const offers = await api.GET("/api/offers").catch(() => null);
   // The Add Offer picker lists every Application, 100 a page.
