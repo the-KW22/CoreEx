@@ -36,7 +36,7 @@ test("pulls a Fact from a Resume line with its quote, and it is not suggested ag
   const resume = `Knowledge source ${stamp}`;
   await signIn(page);
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const cv = page.getByRole("dialog", { name: "New Resume" });
   await cv.getByLabel("Name").fill(resume);
   await cv.getByLabel("Start with sample content").check();

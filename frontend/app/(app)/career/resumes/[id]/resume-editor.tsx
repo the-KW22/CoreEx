@@ -64,7 +64,7 @@ export function ResumeEditor({
   backlinks,
 }: {
   id: string;
-  initial: { title: string; document: ResumeDocument; version: number; locked: boolean };
+  initial: { title: string; document: ResumeDocument; version: number; locked: boolean; kind: "RESUME" | "CV" };
   // The Folder picker and Tag editor, made on the server. They organise the Resume rather than edit it, so they work on a locked one.
   organise: React.ReactNode;
   backlinks: React.ReactNode;
@@ -412,13 +412,13 @@ export function ResumeEditor({
     <OpenContext.Provider value={openState}>
     <div className="mx-auto grid max-w-7xl gap-6" onKeyDown={onKeyDown}>
       <header className="grid gap-3 border-b border-border pb-4">
-        <Link href="/career/library" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link href={initial.kind === "CV" ? "/career/cv" : "/career/resumes"} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ChevronLeftIcon aria-hidden className="size-4" />
-          Resumes &amp; Letters
+          {initial.kind === "CV" ? "CV" : "Resumes"}
         </Link>
         <div className="flex flex-wrap items-center gap-3">
           <label className="min-w-0 flex-1">
-            <span className="sr-only">Resume name</span>
+            <span className="sr-only">{initial.kind === "CV" ? "CV name" : "Resume name"}</span>
             <input
               value={state.title}
               disabled={locked}

@@ -38,12 +38,12 @@ export default async function ResumePage({ params }: PageProps<"/career/resumes/
       <ResumeEditor
         key={resume.id}
         id={resume.id}
-        initial={{ title: resume.title, document: resume.document, version: resume.version, locked: resume.locked }}
+        initial={{ title: resume.title, document: resume.document, version: resume.version, locked: resume.locked, kind: resume.kind }}
         backlinks={<ItemBacklinks itemId={resume.id} />}
         organise={
           <>
             <FolderPicker itemId={resume.id} folderId={resume.folderId} folders={list?.data?.items ?? []} />
-            {linked?.data ? <DocumentApplications id={resume.id} kind="RESUME" initial={linked.data} /> : <p role="alert">Could not load linked Applications.</p>}
+            {resume.kind === "CV" ? null : linked?.data ? <DocumentApplications id={resume.id} kind="RESUME" initial={linked.data} /> : <p role="alert">Could not load linked Applications.</p>}
             {itemTags?.data ? (
               <TagEditor itemId={resume.id} tags={itemTags.data.items} allTags={allTags?.data?.items ?? []} />
             ) : (

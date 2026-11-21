@@ -3039,18 +3039,18 @@ test("Career opens from the rail with its panel and the Applications list, and N
   await expect(page.getByRole("navigation", { name: "Career" })).toHaveCount(0);
 });
 
-test("Resumes & Letters lists Resumes, and a Resume is created blank or with sample content, renamed and duplicated", async ({ page }) => {
+test("Resumes lists Resumes, and a Resume is created blank or with sample content, renamed and duplicated", async ({ page }) => {
   await signIn(page);
   const stamp = Date.now();
   const blank = `Blank ${stamp}`;
   const sample = `Sample ${stamp}`;
 
-  await page.goto("/career/library");
-  await expect(page.getByRole("heading", { name: "Resumes & Letters", level: 1 })).toBeVisible();
+  await page.goto("/career/resumes");
+  await expect(page.getByRole("heading", { name: "Resumes", level: 1 })).toBeVisible();
   await expectNoViolations(page);
 
   const create = async (name: string, withSample: boolean) => {
-    await page.getByRole("button", { name: "New Resume" }).click();
+    await page.getByRole("button", { name: "New Resume", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "New Resume" });
     await dialog.getByLabel("Name").fill(name);
     if (withSample) await dialog.getByLabel("Start with sample content").check();
@@ -3079,7 +3079,7 @@ test("Resumes & Letters lists Resumes, and a Resume is created blank or with sam
   await expect(rows.getByText(sample, { exact: true })).toBeVisible();
 
   // The Career panel keeps the entry, and it is the current page.
-  await expect(page.getByRole("navigation", { name: "Career" }).getByRole("link", { name: "Resumes & Letters" })).toHaveAttribute(
+  await expect(page.getByRole("navigation", { name: "Career" }).getByRole("link", { name: "Resumes", exact: true })).toHaveAttribute(
     "aria-current",
     "page",
   );
@@ -3088,7 +3088,7 @@ test("Resumes & Letters lists Resumes, and a Resume is created blank or with sam
 // A new Resume made through the library, opened in its editor.
 async function openNewResume(page: Page, name: string) {
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByRole("button", { name: "Create Resume" }).click();
@@ -3197,7 +3197,7 @@ test("the Resume preview shows the page at real size, follows typing, zooms, and
   await signIn(page);
   const name = `Preview ${Date.now()}`;
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Start with sample content").check();
@@ -3341,7 +3341,7 @@ test("a click on the page jumps to that field in the editor, on page 1 and on pa
   await signIn(page);
   const name = `Map ${Date.now()}`;
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Start with sample content").check();
@@ -3371,7 +3371,7 @@ test("Design mode shows each template with the Resume's own content, previews on
   await signIn(page);
   const name = `Templates ${Date.now()}`;
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Start with sample content").check();
@@ -3414,7 +3414,7 @@ test("the design controls change the page, warn about a hard-to-read accent, mov
   await signIn(page);
   const name = `Design ${Date.now()}`;
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Start with sample content").check();
@@ -3468,7 +3468,7 @@ test("an overflowing Resume is fitted back onto its page in one Undo step, a hop
   await signIn(page);
   const name = `Fit ${Date.now()}`;
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Start with sample content").check();
@@ -3566,7 +3566,7 @@ test("the library searches and sorts Resumes, draws their first page, files them
 
   const make = async (name: string, sample: boolean) => {
     await page.goto("/career/library");
-    await page.getByRole("button", { name: "New Resume" }).click();
+    await page.getByRole("button", { name: "New Resume", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "New Resume" });
     await dialog.getByLabel("Name").fill(name);
     if (sample) await dialog.getByLabel("Start with sample content").check();
@@ -3703,7 +3703,7 @@ test("custom style rules change the page, bad ones are explained and not saved, 
   await signIn(page);
   const name = `Style ${Date.now()}`;
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Start with sample content").check();

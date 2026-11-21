@@ -14,7 +14,7 @@ test("checks a Resume, reads its PDF and compares it with an Application", async
   await application.getByRole("button", { name: "Add Application" }).click();
   await expect(page).toHaveURL(/\/career\/applications\//);
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByRole("button", { name: "Create Resume" }).click();

@@ -103,8 +103,12 @@ The one thing an Application needs from the User now, worked out from its Stage,
 _Avoid_: Task, to-do, action item
 
 **Resume**:
-An Item holding a User's resume: its content (contact details, sections and entries) and its design (template, fonts, colours, layout) together, printed to PDF. A Resume can be copied for one Application; the version sent to an employer is kept unchanged.
-_Avoid_: CV (in the UI and code), document, profile
+An Item holding a User's resume: its content (contact details, sections and entries) and its design (template, fonts, colours, layout) together, printed to PDF. A Resume is tailored to one Application and linked to it; the version sent to an employer is kept unchanged. A Resume is made from a CV by copying it.
+_Avoid_: document, profile
+
+**CV**:
+The User's master Resume: complete, kept up to date and never linked to an Application. It is a Resume of kind CV (ADR 0014), so it has the same content, design, editor and PDF; the User may keep several. **New Resume from CV** copies it into a Resume for one Application.
+_Avoid_: master Resume (in the UI)
 
 **Cover Letter**:
 An Item holding a letter to one employer, with its recipient, greeting, body and sign-off. Its sender details and design come from a Resume while the two stay linked; unlinking keeps an editable copy.

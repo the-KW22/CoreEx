@@ -6,7 +6,7 @@ test("reviews and accepts or rejects an improved Resume field", async ({ page })
   await signIn(page);
   await page.goto("/career/library");
   const name = `AI improvement ${Date.now()}`;
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Start with sample content").check();

@@ -14,7 +14,7 @@ async function addInterview(page: Page, when: string, shown: string) {
 async function markApplied(page: Page, name: string) {
   const applicationUrl = page.url();
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByRole("button", { name: "Create Resume" }).click();
