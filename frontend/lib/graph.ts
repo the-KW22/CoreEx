@@ -229,53 +229,6 @@ export function nodeColours(nodes: GraphNode[], tags: GraphTag[], mode: "tag" | 
   return { colours, legend: sorted.slice(0, LEGEND_SIZE), more: Math.max(0, sorted.length - LEGEND_SIZE) };
 }
 
-const HUBS = 5;
-// shortcut: index and log pages are told by title alone, let a User leave out any Item if real vaults need more.
-const NOT_A_HUB = /^(index|log)$/i;
-
-/**
- * What people open a graph to find, among these nodes. Orphans have no Link to another Item in the graph, stubs not
- * counted. Hubs are the most linked. A group is two or more Items that Links join, named by its most linked.
- */
-export function graphInsights(nodes: GraphNode[], edges: GraphEdge[]) {
-  const inside = nodes.filter((n) => !n.stub);
-  const parent = new Map(inside.map((n) => [n.id, n.id]));
-  const root = (id: string): string => {
-    let at = id;
-    while (parent.get(at) !== at) at = parent.get(at)!;
-    parent.set(id, at);
-    return at;
-  };
-  const links = new Map<string, number>();
-  const neighbours = new Map<string, string[]>();
-  for (const { source, target } of edges) {
-    if (!parent.has(source) || !parent.has(target)) continue;
-    parent.set(root(source), root(target));
-    for (const [from, to] of [[source, target], [target, source]]) {
-      links.set(from, (links.get(from) ?? 0) + 1);
-      neighbours.set(from, [...(neighbours.get(from) ?? []), to]);
-    }
-  }
-  const count = (n: GraphNode) => links.get(n.id) ?? 0;
-  const byLinks = (a: GraphNode, b: GraphNode) => count(b) - count(a) || a.title.localeCompare(b.title);
-
-  const members = new Map<string, GraphNode[]>();
-  for (const n of inside) members.set(root(n.id), [...(members.get(root(n.id)) ?? []), n]);
-
-  return {
-    orphans: inside.filter((n) => count(n) === 0).map((n) => n.id),
-    hubs: inside
-      .filter((n) => count(n) > 0 && !NOT_A_HUB.test(n.title))
-      .sort(byLinks)
-      .slice(0, HUBS)
-      .map((n) => ({ id: n.id, title: n.title, links: count(n), ids: [n.id, ...(neighbours.get(n.id) ?? [])] })),
-    groups: [...members.values()]
-      .filter((group) => group.length > 1)
-      .map((group) => ({ name: [...group].sort(byLinks)[0].title, ids: group.map((n) => n.id) }))
-      .sort((a, b) => b.ids.length - a.ids.length || a.name.localeCompare(b.name)),
-  };
-}
-
 // How far in a found node is shown: close enough that its label and its neighbours' are readable.
 const FOUND_ZOOM = 1.5;
 
@@ -338,24 +291,4 @@ export function visibleLabels(
     shown.add(n.id);
   }
   return shown;
-}
-
-/** For Items with no Links, the Items they are close to: the Suggested Links worth asking about. An orphan gets the Link. */
-export function suggestionsForOrphans(orphans: string[], pairs: SuggestedLink[], limit = 2) {
-  const lonely = new Set(orphans);
-  const found = new Map<string, { id: string; title: string; closeTo: { id: string; title: string }[] }>();
-  // Closest first, as the API sends them.
-  for (const pair of pairs) {
-    const ends = [
-      { id: pair.source, title: pair.sourceTitle, other: { id: pair.target, title: pair.targetTitle } },
-      { id: pair.target, title: pair.targetTitle, other: { id: pair.source, title: pair.sourceTitle } },
-    ];
-    for (const { id, title, other } of ends) {
-      if (!lonely.has(id)) continue;
-      const row = found.get(id) ?? { id, title, closeTo: [] };
-      if (row.closeTo.length < limit) row.closeTo.push(other);
-      found.set(id, row);
-    }
-  }
-  return [...found.values()];
 }

@@ -33,12 +33,3 @@ export async function loadSuggestions(folderId: string | null) {
   const result = await api.GET("/api/links/graph/suggestions", { params: scope(folderId) }).catch(() => null);
   return result?.data?.items ?? null;
 }
-
-// Link it for a Suggested Link: `noteId` gains a Link to `targetId`.
-export async function linkSuggestion(targetId: string, noteId: string): Promise<boolean> {
-  const api = await getApi();
-  const result = await api
-    .POST("/api/items/{id}/suggested-links/{noteId}", { params: { path: { id: targetId, noteId } } })
-    .catch(() => null);
-  return done(!!result && !result.error);
-}
