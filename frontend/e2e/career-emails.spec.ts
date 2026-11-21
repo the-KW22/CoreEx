@@ -24,9 +24,9 @@ async function markApplied(page: Page, name: string) {
   await page.getByRole("combobox", { name: /^Resume/ }).selectOption({ label: name });
   await page.getByRole("button", { name: "Save Resume link" }).click();
   await page.reload();
-  await page.getByRole("tab", { name: "Apply" }).click();
-  await page.getByRole("tabpanel", { name: "Apply" }).getByRole("button", { name: "Mark as applied" }).click();
-  await expect(page.getByRole("tabpanel", { name: "Apply" }).getByText(/^Marked as applied on/)).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("tab", { name: "Details" }).click();
+  await page.getByRole("tabpanel", { name: "Details" }).getByRole("button", { name: "Mark as applied" }).click();
+  await expect(page.getByRole("tabpanel", { name: "Details" }).getByText(/^Marked as applied on/)).toBeVisible({ timeout: 15_000 });
 }
 
 // Needs the API started with COREEX_AI_PROVIDER=fake (and E2E_FAKE_AI=1 here): the fake email has a fixed subject and body,
@@ -90,7 +90,7 @@ test("offers a follow-up only once the Application is marked applied", async ({ 
   await expectNoViolations(page);
 });
 
-test("drafts a thank-you for an interview that has a Debrief", async ({ page }) => {
+test("says a thank-you waits for a Debrief on the interview", async ({ page }) => {
   test.skip(process.env.E2E_FAKE_AI !== "1", "Requires the local fake AI provider");
   test.setTimeout(180_000);
   const stamp = Date.now();
@@ -103,17 +103,6 @@ test("drafts a thank-you for an interview that has a Debrief", async ({ page }) 
   const emails = page.getByRole("tabpanel", { name: "Emails" });
   await expect(emails.getByText("Write a Debrief for an interview first, then draft the thank-you.")).toBeVisible();
   await expect(emails.getByRole("button", { name: "Draft thank-you" })).toBeDisabled();
-
-  await page.getByRole("tab", { name: "Debrief" }).click();
-  const debrief = page.getByRole("tabpanel", { name: "Debrief" });
-  await debrief.getByLabel("Notes", { exact: true }).fill(`Went through the stack ${stamp}`);
-  await debrief.getByRole("button", { name: "Save Debrief" }).click();
-  await expect(debrief.getByRole("button", { name: "Summarise what to improve" })).toBeVisible();
-
-  await page.getByRole("tab", { name: "Emails" }).click();
-  await expect(emails.getByRole("combobox", { name: "Interview for the thank-you" })).toHaveValue(/\d+/);
-  await emails.getByRole("button", { name: "Draft thank-you" }).click();
-  await expect(emails.getByRole("heading", { name: /^Thank-you, / , level: 3 })).toBeVisible({ timeout: 60_000 });
-  await expect(emails.getByLabel("Subject", { exact: true })).toHaveValue(/\S/);
+  // Drafting the thank-you after a Debrief needs the Debrief tab (hidden, #366), so that step is not covered here.
   await expectNoViolations(page);
 });

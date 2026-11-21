@@ -28,7 +28,7 @@ export function InterviewPrep({
   applicationId: string;
   library: Library;
   timeline: Entry[];
-  onPractise: (question: string) => void;
+  onPractise?: (question: string) => void;
 }) {
   const hydrated = useHydrated();
   const [chosen, setChosen] = useState<number | null>(null);
@@ -89,7 +89,7 @@ export function InterviewPrep({
   );
 }
 
-function PrepResult({ result, onPractise }: { result: Result; onPractise: (question: string) => void }) {
+function PrepResult({ result, onPractise }: { result: Result; onPractise?: (question: string) => void }) {
   const prep = result.prep;
   return (
     <div className="grid gap-4">
@@ -138,9 +138,12 @@ function PrepResult({ result, onPractise }: { result: Result; onPractise: (quest
           {prep.practice.map((q, index) => (
             <li key={index} className="flex flex-wrap items-center justify-between gap-2 text-sm">
               <span>{q}</span>
-              <Button type="button" size="sm" variant="outline" onClick={() => onPractise(q)}>
-                Practise<span className="sr-only"> {q}</span>
-              </Button>
+              {/* The Practice tab is hidden (#366), so the button waits for it. */}
+              {onPractise && (
+                <Button type="button" size="sm" variant="outline" onClick={() => onPractise(q)}>
+                  Practise<span className="sr-only"> {q}</span>
+                </Button>
+              )}
             </li>
           ))}
         </ul>
