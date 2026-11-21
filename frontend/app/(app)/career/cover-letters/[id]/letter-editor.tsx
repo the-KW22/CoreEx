@@ -162,7 +162,7 @@ export function LetterEditor({ initial, organise, backlinks }: { initial: Letter
 
   return <div className="grid gap-6">
     <header className="grid gap-4">
-      <Link href="/career/library" className="text-sm underline underline-offset-2">Back to Resumes &amp; Letters</Link>
+      <Link href="/career/cover-letters" className="text-sm underline underline-offset-2">Back to Cover Letters</Link>
       <label className="grid gap-1 font-medium">Cover Letter name<input value={title} maxLength={200} onChange={(e) => { setTitle(e.target.value); setStatus((current) => current === "conflict" ? current : "unsaved"); }} className={input} /></label>
       <p role="status">{status === "saved" ? "Saved" : status === "saving" ? "Saving…" : status === "conflict" ? "Changed in another tab. Your text is kept on this device." : status === "error" ? "Not saved. Try again." : "Unsaved changes"}</p>
       {notice && <p role="status">{notice}</p>}

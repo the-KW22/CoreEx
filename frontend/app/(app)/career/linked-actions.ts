@@ -8,7 +8,7 @@ export async function linkedChoices() {
   const resumes: { id: string; title: string }[] = [];
   const applications: { id: string; title: string }[] = [];
   for (let page = 0; ; page++) {
-    const result = await api.GET("/api/resumes", { params: { query: { page, size: 100 } } }).catch(() => null);
+    const result = await api.GET("/api/resumes", { params: { query: { page, size: 100, kind: "RESUME" } } }).catch(() => null);
     if (!result?.data) return null;
     resumes.push(...result.data.items);
     if (resumes.length >= result.data.total || !result.data.items.length) break;

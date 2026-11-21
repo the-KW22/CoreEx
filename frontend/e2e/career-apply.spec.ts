@@ -21,7 +21,7 @@ test.skip("writes form answers within a limit, drafts and tightens, reuses a lib
   await page.getByRole("button", { name: "Add Fact" }).click();
   await expect(page.getByText(fact)).toBeVisible();
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const resumeDialog = page.getByRole("dialog", { name: "New Resume" });
   await resumeDialog.getByLabel("Name").fill(company);
   await resumeDialog.getByRole("button", { name: "Create Resume" }).click();

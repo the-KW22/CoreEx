@@ -70,7 +70,7 @@ test.beforeAll(async ({ browser }) => {
 
   // A Resume cannot go to the Trash yet (#255), so this one stays behind.
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const made = page.getByRole("dialog", { name: "New Resume" });
   await made.getByLabel("Name").fill(`Matrix ${word}`);
   await made.getByRole("button", { name: "Create Resume" }).click();
@@ -179,8 +179,10 @@ for (const colorScheme of ["dark", "light"] as const) {
           await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(noteA);
         });
         await screen(page, failures, "applications", "/career/applications", heading("Applications"));
-        await screen(page, failures, "resumes library", "/career/library", heading("Resumes & Letters"));
-        await screen(page, failures, "resumes library list", "/career/library?view=list", heading("Resumes & Letters"));
+        await screen(page, failures, "resumes", "/career/resumes", heading("Resumes"));
+        await screen(page, failures, "resumes list", "/career/resumes?view=list", heading("Resumes"));
+        await screen(page, failures, "cv", "/career/cv", heading("CV"));
+        await screen(page, failures, "cover letters", "/career/cover-letters", heading("Cover Letters"));
         await screen(page, failures, "knowledge", "/career/knowledge", heading("Knowledge"));
         await screen(page, failures, "applications needs you", "/career/applications?needs=1", heading("Applications"));
         await screen(page, failures, "applications board", "/career/applications?view=board", heading("Applications"));

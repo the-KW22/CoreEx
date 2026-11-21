@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenIcon, BriefcaseBusinessIcon, CalendarCheckIcon, FileUserIcon, HandshakeIcon } from "lucide-react";
+import { BookOpenIcon, BriefcaseBusinessIcon, CalendarCheckIcon, FileUserIcon, IdCardIcon, MailIcon, HandshakeIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -13,7 +13,9 @@ import { itemLink } from "../kb-panel";
 const ENTRIES = [
   { href: "/career", label: "Today", icon: CalendarCheckIcon, show: SHOW.today },
   { href: "/career/applications", label: "Applications", icon: BriefcaseBusinessIcon, show: true },
-  { href: "/career/library", label: "Resumes & Letters", icon: FileUserIcon, show: true },
+  { href: "/career/cv", label: "CV", icon: IdCardIcon, show: true },
+  { href: "/career/resumes", label: "Resumes", icon: FileUserIcon, IdCardIcon, MailIcon, show: true },
+  { href: "/career/cover-letters", label: "Cover Letters", icon: MailIcon, show: true },
   { href: "/career/knowledge", label: "Knowledge", icon: BookOpenIcon, show: true },
   { href: "/career/offers", label: "Offers", icon: HandshakeIcon, show: SHOW.offers },
 ];

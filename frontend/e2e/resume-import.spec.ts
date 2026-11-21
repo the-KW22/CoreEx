@@ -14,7 +14,7 @@ const file = JSON.stringify({
 test("importing a JSON Resume shows what was read, then creates the Resume from it", async ({ page }) => {
   await signIn(page);
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
 
   await dialog.getByLabel("Import a file").setInputFiles({ name: "resume.json", mimeType: "application/json", buffer: Buffer.from(file) });

@@ -23,8 +23,9 @@ import { Thumbnail } from "./thumbnail";
 
 const input = "h-9 w-full rounded-lg border border-border bg-surface px-3";
 
-// One Resume in the library, as a card with its first page (grid) or as a row (list): its name opening the editor, when
-// it changed, its Tags, and Rename, Duplicate and Move to Trash (with Undo).
+// One Resume or CV in the library, as a card with its first page (grid) or as a row (list): its name opening the editor, the
+// Application a Resume is for, when it changed, its Tags, and Rename, Duplicate (a CV makes a Resume from it) and Move to
+// Trash (with Undo).
 export function ResumeRow({
   id,
   title,
@@ -32,6 +33,8 @@ export function ResumeRow({
   updated,
   tags,
   layout,
+  kind,
+  application,
 }: {
   id: string;
   title: string;
@@ -39,7 +42,11 @@ export function ResumeRow({
   updated: string | null;
   tags: { id: string; name: string; colour?: TagColour | null }[];
   layout: "grid" | "list";
+  kind: "RESUME" | "CV";
+  /** The Application a Resume is linked to; a CV has none. */
+  application?: { id: string; title: string } | null;
 }) {
+  const cv = kind === "CV";
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(title);
   const [error, setError] = useState<string | null>(null);
@@ -90,7 +97,7 @@ export function ResumeRow({
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rename Resume</DialogTitle>
+            <DialogTitle>{cv ? "Rename CV" : "Rename Resume"}</DialogTitle>
             <DialogDescription>The name is only for you; it is not printed on the page.</DialogDescription>
           </DialogHeader>
           <form onSubmit={rename} className="grid gap-3">
@@ -117,8 +124,8 @@ export function ResumeRow({
           </form>
         </DialogContent>
       </Dialog>
-      <Button type="button" variant="outline" size="sm" disabled={pending} onClick={duplicate} aria-label={`Duplicate ${title}`}>
-        Duplicate
+      <Button type="button" variant="outline" size="sm" disabled={pending} onClick={duplicate} aria-label={cv ? `Make a Resume from ${title}` : `Duplicate ${title}`}>
+        {cv ? "Make a Resume" : "Duplicate"}
       </Button>
       <Button type="button" variant="outline" size="sm" disabled={pending} onClick={trash} aria-label={`Move to Trash: ${title}`}>
         Move to Trash
@@ -131,6 +138,19 @@ export function ResumeRow({
       <Link href={`/career/resumes/${id}`} className="block truncate font-medium hover:underline">
         {title}
       </Link>
+      {cv ? (
+        <p className="text-sm font-medium">CV</p>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {application ? (
+            <>
+              For <Link href={`/career/applications/${application.id}`} className="underline underline-offset-2">{application.title}</Link>
+            </>
+          ) : (
+            "Not linked to an Application"
+          )}
+        </p>
+      )}
       {updated && <p className="text-sm text-muted-foreground">Changed {updated}</p>}
       {tags.length > 0 && (
         <ul className="flex flex-wrap gap-1" aria-label={`Tags of ${title}`}>

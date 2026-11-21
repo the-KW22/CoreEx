@@ -20,7 +20,8 @@ const input = "h-9 w-full rounded-lg border border-border bg-surface px-3";
 
 // The library's New Resume button: a name, and blank or with sample content to see how a finished one looks. Or a file
 // to import: it is read here, shown for review, and only created when the User confirms.
-export function NewResume() {
+export function NewResume({ kind = "RESUME" }: { kind?: "RESUME" | "CV" }) {
+  const word = kind === "CV" ? "CV" : "Resume";
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [sample, setSample] = useState(false);
@@ -85,7 +86,7 @@ export function NewResume() {
     e.preventDefault();
     start(async () => {
       try {
-        const result = imported ? await createResume(title, false, imported.document) : await createResume(title, sample);
+        const result = imported ? await createResume(title, false, imported.document, kind) : await createResume(title, sample, undefined, kind);
         if (!result.ok) {
           setError(result.message);
           return;
@@ -103,15 +104,15 @@ export function NewResume() {
       <DialogTrigger asChild>
         <Button type="button" variant="outline">
           <FileUserIcon aria-hidden />
-          New Resume
+          New {word}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New Resume</DialogTitle>
+          <DialogTitle>New {word}</DialogTitle>
           <DialogDescription>
             {imported
-              ? "Check what was read from the file. Nothing is created until you choose Create Resume."
+              ? "Check what was read from the file. Nothing is created until you choose Create {word}."
               : "Start with an empty page, with sample content you can replace, or from a file you already have."}
           </DialogDescription>
         </DialogHeader>
@@ -122,7 +123,7 @@ export function NewResume() {
               name="title"
               maxLength={200}
               autoComplete="off"
-              placeholder="My Resume"
+              placeholder={`My ${word}`}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className={input}
@@ -142,7 +143,7 @@ export function NewResume() {
                     ))}
                   </ul>
                 ) : (
-                  <p>No sections were read. The Resume will start with your basic details.</p>
+                  <p>No sections were read. The {word} will start with your basic details.</p>
                 )}
               </div>
               {imported.skipped.length > 0 && (
@@ -170,7 +171,7 @@ export function NewResume() {
                 <input type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" disabled={reading}
                   onChange={(event) => setAiFile(event.target.files?.[0] ?? null)} className="text-sm font-normal" />
               </label>
-              <p className="text-xs text-muted-foreground">Sends: the text extracted from this file to Claude, made by Anthropic, using your daily AI budget. Review the result before creating a Resume.</p>
+              <p className="text-xs text-muted-foreground">Sends: the text extracted from this file to Claude, made by Anthropic, using your daily AI budget. Review the result before creating a {word}.</p>
               <Button type="button" variant="outline" disabled={!aiFile || reading} onClick={() => void importWithAi()}>Read with AI</Button>
               <label className="grid gap-1 border-t border-border pt-3 text-sm font-medium">
                 Import a file
@@ -200,7 +201,7 @@ export function NewResume() {
           )}
           {!reading && (
             <Button type="submit" disabled={pending}>
-              {pending ? "Creating…" : "Create Resume"}
+              {pending ? "Creating…" : `Create ${word}`}
             </Button>
           )}
         </form>
