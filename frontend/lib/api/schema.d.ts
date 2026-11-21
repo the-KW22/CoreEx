@@ -2384,6 +2384,8 @@ export interface components {
             /** Format: uuid */
             id: string;
             title: string;
+            /** @enum {string} */
+            kind: "RESUME" | "CV";
             document: components["schemas"]["ResumeDocument"];
             /** Format: int32 */
             version: number;
@@ -3018,6 +3020,11 @@ export interface components {
             /** @description Start from made-up sample content instead of a blank Resume */
             sample?: boolean;
             /**
+             * @description RESUME (the default), or CV for the User's master document, which can never be linked to an Application
+             * @enum {string|null}
+             */
+            kind?: "RESUME" | "CV" | null;
+            /**
              * Format: uuid
              * @description An id you make up. Sending the same request again returns that Resume instead of making a second one; an id already used for anything else is refused with INVALID_REQUEST
              */
@@ -3347,6 +3354,8 @@ export interface components {
             /** Format: uuid */
             id?: string;
             title?: string;
+            /** @enum {string} */
+            kind?: "RESUME" | "CV";
             document?: components["schemas"]["ResumeDocument"];
             /** Format: int32 */
             version?: number;
@@ -3615,6 +3624,8 @@ export interface components {
             /** Format: uuid */
             id: string;
             title: string;
+            /** @enum {string} */
+            kind: "RESUME" | "CV";
             /** Format: uuid */
             folderId: string | null;
             /** Format: date-time */
@@ -5668,6 +5679,8 @@ export interface operations {
                 q?: string;
                 /** @description updated (newest change first, the default), name or created (newest first) */
                 sort?: string;
+                /** @description Only CVs or only Resumes */
+                kind?: "RESUME" | "CV";
             };
             header?: never;
             path?: never;

@@ -41,6 +41,7 @@ import com.coreex.tags.Tag;
 import com.coreex.tags.TagService;
 
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Writes everything a User keeps as one zip: Notes as Markdown exactly as stored, Assets as their original files,
@@ -299,7 +300,9 @@ class ExportService {
 		var paths = new ArrayList<String>();
 		var jsonPath = pathIn(dir, names.file(dir.path(), row.title(), ".json"));
 		var markdownPath = pathIn(dir, names.file(dir.path(), row.title(), ".md"));
-		put(zip, jsonPath, row.updatedAt(), json.writeValueAsBytes(resume.document()));
+		var document = (ObjectNode) json.valueToTree(resume.document());
+		document.put("kind", resume.kind().name());
+		put(zip, jsonPath, row.updatedAt(), json.writeValueAsBytes(document));
 		put(zip, markdownPath, row.updatedAt(), resumes.markdown(resume.document()).getBytes(StandardCharsets.UTF_8));
 		paths.add(jsonPath);
 		paths.add(markdownPath);

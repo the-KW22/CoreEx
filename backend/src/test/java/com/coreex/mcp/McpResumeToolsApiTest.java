@@ -66,6 +66,19 @@ class McpResumeToolsApiTest extends McpApiTest {
 	}
 
 	@Test
+	void theKindIsShownAndCanBeAskedForInTheListAndMadeOnCreate() throws Exception {
+		resume();
+		var made = call("create_resume", "{\"title\":\"Master\",\"kind\":\"CV\"}");
+		assertThat(made.path("kind").asString()).isEqualTo("CV");
+		assertThat(call("create_resume", "{\"title\":\"Plain\"}").path("kind").asString()).isEqualTo("RESUME");
+
+		var cvs = call("list_resumes", "{\"kind\":\"CV\"}");
+		assertThat(cvs.path("total").asInt()).isEqualTo(1);
+		assertThat(cvs.path("resumes").get(0).path("kind").asString()).isEqualTo("CV");
+		assertThat(call("get_resume", "{\"id\":\"" + made.path("id").asString() + "\"}").path("kind").asString()).isEqualTo("CV");
+	}
+
+	@Test
 	void aValidPatchAppliesKeepsAVersionAndMarksTheAgentsEdit() throws Exception {
 		var id = resume();
 
