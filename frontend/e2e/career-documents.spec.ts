@@ -42,6 +42,21 @@ test("the CV, Resumes and Cover Letters pages: a Resume is made from a CV, and t
   await expect(copy.getByText("Not linked to an Application")).toBeVisible();
   await expectNoViolations(page);
 
+  // On an Application a CV cannot be linked, but it is what a Resume is copied from.
+  await page.goto("/career/applications");
+  await page.getByRole("button", { name: "New Application" }).click();
+  const app = page.getByRole("dialog", { name: "New Application" });
+  await app.getByLabel("Company").fill(`Docs ${stamp}`);
+  await app.getByLabel("Role").fill("Engineer");
+  await app.getByLabel("Posting", { exact: true }).fill("We are hiring.");
+  await app.getByRole("button", { name: "Add Application" }).click();
+  await expect(page).toHaveURL(/\/career\/applications\//);
+  // The copy picker offers the CV; the link picker offers Resumes only (the copy made above, never the CV itself).
+  await expect(page.getByLabel("Copy a Resume for this job").locator("option", { hasText: `CV: ${cvName}` })).toBeAttached({ timeout: 30_000 });
+  const linkable = page.getByRole("combobox", { name: "Resume", exact: true }).locator("option");
+  await expect(linkable.filter({ hasText: `${cvName} (copy)` })).toBeAttached({ timeout: 30_000 });
+  await expect(linkable.filter({ hasText: new RegExp(`^${cvName}$`) })).toHaveCount(0);
+
   // The CV page still has only the CV.
   await page.goto("/career/cv");
   await expect(page.getByRole("listitem").filter({ hasText: `${cvName} (copy)` })).toHaveCount(0);

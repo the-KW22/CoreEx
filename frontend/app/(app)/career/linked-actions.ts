@@ -5,14 +5,20 @@ import { done } from "@/lib/refresh";
 
 export async function linkedChoices() {
   const api = await getApi();
-  const resumes: { id: string; title: string }[] = [];
+  // Only a Resume can be linked to an Application; a CV is the master a Resume is copied from.
+  const byKind = async (kind: "RESUME" | "CV") => {
+    const found: { id: string; title: string }[] = [];
+    for (let page = 0; ; page++) {
+      const result = await api.GET("/api/resumes", { params: { query: { page, size: 100, kind } } }).catch(() => null);
+      if (!result?.data) return null;
+      found.push(...result.data.items);
+      if (found.length >= result.data.total || !result.data.items.length) return found;
+    }
+  };
+  const resumes = await byKind("RESUME");
+  const cvs = await byKind("CV");
+  if (!resumes || !cvs) return null;
   const applications: { id: string; title: string }[] = [];
-  for (let page = 0; ; page++) {
-    const result = await api.GET("/api/resumes", { params: { query: { page, size: 100, kind: "RESUME" } } }).catch(() => null);
-    if (!result?.data) return null;
-    resumes.push(...result.data.items);
-    if (resumes.length >= result.data.total || !result.data.items.length) break;
-  }
   for (let page = 0; ; page++) {
     const result = await api.GET("/api/applications", { params: { query: { page, size: 100 } } }).catch(() => null);
     if (!result?.data) return null;
@@ -20,7 +26,7 @@ export async function linkedChoices() {
     if (applications.length >= result.data.total || !result.data.items.length) break;
   }
   const letters = await api.GET("/api/cover-letters").catch(() => null);
-  return letters?.data ? { resumes, applications, letters: letters.data.map(({ id, title }) => ({ id, title })) } : null;
+  return letters?.data ? { resumes, cvs, applications, letters: letters.data.map(({ id, title }) => ({ id, title })) } : null;
 }
 
 export async function setLinkedDocument(app: string, kind: "RESUME" | "COVER_LETTER", itemId: string | null, replaceExisting = false) {

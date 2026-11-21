@@ -37,7 +37,7 @@ export function LinkedDocuments({ applicationId, initial }: { applicationId: str
           })}>Save {label} link</Button>}
         </div>;
       })}
-      <label className="grid gap-1 text-sm font-medium">Copy a Resume for this job<select value={copy} onChange={(e) => { setCopy(e.target.value); request.current = null; }} className="h-9 rounded-lg border border-border bg-surface px-3"><option value="">Choose a Resume</option>{choices.resumes.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
+      <label className="grid gap-1 text-sm font-medium">Copy a Resume for this job<select value={copy} onChange={(e) => { setCopy(e.target.value); request.current = null; }} className="h-9 rounded-lg border border-border bg-surface px-3"><option value="">Choose a Resume</option>{choices.cvs.map((item) => <option key={item.id} value={item.id}>CV: {item.title}</option>)}{choices.resumes.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
       <Button type="button" variant="outline" disabled={!copy || pending || initial.some((item) => item.kind === "RESUME" && !!item.sentAt)} onClick={() => start(async () => {
         request.current ??= crypto.randomUUID();
         if (await copyResumeForJob(applicationId, copy, request.current)) { request.current = null; setCopy(""); setError(""); }
