@@ -21,7 +21,8 @@ async function addInterview(page: Page, when: Date) {
 
 // Needs the API started with COREEX_AI_PROVIDER=fake (and E2E_FAKE_AI=1 here) for the AI actions; the Today list itself
 // needs no AI. The fake Interview prep plans "Pick two stories" and offers three practice questions.
-test("lists an interview within a day under Needs you with its AI actions, and a later one under Coming up without them", async ({ page }) => {
+// Today/Offers are hidden (#367); turn SHOW back on in lib/career-entries.ts and remove .skip.
+test.skip("lists an interview within a day under Needs you with its AI actions, and a later one under Coming up without them", async ({ page }) => {
   test.setTimeout(120_000);
   const stamp = Date.now();
   const company = `Today ${stamp}`;
@@ -48,7 +49,7 @@ test("lists an interview within a day under Needs you with its AI actions, and a
   await expectNoViolations(page);
 });
 
-test("generates the briefing from Today and opens it", async ({ page }) => {
+test.skip("generates the briefing from Today and opens it", async ({ page }) => {
   test.skip(process.env.E2E_FAKE_AI !== "1", "Requires the local fake AI provider");
   test.setTimeout(180_000);
   const stamp = Date.now();
@@ -69,7 +70,7 @@ test("generates the briefing from Today and opens it", async ({ page }) => {
   await expectNoViolations(page);
 });
 
-test("practice 3 questions opens the Practice tab with the three questions to choose from", async ({ page }) => {
+test.skip("practice 3 questions opens the Practice tab with the three questions to choose from", async ({ page }) => {
   test.skip(process.env.E2E_FAKE_AI !== "1", "Requires the local fake AI provider");
   test.setTimeout(180_000);
   const stamp = Date.now();
