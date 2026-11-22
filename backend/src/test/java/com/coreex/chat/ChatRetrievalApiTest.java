@@ -246,7 +246,21 @@ class ChatRetrievalApiTest extends ApiTest {
 		assertThat(sources.get(0).path("type").asString()).isEqualTo("NOTE");
 		assertThat(sources.get(0).path("title").asString()).isEqualTo("Alpha");
 		assertThat(sources.get(0).path("removed").asBoolean()).isFalse();
+		assertThat(sources.get(0).path("heading").isNull()).as("a whole Note read has no heading").isTrue();
 		assertThat(sources.toString()).doesNotContain(beta.toString());
+	}
+
+	@Test
+	void aPieceFoundUnderAHeadingGivesItsSourceThatHeading() throws Exception {
+		var garden = note(ownerToken, "Garden");
+		var piece = "Garden › Soil › Watering\n\ntomatoes basil need water";
+		chunk(garden, piece);
+
+		say(piece, null, TestModel.text("done"));
+
+		var sources = messagesOf(detail()).get(1).path("sources");
+		assertThat(sources).hasSize(1);
+		assertThat(sources.get(0).path("heading").asString()).isEqualTo("Watering");
 	}
 
 	@Test

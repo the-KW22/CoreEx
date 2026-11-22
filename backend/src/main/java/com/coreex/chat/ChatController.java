@@ -85,7 +85,8 @@ class ChatController {
 	record SourceView(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Item.Type type,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean removed) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean removed,
+			@Schema(nullable = true, description = "The heading of the piece the model used, which the link opens the Note at") String heading) {
 	}
 
 	record ChatDetail(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
@@ -117,13 +118,16 @@ class ChatController {
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	@Operation(summary = "Starts an empty Chat in the general scope")
-	@ApiResponse(responseCode = "201", description = "The new Chat, titled New chat")
+	@ApiResponse(responseCode = "201", description = "The new Chat, titled New chat",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ChatDetail.class)))
 	ChatDetail create(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user) {
 		return detail(new ChatService.Detail(chats.create(user.id()), List.of(), Map.of()));
 	}
 
 	@GetMapping("/{id}")
 	@Operation(summary = "One Chat with all its messages, in order")
+	@ApiResponse(responseCode = "200", description = "The Chat",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ChatDetail.class)))
 	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND (also for another User's Chat)",
 			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
 	ChatDetail get(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
@@ -176,7 +180,7 @@ class ChatController {
 		var messages = detail.messages().stream()
 				.map(m -> new MessageView(m.id(), m.role(), m.blocks(), m.status(), m.errorCode(),
 						detail.sources().getOrDefault(m.id(), List.of()).stream()
-								.map(s -> new SourceView(s.id(), s.type(), s.title(), s.removed())).toList(),
+								.map(s -> new SourceView(s.id(), s.type(), s.title(), s.removed(), s.heading())).toList(),
 						m.createdAt()))
 				.toList();
 		return new ChatDetail(chat.id(), chat.title(), chat.createdAt(), chat.lastUsedAt(), chat.useNotes(), messages);

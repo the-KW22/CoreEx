@@ -3386,6 +3386,8 @@ export interface components {
             type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
             title: string;
             removed: boolean;
+            /** @description The heading of the piece the model used, which the link opens the Note at */
+            heading?: string | null;
         };
         Text: {
             type: "Text";
@@ -9375,6 +9377,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description The Chat */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatDetail"];
+                };
+            };
             /** @description Code NOT_FOUND (also for another User's Chat) */
             404: {
                 headers: {

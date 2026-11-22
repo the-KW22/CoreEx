@@ -37,6 +37,12 @@ describe("activeModule", () => {
     }
   });
 
+  it("marks Chat on its list and every Chat, with no panel of its own", () => {
+    for (const path of ["/chat", "/chat/1"]) {
+      expect(activeModule(path)).toBe("chat");
+    }
+  });
+
   it("marks the Knowledge Base on every Item, Folder, Tag and Search page", () => {
     for (const path of ["/items", "/folders/1", "/tags", "/tags/1", "/notes/1", "/search"]) {
       expect(activeModule(path)).toBe("kb");
