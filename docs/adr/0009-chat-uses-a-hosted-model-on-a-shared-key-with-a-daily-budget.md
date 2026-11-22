@@ -21,3 +21,14 @@ The first version only reads. A Note can contain text written to look like instr
 - The price of each model lives in configuration next to the model list and must be updated when the provider changes prices.
 - `/mcp` and Search keep working when the provider is down or out of credit, because only the Chat module depends on it.
 - A saved Chat keeps text it quoted from a Note after that Note leaves the Trash for good, with the source marked as removed (`CONTEXT.md`, Trash). Text already sent to the provider is covered by its retention terms, not by CoreEx.
+
+## Update: retrieval, switches and cost (2026-11-22)
+
+Decided after comparing Chat with Reactive Resume's AI Assistant. Where this section and the text above differ, this section wins.
+
+- **Strong matches are sent up front.** Before each reply, Semantic search runs on the User's message, and the top 3 Chunks above the search's similarity threshold go to the model as data, before it decides anything. They count as sources. The model can still search (which returns Chunks, not whole Notes) and read a whole Note when it needs one. So Note text can reach the provider without the model asking for it, whenever a message closely matches the User's Notes; the Chat module's privacy note says so.
+- **A "Use my Notes" switch** in the message box, on by default and remembered within a Chat, turns that off for a message: nothing is fetched up front and no knowledge tools are offered. Notes quoted earlier stay in the Chat's history and are still sent with later turns.
+- **One engine, several scopes.** A Chat has a scope fixed when it is created (`general` first; Career adds `career` and `application`). The engine is the same for every scope; a scope only brings its instructions and the tools it starts from.
+- **Long Chats stay affordable** through prompt caching of the instructions and tools, and the provider's own context editing, which clears the oldest tool results once the history passes a size: about 100k tokens on the Shared key, about 300k on a User's own key. The saved Chat keeps everything; only what is re-sent shrinks.
+- **Replies are bounded:** one reply at a time per Chat, at most 15 tool steps and 5 minutes per reply, and Stop keeps what was written.
+- **Web search** (later) uses the provider's own search and page-reading tools behind a "Use the web" switch, off by default, with at most 5 searches per reply. The page reader only opens links that appear in the conversation. Note text must not be put in search queries; this is an instruction to the model, not something CoreEx can enforce.
