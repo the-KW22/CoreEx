@@ -1,5 +1,9 @@
 package com.coreex.ai;
 
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -15,9 +19,22 @@ class AiConfiguration {
 		if (properties.on()) {
 			return new AnthropicModel(properties);
 		}
-		return (system, data, schema, maxTokens) -> {
-			throw new Model.Failure("AI is off");
-		};
+		return new OffModel();
+	}
+
+	/** AI is switched off: every call fails at once, and nothing is sent anywhere. */
+	private static class OffModel implements Model {
+
+		@Override
+		public Reply ask(String system, String data, Map<String, Object> schema, long maxTokens) {
+			throw new Failure("AI is off");
+		}
+
+		@Override
+		public Turn converse(String system, List<Message> messages, List<ToolSpec> tools, Consumer<String> onText, long maxTokens) {
+			throw new Failure("AI is off");
+		}
+
 	}
 
 }

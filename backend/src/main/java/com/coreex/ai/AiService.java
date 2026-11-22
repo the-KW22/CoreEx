@@ -53,9 +53,18 @@ public class AiService {
 			throw new ApiException(HttpStatus.BAD_GATEWAY, "AI_UNAVAILABLE",
 					"The AI service could not answer just now. Try again, or fill the fields in by hand.");
 		}
-		budget.record(ownerId, Math.round(reply.inputTokens() * properties.inputUsdPerMillion()
-				+ reply.outputTokens() * properties.outputUsdPerMillion()));
+		budget.record(ownerId, costMicroUsd(reply.inputTokens(), reply.outputTokens()));
 		return reply;
+	}
+
+	/**
+	 * What a model call cost, in millionths of a dollar, from the tokens the provider reported and the chosen model's
+	 * prices. Turns of a conversation are charged through this too.
+	 * shortcut: cache reads and writes are charged at the plain input price, not their discounts, so a long cached Chat
+	 * is billed above its real cost. Upgrade by passing the cache tokens separately once their prices are in AiProperties.
+	 */
+	public long costMicroUsd(long inputTokens, long outputTokens) {
+		return Math.round(inputTokens * properties.inputUsdPerMillion() + outputTokens * properties.outputUsdPerMillion());
 	}
 
 }
