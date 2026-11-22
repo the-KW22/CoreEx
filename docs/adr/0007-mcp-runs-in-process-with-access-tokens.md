@@ -14,3 +14,7 @@ Agents never remove anything for good: the tools can move to the Trash and resto
 - **OAuth 2.1 with consent screens** (needed for claude.ai and ChatGPT connectors) — a much larger build. Deferred, not rejected: it would add a second way to obtain a token without changing the server.
 - **Read-only and read/write token scopes** — rejected for now; a single full-access token is simpler, and the damage an Agent can do is bounded by the tools (nothing permanent).
 - **The rate limit is in memory** — fine for one API instance; the code carries a `shortcut:` note to move it when there are several.
+
+## Update: Chat shares the MCP tools (2026-11-22)
+
+MCP and Chat (ADR 0009) are two front doors to the same actions, so a User can do the same thing whichever they use. Their tools are **one catalogue, defined once in code** and exposed to both: a tool added for one appears in the other. Reading tools run straight away in both. Writing tools run straight away on `/mcp`, because the User authorised the Agent with an Access token, and become **Proposals** in Chat, which run only when the User approves them. Neither front door gets an action the other lacks; the only exceptions are ways of talking rather than actions, such as Chat asking the User a question.
