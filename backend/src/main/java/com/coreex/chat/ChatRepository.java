@@ -79,8 +79,10 @@ class ChatRepository {
 				.param("now", Timestamp.from(now)).param("id", id).param("owner", owner).param("stale", Timestamp.from(staleBefore)).update() == 1;
 	}
 
-	void release(UUID id) {
-		jdbc.sql("update chats set claimed_at = null where id = :id").param("id", id).update();
+	/** Frees the claim only if it is still the one taken at {@code claimedAt}: a late release never frees a newer claim. */
+	void release(UUID id, Instant claimedAt) {
+		jdbc.sql("update chats set claimed_at = null where id = :id and claimed_at = :claimedAt")
+				.param("id", id).param("claimedAt", Timestamp.from(claimedAt)).update();
 	}
 
 	void touch(UUID id, Instant now) {
@@ -118,6 +120,12 @@ class ChatRepository {
 		jdbc.sql("update chat_messages set content = cast(:content as jsonb), status = :status, error_code = :error where id = :id")
 				.param("content", BLOCKS_WRITER.writeValueAsString(blocks)).param("status", status).param("error", errorCode)
 				.param("id", id).update();
+	}
+
+	/** Marks messages a earlier run left streaming as failed: no reply is behind them any more. */
+	void failStreaming(UUID chatId) {
+		jdbc.sql("update chat_messages set status = 'FAILED', error_code = 'AI_UNAVAILABLE' where chat_id = :chat and status = 'STREAMING'")
+				.param("chat", chatId).update();
 	}
 
 	void deleteMessage(UUID id) {

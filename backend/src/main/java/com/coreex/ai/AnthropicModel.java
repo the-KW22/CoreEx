@@ -1,5 +1,6 @@
 package com.coreex.ai;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.core.JsonValue;
+import com.anthropic.core.RequestOptions;
 import com.anthropic.errors.AnthropicServiceException;
 import com.anthropic.helpers.BetaMessageAccumulator;
 import com.anthropic.models.beta.messages.BetaAssistantMessageParam;
@@ -42,6 +44,9 @@ class AnthropicModel implements Model {
 
 	private static final String FAILED = "The model could not answer";
 
+	/** A streamed reply gives up well inside the five-minute reply limit (ChatProperties). */
+	private static final RequestOptions CONVERSE_TIMEOUT = RequestOptions.builder().timeout(Duration.ofMinutes(2)).build();
+
 	private final String model;
 
 	private final long contextClearTokens;
@@ -51,7 +56,8 @@ class AnthropicModel implements Model {
 	AnthropicModel(AiProperties properties) {
 		this.model = properties.model();
 		this.contextClearTokens = properties.contextClearTokens();
-		var builder = AnthropicOkHttpClient.builder().apiKey(properties.apiKey());
+		// shortcut: no SDK retries for any call (the SDK has no per-call setting), so asks also fail at once, upgrade with a second client for asks when Career sees overloaded errors often.
+		var builder = AnthropicOkHttpClient.builder().apiKey(properties.apiKey()).maxRetries(0);
 		if (!properties.baseUrl().isBlank()) {
 			builder.baseUrl(properties.baseUrl());
 		}
@@ -80,7 +86,7 @@ class AnthropicModel implements Model {
 	public Turn converse(String system, List<Message> messages, List<ToolSpec> tools, Consumer<String> onText, long maxTokens) {
 		try {
 			var accumulator = BetaMessageAccumulator.create();
-			try (var events = client.beta().messages().createStreaming(params(system, messages, tools, maxTokens))) {
+			try (var events = client.beta().messages().createStreaming(params(system, messages, tools, maxTokens), CONVERSE_TIMEOUT)) {
 				events.stream().forEach(event -> {
 					event.contentBlockDelta().flatMap(delta -> delta.delta().text()).ifPresent(text -> onText.accept(text.text()));
 					accumulator.accumulate(event);

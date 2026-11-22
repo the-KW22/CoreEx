@@ -1,6 +1,8 @@
 package com.coreex.chat;
 
 import java.time.Clock;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -9,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import jakarta.annotation.PreDestroy;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -68,6 +71,12 @@ public class ChatService {
 		this.sources = sources;
 	}
 
+	/** Replies still running when the server stops are interrupted; their messages are left for the next claim to fail. */
+	@PreDestroy
+	void shutdown() {
+		replies.shutdownNow();
+	}
+
 	public List<Chat> list(UUID owner) {
 		return chats.list(owner);
 	}
@@ -109,7 +118,8 @@ public class ChatService {
 		var chat = require(owner.id(), chatId);
 		ai.requireOn();
 		ai.requireRoom(owner.id());
-		var now = clock.instant();
+		// The claim's token: the database keeps microseconds, so the release must match the claim to the microsecond.
+		var now = clock.instant().truncatedTo(ChronoUnit.MICROS);
 		if (!chats.claim(owner.id(), chatId, now, now.minus(properties.staleClaim()))) {
 			throw new ApiException(HttpStatus.CONFLICT, "CHAT_BUSY",
 					"This Chat is still answering the last message. Wait for it, or press Stop.");
@@ -117,6 +127,7 @@ public class ChatService {
 		var notes = useNotes != null ? useNotes : chat.useNotes();
 		var reply = new ChatReply(chats, ai, tools, properties, clock, owner, chatId, notes, sources, out);
 		try {
+			chats.failStreaming(chatId);
 			var first = !chats.hasMessages(chatId);
 			var quotes = notes ? quotesFor(owner.id(), text) : List.<Quote>of();
 			chats.addMessage(chatId, Model.Role.USER, List.of(new ContentBlock.Text(text)), "COMPLETE", null, quotes, now);
@@ -128,11 +139,11 @@ public class ChatService {
 			}
 			chats.touch(chatId, now);
 			running.put(chatId, reply);
-			replies.execute(() -> reply.run(() -> finish(chatId, reply)));
+			replies.execute(() -> reply.run(() -> finish(chatId, reply, now)));
 		}
 		catch (RuntimeException e) {
 			running.remove(chatId, reply);
-			chats.release(chatId);
+			chats.release(chatId, now);
 			throw e;
 		}
 	}
@@ -143,8 +154,8 @@ public class ChatService {
 				.map(c -> new Quote(c.id(), c.type(), c.title(), c.headingPath(), c.text())).toList();
 	}
 
-	private void finish(UUID chatId, ChatReply reply) {
-		chats.release(chatId);
+	private void finish(UUID chatId, ChatReply reply, Instant claimedAt) {
+		chats.release(chatId, claimedAt);
 		running.remove(chatId, reply);
 	}
 

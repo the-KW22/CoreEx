@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -32,6 +33,8 @@ import com.coreex.identity.User;
 final class ChatReply {
 
 	static final String TIME_LIMIT = "Time limit reached. Ask me to continue.";
+
+	static final String BUDGET_SPENT = "Daily budget used up. It starts again at midnight UTC.";
 
 	static final String STOPPED = "STOPPED";
 
@@ -182,8 +185,16 @@ final class ChatReply {
 			if (errorCode == null) {
 				turnSources = newestTurnSources();
 			}
-			release.run();
-			ended.countDown();
+			// Counted down even when the release fails, so the stream still ends with its last event below.
+			try {
+				release.run();
+			}
+			catch (RuntimeException e) {
+				LOG.warn("A Chat's claim could not be released: {}", e.getClass().getSimpleName());
+			}
+			finally {
+				ended.countDown();
+			}
 		}
 		if (errorCode != null) {
 			send("error", new ErrorEvent(errorCode, errorMessage));
@@ -206,7 +217,11 @@ final class ChatReply {
 				return STOPPED;
 			}
 			if (toolSteps >= properties.maxToolSteps() || (assistantId != null && timeUp())) {
-				addTimeLimitNote();
+				addNote(TIME_LIMIT);
+				return COMPLETE;
+			}
+			if (toolSteps > 0 && budgetSpent()) {
+				addNote(BUDGET_SPENT);
 				return COMPLETE;
 			}
 			var turn = callModel();
@@ -250,6 +265,9 @@ final class ChatReply {
 				throw new Ended(COMPLETE);
 			}
 			var failed = failure(e);
+			if (!streamed.isEmpty()) {
+				countAborted(history);
+			}
 			keepPartial(FAILED, failed.code);
 			throw failed;
 		}
@@ -295,9 +313,20 @@ final class ChatReply {
 		}
 	}
 
-	private void addTimeLimitNote() {
-		assistantBlocks = append(assistantBlocks, new ContentBlock.Text(TIME_LIMIT));
+	private void addNote(String note) {
+		assistantBlocks = append(assistantBlocks, new ContentBlock.Text(note));
 		chats.setMessage(assistantId, assistantBlocks, COMPLETE, null);
+	}
+
+	/** Whether today's budget is used up. Asked before each call after the first, since one reply can run many. */
+	private boolean budgetSpent() {
+		try {
+			ai.requireRoom(owner.id());
+			return false;
+		}
+		catch (ApiException e) {
+			return true;
+		}
 	}
 
 	/** Keeps the text written so far. A stopped answer with nothing in it leaves no message behind. */
@@ -331,19 +360,26 @@ final class ChatReply {
 	private List<Model.Message> history() {
 		var rows = chats.messages(chatId);
 		var toolNames = new HashMap<String, String>();
-		for (var row : rows) {
-			for (var block : row.blocks()) {
+		var useRow = new HashMap<String, Integer>();
+		var resultRow = new HashMap<String, Integer>();
+		for (var i = 0; i < rows.size(); i++) {
+			for (var block : rows.get(i).blocks()) {
 				if (block instanceof ContentBlock.ToolUse use) {
 					toolNames.put(use.id(), use.name());
+					useRow.putIfAbsent(use.id(), i);
+				}
+				else if (block instanceof ContentBlock.ToolResult result) {
+					resultRow.putIfAbsent(result.toolUseId(), i);
 				}
 			}
 		}
 		var messages = new ArrayList<Model.Message>();
-		for (var row : rows) {
+		for (var i = 0; i < rows.size(); i++) {
+			var row = rows.get(i);
 			var blocks = new ArrayList<ContentBlock>();
 			for (var block : row.blocks()) {
 				if (block instanceof ContentBlock.ToolUse || block instanceof ContentBlock.ToolResult) {
-					if (!useNotes) {
+					if (!useNotes || !paired(block, i, useRow, resultRow)) {
 						continue;
 					}
 					if (block instanceof ContentBlock.ToolResult result) {
@@ -363,6 +399,18 @@ final class ChatReply {
 			}
 		}
 		return messages;
+	}
+
+	/**
+	 * A tool call needs its result in a later row and a result needs its call in an earlier one. A broken pair (a crash
+	 * between the two writes, or a call cut short) is left out, so the provider never sees an unanswered call.
+	 */
+	private static boolean paired(ContentBlock block, int row, Map<String, Integer> useRow, Map<String, Integer> resultRow) {
+		return switch (block) {
+			case ContentBlock.ToolUse use -> resultRow.getOrDefault(use.id(), -1) > row;
+			case ContentBlock.ToolResult result -> useRow.getOrDefault(result.toolUseId(), Integer.MAX_VALUE) < row;
+			default -> true;
+		};
 	}
 
 	/** The pieces quoted for a message, each in its own note marker. */

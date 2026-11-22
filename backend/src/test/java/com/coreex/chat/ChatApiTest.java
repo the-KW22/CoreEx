@@ -16,6 +16,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,13 +67,22 @@ class ChatApiTest extends ApiTest {
 
 	private Who admin;
 
+	private java.time.Instant startOfTest;
+
 	@BeforeEach
 	void clean() {
 		jdbc.sql("delete from users").update();
 		model.clear();
+		startOfTest = clock.instant();
 		owner = person("USER", "a@example.com");
 		other = person("USER", "b@example.com");
 		admin = person("ADMIN", "admin@example.com");
+	}
+
+	/** The clock is shared by every test, so each test puts it back where it found it, even when it fails. */
+	@AfterEach
+	void restoreClock() {
+		clock.advance(Duration.between(clock.instant(), startOfTest));
 	}
 
 	private Who person(String role, String email) {
@@ -137,6 +147,18 @@ class ChatApiTest extends ApiTest {
 
 	private int countOf(String table) {
 		return jdbc.sql("select count(*) from " + table).query(Integer.class).single();
+	}
+
+	private void insertMessage(UUID chat, int position, String role, String content, String status) {
+		jdbc.sql("""
+				insert into chat_messages (id, chat_id, position, role, content, status, error_code, quotes, created_at)
+				values (gen_random_uuid(), :chat, :position, :role, cast(:content as jsonb), :status, null, null, :now)""")
+				.param("chat", chat).param("position", position).param("role", role).param("content", content)
+				.param("status", status).param("now", java.sql.Timestamp.from(clock.instant())).update();
+	}
+
+	private boolean claimIsSet(UUID chat) {
+		return jdbc.sql("select claimed_at is not null from chats where id = :id").param("id", chat).query(Boolean.class).single();
 	}
 
 	@Test
@@ -302,6 +324,29 @@ class ChatApiTest extends ApiTest {
 	}
 
 	@Test
+	void aLateFinishOfAnOldReplyDoesNotClearTheClaimOfTheReplyThatTookOver() throws Exception {
+		var chat = createChat(owner);
+		var gateA = model.gateNextText();
+		model.script(TestModel.text("First answer"), TestModel.text("Second answer"));
+		var first = sayAsync(owner, chat, "First");
+		assertThat(gateA.awaitEntered()).isTrue();
+		var firstReply = chats.running(chat).orElseThrow();
+		clock.advance(Duration.ofMinutes(16)); // the first reply's claim is now stale
+		var gateB = model.gateNextText();
+		var second = sayAsync(owner, chat, "Second");
+		assertThat(gateB.awaitEntered()).isTrue();
+
+		gateA.release();
+		assertThat(firstReply.awaitEnd()).isTrue();
+
+		assertThat(claimIsSet(chat)).isTrue();
+		assertThat(say(owner, chat, "Third").statusCode()).isEqualTo(409);
+		gateB.release();
+		assertThat(first.get(10, TimeUnit.SECONDS).statusCode()).isEqualTo(200);
+		assertThat(second.get(10, TimeUnit.SECONDS).statusCode()).isEqualTo(200);
+	}
+
+	@Test
 	void stopKeepsTheTextWrittenSoFarAndMarksTheMessageStopped() throws Exception {
 		var chat = createChat(owner);
 		var gate = model.gateNextText();
@@ -354,6 +399,48 @@ class ChatApiTest extends ApiTest {
 		assertThat(messages).hasSize(2);
 		assertThat(messages.get(1)).containsEntry("status", "COMPLETE");
 		assertThat(messages.get(1).get("blocks").toString()).contains("Hello world");
+	}
+
+	@Test
+	void anOrphanToolUseLeftByACrashIsLeftOutOfTheNextCallAndTheReplyGoesOn() throws Exception {
+		var chat = createChat(owner);
+		insertMessage(chat, 1, "ASSISTANT", "[{\"type\":\"tool_use\",\"id\":\"toolu_orphan\",\"name\":\"echo\",\"input\":{}}]", "COMPLETE");
+		model.script(TestModel.text("Hello again"));
+
+		var response = say(owner, chat, "Hi");
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(response.body()).contains("\"status\":\"COMPLETE\"");
+		var sent = model.conversed().get(0).messages();
+		assertThat(sent).hasSize(1);
+		assertThat(sent.get(0).role()).isEqualTo(Model.Role.USER);
+		assertThat(sent).noneMatch(m -> m.blocks().stream().anyMatch(b -> b instanceof Model.ContentBlock.ToolUse));
+	}
+
+	@Test
+	void aStreamingMessageLeftByAnEarlierRunIsMarkedFailedWhenTheChatIsNextClaimed() throws Exception {
+		var chat = createChat(owner);
+		insertMessage(chat, 1, "ASSISTANT", "[]", "STREAMING");
+		model.script(TestModel.text("Hello"));
+
+		assertThat(say(owner, chat, "Hi").statusCode()).isEqualTo(200);
+
+		var messages = messagesOf(read(owner, chat));
+		assertThat(messages.get(0)).containsEntry("status", "FAILED").containsEntry("errorCode", "AI_UNAVAILABLE");
+	}
+
+	@Test
+	void aBudgetSpentByAToolStepEndsTheReplyWithTheNoteAndTheModelIsNotCalledAgain() throws Exception {
+		var chat = createChat(owner);
+		// 2000 input tokens and 200 output tokens cost 12000 millionths of a dollar, past the 10000 budget.
+		model.script(TestModel.usage(TestModel.toolUse("echo", "{\"q\":\"x\"}"), 2_000, 200), TestModel.text("never sent"));
+
+		var response = say(owner, chat, "Use the tool");
+
+		assertThat(response.body()).contains("event:done").contains("\"status\":\"COMPLETE\"").doesNotContain("event:error");
+		assertThat(model.conversed()).hasSize(1);
+		assertThat(read(owner, chat)).contains("Daily budget used up. It starts again at midnight UTC.");
+		assertThat(spentToday(owner)).isEqualTo(12_000);
 	}
 
 	@Test
@@ -429,7 +516,6 @@ class ChatApiTest extends ApiTest {
 		var last = messagesOf(read(owner, chat)).get(1);
 		assertThat(last.get("blocks").toString()).contains("Time limit reached. Ask me to continue.");
 		assertThat(last).containsEntry("status", "COMPLETE");
-		clock.advance(Duration.ofMinutes(-6));
 	}
 
 	@Test
