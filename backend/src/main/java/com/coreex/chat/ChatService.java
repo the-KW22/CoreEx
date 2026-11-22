@@ -18,6 +18,7 @@ import com.coreex.ai.Model;
 import com.coreex.ai.Model.ContentBlock;
 import com.coreex.common.ApiException;
 import com.coreex.identity.User;
+import com.coreex.search.SearchService;
 
 /**
  * Chats belong to one User: every method takes the owner and answers 404 for anyone else's Chat, Admins included
@@ -26,8 +27,11 @@ import com.coreex.identity.User;
 @Service
 public class ChatService {
 
-	/** A Chat with its messages in order. */
-	public record Detail(Chat chat, List<ChatMessage> messages) {
+	/** How many pieces of the User's Notes are quoted up front for each message. */
+	static final int UP_FRONT = 3;
+
+	/** A Chat with its messages in order, and the sources of each turn by the id of its last assistant message. */
+	public record Detail(Chat chat, List<ChatMessage> messages, Map<UUID, List<ChatSources.Source>> sources) {
 	}
 
 	private final ChatRepository chats;
@@ -40,6 +44,10 @@ public class ChatService {
 
 	private final Clock clock;
 
+	private final SearchService search;
+
+	private final ChatSources sources;
+
 	private final ExecutorService replies = Executors.newVirtualThreadPerTaskExecutor();
 
 	/**
@@ -49,12 +57,15 @@ public class ChatService {
 	 */
 	private final Map<UUID, ChatReply> running = new ConcurrentHashMap<>();
 
-	ChatService(ChatRepository chats, AiService ai, ChatTools tools, ChatProperties properties, Clock clock) {
+	ChatService(ChatRepository chats, AiService ai, ChatTools tools, ChatProperties properties, Clock clock,
+			SearchService search, ChatSources sources) {
 		this.chats = chats;
 		this.ai = ai;
 		this.tools = tools;
 		this.properties = properties;
 		this.clock = clock;
+		this.search = search;
+		this.sources = sources;
 	}
 
 	public List<Chat> list(UUID owner) {
@@ -66,7 +77,9 @@ public class ChatService {
 	}
 
 	public Detail detail(UUID owner, UUID id) {
-		return new Detail(require(owner, id), chats.messages(id));
+		var chat = require(owner, id);
+		var messages = chats.messages(id);
+		return new Detail(chat, messages, sources.byLastAssistant(owner, messages));
 	}
 
 	/** Deletes the Chat and its messages. A reply running in it is asked to stop first. */
@@ -88,10 +101,12 @@ public class ChatService {
 
 	/**
 	 * Stores the User's message and starts the reply on the server, which streams its events to {@code out}. Refusals
-	 * (AI off, budget spent, a reply already running, no such Chat) are thrown before anything is streamed.
+	 * (AI off, budget spent, a reply already running, no such Chat) are thrown before anything is streamed. useNotes is the
+	 * Use my Notes switch for this message; null keeps the one the Chat remembers. With Notes on, the closest pieces of the
+	 * User's Notes are quoted with the message and stored with it.
 	 */
-	public void reply(User owner, UUID chatId, String text, SseEmitter out) {
-		require(owner.id(), chatId);
+	public void reply(User owner, UUID chatId, String text, Boolean useNotes, SseEmitter out) {
+		var chat = require(owner.id(), chatId);
 		ai.requireOn();
 		ai.requireRoom(owner.id());
 		var now = clock.instant();
@@ -99,10 +114,15 @@ public class ChatService {
 			throw new ApiException(HttpStatus.CONFLICT, "CHAT_BUSY",
 					"This Chat is still answering the last message. Wait for it, or press Stop.");
 		}
-		var reply = new ChatReply(chats, ai, tools, properties, clock, owner, chatId, out);
+		var notes = useNotes != null ? useNotes : chat.useNotes();
+		var reply = new ChatReply(chats, ai, tools, properties, clock, owner, chatId, notes, sources, out);
 		try {
 			var first = !chats.hasMessages(chatId);
-			chats.addMessage(chatId, Model.Role.USER, List.of(new ContentBlock.Text(text)), "COMPLETE", null, now);
+			var quotes = notes ? quotesFor(owner.id(), text) : List.<Quote>of();
+			chats.addMessage(chatId, Model.Role.USER, List.of(new ContentBlock.Text(text)), "COMPLETE", null, quotes, now);
+			if (useNotes != null) {
+				chats.setUseNotes(chatId, useNotes);
+			}
 			if (first) {
 				chats.setTitle(chatId, titleFrom(text));
 			}
@@ -115,6 +135,12 @@ public class ChatService {
 			chats.release(chatId);
 			throw e;
 		}
+	}
+
+	/** The closest pieces of the User's Notes to the message, above Semantic search's line: at most {@link #UP_FRONT}. */
+	private List<Quote> quotesFor(UUID owner, String text) {
+		return search.chunks(owner, text, UP_FRONT).stream()
+				.map(c -> new Quote(c.id(), c.type(), c.title(), c.headingPath(), c.text())).toList();
 	}
 
 	private void finish(UUID chatId, ChatReply reply) {

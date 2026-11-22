@@ -977,7 +977,7 @@ export interface paths {
         put?: never;
         /**
          * Sends a message and streams the reply
-         * @description The reply streams as Server-Sent Events. `text` carries a piece of the answer ({text}), `tool` a tool the model is running ({name}), `done` ends the reply ({status}: COMPLETE or STOPPED), and `error` ends it with a failure ({code}, {message}); the failure is also stored on the message. Refusals come before the stream, as JSON: AI_OFF (503), AI_BUDGET_SPENT (429), CHAT_BUSY (409), NOT_FOUND (404).
+         * @description The reply streams as Server-Sent Events. `text` carries a piece of the answer ({text}), `tool` a tool the model is running ({name}), `done` ends the reply ({status}: COMPLETE or STOPPED, and {sources}: the Items the turn used), and `error` ends it with a failure ({code}, {message}); the failure is also stored on the message. Refusals come before the stream, as JSON: AI_OFF (503), AI_BUDGET_SPENT (429), CHAT_BUSY (409), NOT_FOUND (404).
          */
         post: operations["send"];
         delete?: never;
@@ -3356,6 +3356,8 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             lastUsedAt: string;
+            /** @description The Use my Notes switch, as the Chat remembers it */
+            useNotes: boolean;
             messages: components["schemas"]["MessageView"][];
         };
         ContentBlock: {
@@ -3372,8 +3374,18 @@ export interface components {
             status: string;
             /** @description Set when the status is FAILED, for example AI_UNAVAILABLE */
             errorCode?: string | null;
+            /** @description On the last assistant message of a turn: the Items the turn used; empty elsewhere */
+            sources: components["schemas"]["SourceView"][];
             /** Format: date-time */
             createdAt: string;
+        };
+        SourceView: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
+            title: string;
+            removed: boolean;
         };
         Text: {
             type: "Text";
@@ -3398,6 +3410,8 @@ export interface components {
         });
         SendRequest: {
             text: string;
+            /** @description The Use my Notes switch for this message; absent keeps the Chat's own setting */
+            useNotes?: boolean | null;
         };
         UploadIntentRequest: {
             filename: string;

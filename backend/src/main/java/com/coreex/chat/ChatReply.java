@@ -5,6 +5,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -17,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.coreex.ai.AiService;
+import com.coreex.ai.DataMarkers;
 import com.coreex.ai.Model;
 import com.coreex.ai.Model.ContentBlock;
 import com.coreex.common.ApiException;
@@ -53,7 +55,8 @@ final class ChatReply {
 	record ToolEvent(String name) {
 	}
 
-	record DoneEvent(String status) {
+	/** The reply's status and the sources of the turn it finished. */
+	record DoneEvent(String status, List<ChatSources.Source> sources) {
 	}
 
 	record ErrorEvent(String code, String message) {
@@ -106,6 +109,11 @@ final class ChatReply {
 
 	private final UUID chatId;
 
+	/** The Use my Notes switch for this reply: when off, no tools are offered and the tool blocks are not replayed. */
+	private final boolean useNotes;
+
+	private final ChatSources sources;
+
 	private final SseEmitter out;
 
 	private final Instant deadline;
@@ -125,7 +133,7 @@ final class ChatReply {
 	private boolean clientGone;
 
 	ChatReply(ChatRepository chats, AiService ai, ChatTools tools, ChatProperties properties, Clock clock, User owner,
-			UUID chatId, SseEmitter out) {
+			UUID chatId, boolean useNotes, ChatSources sources, SseEmitter out) {
 		this.chats = chats;
 		this.ai = ai;
 		this.tools = tools;
@@ -133,6 +141,8 @@ final class ChatReply {
 		this.clock = clock;
 		this.owner = owner;
 		this.chatId = chatId;
+		this.useNotes = useNotes;
+		this.sources = sources;
 		this.out = out;
 		this.deadline = clock.instant().plus(properties.maxReplyDuration());
 	}
@@ -152,6 +162,7 @@ final class ChatReply {
 		String status = COMPLETE;
 		String errorCode = null;
 		String errorMessage = null;
+		List<ChatSources.Source> turnSources = List.of();
 		try {
 			status = loop();
 		}
@@ -168,6 +179,9 @@ final class ChatReply {
 			errorMessage = UNAVAILABLE;
 		}
 		finally {
+			if (errorCode == null) {
+				turnSources = newestTurnSources();
+			}
 			release.run();
 			ended.countDown();
 		}
@@ -175,7 +189,7 @@ final class ChatReply {
 			send("error", new ErrorEvent(errorCode, errorMessage));
 		}
 		else {
-			send("done", new DoneEvent(status));
+			send("done", new DoneEvent(status, turnSources));
 		}
 		try {
 			out.complete();
@@ -206,7 +220,7 @@ final class ChatReply {
 					results.add(runTool(use));
 				}
 			}
-			chats.addMessage(chatId, Model.Role.USER, results, COMPLETE, null, clock.instant());
+			chats.addMessage(chatId, Model.Role.USER, results, COMPLETE, null, List.of(), clock.instant());
 			toolSteps++;
 		}
 	}
@@ -218,10 +232,11 @@ final class ChatReply {
 		streamed.setLength(0);
 		lastSaved = now;
 		assistantBlocks = List.of();
-		assistantId = chats.addMessage(chatId, Model.Role.ASSISTANT, List.of(), STREAMING, null, now);
+		assistantId = chats.addMessage(chatId, Model.Role.ASSISTANT, List.of(), STREAMING, null, List.of(), now);
 		Model.Turn turn;
 		try {
-			turn = ai.converse(ChatPrompt.GENERAL, history, tools.specs(), this::onText, properties.maxOutputTokens());
+			turn = ai.converse(ChatPrompt.GENERAL, history, useNotes ? tools.specs() : List.of(), this::onText,
+					properties.maxOutputTokens());
 		}
 		catch (RuntimeException e) {
 			if (stop.get()) {
@@ -308,15 +323,63 @@ final class ChatReply {
 		return List.copyOf(more);
 	}
 
-	/** The stored messages as the model receives them; a message with nothing in it is left out. */
+	/**
+	 * The stored messages as the model receives them. A tool result is wrapped as data under its tool's name. A User's text
+	 * is followed by the pieces quoted for it. With Notes off no tools are offered, so the tool blocks are left out. A
+	 * message with nothing left in it is skipped.
+	 */
 	private List<Model.Message> history() {
+		var rows = chats.messages(chatId);
+		var toolNames = new HashMap<String, String>();
+		for (var row : rows) {
+			for (var block : row.blocks()) {
+				if (block instanceof ContentBlock.ToolUse use) {
+					toolNames.put(use.id(), use.name());
+				}
+			}
+		}
 		var messages = new ArrayList<Model.Message>();
-		for (var row : chats.messages(chatId)) {
-			if (!row.blocks().isEmpty()) {
-				messages.add(new Model.Message(row.role(), row.blocks()));
+		for (var row : rows) {
+			var blocks = new ArrayList<ContentBlock>();
+			for (var block : row.blocks()) {
+				if (block instanceof ContentBlock.ToolUse || block instanceof ContentBlock.ToolResult) {
+					if (!useNotes) {
+						continue;
+					}
+					if (block instanceof ContentBlock.ToolResult result) {
+						var tool = toolNames.getOrDefault(result.toolUseId(), "unknown");
+						blocks.add(new ContentBlock.ToolResult(result.toolUseId(), DataMarkers.data(tool, result.content()),
+								result.isError()));
+						continue;
+					}
+				}
+				blocks.add(block);
+			}
+			if (row.role() == Model.Role.USER && !row.quotes().isEmpty()) {
+				blocks.add(new ContentBlock.Text(quoted(row.quotes())));
+			}
+			if (!blocks.isEmpty()) {
+				messages.add(new Model.Message(row.role(), List.copyOf(blocks)));
 			}
 		}
 		return messages;
+	}
+
+	/** The pieces quoted for a message, each in its own note marker. */
+	private static String quoted(List<Quote> quotes) {
+		return quotes.stream().map(q -> DataMarkers.note(q.id(), q.title(), q.headingPath() == null ? "" : q.headingPath(), q.text()))
+				.reduce((a, b) -> a + "\n\n" + b).orElse("");
+	}
+
+	/** The sources of the turn just finished. Never throws: a failed read leaves the done event without sources. */
+	private List<ChatSources.Source> newestTurnSources() {
+		try {
+			return sources.ofNewestTurn(owner.id(), chats.messages(chatId));
+		}
+		catch (RuntimeException e) {
+			LOG.warn("A Chat's sources could not be read", e);
+			return List.of();
+		}
 	}
 
 	private boolean timeUp() {

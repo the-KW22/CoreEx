@@ -27,15 +27,23 @@ class ChatRepository {
 	private static final TypeReference<List<ContentBlock>> BLOCKS = new TypeReference<>() {
 	};
 
+	private static final TypeReference<List<Quote>> QUOTES = new TypeReference<>() {
+	};
+
 	// Written against the declared type, so each block keeps its "type" field (a plain list loses it).
 	private static final ObjectWriter BLOCKS_WRITER = JSON.writerFor(BLOCKS);
 
+	private static final ObjectWriter QUOTES_WRITER = JSON.writerFor(QUOTES);
+
 	private static final RowMapper<Chat> CHAT = (rs, n) -> new Chat(rs.getObject("id", UUID.class),
-			rs.getString("title"), rs.getObject("created_at", OffsetDateTime.class).toInstant(), rs.getObject("last_used_at", OffsetDateTime.class).toInstant());
+			rs.getString("title"), rs.getObject("created_at", OffsetDateTime.class).toInstant(),
+			rs.getObject("last_used_at", OffsetDateTime.class).toInstant(), rs.getBoolean("use_notes"));
 
 	private static final RowMapper<ChatMessage> MESSAGE = (rs, n) -> new ChatMessage(rs.getObject("id", UUID.class),
 			Model.Role.valueOf(rs.getString("role")), JSON.readValue(rs.getString("content"), BLOCKS),
-			rs.getString("status"), rs.getString("error_code"), rs.getObject("created_at", OffsetDateTime.class).toInstant());
+			rs.getString("status"), rs.getString("error_code"),
+			rs.getString("quotes") == null ? List.of() : JSON.readValue(rs.getString("quotes"), QUOTES),
+			rs.getObject("created_at", OffsetDateTime.class).toInstant());
 
 	private final JdbcClient jdbc;
 
@@ -44,17 +52,17 @@ class ChatRepository {
 	}
 
 	List<Chat> list(UUID owner) {
-		return jdbc.sql("select id, title, created_at, last_used_at from chats where owner_id = :owner order by last_used_at desc, id")
+		return jdbc.sql("select id, title, created_at, last_used_at, use_notes from chats where owner_id = :owner order by last_used_at desc, id")
 				.param("owner", owner).query(CHAT).list();
 	}
 
 	Optional<Chat> find(UUID owner, UUID id) {
-		return jdbc.sql("select id, title, created_at, last_used_at from chats where id = :id and owner_id = :owner")
+		return jdbc.sql("select id, title, created_at, last_used_at, use_notes from chats where id = :id and owner_id = :owner")
 				.param("id", id).param("owner", owner).query(CHAT).optional();
 	}
 
 	Chat create(UUID owner, Instant now) {
-		return jdbc.sql("insert into chats (owner_id, created_at, last_used_at) values (:owner, :now, :now) returning id, title, created_at, last_used_at")
+		return jdbc.sql("insert into chats (owner_id, created_at, last_used_at) values (:owner, :now, :now) returning id, title, created_at, last_used_at, use_notes")
 				.param("owner", owner).param("now", Timestamp.from(now)).query(CHAT).single();
 	}
 
@@ -83,20 +91,27 @@ class ChatRepository {
 		jdbc.sql("update chats set title = :title where id = :id").param("title", title).param("id", id).update();
 	}
 
+	void setUseNotes(UUID id, boolean useNotes) {
+		jdbc.sql("update chats set use_notes = :useNotes where id = :id").param("useNotes", useNotes).param("id", id).update();
+	}
+
 	boolean hasMessages(UUID chatId) {
 		return jdbc.sql("select exists (select 1 from chat_messages where chat_id = :chat)").param("chat", chatId)
 				.query(Boolean.class).single();
 	}
 
-	/** Appends a message at the next position of the Chat. */
-	UUID addMessage(UUID chatId, Model.Role role, List<ContentBlock> blocks, String status, String errorCode, Instant now) {
+	/** Appends a message at the next position of the Chat. The quotes are stored as null when there are none. */
+	UUID addMessage(UUID chatId, Model.Role role, List<ContentBlock> blocks, String status, String errorCode,
+			List<Quote> quotes, Instant now) {
 		return jdbc.sql("""
-				insert into chat_messages (id, chat_id, position, role, content, status, error_code, created_at)
+				insert into chat_messages (id, chat_id, position, role, content, status, error_code, quotes, created_at)
 				values (gen_random_uuid(), :chat, (select coalesce(max(position), 0) + 1 from chat_messages where chat_id = :chat),
-				        :role, cast(:content as jsonb), :status, :error, :now)
+				        :role, cast(:content as jsonb), :status, :error, cast(:quotes as jsonb), :now)
 				returning id""")
 				.param("chat", chatId).param("role", role.name()).param("content", BLOCKS_WRITER.writeValueAsString(blocks))
-				.param("status", status).param("error", errorCode).param("now", Timestamp.from(now)).query(UUID.class).single();
+				.param("status", status).param("error", errorCode)
+				.param("quotes", quotes.isEmpty() ? null : QUOTES_WRITER.writeValueAsString(quotes))
+				.param("now", Timestamp.from(now)).query(UUID.class).single();
 	}
 
 	void setMessage(UUID id, List<ContentBlock> blocks, String status, String errorCode) {
@@ -111,7 +126,7 @@ class ChatRepository {
 
 	List<ChatMessage> messages(UUID chatId) {
 		return jdbc.sql("""
-				select id, role, content::text as content, status, error_code, created_at
+				select id, role, content::text as content, quotes::text as quotes, status, error_code, created_at
 				from chat_messages where chat_id = :chat order by position""")
 				.param("chat", chatId).query(MESSAGE).list();
 	}

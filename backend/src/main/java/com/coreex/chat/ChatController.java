@@ -2,6 +2,7 @@ package com.coreex.chat;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -21,6 +22,7 @@ import com.coreex.ai.Model;
 import com.coreex.common.ErrorBody;
 import com.coreex.identity.CurrentUserInterceptor;
 import com.coreex.identity.User;
+import com.coreex.items.Item;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -42,11 +44,13 @@ class ChatController {
 
 	private static final String REPLY_EVENTS = """
 			The reply streams as Server-Sent Events. `text` carries a piece of the answer ({text}), `tool` a tool the model \
-			is running ({name}), `done` ends the reply ({status}: COMPLETE or STOPPED), and `error` ends it with a failure \
-			({code}, {message}); the failure is also stored on the message. Refusals come before the stream, as JSON: \
-			AI_OFF (503), AI_BUDGET_SPENT (429), CHAT_BUSY (409), NOT_FOUND (404).""";
+			is running ({name}), `done` ends the reply ({status}: COMPLETE or STOPPED, and {sources}: the Items the turn \
+			used), and `error` ends it with a failure ({code}, {message}); the failure is also stored on the message. Refusals \
+			come before the stream, as JSON: AI_OFF (503), AI_BUDGET_SPENT (429), CHAT_BUSY (409), NOT_FOUND (404).""";
 
-	record SendRequest(@NotBlank @Size(max = 20_000) String text) {
+	record SendRequest(@NotBlank @Size(max = 20_000) String text,
+			@Schema(nullable = true, description = "The Use my Notes switch for this message; absent keeps the Chat's own setting")
+			Boolean useNotes) {
 
 		// Pasted text often carries spaces and line breaks at the ends; trim before validation.
 		SendRequest {
@@ -72,13 +76,24 @@ class ChatController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "STREAMING, COMPLETE, STOPPED or FAILED")
 			String status,
 			@Schema(nullable = true, description = "Set when the status is FAILED, for example AI_UNAVAILABLE") String errorCode,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "On the last assistant message of a turn: the Items the turn used; empty elsewhere")
+			List<SourceView> sources,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt) {
+	}
+
+	/** An Item a turn used: quoted up front or read by a tool. removed is true once it is in the Trash or gone. */
+	record SourceView(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Item.Type type,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean removed) {
 	}
 
 	record ChatDetail(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant lastUsedAt,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Use my Notes switch, as the Chat remembers it")
+			boolean useNotes,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<MessageView> messages) {
 	}
 
@@ -104,7 +119,7 @@ class ChatController {
 	@Operation(summary = "Starts an empty Chat in the general scope")
 	@ApiResponse(responseCode = "201", description = "The new Chat, titled New chat")
 	ChatDetail create(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user) {
-		return detail(new ChatService.Detail(chats.create(user.id()), List.of()));
+		return detail(new ChatService.Detail(chats.create(user.id()), List.of(), Map.of()));
 	}
 
 	@GetMapping("/{id}")
@@ -141,7 +156,7 @@ class ChatController {
 	SseEmitter send(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @Valid @RequestBody SendRequest request) {
 		var emitter = new SseEmitter(properties.maxReplyDuration().plusMinutes(1).toMillis());
-		chats.reply(user, id, request.text(), emitter);
+		chats.reply(user, id, request.text(), request.useNotes(), emitter);
 		return emitter;
 	}
 
@@ -159,8 +174,12 @@ class ChatController {
 	private static ChatDetail detail(ChatService.Detail detail) {
 		var chat = detail.chat();
 		var messages = detail.messages().stream()
-				.map(m -> new MessageView(m.id(), m.role(), m.blocks(), m.status(), m.errorCode(), m.createdAt())).toList();
-		return new ChatDetail(chat.id(), chat.title(), chat.createdAt(), chat.lastUsedAt(), messages);
+				.map(m -> new MessageView(m.id(), m.role(), m.blocks(), m.status(), m.errorCode(),
+						detail.sources().getOrDefault(m.id(), List.of()).stream()
+								.map(s -> new SourceView(s.id(), s.type(), s.title(), s.removed())).toList(),
+						m.createdAt()))
+				.toList();
+		return new ChatDetail(chat.id(), chat.title(), chat.createdAt(), chat.lastUsedAt(), chat.useNotes(), messages);
 	}
 
 }
