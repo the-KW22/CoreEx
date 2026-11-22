@@ -39,4 +39,9 @@ class McpConfig {
 		return (Agent) context.get(AGENT);
 	}
 
+	/** The context a tool runs with for this Agent, the same as the transport gives an MCP call. */
+	static McpTransportContext context(Agent agent) {
+		return McpTransportContext.create(Map.of(AGENT, agent));
+	}
+
 }

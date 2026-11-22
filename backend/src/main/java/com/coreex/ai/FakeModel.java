@@ -1,7 +1,9 @@
 package com.coreex.ai;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -12,6 +14,13 @@ import tools.jackson.databind.json.JsonMapper;
 class FakeModel implements Model {
 
 	private final JsonMapper json = JsonMapper.builder().build();
+
+	/** A conversation gets one fixed reply and no tool calls. */
+	@Override
+	public Turn converse(String system, List<Message> messages, List<ToolSpec> tools, Consumer<String> onText, long maxTokens) {
+		onText.accept("This is a fake reply.");
+		return new Turn(List.of(new ContentBlock.Text("This is a fake reply.")), StopReason.END_TURN, 100, 100);
+	}
 
 	@Override
 	public Reply ask(String system, String data, Map<String, Object> schema, long maxTokens) {
