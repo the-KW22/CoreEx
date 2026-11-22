@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 
 import com.coreex.TestSupportConfiguration.TestClock;
 import com.coreex.identity.User;
@@ -19,7 +20,9 @@ class ScriptedChatTools {
 
 	static final String BOOM_DETAIL = "secret stack detail";
 
+	/** Primary, so it wins over the real {@link ChatToolbox}, which is always scanned in. */
 	@Bean
+	@Primary
 	ChatTools scriptedChatTools(TestClock clock) {
 		return new ChatTools() {
 

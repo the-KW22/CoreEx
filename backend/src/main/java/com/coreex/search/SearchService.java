@@ -40,6 +40,13 @@ public class SearchService {
 	public record NoteText(UUID id, String title, int version, String body) {
 	}
 
+	/**
+	 * A piece of an Item found by meaning, for Chat: its Item's id, title and type, the heading it sits under (null when it
+	 * has none), its text without that heading, and how close it is, 0 to 1 (0 when found by exact words only).
+	 */
+	public record Chunk(UUID id, Item.Type type, String title, String headingPath, String text, double similarity) {
+	}
+
 	/** Two Notes close in meaning, 0 to 1. Asked from one side, so the same pair can come back from the other. */
 	public record SimilarNotes(UUID source, UUID target, double similarity) {
 	}
@@ -127,6 +134,39 @@ public class SearchService {
 			return new Page(hits, search.count(ownerId, text, type, tagId, folderIds), asksForNotes && byMeaning.isEmpty());
 		}
 		return merged(ownerId, text, type, tagId, folderIds, page, size, byMeaning.get(), paths);
+	}
+
+	/**
+	 * The closest Chunk of each of the User's live Notes, Applications and Resumes to the text, closest first, up to
+	 * {@code limit}, and only those above the line. Empty when the text cannot be embedded or nothing is close enough.
+	 */
+	public List<Chunk> chunks(UUID ownerId, String text, int limit) {
+		if (text.isBlank()) {
+			return List.of();
+		}
+		return nearest(ownerId, text, null, null, null).orElse(List.of()).stream().limit(limit)
+				.map(SearchService::chunk).toList();
+	}
+
+	/** A Chunk's text starts with the Item's title and heading path, then a blank line; the title is the Item's own. */
+	static Chunk chunk(SearchRepository.Near near) {
+		var content = near.content();
+		var cut = content.indexOf("\n\n");
+		var header = cut >= 0 ? content.substring(0, cut) : content;
+		var text = cut >= 0 ? content.substring(cut + 2) : "";
+		var title = near.title().strip();
+		String path;
+		if (header.equals(title)) {
+			path = null;
+		}
+		else if (!title.isEmpty() && header.startsWith(title + " › ")) {
+			path = header.substring(title.length() + " › ".length());
+		}
+		else {
+			path = header; // a Note with no title: the header is only the heading path
+		}
+		return new Chunk(near.id(), near.type(), near.title(), path == null || path.isBlank() ? null : path, text,
+				1 - near.distance());
 	}
 
 	/** Empty when the query could not be embedded. */

@@ -13,7 +13,7 @@ import com.coreex.identity.User;
 @Configuration(proxyBeanMethods = false)
 class ChatConfiguration {
 
-	/** Until the tool catalogue exists, a Chat reply has no tools to call. A tool catalogue bean replaces this one. */
+	/** A Chat reply has no tools to call unless the {@link ChatToolbox} is there, which replaces this one. */
 	@Bean
 	@ConditionalOnMissingBean(ChatTools.class)
 	ChatTools noChatTools() {
