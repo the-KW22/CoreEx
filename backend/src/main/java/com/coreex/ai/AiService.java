@@ -1,7 +1,9 @@
 package com.coreex.ai;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,30 @@ public class AiService {
 		return properties.on();
 	}
 
+	/** Refuses with AI_OFF when AI is not switched on. Nothing is sent anywhere in that case. */
+	public void requireOn() {
+		if (!properties.on()) {
+			throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "AI_OFF",
+					"AI is not switched on for this CoreEx. You can fill the fields in by hand.");
+		}
+	}
+
+	/** Refuses with AI_BUDGET_SPENT when the User's Daily AI budget is used up for today. */
+	public void requireRoom(UUID ownerId) {
+		budget.requireRoom(ownerId);
+	}
+
+	/** Counts one model call against the User's budget at the chosen model's prices. Call it after every call. */
+	public void record(UUID ownerId, long inputTokens, long outputTokens) {
+		budget.record(ownerId, costMicroUsd(inputTokens, outputTokens));
+	}
+
+	/** One turn of a conversation on the Shared key. Provider failures come out as Model.Failure for the caller to map. */
+	public Model.Turn converse(String system, List<Model.Message> messages, List<Model.ToolSpec> tools,
+			Consumer<String> onText, long maxTokens) {
+		return model.converse(system, messages, tools, onText, maxTokens);
+	}
+
 	/** The answer's JSON text. */
 	public String ask(UUID ownerId, String system, String data, Map<String, Object> schema) {
 		return askWithUse(ownerId, system, data, schema).text();
@@ -40,10 +66,7 @@ public class AiService {
 
 	/** The answer's JSON text with the tokens the provider reported, for results that record their model use. */
 	public Model.Reply askWithUse(UUID ownerId, String system, String data, Map<String, Object> schema) {
-		if (!properties.on()) {
-			throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "AI_OFF",
-					"AI is not switched on for this CoreEx. You can fill the fields in by hand.");
-		}
+		requireOn();
 		budget.requireRoom(ownerId);
 		Model.Reply reply;
 		try {

@@ -7,6 +7,8 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import tools.jackson.databind.json.JsonMapper;
@@ -32,6 +34,38 @@ public class TestModel implements Model {
 	public record Conversed(String system, List<Message> messages, List<ToolSpec> tools) {
 	}
 
+	/**
+	 * Holds the next scripted text turn half-way: the first half of the text is written, then the model waits until the
+	 * test releases it. Lets a test act on a reply that is running (a second send, a Stop, a closed stream).
+	 */
+	public static final class Gate {
+
+		private final CountDownLatch entered = new CountDownLatch(1);
+
+		private final CountDownLatch released = new CountDownLatch(1);
+
+		/** Waits until the model has written the first half and is holding. */
+		public boolean awaitEntered() throws InterruptedException {
+			return entered.await(10, TimeUnit.SECONDS);
+		}
+
+		/** Lets the model write the second half and finish the turn. */
+		public void release() {
+			released.countDown();
+		}
+
+		private void hold() {
+			entered.countDown();
+			try {
+				released.await(10, TimeUnit.SECONDS);
+			}
+			catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		}
+
+	}
+
 	private static final JsonMapper JSON = JsonMapper.builder().build();
 
 	private final List<Asked> asked = Collections.synchronizedList(new ArrayList<>());
@@ -46,7 +80,9 @@ public class TestModel implements Model {
 
 	private volatile long outputTokens = 100;
 
-	private volatile boolean down;
+	private volatile Failure.Kind failing;
+
+	private volatile Gate gate;
 
 	/** A turn where the model writes this text and stops. */
 	public static Turn text(String text) {
@@ -75,8 +111,20 @@ public class TestModel implements Model {
 		this.outputTokens = output;
 	}
 
+	/** Every call fails like an unreachable provider, or stops failing with false. */
 	public void setDown(boolean down) {
-		this.down = down;
+		this.failing = down ? Failure.Kind.UNAVAILABLE : null;
+	}
+
+	/** Every call fails with this kind of failure (OUT_OF_CREDIT or UNAVAILABLE) until cleared. */
+	public void failWith(Failure.Kind kind) {
+		this.failing = kind;
+	}
+
+	/** Holds the next scripted turn that has text (see {@link Gate}). */
+	public Gate gateNextText() {
+		gate = new Gate();
+		return gate;
 	}
 
 	/** Queues turns for the next {@code converse} calls, in order. */
@@ -99,14 +147,15 @@ public class TestModel implements Model {
 		answer = "{}";
 		inputTokens = 1_000;
 		outputTokens = 100;
-		down = false;
+		failing = null;
+		gate = null;
 	}
 
 	@Override
 	public Reply ask(String system, String data, Map<String, Object> schema, long maxTokens) {
 		asked.add(new Asked(system, data));
-		if (down) {
-			throw new Failure("down");
+		if (failing != null) {
+			throw new Failure(failing, "down");
 		}
 		return new Reply(answer, inputTokens, outputTokens);
 	}
@@ -114,13 +163,23 @@ public class TestModel implements Model {
 	@Override
 	public Turn converse(String system, List<Message> messages, List<ToolSpec> tools, Consumer<String> onText, long maxTokens) {
 		conversed.add(new Conversed(system, List.copyOf(messages), List.copyOf(tools)));
-		if (down) {
-			throw new Failure("down");
+		if (failing != null) {
+			throw new Failure(failing, "down");
 		}
 		var turn = next();
+		var held = gate;
+		gate = null;
 		for (var block : turn.blocks()) {
 			if (block instanceof ContentBlock.Text text) {
-				onText.accept(text.text());
+				if (held == null) {
+					onText.accept(text.text());
+				}
+				else {
+					var half = text.text().length() / 2;
+					onText.accept(text.text().substring(0, half));
+					held.hold();
+					onText.accept(text.text().substring(half));
+				}
 			}
 		}
 		return turn;
