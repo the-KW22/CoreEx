@@ -74,6 +74,11 @@ class FakeModel implements Model {
 			return new Turn(List.of(new ContentBlock.ToolUse(callId(), "ask_user_question",
 					Map.of("question", "Which Folder should it go in?", "choices", List.of("Work", "Home")))), StopReason.TOOL_USE, 100, 100);
 		}
+		if (asked.contains("[asset]")) {
+			// "[asset] <asset id>": reads that file with the read_asset tool, then answers.
+			return new Turn(List.of(new ContentBlock.ToolUse(callId(), "read_asset", Map.of("id", asked.replace("[asset]", "").strip()))),
+					StopReason.TOOL_USE, 100, 100);
+		}
 		if (last != null && last.blocks().stream().anyMatch(b -> b instanceof ContentBlock.ToolResult)) {
 			var answer = last.blocks().stream().filter(b -> b instanceof ContentBlock.ToolResult)
 					.map(b -> ((ContentBlock.ToolResult) b).content()).reduce("", String::concat);
@@ -81,9 +86,16 @@ class FakeModel implements Model {
 					.filter(b -> b instanceof ContentBlock.ToolUse).map(b -> ((ContentBlock.ToolUse) b).name()).reduce("", String::concat);
 			var reply = called.contains("ask_user_question") ? "Going with: " + answer
 					: called.contains("create_note") ? "I proposed a Note. It waits for your approval."
+							: called.contains("read_asset") ? "I read the file."
 							: "This is a fake reply from your Notes.";
 			onText.accept(reply);
 			return new Turn(List.of(new ContentBlock.Text(reply)), StopReason.END_TURN, 100, 100);
+		}
+		if (asked.contains("[web]") && tools.stream().anyMatch(t -> t.server() && t.name().equals("web_search"))) {
+			// With the web switched on: a search that retrieved one page, so the sources can be tested.
+			onText.accept("I searched the web.");
+			return new Turn(List.of(new ContentBlock.Text("I searched the web.")), StopReason.END_TURN, 100, 100, 1,
+					List.of(new WebSource("https://example.com/fake-result", "Fake result")));
 		}
 		if (asked.contains("[slow]")) {
 			var reply = new StringBuilder();

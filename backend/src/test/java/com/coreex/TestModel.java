@@ -99,7 +99,12 @@ public class TestModel implements Model {
 
 	/** The same turn with the tokens the provider reports for it. */
 	public static Turn usage(Turn turn, long input, long output) {
-		return new Turn(turn.blocks(), turn.stopReason(), input, output);
+		return new Turn(turn.blocks(), turn.stopReason(), input, output, turn.webSearches(), turn.webSources());
+	}
+
+	/** The same turn with the provider's web searches and the pages it retrieved. */
+	public static Turn web(Turn turn, long searches, List<Model.WebSource> sources) {
+		return new Turn(turn.blocks(), turn.stopReason(), turn.inputTokens(), turn.outputTokens(), searches, sources);
 	}
 
 	public void answer(String json) {

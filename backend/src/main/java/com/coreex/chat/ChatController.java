@@ -47,13 +47,15 @@ class ChatController {
 
 	private static final String REPLY_EVENTS = """
 			The reply streams as Server-Sent Events. `text` carries a piece of the answer ({text}), `tool` a tool the model \
-			is running ({name}), `done` ends the reply ({status}: COMPLETE or STOPPED, and {sources}: the Items the turn \
-			used), and `error` ends it with a failure ({code}, {message}); the failure is also stored on the message. Refusals \
+			is running ({name}), `done` ends the reply ({status}: COMPLETE or STOPPED, {sources}: the Items the turn used, and \
+			{webSources}: the web pages it retrieved), and `error` ends it with a failure ({code}, {message}); the failure is also stored on the message. Refusals \
 			come before the stream, as JSON: AI_OFF (503), AI_BUDGET_SPENT (429), CHAT_BUSY (409), NOT_FOUND (404).""";
 
 	record SendRequest(@NotBlank @Size(max = 20_000) String text,
 			@Schema(nullable = true, description = "The Use my Notes switch for this message; absent keeps the Chat's own setting")
 			Boolean useNotes,
+			@Schema(nullable = true, description = "The Use the web switch for this message only, off when absent; never remembered")
+			Boolean useWeb,
 			@Valid @Schema(nullable = true, description = "Where the User is in CoreEx, for this reply only; never stored")
 			ChatContext context) {
 
@@ -83,7 +85,9 @@ class ChatController {
 			@Schema(nullable = true, description = "Set when the status is FAILED, for example AI_UNAVAILABLE") String errorCode,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "On the last assistant message of a turn: the Items the turn used; empty elsewhere")
 			List<SourceView> sources,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The web pages the reply retrieved, http or https only; empty when none")
+			List<Model.WebSource> webSources) {
 	}
 
 	/** An Item a turn used: quoted up front or read by a tool. removed is true once it is in the Trash or gone. */
@@ -216,7 +220,7 @@ class ChatController {
 	SseEmitter send(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @Valid @RequestBody SendRequest request) {
 		var emitter = new SseEmitter(properties.maxReplyDuration().plusMinutes(1).toMillis());
-		chats.reply(user, id, request.text(), request.useNotes(), request.context(), emitter);
+		chats.reply(user, id, request.text(), request.useNotes(), request.useWeb(), request.context(), emitter);
 		return emitter;
 	}
 
@@ -286,7 +290,7 @@ class ChatController {
 				.map(m -> new MessageView(m.id(), m.role(), m.blocks(), m.status(), m.errorCode(),
 						detail.sources().getOrDefault(m.id(), List.of()).stream()
 								.map(s -> new SourceView(s.id(), s.type(), s.title(), s.removed(), s.heading())).toList(),
-						m.createdAt()))
+						m.createdAt(), m.webSources()))
 				.toList();
 		return new ChatDetail(chat.id(), chat.title(), chat.createdAt(), chat.lastUsedAt(), chat.useNotes(), messages,
 				detail.proposals().stream().map(ChatController::view).toList());

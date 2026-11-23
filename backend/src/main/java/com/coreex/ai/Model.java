@@ -1,9 +1,13 @@
 package com.coreex.ai;
 
+import java.net.URI;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Consumer;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
@@ -44,8 +48,18 @@ public interface Model {
 		record ToolUse(String id, String name, Map<String, Object> input) implements ContentBlock {
 		}
 
-		/** What a tool returned (or why it failed), sent back on the next turn as a User message. */
-		record ToolResult(String toolUseId, String content, boolean isError) implements ContentBlock {
+		/**
+		 * What a tool returned (or why it failed), sent back on the next turn as a User message. A read of an Asset keeps its
+		 * {@code assetId} and {@code mediaType}; the file's {@code data} is never stored. It is loaded again for each call to
+		 * the model, so it is null when the block is read back from the database.
+		 */
+		record ToolResult(String toolUseId, String content, boolean isError, UUID assetId, String mediaType,
+				@JsonIgnore byte[] data) implements ContentBlock {
+
+			public ToolResult(String toolUseId, String content, boolean isError) {
+				this(toolUseId, content, isError, null, null, null);
+			}
+
 		}
 
 	}
@@ -57,16 +71,70 @@ public interface Model {
 	record Message(Role role, List<ContentBlock> blocks) {
 	}
 
-	/** A tool the model may call: its name, what it does, and its input as a JSON schema object. */
-	record ToolSpec(String name, String description, Map<String, Object> inputSchema) {
+	/**
+	 * A tool the model may call: its name, what it does, and its input as a JSON schema object. A {@code server} tool is run
+	 * by the provider inside its own call (web search and web fetch): CoreEx never runs it, and its inputSchema holds its
+	 * options instead (web_search reads {@code max_uses}).
+	 */
+	record ToolSpec(String name, String description, Map<String, Object> inputSchema, boolean server) {
+
+		public ToolSpec(String name, String description, Map<String, Object> inputSchema) {
+			this(name, description, inputSchema, false);
+		}
+
+	}
+
+	/** A web page the provider says it retrieved, with its title. */
+	record WebSource(String url, String title) {
+
+		/** At most this many pages per reply. */
+		public static final int MAX = 10;
+
+		/** Keeps http and https pages only, once each, at most {@link #MAX}; a missing title is the URL. */
+		public static List<WebSource> keep(List<WebSource> found) {
+			var kept = new LinkedHashMap<String, WebSource>();
+			for (var source : found) {
+				if (source == null || source.url() == null || kept.size() >= MAX) {
+					continue;
+				}
+				var url = source.url().strip();
+				if (!isWeb(url)) {
+					continue;
+				}
+				var title = source.title() == null || source.title().isBlank() ? url : source.title().strip();
+				kept.putIfAbsent(url, new WebSource(url, title));
+			}
+			return List.copyOf(kept.values());
+		}
+
+		private static boolean isWeb(String url) {
+			try {
+				var scheme = URI.create(url).getScheme();
+				return "https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme);
+			}
+			catch (IllegalArgumentException e) {
+				return false;
+			}
+		}
+
 	}
 
 	enum StopReason {
 		END_TURN, TOOL_USE, MAX_TOKENS
 	}
 
-	/** What the model wrote in one turn and why it stopped; a {@link StopReason#TOOL_USE} turn needs its tools run. */
-	record Turn(List<ContentBlock> blocks, StopReason stopReason, long inputTokens, long outputTokens) {
+	/**
+	 * What the model wrote in one turn and why it stopped; a {@link StopReason#TOOL_USE} turn needs its tools run.
+	 * {@code webSearches} counts the provider's web searches in the turn (each one is billed), and {@code webSources} are
+	 * the pages the provider retrieved.
+	 */
+	record Turn(List<ContentBlock> blocks, StopReason stopReason, long inputTokens, long outputTokens, long webSearches,
+			List<WebSource> webSources) {
+
+		public Turn(List<ContentBlock> blocks, StopReason stopReason, long inputTokens, long outputTokens) {
+			this(blocks, stopReason, inputTokens, outputTokens, 0, List.of());
+		}
+
 	}
 
 	/** The provider could not answer: unreachable, out of credit, refused, or an error. The cause is never shown. */

@@ -52,3 +52,29 @@ export const offersSearch = (code: string | null | undefined) => code !== "CHAT_
 
 // A source opens its Item; a Note found under a heading opens at that heading.
 export const sourceHref = (s: Source) => (s.type === "NOTE" && s.heading ? `${itemHref(s)}?heading=${encodeURIComponent(s.heading)}` : itemHref(s));
+
+// A page the provider retrieved for a reply (docs/DESIGN.md section 6.14). Only what the API reports is shown, and only
+// web addresses: a link the model typed is never a source, and anything else (javascript:, data:) is dropped here too.
+export type WebSource = { url: string; title: string };
+
+export function webSources(value: unknown): WebSource[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const found: WebSource[] = [];
+  for (const item of value) {
+    const { url, title } = (item ?? {}) as { url?: unknown; title?: unknown };
+    if (typeof url !== "string" || seen.has(url)) continue;
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") continue;
+      seen.add(url);
+      found.push({ url, title: typeof title === "string" && title.trim() ? title.trim() : parsed.hostname });
+    } catch {
+      // not a web address: dropped
+    }
+  }
+  return found;
+}
+
+// The site a web source is from, for the link text.
+export const siteOf = (url: string) => new URL(url).hostname.replace(/^www./, "");

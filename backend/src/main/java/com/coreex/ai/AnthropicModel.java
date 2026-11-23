@@ -2,6 +2,7 @@ package com.coreex.ai;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -17,11 +18,15 @@ import com.anthropic.core.RequestOptions;
 import com.anthropic.errors.AnthropicServiceException;
 import com.anthropic.helpers.BetaMessageAccumulator;
 import com.anthropic.models.beta.messages.BetaAssistantMessageParam;
+import com.anthropic.models.beta.messages.BetaBase64ImageSource;
+import com.anthropic.models.beta.messages.BetaBase64PdfSource;
 import com.anthropic.models.beta.messages.BetaCacheControlEphemeral;
+import com.anthropic.models.beta.messages.BetaCitationsConfigParam;
 import com.anthropic.models.beta.messages.BetaClearToolUses20250919Edit;
 import com.anthropic.models.beta.messages.BetaContentBlockParam;
 import com.anthropic.models.beta.messages.BetaContextManagementConfig;
 import com.anthropic.models.beta.messages.BetaMessage;
+import com.anthropic.models.beta.messages.BetaServerToolUsage;
 import com.anthropic.models.beta.messages.BetaStopReason;
 import com.anthropic.models.beta.messages.BetaTextBlockParam;
 import com.anthropic.models.beta.messages.BetaTool;
@@ -30,6 +35,10 @@ import com.anthropic.models.beta.messages.BetaToolUnion;
 import com.anthropic.models.beta.messages.BetaToolUseBlock;
 import com.anthropic.models.beta.messages.BetaToolUseBlockParam;
 import com.anthropic.models.beta.messages.BetaUserMessageParam;
+import com.anthropic.models.beta.messages.BetaWebFetchTool20250910;
+import com.anthropic.models.beta.messages.BetaWebFetchTool20260209;
+import com.anthropic.models.beta.messages.BetaWebSearchTool20250305;
+import com.anthropic.models.beta.messages.BetaWebSearchTool20260209;
 import com.anthropic.models.messages.JsonOutputFormat;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.OutputConfig;
@@ -41,6 +50,9 @@ class AnthropicModel implements Model, AutoCloseable {
 
 	/** The beta that lets the provider clear old tool results (context editing). */
 	private static final String CONTEXT_EDITING_BETA = "context-management-2025-06-27";
+
+	/** The beta that the basic web fetch tool needs (the newer one does not). */
+	private static final String WEB_FETCH_BETA = "web-fetch-2025-09-10";
 
 	private static final String FAILED = "The model could not answer";
 
@@ -98,7 +110,8 @@ class AnthropicModel implements Model, AutoCloseable {
 			// shortcut: cache writes and reads are counted as plain input tokens and not priced at their discounts, which
 			// overstates the cost of cached turns. Upgrade to price cache reads and writes when the budget needs the accuracy.
 			var input = usage.inputTokens() + usage.cacheCreationInputTokens().orElse(0L) + usage.cacheReadInputTokens().orElse(0L);
-			return new Turn(blocks(message), stopReason(message), input, usage.outputTokens());
+			var webSearches = usage.serverToolUse().map(BetaServerToolUsage::webSearchRequests).orElse(0L);
+			return new Turn(blocks(message), stopReason(message), input, usage.outputTokens(), webSearches, webSources(message));
 		}
 		catch (RuntimeException e) {
 			throw failure(e);
@@ -126,14 +139,27 @@ class AnthropicModel implements Model, AutoCloseable {
 		var builder = com.anthropic.models.beta.messages.MessageCreateParams.builder().model(modelId).maxTokens(maxTokens)
 				.system(com.anthropic.models.beta.messages.MessageCreateParams.System.ofBetaTextBlockParams(List.of(
 						BetaTextBlockParam.builder().text(system).cacheControl(cache()).build())));
-		// The cache covers the tools and the instructions up to the last tool, so the last tool carries the marker.
+		// The cache covers the tools and the instructions up to the last client tool, so that tool carries the marker.
+		var lastClient = -1;
 		for (var i = 0; i < tools.size(); i++) {
+			if (!tools.get(i).server()) {
+				lastClient = i;
+			}
+		}
+		for (var i = 0; i < tools.size(); i++) {
+			if (tools.get(i).server()) {
+				builder.addTool(serverTool(tools.get(i)));
+				continue;
+			}
 			var tool = BetaTool.builder().name(tools.get(i).name()).description(tools.get(i).description())
 					.inputSchema(schema(tools.get(i).inputSchema()));
-			if (i == tools.size() - 1) {
+			if (i == lastClient) {
 				tool.cacheControl(cache());
 			}
 			builder.addTool(BetaToolUnion.ofBetaTool(tool.build()));
+		}
+		if (basicWeb() && tools.stream().anyMatch(t -> t.server() && t.name().equals("web_fetch"))) {
+			builder.addBeta(WEB_FETCH_BETA);
 		}
 		for (var message : messages) {
 			var blocks = message.blocks().stream().map(AnthropicModel::param).toList();
@@ -157,6 +183,29 @@ class AnthropicModel implements Model, AutoCloseable {
 		return BetaCacheControlEphemeral.builder().build();
 	}
 
+	/**
+	 * Haiku takes the basic web tools; every other model the newest ones. The search's max_uses comes from the spec's
+	 * inputSchema, and fetched pages are cited.
+	 */
+	private BetaToolUnion serverTool(ToolSpec spec) {
+		var citations = BetaCitationsConfigParam.builder().enabled(true).build();
+		return switch (spec.name()) {
+			case "web_search" -> {
+				var maxUses = ((Number) spec.inputSchema().get("max_uses")).longValue();
+				yield basicWeb() ? BetaToolUnion.ofWebSearchTool20250305(BetaWebSearchTool20250305.builder().maxUses(maxUses).build())
+						: BetaToolUnion.ofWebSearchTool20260209(BetaWebSearchTool20260209.builder().maxUses(maxUses).build());
+			}
+			case "web_fetch" -> basicWeb()
+					? BetaToolUnion.ofWebFetchTool20250910(BetaWebFetchTool20250910.builder().citations(citations).build())
+					: BetaToolUnion.ofWebFetchTool20260209(BetaWebFetchTool20260209.builder().citations(citations).build());
+			default -> throw new IllegalArgumentException("Not a provider tool: " + spec.name());
+		};
+	}
+
+	private boolean basicWeb() {
+		return modelId.startsWith("claude-haiku");
+	}
+
 	private static BetaTool.InputSchema schema(Map<String, Object> schema) {
 		var shape = BetaTool.InputSchema.builder();
 		// The SDK writes "type": "object" itself, so that key is left out of the schema's own properties.
@@ -173,9 +222,22 @@ class AnthropicModel implements Model, AutoCloseable {
 			case ContentBlock.Text text -> BetaContentBlockParam.ofText(text.text());
 			case ContentBlock.ToolUse use -> BetaContentBlockParam.ofToolUse(BetaToolUseBlockParam.builder().id(use.id())
 					.name(use.name()).input(toolInput(use.input())).build());
-			case ContentBlock.ToolResult result -> BetaContentBlockParam.ofToolResult(BetaToolResultBlockParam.builder()
-					.toolUseId(result.toolUseId()).content(result.content()).isError(result.isError()).build());
+			case ContentBlock.ToolResult result -> BetaContentBlockParam.ofToolResult(toolResult(result));
 		};
+	}
+
+	/** A tool result; a file read from an Asset follows its text as an image or a PDF. */
+	private static BetaToolResultBlockParam toolResult(ContentBlock.ToolResult result) {
+		var builder = BetaToolResultBlockParam.builder().toolUseId(result.toolUseId()).isError(result.isError());
+		if (result.data() == null) {
+			return builder.content(result.content()).build();
+		}
+		var data = Base64.getEncoder().encodeToString(result.data());
+		var file = "application/pdf".equals(result.mediaType())
+				? BetaToolResultBlockParam.Content.Block.ofDocument(BetaBase64PdfSource.builder().data(data).build())
+				: BetaToolResultBlockParam.Content.Block.ofImage(BetaBase64ImageSource.builder().data(data)
+						.mediaType(BetaBase64ImageSource.MediaType.of(result.mediaType())).build());
+		return builder.contentOfBlocks(List.of(BetaToolResultBlockParam.Content.Block.ofText(result.content()), file)).build();
 	}
 
 	private static BetaToolUseBlockParam.Input toolInput(Map<String, Object> input) {
@@ -212,7 +274,37 @@ class AnthropicModel implements Model, AutoCloseable {
 		if (reason.equals(BetaStopReason.MAX_TOKENS)) {
 			return StopReason.MAX_TOKENS;
 		}
+		// shortcut: a pause_turn (the provider paused a long web search) ends the reply with what was written; upgrade by sending the turn back to resume it.
 		return StopReason.END_TURN;
+	}
+
+	/** The pages the provider retrieved: its search results and fetched pages, and the web citations of the text. */
+	private static List<WebSource> webSources(BetaMessage message) {
+		var found = new ArrayList<WebSource>();
+		for (var block : message.content()) {
+			if (block.isWebSearchToolResult()) {
+				var content = block.asWebSearchToolResult().content();
+				if (content.isResultBlocks()) {
+					content.asResultBlocks().forEach(result -> found.add(new WebSource(result.url(), result.title())));
+				}
+			}
+			else if (block.isWebFetchToolResult()) {
+				var content = block.asWebFetchToolResult().content();
+				if (content.isBetaWebFetchBlock()) {
+					var fetched = content.asBetaWebFetchBlock();
+					found.add(new WebSource(fetched.url(), fetched.content().title().orElse(fetched.url())));
+				}
+			}
+			else if (block.isText()) {
+				for (var citation : block.asText().citations().orElse(List.of())) {
+					if (citation.isWebSearchResultLocation()) {
+						var location = citation.asWebSearchResultLocation();
+						found.add(new WebSource(location.url(), location.title().orElse(location.url())));
+					}
+				}
+			}
+		}
+		return WebSource.keep(found);
 	}
 
 	/**

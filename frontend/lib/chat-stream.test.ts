@@ -24,8 +24,15 @@ describe("parseSse", () => {
     );
     expect(events).toEqual([
       { type: "text", text: "a" },
-      { type: "done", status: "COMPLETE", sources: [] },
+      { type: "done", status: "COMPLETE", sources: [], web: [] },
     ]);
+  });
+
+  it("reads the web pages a reply retrieved, and drops anything that is not a web address", () => {
+    const { events } = parseSse(
+      'event: done\ndata: {"status":"COMPLETE","sources":[],"webSources":[{"url":"https://example.com/a","title":"A"},{"url":"javascript:x","title":"bad"}]}\n\n',
+    );
+    expect(events).toEqual([{ type: "done", status: "COMPLETE", sources: [], web: [{ url: "https://example.com/a", title: "A" }] }]);
   });
 
   it("ignores unknown events, comments and invalid JSON", () => {

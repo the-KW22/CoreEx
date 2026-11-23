@@ -16,13 +16,15 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * {@code ownKeyContextClearTokens} is the same threshold for a User's own key, which is allowed a longer context.
  * shortcut: prices are set by hand here, so they must be updated when the provider changes them, and the higher price of
  * Haiku 5.5 for prompts over 100K tokens is not modelled. Upgrade by reading the prices from the provider.
+ * {@code webSearchMicroUsd} is what one provider web search costs, in millionths of a dollar ($10 per 1,000 searches).
  */
 @ConfigurationProperties("coreex.ai")
 record AiProperties(@DefaultValue("anthropic") String provider, @DefaultValue("") String apiKey,
 		@DefaultValue("claude-opus-5-5") String model, @DefaultValue("") String baseUrl,
 		@DefaultValue("0.50") double dailyBudgetUsd, @DefaultValue("16000") long maxOutputTokens,
 		@DefaultValue("100000") long contextClearTokens, List<ModelPrice> models,
-		@DefaultValue("") String keySecret, @DefaultValue("300000") long ownKeyContextClearTokens) {
+		@DefaultValue("") String keySecret, @DefaultValue("300000") long ownKeyContextClearTokens,
+		@DefaultValue("10000") long webSearchMicroUsd) {
 
 	/** One model an Admin may pick, and what it costs. */
 	record ModelPrice(String id, String name, double inputUsdPerMillion, double outputUsdPerMillion) {

@@ -35,6 +35,11 @@ class ChatRepository {
 
 	private static final ObjectWriter QUOTES_WRITER = JSON.writerFor(QUOTES);
 
+	private static final TypeReference<List<Model.WebSource>> WEB = new TypeReference<>() {
+	};
+
+	private static final ObjectWriter WEB_WRITER = JSON.writerFor(WEB);
+
 	private static final RowMapper<Chat> CHAT = (rs, n) -> new Chat(rs.getObject("id", UUID.class),
 			rs.getString("title"), rs.getObject("created_at", OffsetDateTime.class).toInstant(),
 			rs.getObject("last_used_at", OffsetDateTime.class).toInstant(), rs.getBoolean("use_notes"));
@@ -43,7 +48,8 @@ class ChatRepository {
 			Model.Role.valueOf(rs.getString("role")), JSON.readValue(rs.getString("content"), BLOCKS),
 			rs.getString("status"), rs.getString("error_code"),
 			rs.getString("quotes") == null ? List.of() : JSON.readValue(rs.getString("quotes"), QUOTES),
-			rs.getObject("created_at", OffsetDateTime.class).toInstant());
+			rs.getObject("created_at", OffsetDateTime.class).toInstant(),
+			rs.getString("web_sources") == null ? List.of() : JSON.readValue(rs.getString("web_sources"), WEB));
 
 	private final JdbcClient jdbc;
 
@@ -128,13 +134,20 @@ class ChatRepository {
 				.param("chat", chatId).update();
 	}
 
+	/** The web pages an assistant message retrieved; the caller has kept only the http and https ones. */
+	void setWebSources(UUID id, List<Model.WebSource> sources) {
+		jdbc.sql("update chat_messages set web_sources = cast(:sources as jsonb) where id = :id")
+				.param("sources", WEB_WRITER.writeValueAsString(sources)).param("id", id).update();
+	}
+
 	void deleteMessage(UUID id) {
 		jdbc.sql("delete from chat_messages where id = :id").param("id", id).update();
 	}
 
 	List<ChatMessage> messages(UUID chatId) {
 		return jdbc.sql("""
-				select id, role, content::text as content, quotes::text as quotes, status, error_code, created_at
+				select id, role, content::text as content, quotes::text as quotes, status, error_code, created_at,
+				       web_sources::text as web_sources
 				from chat_messages where chat_id = :chat order by position""")
 				.param("chat", chatId).query(MESSAGE).list();
 	}

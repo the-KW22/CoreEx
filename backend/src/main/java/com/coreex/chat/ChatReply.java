@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -24,6 +26,8 @@ import com.coreex.ai.Model;
 import com.coreex.ai.Model.ContentBlock;
 import com.coreex.common.ApiException;
 import com.coreex.identity.User;
+
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * One reply of a Chat, run on the server: it asks the model, runs the tools it asks for, and asks again until the model
@@ -54,14 +58,32 @@ final class ChatReply {
 
 	private static final String OUT_OF_CREDIT = "The AI service has run out of credit, so the reply stopped. Try again later.";
 
+	/** Searches one reply may make in all (ADR 0009). */
+	static final int WEB_SEARCHES = 5;
+
+	/** Files attached to one model call, newest first: five files of 5 MB stay well under the provider's request limit. */
+	private static final int MAX_ATTACHED = 3;
+
+	private static final String GONE = "The file is no longer available.";
+
+	private static final String EARLIER = "The file was read earlier and is not attached again. Read it again if you need it.";
+
+	private static final JsonMapper JSON = JsonMapper.builder().build();
+
+	/** The provider's own web search and page reader, offered only while the User has the web switched on (ADR 0009). */
+	static final List<Model.ToolSpec> WEB = List.of(
+			new Model.ToolSpec("web_search", "Searches the web for pages that answer a question, up to five searches in a reply. "
+					+ "Use it only when the answer needs the web, not the User's Notes.", Map.of("max_uses", WEB_SEARCHES), true),
+			new Model.ToolSpec("web_fetch", "Reads a web page whose link appears in this conversation.", Map.of(), true));
+
 	record TextEvent(String text) {
 	}
 
 	record ToolEvent(String name) {
 	}
 
-	/** The reply's status and the sources of the turn it finished. */
-	record DoneEvent(String status, List<ChatSources.Source> sources) {
+	/** The reply's status, the sources of the turn it finished, and the web pages it retrieved. */
+	record DoneEvent(String status, List<ChatSources.Source> sources, List<Model.WebSource> webSources) {
 	}
 
 	record ErrorEvent(String code, String message) {
@@ -122,9 +144,20 @@ final class ChatReply {
 	/** The Use my Notes switch for this reply: when off, no tools are offered and the tool blocks are not replayed. */
 	private final boolean useNotes;
 
+	/** The Use the web switch for this reply only: when on, the provider's web tools are offered. */
+	private final boolean useWeb;
+
 	private final ChatContext context;
 
 	private final ChatSources sources;
+
+	private final ChatAssets assets;
+
+	/** The web pages the reply's model calls retrieved, at most {@link Model.WebSource#MAX}. */
+	private List<Model.WebSource> webSources = List.of();
+
+	/** The searches the reply has made so far: a reply may make 5 in all, however many model calls it takes. */
+	private long searchesUsed;
 
 	private final SseEmitter out;
 
@@ -145,7 +178,8 @@ final class ChatReply {
 	private boolean clientGone;
 
 	ChatReply(ChatRepository chats, AiService ai, ChatTools tools, ChatProposals proposals, ChatProperties properties,
-			Clock clock, User owner, UUID chatId, boolean useNotes, ChatContext context, ChatSources sources, SseEmitter out) {
+			Clock clock, User owner, UUID chatId, boolean useNotes, boolean useWeb, ChatContext context, ChatSources sources,
+			ChatAssets assets, SseEmitter out) {
 		this.chats = chats;
 		this.ai = ai;
 		this.tools = tools;
@@ -155,8 +189,10 @@ final class ChatReply {
 		this.owner = owner;
 		this.chatId = chatId;
 		this.useNotes = useNotes;
+		this.useWeb = useWeb;
 		this.context = context;
 		this.sources = sources;
+		this.assets = assets;
 		this.out = out;
 		this.deadline = clock.instant().plus(properties.maxReplyDuration());
 	}
@@ -211,7 +247,7 @@ final class ChatReply {
 			send("error", new ErrorEvent(errorCode, errorMessage));
 		}
 		else {
-			send("done", new DoneEvent(status, turnSources));
+			send("done", new DoneEvent(status, turnSources, webSources));
 		}
 		try {
 			out.complete();
@@ -270,7 +306,8 @@ final class ChatReply {
 		assistantId = chats.addMessage(chatId, Model.Role.ASSISTANT, List.of(), STREAMING, null, List.of(), now);
 		Model.Turn turn;
 		try {
-			turn = ai.converse(owner.id(), ChatPrompt.forReply(context), history, offered(), this::onText, properties.maxOutputTokens());
+			turn = ai.converse(owner.id(), ChatPrompt.forReply(context, useWeb), history, offered(), this::onText,
+					properties.maxOutputTokens());
 		}
 		catch (RuntimeException e) {
 			if (stop.get()) {
@@ -290,9 +327,17 @@ final class ChatReply {
 			keepPartial(FAILED, failed.code);
 			throw failed;
 		}
-		ai.record(owner.id(), turn.inputTokens(), turn.outputTokens());
+		ai.record(owner.id(), turn.inputTokens(), turn.outputTokens(), turn.webSearches());
+		searchesUsed += turn.webSearches();
 		assistantBlocks = turn.blocks();
 		chats.setMessage(assistantId, assistantBlocks, COMPLETE, null);
+		var pages = Model.WebSource.keep(turn.webSources());
+		if (!pages.isEmpty()) {
+			chats.setWebSources(assistantId, pages);
+			var all = new ArrayList<>(webSources);
+			all.addAll(pages);
+			webSources = Model.WebSource.keep(all);
+		}
 		return turn;
 	}
 
@@ -302,7 +347,7 @@ final class ChatReply {
 	 * provider's own count of an aborted call becomes available.
 	 */
 	private void countAborted(List<Model.Message> history) {
-		ai.record(owner.id(), history.toString().length() / 4, streamed.length() / 4);
+		ai.record(owner.id(), history.toString().length() / 4, streamed.length() / 4, 0);
 	}
 
 	/** Each text piece goes to the listener and, about once a second, to the database, so a partial reply survives. */
@@ -321,7 +366,38 @@ final class ChatReply {
 
 	/** With Use my Notes off nothing of the knowledge base is offered, but the model can still ask a question. */
 	private List<Model.ToolSpec> offered() {
-		return useNotes ? tools.specs() : tools.specs().stream().filter(spec -> ChatTools.ASK.equals(spec.name())).toList();
+		var offered = new ArrayList<>(useNotes ? tools.specs()
+				: tools.specs().stream().filter(spec -> ChatTools.ASK.equals(spec.name())).toList());
+		if (useWeb) {
+			// The provider counts max_uses for each call, so what is left of the reply's 5 searches is passed on every call.
+			var left = WEB_SEARCHES - searchesUsed;
+			for (var spec : WEB) {
+				if (!spec.name().equals("web_search")) {
+					offered.add(spec);
+				}
+				else if (left > 0) {
+					offered.add(new Model.ToolSpec(spec.name(), spec.description(), Map.of("max_uses", left), true));
+				}
+			}
+		}
+		return offered;
+	}
+
+	/** A read of an Asset (issue #204): its id and title as the result, with the file itself added on the next call (history). */
+	private ContentBlock readAsset(ContentBlock.ToolUse use) {
+		try {
+			var file = assets.read(owner, use.input());
+			var content = JSON.writeValueAsString(Map.of("id", file.id().toString(), "title", file.title(), "mediaType",
+					file.mediaType(), "note", "The file is attached to this result."));
+			return new ContentBlock.ToolResult(use.id(), content, false, file.id(), file.mediaType(), null);
+		}
+		catch (ApiException e) {
+			return new ContentBlock.ToolResult(use.id(), e.getMessage(), true);
+		}
+		catch (RuntimeException e) {
+			LOG.debug("A Chat file read failed");
+			return new ContentBlock.ToolResult(use.id(), "The tool failed.", true);
+		}
 	}
 
 	/** A write tool is not run: it becomes a Proposal the User answers, and the model is told it waits. */
@@ -339,6 +415,9 @@ final class ChatReply {
 	}
 
 	private ContentBlock runTool(ContentBlock.ToolUse use) {
+		if (ChatTools.READ_ASSET.equals(use.name())) {
+			return readAsset(use);
+		}
 		try {
 			return new ContentBlock.ToolResult(use.id(), tools.run(owner, use.name(), use.input()), false);
 		}
@@ -411,6 +490,16 @@ final class ChatReply {
 				}
 			}
 		}
+		// Only the newest few files are sent again with the history; older reads keep their words, not their bytes.
+		var read = new ArrayList<String>();
+		for (var row : rows) {
+			for (var block : row.blocks()) {
+				if (block instanceof ContentBlock.ToolResult result && result.assetId() != null) {
+					read.add(result.toolUseId());
+				}
+			}
+		}
+		var attached = Set.copyOf(read.subList(Math.max(0, read.size() - MAX_ATTACHED), read.size()));
 		var messages = new ArrayList<Model.Message>();
 		for (var i = 0; i < rows.size(); i++) {
 			var row = rows.get(i);
@@ -418,6 +507,15 @@ final class ChatReply {
 			for (var block : row.blocks()) {
 				if (block instanceof ContentBlock.ToolUse || block instanceof ContentBlock.ToolResult) {
 					if (!paired(block, i, useRow, resultRow) || (!useNotes && !isQuestion(block, toolNames))) {
+						continue;
+					}
+					if (block instanceof ContentBlock.ToolResult result && result.assetId() != null) {
+						// shortcut: the file is read again for every model call of the reply; upgrade by keeping the bytes for the reply's life.
+						var file = attached.contains(result.toolUseId()) ? assets.reload(owner, result.assetId()) : Optional.<ChatAssets.File>empty();
+						blocks.add(file.isEmpty() ? new ContentBlock.ToolResult(result.toolUseId(), attached.contains(result.toolUseId()) ? GONE : EARLIER, result.isError(), result.assetId(),
+								result.mediaType(), null)
+								: new ContentBlock.ToolResult(result.toolUseId(), DataMarkers.data(ChatTools.READ_ASSET, result.content()),
+										result.isError(), result.assetId(), file.get().mediaType(), file.get().data()));
 						continue;
 					}
 					if (block instanceof ContentBlock.ToolResult result) {

@@ -48,3 +48,10 @@ Built in issue #203. Where this section and the text above differ, this section 
 - **Storage:** sealed by the API with AES-GCM under a key made from `COREEX_AI_KEY_SECRET`, which is held only in the host's environment, in a `coreex` table with row level security. Without the secret, keys cannot be saved at all. It is write-only: the API and the screens show only the provider and the last 4 characters, and the key is never logged, never in an error message, never in an Admin endpoint and never on `/mcp` (ADR 0004). A key is checked with one tiny provider call before it is stored. A key that can no longer be opened (the secret changed) counts as no key.
 - **Every User picks the model for their Chats**, on the Shared key too; the Admin's model is the default and still the model for Career. The budget counts cost at the picked model's price, so a cheaper model lasts longer.
 - **Context editing** clears old tool results at about 300k tokens on an own key (about 100k on the Shared key).
+
+## Update: reading files and the web (2026-11-23)
+
+Built in issues #204 and #205. Where this section and the text above differ, this section wins.
+
+- **Files:** a `read_asset` tool loads one image or PDF the User owns and gives it to the model inside the tool result. The stored message keeps only the Asset's id and media type; the file is loaded again from storage each time the history is sent, and if it is gone, in the Trash or over the cap the model is told it is no longer available. Cap: 5 MB and about 20 PDF pages. The tokens count toward the budget like any turn.
+- **Web:** the provider's own server-side search and page reading, offered only when the User turns on "Use the web" for that message. At most 5 searches a reply; each search adds its price to the turn's cost on the Shared key. The provider's search blocks are not kept in the Chat history; the sources shown are the pages it reports as retrieved, stored with the reply, never links the model wrote. A reply the provider pauses mid-search ends with what was written.

@@ -57,8 +57,8 @@ class ChatToolbox implements ChatTools {
 				catalogue.specs().stream().filter(spec -> !SEARCH.equals(spec.name()))).toList();
 		// Only what can run is "offered": a write tool or the question is never run here.
 		this.offered = reads.stream().map(Model.ToolSpec::name).collect(Collectors.toUnmodifiableSet());
-		this.specs = Stream.of(reads.stream(), catalogue.writeSpecs().stream(), Stream.of(askUserQuestion()))
-				.flatMap(s -> s).toList();
+		this.specs = Stream.of(reads.stream(), Stream.of(readAssetSpec()), catalogue.writeSpecs().stream(),
+				Stream.of(askUserQuestion())).flatMap(s -> s).toList();
 	}
 
 	@Override
@@ -84,6 +84,14 @@ class ChatToolbox implements ChatTools {
 				+ "Note should go in. Do not use it for what you can find out with your read tools. Call it alone, not together "
 				+ "with other tools.", Map.of("type", "object", "properties", Map.of("question", question, "choices", choices),
 						"required", List.of("question", "choices")));
+	}
+
+	/** Not in {@code offered}: the reply reads the file itself (ChatAssets), so run() never sees this call. */
+	private static Model.ToolSpec readAssetSpec() {
+		var id = Map.<String, Object>of("type", "string", "description", "The Asset's id, from get_item or search");
+		return new Model.ToolSpec(ChatTools.READ_ASSET, "Reads an image or a PDF the User has uploaded, so you can see what it "
+				+ "holds. Use it only when the User asks about that file. A PDF is read up to its first 20 pages. A file over 5 MB "
+				+ "is refused.", Map.of("type", "object", "properties", Map.of("id", id), "required", List.of("id")));
 	}
 
 	private static Model.ToolSpec chatSearch() {

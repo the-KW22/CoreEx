@@ -123,6 +123,7 @@ class ChatSources {
 			case "get_application" -> head(content, Item.Type.APPLICATION);
 			case "get_resume" -> head(content, Item.Type.RESUME);
 			case "get_cover_letter" -> head(content, Item.Type.COVER_LETTER);
+			case ChatTools.READ_ASSET -> head(content, Item.Type.ASSET);
 			default -> List.of();
 		};
 	}

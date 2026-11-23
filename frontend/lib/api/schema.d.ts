@@ -1042,7 +1042,7 @@ export interface paths {
         put?: never;
         /**
          * Sends a message and streams the reply
-         * @description The reply streams as Server-Sent Events. `text` carries a piece of the answer ({text}), `tool` a tool the model is running ({name}), `done` ends the reply ({status}: COMPLETE or STOPPED, and {sources}: the Items the turn used), and `error` ends it with a failure ({code}, {message}); the failure is also stored on the message. Refusals come before the stream, as JSON: AI_OFF (503), AI_BUDGET_SPENT (429), CHAT_BUSY (409), NOT_FOUND (404).
+         * @description The reply streams as Server-Sent Events. `text` carries a piece of the answer ({text}), `tool` a tool the model is running ({name}), `done` ends the reply ({status}: COMPLETE or STOPPED, {sources}: the Items the turn used, and {webSources}: the web pages it retrieved), and `error` ends it with a failure ({code}, {message}); the failure is also stored on the message. Refusals come before the stream, as JSON: AI_OFF (503), AI_BUDGET_SPENT (429), CHAT_BUSY (409), NOT_FOUND (404).
          */
         post: operations["send"];
         delete?: never;
@@ -1062,7 +1062,7 @@ export interface paths {
         put?: never;
         /**
          * Answers the model's question and streams the rest of the reply
-         * @description The reply streams as Server-Sent Events. `text` carries a piece of the answer ({text}), `tool` a tool the model is running ({name}), `done` ends the reply ({status}: COMPLETE or STOPPED, and {sources}: the Items the turn used), and `error` ends it with a failure ({code}, {message}); the failure is also stored on the message. Refusals come before the stream, as JSON: AI_OFF (503), AI_BUDGET_SPENT (429), CHAT_BUSY (409), NOT_FOUND (404).
+         * @description The reply streams as Server-Sent Events. `text` carries a piece of the answer ({text}), `tool` a tool the model is running ({name}), `done` ends the reply ({status}: COMPLETE or STOPPED, {sources}: the Items the turn used, and {webSources}: the web pages it retrieved), and `error` ends it with a failure ({code}, {message}); the failure is also stored on the message. Refusals come before the stream, as JSON: AI_OFF (503), AI_BUDGET_SPENT (429), CHAT_BUSY (409), NOT_FOUND (404).
          */
         post: operations["answer"];
         delete?: never;
@@ -3576,6 +3576,8 @@ export interface components {
             sources: components["schemas"]["SourceView"][];
             /** Format: date-time */
             createdAt: string;
+            /** @description The web pages the reply retrieved, http or https only; empty when none */
+            webSources: components["schemas"]["WebSource"][];
         };
         ProposalView: {
             /** Format: uuid */
@@ -3636,6 +3638,9 @@ export interface components {
             toolUseId?: string;
             content?: string;
             isError?: boolean;
+            /** Format: uuid */
+            assetId?: string;
+            mediaType?: string;
         });
         ToolUse: {
             type: "ToolUse";
@@ -3646,6 +3651,10 @@ export interface components {
                 [key: string]: unknown;
             };
         });
+        WebSource: {
+            url?: string;
+            title?: string;
+        };
         AnswerProposalsRequest: {
             ids: string[];
             /**
@@ -3682,6 +3691,8 @@ export interface components {
             text: string;
             /** @description The Use my Notes switch for this message; absent keeps the Chat's own setting */
             useNotes?: boolean | null;
+            /** @description The Use the web switch for this message only, off when absent; never remembered */
+            useWeb?: boolean | null;
             /** @description Where the User is in CoreEx, for this reply only; never stored */
             context?: components["schemas"]["ChatContext"];
         };
