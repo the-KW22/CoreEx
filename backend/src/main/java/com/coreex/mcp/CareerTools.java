@@ -188,11 +188,31 @@ class CareerTools {
 		return (int) query.stream().filter(found::contains).count();
 	}
 
-	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_application_results", description = "List what the Career AI made for one Application, newest first: a Fit check (a score and each requirement with the Facts it cites), an answer, interview prep, a practice review, an email or a reply from an employer. Each has its id, kind, result, resolution (null while an answer waits for Accept or Reject) and outOfDate, true when the Facts or posting it was made from have changed since.")
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_application_results", description = "List what the Career AI made for one Application, newest first: a Fit check (a score worked out from the verdicts, each requirement with its kind, the Facts it cites and a plan for a gap, what decides the hire, keywords, and who made it), an answer, interview prep, a practice review, an email or a reply from an employer. Each has its id, kind, result, resolution (null while an answer waits for Accept or Reject) and outOfDate, true when the Facts or posting it was made from have changed since.")
 	ResultList getApplicationResults(McpTransportContext context,
 			@McpToolParam(description = "The Application's id") UUID applicationId) {
 		return new ResultList(career.results(owner(context), applicationId).stream()
 				.map(s -> new ResultRow(s.id(), s.kind(), s.result(), s.resolution(), s.outOfDate(), s.createdAt())).toList());
+	}
+
+	private static final String FIT_SHAPE = "A JSON object: question (one question to ask the employer), priorities (3 to 5 short lines on what decides the hire), "
+			+ "keywords (up to 20, copied word for word from the posting) and requirements (at most 15), each with requirement, kind (MUST, NICE or GATE), "
+			+ "verdict (SUPPORTED, PARTLY or MISSING), evidence (ids of Facts, Stories or the Resume that show it, from list_facts), note, plan (NONE, FRAME, CLOSE or DO_NOT_CLAIM), "
+			+ "planNote and confirm (a question for the User on a GATE the evidence does not show, else empty). Do not send a score: CoreEx works it out.";
+
+	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "run_fit_check", description = "Run CoreEx's own AI Fit check on one Application, as the Fit tab's button does, and keep the result. It uses the Application's posting, Resume, Knowledge, Stories and Preferences, and spends the User's daily AI budget (or their own key). Refused when the posting is empty, AI is off or the budget is spent. Returns the result as get_application_results shows it. To do the analysis yourself with no CoreEx AI, use save_fit_check.")
+	ResultRow runFitCheck(McpTransportContext context, @McpToolParam(description = "The Application's id") UUID applicationId) {
+		return row(career.fit(owner(context), applicationId));
+	}
+
+	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "save_fit_check", description = "Save a Fit check you worked out yourself on one Application, with no CoreEx AI call and no budget spent. Read the Application, its posting, the Resume and list_facts first. Only ids from the User's own evidence count: any other id is dropped and its requirement becomes MISSING. CoreEx works out the score from your verdicts and ignores any you send. It is marked out of date when the posting or Knowledge changes, and shown as made by your agent. Returns the result as get_application_results shows it.")
+	ResultRow saveFitCheck(McpTransportContext context, @McpToolParam(description = "The Application's id") UUID applicationId,
+			@McpToolParam(description = FIT_SHAPE) String fit) {
+		return row(career.saveFit(owner(context), applicationId, fit));
+	}
+
+	private static ResultRow row(CareerService.Stored s) {
+		return new ResultRow(s.id(), s.kind(), s.result(), s.resolution(), s.outOfDate(), s.createdAt());
 	}
 
 }

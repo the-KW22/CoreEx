@@ -257,6 +257,20 @@ export const MCP_TOOLS: McpTool[] = [
     useWhen: "You want the Fit check or other work already done for an Application.",
   },
   {
+    name: "run_fit_check",
+    group: "Applications",
+    kind: "change",
+    summary: "Run CoreEx's own AI Fit check on one Application, as the Fit tab's button does. It spends the User's daily AI budget (or their own key) and keeps the result.",
+    useWhen: "The User wants CoreEx's model to check how they fit a posting, and AI is on with budget left.",
+  },
+  {
+    name: "save_fit_check",
+    group: "Applications",
+    kind: "change",
+    summary: "Save a Fit check you worked out yourself, with no CoreEx AI call. Requirements carry a kind (MUST, NICE, GATE), a verdict, evidence ids from list_facts and a plan for each gap, plus what decides the hire and the posting's keywords. CoreEx works out the score and drops ids that are not the User's.",
+    useWhen: "You analysed the posting against the User's Resume and Facts, or CoreEx's AI is off. Ask the User any gate questions, add their answers with add_fact, then save again.",
+  },
+  {
     name: "list_resumes",
     group: "Resumes",
     kind: "read",
