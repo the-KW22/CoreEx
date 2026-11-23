@@ -157,11 +157,15 @@ class FakeModel implements Model {
 			// A Fit check: one requirement shown by the first Fact it was given, or missing when it was given none.
 			var fact = java.util.regex.Pattern.compile("<fact id=\"([0-9a-f-]{36})\"").matcher(data);
 			var evidence = fact.find() ? java.util.List.of(fact.group(1)) : java.util.List.<String>of();
-			var requirement = Map.of("requirement", "Builds web services", "verdict", evidence.isEmpty() ? "MISSING" : "SUPPORTED",
-					"evidence", evidence, "note", "From the fake model.");
-			var gap = Map.of("requirement", "Leads a team of ten", "verdict", "MISSING", "evidence", java.util.List.<String>of(), "note", "");
-			return new Reply(json.writeValueAsString(Map.of("score", 72, "question", "What does a first month look like?",
-					"requirements", java.util.List.of(requirement, gap))), 100, 100);
+			var requirement = Map.of("requirement", "Builds web services", "kind", "MUST", "verdict", evidence.isEmpty() ? "MISSING" : "SUPPORTED",
+					"evidence", evidence, "note", "From the fake model.", "plan", "NONE", "planNote", "", "confirm", "");
+			var gap = Map.of("requirement", "Leads a team of ten", "kind", "NICE", "verdict", "MISSING", "evidence", java.util.List.<String>of(),
+					"note", "", "plan", "FRAME", "planNote", "Mention the mentoring you did.", "confirm", "");
+			var gate = Map.of("requirement", "Right to work in Singapore", "kind", "GATE", "verdict", "MISSING", "evidence", java.util.List.<String>of(),
+					"note", "", "plan", "CLOSE", "planNote", "Confirm it before applying.", "confirm", "Do you have the right to work in Singapore?");
+			return new Reply(json.writeValueAsString(Map.of("question", "What does a first month look like?",
+					"requirements", java.util.List.of(requirement, gap, gate), "priorities", java.util.List.of("Ships web services"),
+					"keywords", java.util.List.of("web services"))), 100, 100);
 		}
 		if (schema.get("properties") instanceof Map<?, ?> properties && properties.containsKey("draft")) {
 			// A Draft: cites the first Fact it was given, if any.

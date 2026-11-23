@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from "react";
 
 import { Alert } from "@/components/alert";
+import { Badge } from "@/components/badge";
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/schema";
 import { formatDay } from "@/lib/applications";
@@ -206,6 +207,18 @@ export function Workspace({
   );
 }
 
+type Requirement = components["schemas"]["RequirementResponse"];
+
+// The label for a plan on a gap (plain text, rendered by React).
+const PLANS = { FRAME: "present it truthfully", CLOSE: "close the gap fast", DO_NOT_CLAIM: "do not claim it" } as const;
+
+// The requirement groups, in the order they show. A result made before kinds existed has none: its requirements go in one plain list.
+const KIND_GROUPS = [
+  { kind: "MUST", heading: "Must-haves" },
+  { kind: "GATE", heading: "Hard gates" },
+  { kind: "NICE", heading: "Nice-to-haves" },
+] as const;
+
 function FitPanel({ applicationId, library }: { applicationId: string; library: Library }) {
   const latest = library.results.find((r) => r.kind === "FIT" && r.fit);
   const [error, setError] = useState("");
@@ -231,39 +244,54 @@ function FitPanel({ applicationId, library }: { applicationId: string; library: 
       {latest?.fit && (
         <div className="grid gap-4">
           {latest.outOfDate && <OutOfDate />}
-          <p className="text-sm">
-            <span className="text-2xl font-semibold">{latest.fit.score}</span> / 100 match
-            <span className="text-muted-foreground"> (an estimate, not a measurement; read the requirements below)</span>
-          </p>
-          <ul className="grid gap-3">
-            {latest.fit.requirements.map((r, index) => (
-              <li key={index} className="grid gap-1 rounded-lg border border-border p-3">
-                <p className="font-medium">
-                  <span className="mr-2 rounded-md border border-border px-1.5 py-0.5 text-xs font-semibold">{VERDICTS[r.verdict]}</span>
-                  {r.requirement}
-                </p>
-                {r.note && <p className="text-sm text-muted-foreground">{r.note}</p>}
-                {r.evidence.length > 0 && (
-                  <ul className="grid gap-1 text-sm">
-                    {r.evidence.map((e) => (
-                      <li key={e.id}>
-                        <span className="text-muted-foreground">{e.kind === "FACT" ? "Fact" : e.kind === "STORY" ? "Story" : "Resume"}: </span>
-                        <q>{e.label}</q>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {r.verdict === "MISSING" && (
-                  <>
-                    <p className="text-sm text-muted-foreground">Your Knowledge doesn&apos;t show this yet.</p>
-                    <Link href={`/career/knowledge?for=${encodeURIComponent(r.requirement)}`} className="text-sm font-medium underline">
-                      Add evidence<span className="sr-only"> for {r.requirement}</span>
-                    </Link>
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
+          <div className="grid gap-1">
+            <p className="text-sm">
+              <span className="text-2xl font-semibold">{latest.fit.score}</span> / 100 match
+              {latest.fit.points != null && latest.fit.maximum != null ? (
+                <span className="block text-muted-foreground">
+                  {latest.fit.points} of {latest.fit.maximum} points: a supported must-have counts 2, a partly supported 1, a nice-to-have counts half as much.
+                </span>
+              ) : (
+                <span className="text-muted-foreground"> (an estimate, not a measurement; read the requirements below)</span>
+              )}
+            </p>
+            {latest.fit.source === "COREEX" && <p className="text-sm text-muted-foreground">Made by CoreEx</p>}
+            {latest.fit.source === "AGENT" && <p className="text-sm text-muted-foreground">Made by your agent over MCP</p>}
+          </div>
+          {latest.fit.priorities.length > 0 && (
+            <section aria-labelledby="fit-priorities" className="grid gap-2">
+              <h3 id="fit-priorities" className="font-semibold">What decides the hire</h3>
+              <ul className="grid list-disc gap-1 pl-5 text-sm">
+                {latest.fit.priorities.map((priority, index) => (
+                  <li key={index}>{priority}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {KIND_GROUPS.map((group) => {
+            const items = latest.fit.requirements.filter((r) => r.kind === group.kind);
+            if (items.length === 0) return null;
+            return (
+              <section key={group.kind} aria-labelledby={`fit-${group.kind}`} className="grid gap-3">
+                <h3 id={`fit-${group.kind}`} className="font-semibold">{group.heading}</h3>
+                <ul className="grid gap-3">
+                  {items.map((r) => (
+                    <RequirementItem key={latest.fit.requirements.indexOf(r)} requirement={r} />
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+          {latest.fit.requirements.some((r) => !r.kind) && (
+            <ul className="grid gap-3">
+              {latest.fit.requirements
+                .filter((r) => !r.kind)
+                .map((r) => (
+                  <RequirementItem key={latest.fit.requirements.indexOf(r)} requirement={r} />
+                ))}
+            </ul>
+          )}
+          {latest.fit.keywords.length > 0 && <KeywordsRow keywords={latest.fit.keywords} />}
           {latest.fit.question && (
             <p className="text-sm">
               <span className="font-medium">A question to ask: </span>
@@ -272,6 +300,81 @@ function FitPanel({ applicationId, library }: { applicationId: string; library: 
           )}
         </div>
       )}
+    </section>
+  );
+}
+
+function RequirementItem({ requirement: r }: { requirement: Requirement }) {
+  const planLabel = r.verdict !== "SUPPORTED" && r.plan && r.plan !== "NONE" ? PLANS[r.plan] : null;
+  return (
+    <li className="grid gap-1 rounded-lg border border-border p-3">
+      <p className="font-medium">
+        <span className="mr-2 rounded-md border border-border px-1.5 py-0.5 text-xs font-semibold">{VERDICTS[r.verdict]}</span>
+        {r.requirement}
+      </p>
+      {r.note && <p className="text-sm text-muted-foreground">{r.note}</p>}
+      {r.evidence.length > 0 && (
+        <ul className="grid gap-1 text-sm">
+          {r.evidence.map((e) => (
+            <li key={e.id}>
+              <span className="text-muted-foreground">{e.kind === "FACT" ? "Fact" : e.kind === "STORY" ? "Story" : "Resume"}: </span>
+              <q>{e.label}</q>
+            </li>
+          ))}
+        </ul>
+      )}
+      {planLabel && (
+        <p className="text-sm">
+          <span className="font-medium">How to handle it: </span>
+          {planLabel}.{r.planNote && ` ${r.planNote}`}
+        </p>
+      )}
+      {r.confirm && (
+        <p className="text-sm font-medium">
+          <span>Confirm before applying: </span>
+          {r.confirm}
+        </p>
+      )}
+      {r.verdict === "MISSING" && (
+        <>
+          <p className="text-sm text-muted-foreground">Your Knowledge doesn&apos;t show this yet.</p>
+          <Link href={`/career/knowledge?for=${encodeURIComponent(r.requirement)}`} className="text-sm font-medium underline">
+            Add evidence<span className="sr-only"> for {r.requirement}</span>
+          </Link>
+        </>
+      )}
+    </li>
+  );
+}
+
+// The posting's keywords as chips, copied comma-separated for an email or a Cover Letter.
+function KeywordsRow({ keywords }: { keywords: string[] }) {
+  const [status, setStatus] = useState<"" | "copied" | "failed">("");
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(keywords.join(", "));
+      setStatus("copied");
+      setTimeout(() => setStatus(""), 2000);
+    } catch {
+      setStatus("failed");
+    }
+  };
+  return (
+    <section aria-labelledby="fit-keywords" className="grid gap-2">
+      <h3 id="fit-keywords" className="font-semibold">Keywords from the posting</h3>
+      <ul className="flex flex-wrap gap-2">
+        {keywords.map((keyword, index) => (
+          <li key={index}>
+            <Badge>{keyword}</Badge>
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="outline" size="sm" onClick={copy}>
+          {status === "copied" ? "Copied" : "Copy keywords"}
+        </Button>
+        {status === "failed" && <span className="text-sm">Could not copy. Select the keywords and copy them yourself.</span>}
+      </div>
     </section>
   );
 }

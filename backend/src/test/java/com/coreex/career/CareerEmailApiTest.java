@@ -188,7 +188,7 @@ class CareerEmailApiTest extends ApiTest {
 
 	@Test
 	void editingOnlyAppliesToEmailResults() throws Exception {
-		model.answer(json.writeValueAsString(Map.of("score", 50, "question", "Why?", "requirements", List.of())));
+		model.answer(json.writeValueAsString(Map.of("question", "Why?", "requirements", List.of())));
 		var fit = id(post(path(application) + "/fit", owner, "").body());
 		assertThat(put(path(application) + "/results/" + fit + "/email", owner, "{\"subject\":\"Hi\",\"body\":\"Body.\"}").statusCode())
 				.isEqualTo(404);
