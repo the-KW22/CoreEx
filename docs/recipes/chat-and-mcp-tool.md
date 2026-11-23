@@ -1,6 +1,6 @@
 # Chat and MCP tool recipe
 
-Read tools are defined once, for both front doors (ADR 0007). `/mcp` gets them from the MCP starter; Chat gets them from `ToolCatalogue` (`com.coreex.mcp`), which finds every `@McpTool` method marked `readOnlyHint`. A write tool is not in Chat at all until Proposals (#199).
+Read tools are defined once, for both front doors (ADR 0007). `/mcp` gets them from the MCP starter; Chat gets them from `ToolCatalogue` (`com.coreex.mcp`), which finds every `@McpTool` method marked `readOnlyHint`. A write tool is in Chat only as a Proposal the User approves (below).
 
 ## Add a read tool
 
@@ -10,11 +10,15 @@ Read tools are defined once, for both front doors (ADR 0007). `/mcp` gets them f
 
 ## Add a write tool
 
-Mark it without `readOnlyHint` (as the existing writes do). It is then on `/mcp` only. Chat does not offer it, and `ChatToolbox` refuses it if a model asks for it anyway.
+Mark it without `readOnlyHint` (as the existing writes do). It is then on `/mcp`, running straight away. Chat offers it only if its name is in `PROPOSABLE` in `ToolCatalogue`; then a call to it never runs: `ChatReply` stores a Proposal (`ChatProposals.propose`), and the tool runs, as the Chat agent through the same method, only when the User approves (`ChatProposals.answer`, one transaction per approval, so a batch is all or nothing). Uploads and the Career writes are not on the list. A Note tool (`create_note`, `update_note`, `edit_note`) also has a text preview in `WriteTools.preview`, which the screen shows as a diff; add one there if a new tool changes a Note's text. Add the tool's card words to `ChatProposals.label` and a line to the Proposals tests.
 
 ## Keep a read tool out of Chat
 
-`ChatToolbox` filters the catalogue by name in its constructor; `list_trash` is excluded there. Add the name to that filter.
+`ChatToolbox` filters the catalogue by name in its constructor (`search` is replaced by Chat's own). Add the name to that filter.
+
+## The question tool
+
+`ask_user_question` is Chat-only and not a catalogue tool (it acts on nothing). `ChatReply` ends the reply when the model calls it, with the call stored and no result; the screen shows a card only for that real stored call, and `POST /api/chats/{id}/answer` stores the answer as its result and continues the conversation.
 
 ## Chat's own search
 
@@ -27,5 +31,5 @@ Mark it without `readOnlyHint` (as the existing writes do). It is then on `/mcp`
 
 ## Test
 
-- Through the Chat API with a scripted model: `ChatToolsApiTest` (offered tools, refusal of writes and the Trash, ownership, the search fallback) and `ChatToolResultCapApiTest` (the cap). Script a tool call with `TestModel.toolUse(name, json)`, then read the stored `tool_result` blocks.
+- Through the Chat API with a scripted model: `ChatToolsApiTest` (offered tools, writes only as Proposals, ownership, the search fallback), `ChatProposalsApiTest` (approve, reject, edit, batches, replaced, questions) and `ChatToolResultCapApiTest` (the cap). Script a tool call with `TestModel.toolUse(name, json)`, then read the stored `tool_result` blocks.
 - MCP behaviour: the existing `Mcp*Test` classes, which must stay green. Do not import `ScriptedChatTools` into a test that needs the real `ChatToolbox`; it is `@Primary` and would replace it.

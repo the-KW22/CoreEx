@@ -31,6 +31,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /** The User's Chats. Every endpoint answers 404 for a Chat that is not the User's, Admins included. */
@@ -89,13 +91,56 @@ class ChatController {
 			@Schema(nullable = true, description = "The heading of the piece the model used, which the link opens the Note at") String heading) {
 	}
 
+	/** Where an applied Proposal's Note or Asset is. */
+	record LinkView(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "NOTE or ASSET") String type,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title) {
+	}
+
+	/** A change the model offered; it is applied only when the User approves it. */
+	record ProposalView(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The reply that made it: Proposals with the same batch can be approved together") UUID batchId,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The assistant message it was made in") UUID messageId,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String tool,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "What it would do, in words") String label,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "PENDING, APPLIED, REJECTED or REPLACED") String status,
+			@Schema(nullable = true, description = "The Note's text now, for a Note edit") String before,
+			@Schema(nullable = true, description = "The Note's text as it would be, for a Note tool; the User may edit it") String after,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The other inputs of the tool, for the card's details") Map<String, Object> details,
+			@Schema(nullable = true, description = "The Note or Asset an applied Proposal made or changed") LinkView link,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt) {
+	}
+
+	record ProposalList(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ProposalView> items) {
+	}
+
+	/** Approves or rejects Proposals; a batch is approved all or nothing. */
+	record AnswerProposalsRequest(@NotEmpty @Size(max = 50) List<UUID> ids,
+			@NotNull @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "APPROVE or REJECT") Decision decision,
+			@Schema(nullable = true, description = "The User's own text for a Note Proposal, by its id, saved in place of the model's") Map<UUID, @Size(max = 1_000_000) String> edits) {
+	}
+
+	enum Decision {
+		APPROVE, REJECT
+	}
+
+	/** The answer to the question a reply ended on. */
+	record AnswerQuestionRequest(@NotBlank @Size(max = 200) String toolUseId, @NotBlank @Size(max = 20_000) String text) {
+
+		AnswerQuestionRequest {
+			text = text == null ? null : text.strip();
+		}
+
+	}
+
 	record ChatDetail(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant lastUsedAt,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Use my Notes switch, as the Chat remembers it")
 			boolean useNotes,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<MessageView> messages) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<MessageView> messages,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Proposals of the Chat, oldest first") List<ProposalView> proposals) {
 	}
 
 	private final ChatService chats;
@@ -121,7 +166,7 @@ class ChatController {
 	@ApiResponse(responseCode = "201", description = "The new Chat, titled New chat",
 			content = @Content(mediaType = JSON, schema = @Schema(implementation = ChatDetail.class)))
 	ChatDetail create(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user) {
-		return detail(new ChatService.Detail(chats.create(user.id()), List.of(), Map.of()));
+		return detail(new ChatService.Detail(chats.create(user.id()), List.of(), Map.of(), List.of()));
 	}
 
 	@GetMapping("/{id}")
@@ -175,6 +220,43 @@ class ChatController {
 		chats.stop(user.id(), id);
 	}
 
+	/** Approves or rejects Proposals of this Chat. Approving a batch applies all of them or none. */
+	@PostMapping(value = "/{id}/proposals/answer", consumes = JSON)
+	@Operation(summary = "Approves or rejects Proposals")
+	@ApiResponse(responseCode = "200", description = "The Proposals as they are now",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ProposalList.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND: no such Chat or Proposal (also for another User's)",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "409", description = "Code ALREADY_ANSWERED, CHAT_BUSY (a reply is running) or VERSION_CONFLICT (the Note changed since: ask Chat to redo it); nothing was applied",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	ProposalList answerProposals(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id, @Valid @RequestBody AnswerProposalsRequest request) {
+		var answered = chats.answerProposals(user, id, request.ids(), request.decision() == Decision.APPROVE, request.edits());
+		return new ProposalList(answered.stream().map(ChatController::view).toList());
+	}
+
+	/** Answers the question the last reply ended on; the reply continues and streams like a sent message. */
+	@PostMapping(value = "/{id}/answer", consumes = JSON, produces = { EVENT_STREAM, JSON })
+	@Operation(summary = "Answers the model's question and streams the rest of the reply", description = REPLY_EVENTS)
+	@ApiResponse(responseCode = "200", description = "The reply as Server-Sent Events (text/event-stream)",
+			content = @Content(mediaType = EVENT_STREAM, schema = @Schema(type = "string")))
+	@ApiResponse(responseCode = "409", description = "Code NO_PENDING_QUESTION or CHAT_BUSY",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	SseEmitter answer(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@PathVariable UUID id, @Valid @RequestBody AnswerQuestionRequest request) {
+		var emitter = new SseEmitter(properties.maxReplyDuration().plusMinutes(1).toMillis());
+		chats.answerQuestion(user, id, request.toolUseId(), request.text(), emitter);
+		return emitter;
+	}
+
+	private static ProposalView view(Proposal p) {
+		var details = new java.util.LinkedHashMap<String, Object>(p.input());
+		details.keySet().removeAll(java.util.Set.of("markdown", "edits"));
+		var link = ChatProposals.link(p).map(l -> new LinkView(l.id(), l.type(), l.title())).orElse(null);
+		return new ProposalView(p.id(), p.batchId(), p.messageId(), p.tool(), p.label(), p.status(), p.before(), p.after(),
+				details, link, p.createdAt());
+	}
+
 	private static ChatDetail detail(ChatService.Detail detail) {
 		var chat = detail.chat();
 		var messages = detail.messages().stream()
@@ -183,7 +265,8 @@ class ChatController {
 								.map(s -> new SourceView(s.id(), s.type(), s.title(), s.removed(), s.heading())).toList(),
 						m.createdAt()))
 				.toList();
-		return new ChatDetail(chat.id(), chat.title(), chat.createdAt(), chat.lastUsedAt(), chat.useNotes(), messages);
+		return new ChatDetail(chat.id(), chat.title(), chat.createdAt(), chat.lastUsedAt(), chat.useNotes(), messages,
+				detail.proposals().stream().map(ChatController::view).toList());
 	}
 
 }

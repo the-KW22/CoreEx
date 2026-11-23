@@ -106,6 +106,11 @@ final class ChatReply {
 
 	private final ChatTools tools;
 
+	private final ChatProposals proposals;
+
+	/** The Proposals this reply makes belong to one batch, so the User can approve them together. */
+	private final UUID batch = UUID.randomUUID();
+
 	private final ChatProperties properties;
 
 	private final Clock clock;
@@ -137,11 +142,12 @@ final class ChatReply {
 
 	private boolean clientGone;
 
-	ChatReply(ChatRepository chats, AiService ai, ChatTools tools, ChatProperties properties, Clock clock, User owner,
-			UUID chatId, boolean useNotes, ChatSources sources, SseEmitter out) {
+	ChatReply(ChatRepository chats, AiService ai, ChatTools tools, ChatProposals proposals, ChatProperties properties,
+			Clock clock, User owner, UUID chatId, boolean useNotes, ChatSources sources, SseEmitter out) {
 		this.chats = chats;
 		this.ai = ai;
 		this.tools = tools;
+		this.proposals = proposals;
 		this.properties = properties;
 		this.clock = clock;
 		this.owner = owner;
@@ -235,11 +241,15 @@ final class ChatReply {
 			if (turn.stopReason() != Model.StopReason.TOOL_USE) {
 				return COMPLETE;
 			}
+			// A question ends the reply: its card waits for the answer, which continues the conversation (issue #376).
+			if (turn.blocks().stream().anyMatch(b -> b instanceof ContentBlock.ToolUse use && ChatTools.ASK.equals(use.name()))) {
+				return COMPLETE;
+			}
 			var results = new ArrayList<ContentBlock>();
 			for (var block : turn.blocks()) {
 				if (block instanceof ContentBlock.ToolUse use) {
 					send("tool", new ToolEvent(use.name()));
-					results.add(runTool(use));
+					results.add(useNotes && proposals.handles(use.name()) ? propose(use) : runTool(use));
 				}
 			}
 			chats.addMessage(chatId, Model.Role.USER, results, COMPLETE, null, List.of(), clock.instant());
@@ -257,8 +267,7 @@ final class ChatReply {
 		assistantId = chats.addMessage(chatId, Model.Role.ASSISTANT, List.of(), STREAMING, null, List.of(), now);
 		Model.Turn turn;
 		try {
-			turn = ai.converse(ChatPrompt.GENERAL, history, useNotes ? tools.specs() : List.of(), this::onText,
-					properties.maxOutputTokens());
+			turn = ai.converse(ChatPrompt.GENERAL, history, offered(), this::onText, properties.maxOutputTokens());
 		}
 		catch (RuntimeException e) {
 			if (stop.get()) {
@@ -304,6 +313,25 @@ final class ChatReply {
 		if (!now.isBefore(lastSaved.plus(SAVE_EVERY))) {
 			lastSaved = now;
 			chats.setMessage(assistantId, List.of(new ContentBlock.Text(streamed.toString())), STREAMING, null);
+		}
+	}
+
+	/** With Use my Notes off nothing of the knowledge base is offered, but the model can still ask a question. */
+	private List<Model.ToolSpec> offered() {
+		return useNotes ? tools.specs() : tools.specs().stream().filter(spec -> ChatTools.ASK.equals(spec.name())).toList();
+	}
+
+	/** A write tool is not run: it becomes a Proposal the User answers, and the model is told it waits. */
+	private ContentBlock propose(ContentBlock.ToolUse use) {
+		try {
+			return new ContentBlock.ToolResult(use.id(), proposals.propose(owner, chatId, assistantId, batch, use), false);
+		}
+		catch (ApiException e) {
+			return new ContentBlock.ToolResult(use.id(), e.getMessage(), true);
+		}
+		catch (RuntimeException e) {
+			LOG.debug("A Chat proposal failed: {}", use.name());
+			return new ContentBlock.ToolResult(use.id(), "The proposal could not be made.", true);
 		}
 	}
 
@@ -386,13 +414,14 @@ final class ChatReply {
 			var blocks = new ArrayList<ContentBlock>();
 			for (var block : row.blocks()) {
 				if (block instanceof ContentBlock.ToolUse || block instanceof ContentBlock.ToolResult) {
-					if (!useNotes || !paired(block, i, useRow, resultRow)) {
+					if (!paired(block, i, useRow, resultRow) || (!useNotes && !isQuestion(block, toolNames))) {
 						continue;
 					}
 					if (block instanceof ContentBlock.ToolResult result) {
 						var tool = toolNames.getOrDefault(result.toolUseId(), "unknown");
-						blocks.add(new ContentBlock.ToolResult(result.toolUseId(), DataMarkers.data(tool, result.content()),
-								result.isError()));
+						// The User's own answer to a question is theirs, not data from a tool.
+						var content = ChatTools.ASK.equals(tool) ? result.content() : DataMarkers.data(tool, result.content());
+						blocks.add(new ContentBlock.ToolResult(result.toolUseId(), content, result.isError()));
 						continue;
 					}
 				}
@@ -417,6 +446,15 @@ final class ChatReply {
 			case ContentBlock.ToolUse use -> resultRow.getOrDefault(use.id(), -1) > row;
 			case ContentBlock.ToolResult result -> useRow.getOrDefault(result.toolUseId(), Integer.MAX_VALUE) < row;
 			default -> true;
+		};
+	}
+
+	/** The question tool is not about the knowledge base, so it stays in the history when Use my Notes is off. */
+	private static boolean isQuestion(ContentBlock block, Map<String, String> toolNames) {
+		return switch (block) {
+			case ContentBlock.ToolUse use -> ChatTools.ASK.equals(use.name());
+			case ContentBlock.ToolResult result -> ChatTools.ASK.equals(toolNames.get(result.toolUseId()));
+			default -> false;
 		};
 	}
 

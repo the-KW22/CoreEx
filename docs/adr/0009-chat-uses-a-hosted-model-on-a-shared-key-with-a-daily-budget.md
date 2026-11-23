@@ -32,3 +32,10 @@ Decided after comparing Chat with Reactive Resume's AI Assistant. Where this sec
 - **Long Chats stay affordable** through prompt caching of the instructions and tools, and the provider's own context editing, which clears the oldest tool results once the history passes a size: about 100k tokens on the Shared key, about 300k on a User's own key. The saved Chat keeps everything; only what is re-sent shrinks.
 - **Replies are bounded:** one reply at a time per Chat, at most 15 tool steps and 5 minutes per reply, and Stop keeps what was written.
 - **Web search** (later) uses the provider's own search and page-reading tools behind a "Use the web" switch, off by default, with at most 5 searches per reply. The page reader only opens links that appear in the conversation. Note text must not be put in search queries; this is an instruction to the model, not something CoreEx can enforce.
+
+## Update: Proposals and questions (2026-11-23)
+
+- **Writes wait for approval, in the API.** The write tools Chat offers are those of `/mcp` from a fixed list (never uploads or Career writes). A call stores a Proposal; it runs, as the Chat agent through the same service method, only when the User approves. An instruction planted in a Note can at worst produce a Proposal the User rejects.
+- **A batch is one transaction.** Proposals made in one reply can be approved together; one failure applies none. An edit remembers the Note version it was based on, so a changed Note refuses with `VERSION_CONFLICT`. A newer Proposal for a Note replaces the older pending ones. The User can edit the text before approving; their words are what is saved.
+- **The model is told through the history.** The stored result of each proposing call is rewritten to Applied, Rejected or Replaced, so the next turn replays what happened.
+- **A question ends the reply.** `ask_user_question` is the one Chat-only tool; the reply stops with the call pending, and the answer is stored as its result and continues the conversation. A card exists only for a stored pending call, never for text.

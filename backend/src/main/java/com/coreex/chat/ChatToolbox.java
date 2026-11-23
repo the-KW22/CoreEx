@@ -19,9 +19,10 @@ import com.coreex.search.SearchService;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The tools a Chat reply may call (ADR 0007): the read tools of the {@link ToolCatalogue} except list_trash, plus the
- * Chat-only {@code search}, which returns pieces of Notes by meaning. Nothing that writes is offered or callable, and
- * every result is cut at {@code coreex.chat.max-tool-result-characters}.
+ * The tools a Chat reply may call (ADR 0007): the read tools of the {@link ToolCatalogue}, the Chat-only {@code search}
+ * (pieces of Notes by meaning) and {@code ask_user_question}, and the write tools the model may propose. A write tool is
+ * offered so the model can propose, but {@link #run} never runs one: the reply stores a Proposal for it instead, and it
+ * runs only when the User approves. Every result is cut at {@code coreex.chat.max-tool-result-characters}.
  */
 @Component
 class ChatToolbox implements ChatTools {
@@ -29,8 +30,6 @@ class ChatToolbox implements ChatTools {
 	private static final JsonMapper JSON = JsonMapper.builder().build();
 
 	private static final String SEARCH = "search";
-
-	private static final String TRASH = "list_trash";
 
 	private static final int SEARCH_LIMIT = 8;
 
@@ -54,10 +53,12 @@ class ChatToolbox implements ChatTools {
 		this.catalogue = catalogue;
 		this.search = search;
 		this.properties = properties;
-		var fromCatalogue = catalogue.specs().stream().filter(spec -> !TRASH.equals(spec.name()) && !SEARCH.equals(spec.name()))
-				.toList();
-		this.specs = Stream.concat(Stream.of(chatSearch()), fromCatalogue.stream()).toList();
-		this.offered = specs.stream().map(Model.ToolSpec::name).collect(Collectors.toUnmodifiableSet());
+		var reads = Stream.concat(Stream.of(chatSearch()),
+				catalogue.specs().stream().filter(spec -> !SEARCH.equals(spec.name()))).toList();
+		// Only what can run is "offered": a write tool or the question is never run here.
+		this.offered = reads.stream().map(Model.ToolSpec::name).collect(Collectors.toUnmodifiableSet());
+		this.specs = Stream.of(reads.stream(), catalogue.writeSpecs().stream(), Stream.of(askUserQuestion()))
+				.flatMap(s -> s).toList();
 	}
 
 	@Override
@@ -72,6 +73,17 @@ class ChatToolbox implements ChatTools {
 		}
 		var result = SEARCH.equals(name) ? searchPieces(user, input) : catalogue.call(user, name, input);
 		return cap(result);
+	}
+
+	private static Model.ToolSpec askUserQuestion() {
+		var question = Map.<String, Object>of("type", "string", "description", "The question, short and specific");
+		var choices = Map.<String, Object>of("type", "array", "items", Map.of("type", "string"), "minItems", 2, "maxItems", 5,
+				"description", "The answers you suggest, a few words each. The User can also write their own answer.");
+		return new Model.ToolSpec(ASK, "Asks the User a question and waits for the answer, which comes back as the result. "
+				+ "Use it when a request is unclear and a wrong guess would cost them effort, for example which Folder a new "
+				+ "Note should go in. Do not use it for what you can find out with your read tools. Call it alone, not together "
+				+ "with other tools.", Map.of("type", "object", "properties", Map.of("question", question, "choices", choices),
+						"required", List.of("question", "choices")));
 	}
 
 	private static Model.ToolSpec chatSearch() {
