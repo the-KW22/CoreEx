@@ -5,6 +5,7 @@ import { type KeyboardEvent, useId, useRef, useState, useTransition } from "reac
 
 import { Alert } from "@/components/alert";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { lineDiff } from "@/lib/line-diff";
 import { cn } from "@/lib/utils";
 import { type Proposal, keyAction, pendingBatch } from "@/lib/proposals";
@@ -27,9 +28,9 @@ function detailValue(v: unknown): string | null {
   return s.trim() ? s : null;
 }
 
-function Diff({ before, after }: { before: string; after: string }) {
+function Diff({ before, after, full = false }: { before: string; after: string; full?: boolean }) {
   return (
-    <div className="max-h-64 overflow-auto rounded-md border border-border font-mono text-xs">
+    <div className={cn("overflow-auto rounded-md border border-border", full ? "max-h-[60vh] text-sm" : "max-h-64 font-mono text-xs")}>
       {lineDiff(before, after).map((line, i) => (
         <div key={i} className={cn("px-2 whitespace-pre-wrap", line.kind === "add" && "bg-primary/10", line.kind === "del" && "bg-destructive/10")}>
           <span aria-hidden>{PREFIX[line.kind]}</span>
@@ -58,6 +59,7 @@ function ProposalCard({
 }) {
   const textId = useId();
   const [editing, setEditing] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   const [saving, startSave] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const editable = p.status === "PENDING" && p.after != null;
@@ -68,7 +70,10 @@ function ProposalCard({
     startSave(async () => {
       const result = await answerProposals(chatId, [p.id], decision, decision === "APPROVE" && saved !== undefined ? { [p.id]: saved } : {});
       if ("error" in result) setError(result.error);
-      else onAnswered();
+      else {
+        setPreviewing(false);
+        onAnswered();
+      }
     });
   }
 
@@ -82,7 +87,20 @@ function ProposalCard({
         <h3 className="font-medium">{p.label}</h3>
         <span className="rounded-md border border-border px-2 py-0.5 text-xs">{STATUS_WORDS[p.status] ?? p.status}</span>
       </div>
-      {Object.entries(p.details).map(([name, v]) => {
+      {p.change && (
+        <dl className="grid gap-1 text-sm">
+          {p.change.subject && <dd className="font-medium">{p.change.subject}</dd>}
+          <div className="flex gap-2">
+            <dt className="text-muted-foreground">Before:</dt>
+            <dd>{p.change.before || "Nothing"}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="text-muted-foreground">After:</dt>
+            <dd>{p.change.after || "Nothing"}</dd>
+          </div>
+        </dl>
+      )}
+      {!p.change && Object.entries(p.details).map(([name, v]) => {
         const value = detailValue(v);
         return value === null ? null : (
           <p key={name} className="text-sm text-muted-foreground">
@@ -93,9 +111,14 @@ function ProposalCard({
       {p.after != null && <Diff before={p.before ?? ""} after={saved ?? p.after} />}
       {editable && (
         <div className="grid gap-2">
-          <Button variant="outline" size="sm" className="justify-self-start" aria-expanded={editing} aria-controls={textId} onClick={() => setEditing(!editing)}>
-            Edit text
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPreviewing(true)}>
+              Preview
+            </Button>
+            <Button variant="outline" size="sm" aria-expanded={editing} aria-controls={textId} onClick={() => setEditing(!editing)}>
+              Edit text
+            </Button>
+          </div>
           {editing && (
             <>
               <label htmlFor={textId} className="text-xs text-muted-foreground">
@@ -129,6 +152,23 @@ function ProposalCard({
           Open {p.link.title}
         </Link>
       )}
+      <Dialog open={previewing} onOpenChange={setPreviewing}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Preview: {p.label}</DialogTitle>
+            <DialogDescription>The whole text with the change marked. Nothing is saved until you approve.</DialogDescription>
+          </DialogHeader>
+          <Diff full before={p.before ?? ""} after={saved ?? p.after ?? ""} />
+          <DialogFooter>
+            <Button disabled={busy || saving} onClick={() => answer("APPROVE")}>
+              Approve
+            </Button>
+            <Button variant="outline" disabled={busy || saving} onClick={() => answer("REJECT")}>
+              Reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </article>
   );
 }
@@ -192,6 +232,8 @@ export function ProposalCards({ chatId, proposals, busy, onAnswered }: { chatId:
 
   function onKeyDown(e: KeyboardEvent<HTMLElement>) {
     const target = e.target as HTMLElement;
+    // A Preview dialog is drawn outside the list but its keys still bubble here: they are not card keys.
+    if (!listRef.current?.contains(target)) return;
     const tag = target.tagName.toLowerCase();
     // A button with a modifier is a browser or assistive shortcut, not a card decision.
     if (tag === "button" && (e.altKey || e.ctrlKey || e.metaKey)) return;

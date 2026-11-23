@@ -84,6 +84,10 @@ class ChatProposals {
 		return proposals.list(chatId);
 	}
 
+	List<Proposal> pendingForNote(UUID owner, UUID noteId) {
+		return proposals.pendingForNote(owner, noteId);
+	}
+
 	/**
 	 * Stores the Proposal for a write tool call and returns what the model is told. A Note tool is checked first, as the tool
 	 * itself would (a stale version, an edit that does not apply), so the model hears of a bad one at once. A newer Proposal
@@ -93,6 +97,7 @@ class ChatProposals {
 		Map<String, Object> input = use.input() == null ? Map.of() : use.input();
 		ToolCatalogue.NotePreview preview = NOTE_TOOLS.contains(use.name()) ? catalogue.preview(owner, use.name(), input) : null;
 		var target = preview == null ? null : preview.noteId();
+		var change = catalogue.describe(owner, use.name(), input);
 		var now = clock.instant();
 		if (target != null) {
 			for (var old : proposals.replacePending(chatId, target, now)) {
@@ -100,7 +105,7 @@ class ChatProposals {
 			}
 		}
 		proposals.add(chatId, messageId, batchId, use.id(), use.name(), label(use.name(), input, preview), input, target,
-				preview == null ? null : preview.before(), preview == null ? null : preview.after(), now);
+				preview == null ? null : preview.before(), preview == null ? null : preview.after(), change, now);
 		return PROPOSED;
 	}
 

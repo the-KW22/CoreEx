@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -97,8 +98,15 @@ class ChatController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title) {
 	}
 
+	/** The words for an organising change on a Proposal's card: what it is about, where it is or its state, before and after. */
+	record ChangeView(@Schema(nullable = true, description = "What the change is about, such as the Item's title") String subject,
+			@Schema(nullable = true, description = "Where it is now or its state before") String before,
+			@Schema(nullable = true, description = "Where it would be or its state after") String after) {
+	}
+
 	/** A change the model offered; it is applied only when the User approves it. */
 	record ProposalView(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Chat it was made in: answer it there") UUID chatId,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The reply that made it: Proposals with the same batch can be approved together") UUID batchId,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The assistant message it was made in") UUID messageId,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String tool,
@@ -108,6 +116,7 @@ class ChatController {
 			@Schema(nullable = true, description = "The Note's text as it would be, for a Note tool; the User may edit it") String after,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The other inputs of the tool, for the card's details") Map<String, Object> details,
 			@Schema(nullable = true, description = "The Note or Asset an applied Proposal made or changed") LinkView link,
+			@Schema(nullable = true, description = "The words for an organising change (move, Tags, Trash, rename); null for a Note or a create") ChangeView change,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt) {
 	}
 
@@ -220,6 +229,16 @@ class ChatController {
 		chats.stop(user.id(), id);
 	}
 
+	/** The pending Proposals for one Note across the User's Chats, so the Note's page can show and answer them. */
+	@GetMapping("/proposals")
+	@Operation(summary = "The pending Proposals for one Note, across the User's Chats, oldest first")
+	@ApiResponse(responseCode = "200", description = "The Proposals; answer each in its chatId, with the answer endpoint",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ProposalList.class)))
+	ProposalList pendingForNote(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@RequestParam @Parameter(description = "The Note's id") UUID noteId) {
+		return new ProposalList(chats.pendingForNote(user.id(), noteId).stream().map(ChatController::view).toList());
+	}
+
 	/** Approves or rejects Proposals of this Chat. Approving a batch applies all of them or none. */
 	@PostMapping(value = "/{id}/proposals/answer", consumes = JSON)
 	@Operation(summary = "Approves or rejects Proposals")
@@ -253,8 +272,10 @@ class ChatController {
 		var details = new java.util.LinkedHashMap<String, Object>(p.input());
 		details.keySet().removeAll(java.util.Set.of("markdown", "edits"));
 		var link = ChatProposals.link(p).map(l -> new LinkView(l.id(), l.type(), l.title())).orElse(null);
-		return new ProposalView(p.id(), p.batchId(), p.messageId(), p.tool(), p.label(), p.status(), p.before(), p.after(),
-				details, link, p.createdAt());
+		var change = p.changeSubject() == null && p.changeBefore() == null && p.changeAfter() == null ? null
+				: new ChangeView(p.changeSubject(), p.changeBefore(), p.changeAfter());
+		return new ProposalView(p.id(), p.chatId(), p.batchId(), p.messageId(), p.tool(), p.label(), p.status(), p.before(),
+				p.after(), details, link, change, p.createdAt());
 	}
 
 	private static ChatDetail detail(ChatService.Detail detail) {

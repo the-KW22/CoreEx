@@ -31,6 +31,16 @@ class FakeModel implements Model {
 			return new Turn(List.of(new ContentBlock.ToolUse(callId(), "search", Map.of("query", query))),
 					StopReason.TOOL_USE, 100, 100);
 		}
+		if (asked.contains("[update]")) {
+			// "[update] <note id> <version> <new text>": proposes replacing that Note's text.
+			var parts = asked.replace("[update]", "").strip().split("\\s+", 3);
+			return new Turn(List.of(new ContentBlock.ToolUse(callId(), "update_note",
+					Map.of("id", parts[0], "version", Integer.parseInt(parts[1]), "markdown", parts[2]))), StopReason.TOOL_USE, 100, 100);
+		}
+		if (asked.contains("[trash]")) {
+			return new Turn(List.of(new ContentBlock.ToolUse(callId(), "trash_item", Map.of("id", asked.replace("[trash]", "").strip()))),
+					StopReason.TOOL_USE, 100, 100);
+		}
 		if (asked.contains("[propose]")) {
 			var text = asked.replace("[propose]", "").strip();
 			return new Turn(List.of(new ContentBlock.ToolUse(callId(), "create_note", Map.of("markdown", "# " + text + "\nProposed by the fake model."))),

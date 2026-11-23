@@ -2048,6 +2048,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/chats/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The pending Proposals for one Note, across the User's Chats, oldest first */
+        get: operations["pendingForNote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/career/today": {
         parameters: {
             query?: never;
@@ -3455,6 +3472,14 @@ export interface components {
             /** Format: date-time */
             acceptedAt: string | null;
         };
+        ChangeView: {
+            /** @description What the change is about, such as the Item's title */
+            subject?: string | null;
+            /** @description Where it is now or its state before */
+            before?: string | null;
+            /** @description Where it would be or its state after */
+            after?: string | null;
+        };
         ChatDetail: {
             /** Format: uuid */
             id: string;
@@ -3500,6 +3525,11 @@ export interface components {
             id: string;
             /**
              * Format: uuid
+             * @description The Chat it was made in: answer it there
+             */
+            chatId: string;
+            /**
+             * Format: uuid
              * @description The reply that made it: Proposals with the same batch can be approved together
              */
             batchId: string;
@@ -3523,6 +3553,8 @@ export interface components {
             };
             /** @description The Note or Asset an applied Proposal made or changed */
             link?: components["schemas"]["LinkView"];
+            /** @description The words for an organising change (move, Tags, Trash, rename); null for a Note or a create */
+            change?: components["schemas"]["ChangeView"];
             /** Format: date-time */
             createdAt: string;
         };
@@ -9739,6 +9771,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    pendingForNote: {
+        parameters: {
+            query: {
+                /** @description The Note's id */
+                noteId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Proposals; answer each in its chatId, with the answer endpoint */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalList"];
                 };
             };
         };

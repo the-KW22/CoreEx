@@ -396,6 +396,83 @@ class ChatProposalsApiTest extends ApiTest {
 		}
 	}
 
+	private UUID newChat() throws Exception {
+		var created = post("/api/chats", token, null);
+		assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
+		return UUID.fromString(JSON.readTree(created.body()).path("id").asString());
+	}
+
+	private void sayIn(UUID in, String text, Turn... turns) throws Exception {
+		model.script(turns);
+		var response = post("/api/chats/" + in + "/messages", token, JSON.writeValueAsString(Map.of("text", text)));
+		assertThat(response.body()).contains("event:done");
+	}
+
+	private static String editOf(UUID note, int version) {
+		return "{\"id\":\"" + note + "\",\"version\":" + version + ",\"edits\":[{\"oldText\":\"Original\",\"newText\":\"Changed\"}]}";
+	}
+
+	@Test
+	void theNotesPendingProposalsAcrossTheUsersChatsAreListedWithTheirChat() throws Exception {
+		var plan = note("Plan", "Original text");
+		var other = note("Other", "Original text");
+		var done = note("Done", "Original text");
+		say("Change done", TestModel.toolUse("edit_note", editOf(done, version(done))), TestModel.text("Proposed."));
+		assertThat(answer("APPROVE", null, id(proposal(0))).status()).isEqualTo(200);
+		say("Change other", TestModel.toolUse("edit_note", editOf(other, version(other))), TestModel.text("Proposed."));
+		assertThat(proposal(1).path("status").asString()).isEqualTo("PENDING");
+		say("Change plan first", TestModel.toolUse("edit_note", editOf(plan, version(plan))), TestModel.text("Proposed."));
+		assertThat(answer("REJECT", null, id(proposal(2))).status()).isEqualTo(200);
+		var waiting = newChat();
+		sayIn(waiting, "Change plan too", TestModel.toolUse("edit_note", editOf(plan, version(plan))), TestModel.text("Proposed."));
+		var later = newChat();
+		sayIn(later, "And again", TestModel.toolUse("edit_note", editOf(plan, version(plan))), TestModel.text("Proposed."));
+
+		var response = get("/api/chats/proposals?noteId=" + plan, token);
+
+		assertThat(response.statusCode()).as(response.body()).isEqualTo(200);
+		var items = JSON.readTree(response.body()).path("items");
+		assertThat(items).hasSize(2);
+		assertThat(UUID.fromString(items.get(0).path("chatId").asString())).isEqualTo(waiting);
+		assertThat(UUID.fromString(items.get(1).path("chatId").asString())).isEqualTo(later);
+		assertThat(items.get(0).path("status").asString()).isEqualTo("PENDING");
+		assertThat(items.toString()).doesNotContain(other.toString());
+
+		var theirs = get("/api/chats/proposals?noteId=" + plan, otherToken);
+		assertThat(theirs.statusCode()).isEqualTo(200);
+		assertThat(JSON.readTree(theirs.body()).path("items")).isEmpty();
+	}
+
+	@Test
+	void anOrganisingChangeCarriesItsWordsForTheCard() throws Exception {
+		var plan = note("Plan", "Original text");
+		var folder = UUID.fromString(JSON.readTree(post("/api/folders", token, "{\"name\":\"Reading\"}").body())
+				.path("id").asString());
+		say("Organise", TestModel.toolUse("move_item", "{\"id\":\"" + plan + "\",\"folderId\":\"" + folder + "\"}"),
+				TestModel.text("Proposed."));
+		say("Tag it", TestModel.toolUse("set_tags", "{\"id\":\"" + plan + "\",\"tags\":[\"java\",\"school\"]}"),
+				TestModel.text("Proposed."));
+		say("Bin it", TestModel.toolUse("trash_item", "{\"id\":\"" + plan + "\"}"), TestModel.text("Proposed."));
+		say("Make one", TestModel.toolUse("create_note", "{\"markdown\":\"# New\\nx\"}"), TestModel.text("Proposed."));
+
+		var moved = proposal(0).path("change");
+		assertThat(moved.path("subject").asString()).isEqualTo("Plan");
+		assertThat(moved.path("before").asString()).isEqualTo("At the top level");
+		assertThat(moved.path("after").asString()).isEqualTo("In the Folder “Reading”");
+
+		var tagged = proposal(1).path("change");
+		assertThat(tagged.path("subject").asString()).isEqualTo("Plan");
+		assertThat(tagged.path("before").asString()).isEqualTo("No Tags");
+		assertThat(tagged.path("after").asString()).isEqualTo("java, school");
+
+		var trashed = proposal(2).path("change");
+		assertThat(trashed.path("subject").asString()).isEqualTo("Plan");
+		assertThat(trashed.path("before").asString()).isEqualTo("At the top level");
+		assertThat(trashed.path("after").asString()).isEqualTo("In the Trash");
+
+		assertThat(proposal(3).path("change").isNull()).isTrue();
+	}
+
 	/** One model step that calls several tools at once. */
 	private static Turn combined(Turn... turns) {
 		var blocks = new java.util.ArrayList<ContentBlock>();
