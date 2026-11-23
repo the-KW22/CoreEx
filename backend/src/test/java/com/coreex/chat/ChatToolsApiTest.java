@@ -48,7 +48,7 @@ class ChatToolsApiTest extends ApiTest {
 			"set_tags", "move_item", "trash_item", "restore");
 
 	private static final Set<String> OFFERED = java.util.stream.Stream
-			.of(READS.stream(), PROPOSABLE.stream(), java.util.stream.Stream.of("ask_user_question"))
+			.of(READS.stream(), PROPOSABLE.stream(), java.util.stream.Stream.of("ask_user_question", "read_asset"))
 			.flatMap(s -> s).collect(java.util.stream.Collectors.toSet());
 
 	@Autowired

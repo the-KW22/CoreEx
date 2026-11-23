@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 class AiKeyVaultTest {
 
 	private static AiProperties properties(String secret) {
-		return new AiProperties("fake", "", "claude-opus-5-5", "", 0.5, 1000, 100_000, null, secret, 300_000);
+		return new AiProperties("fake", "", "claude-opus-5-5", "", 0.5, 1000, 100_000, null, secret, 300_000, 10_000);
 	}
 
 	@Test

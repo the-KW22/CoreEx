@@ -57,6 +57,8 @@ public class ChatService {
 
 	private final ChatSources sources;
 
+	private final ChatAssets assets;
+
 	private final ExecutorService replies = Executors.newVirtualThreadPerTaskExecutor();
 
 	/**
@@ -67,7 +69,7 @@ public class ChatService {
 	private final Map<UUID, ChatReply> running = new ConcurrentHashMap<>();
 
 	ChatService(ChatRepository chats, AiService ai, ChatTools tools, ChatProposals proposals, ChatProperties properties,
-			Clock clock, SearchService search, ChatSources sources) {
+			Clock clock, SearchService search, ChatSources sources, ChatAssets assets) {
 		this.chats = chats;
 		this.ai = ai;
 		this.tools = tools;
@@ -76,6 +78,7 @@ public class ChatService {
 		this.clock = clock;
 		this.search = search;
 		this.sources = sources;
+		this.assets = assets;
 	}
 
 	/** Replies still running when the server stops are interrupted; their messages are left for the next claim to fail. */
@@ -121,10 +124,10 @@ public class ChatService {
 	 * Use my Notes switch for this message; null keeps the one the Chat remembers. With Notes on, the closest pieces of the
 	 * User's Notes are quoted with the message and stored with it.
 	 */
-	public void reply(User owner, UUID chatId, String text, Boolean useNotes, ChatContext context, SseEmitter out) {
+	public void reply(User owner, UUID chatId, String text, Boolean useNotes, Boolean useWeb, ChatContext context, SseEmitter out) {
 		var chat = require(owner.id(), chatId);
 		var notes = useNotes != null ? useNotes : chat.useNotes();
-		start(owner, chatId, notes, context, out, now -> {
+		start(owner, chatId, notes, Boolean.TRUE.equals(useWeb), context, out, now -> {
 			var first = !chats.hasMessages(chatId);
 			var quotes = notes ? quotesFor(owner.id(), text) : List.<Quote>of();
 			chats.addMessage(chatId, Model.Role.USER, List.of(new ContentBlock.Text(text)), "COMPLETE", null, quotes, now);
@@ -145,7 +148,7 @@ public class ChatService {
 	 */
 	public void answerQuestion(User owner, UUID chatId, String toolUseId, String text, SseEmitter out) {
 		var chat = require(owner.id(), chatId);
-		start(owner, chatId, chat.useNotes(), null, out, now -> {
+		start(owner, chatId, chat.useNotes(), false, null, out, now -> {
 			var last = chats.messages(chatId).stream().reduce((a, b) -> b).orElse(null);
 			var calls = last == null || last.role() != Model.Role.ASSISTANT ? List.<ContentBlock.ToolUse>of()
 					: last.blocks().stream().filter(b -> b instanceof ContentBlock.ToolUse).map(b -> (ContentBlock.ToolUse) b).toList();
@@ -163,7 +166,8 @@ public class ChatService {
 	 * the server, which streams its events to {@code out}. Refusals (AI off, budget spent, a reply already running) are
 	 * thrown before anything is streamed.
 	 */
-	private void start(User owner, UUID chatId, boolean notes, ChatContext context, SseEmitter out, Consumer<Instant> store) {
+	private void start(User owner, UUID chatId, boolean notes, boolean web, ChatContext context, SseEmitter out,
+			Consumer<Instant> store) {
 		ai.requireOn(owner.id());
 		ai.requireRoom(owner.id());
 		// The claim's token: the database keeps microseconds, so the release must match the claim to the microsecond.
@@ -172,7 +176,8 @@ public class ChatService {
 			throw new ApiException(HttpStatus.CONFLICT, "CHAT_BUSY",
 					"This Chat is still answering the last message. Wait for it, or press Stop.");
 		}
-		var reply = new ChatReply(chats, ai, tools, proposals, properties, clock, owner, chatId, notes, context, sources, out);
+		var reply = new ChatReply(chats, ai, tools, proposals, properties, clock, owner, chatId, notes, web, context, sources,
+				assets, out);
 		try {
 			chats.failStreaming(chatId);
 			store.accept(now);

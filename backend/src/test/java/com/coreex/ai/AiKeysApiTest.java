@@ -168,7 +168,7 @@ class AiKeysApiTest extends ApiTest {
 	@Test
 	void aTurnOnYourOwnKeyIsNotCountedAndIsAllowedWhenTheBudgetIsSpentAndAIIsOff() throws Exception {
 		var chat = JSON.readTree(post("/api/chats", user, null).body()).path("id").asString();
-		ai.record(userId, 1_000_000, 0); // the Shared key's budget (0.01 dollars) is spent
+		ai.record(userId, 1_000_000, 0, 0); // the Shared key's budget (0.01 dollars) is spent
 		put("/api/admin/chat-settings", admin, "{\"enabled\":false,\"model\":\"claude-opus-5-5\",\"dailyBudgetUsd\":0.01}");
 		put("/api/ai/key", user, keyBody("sk-ant-test-4444"));
 		var spentBefore = spentMicroUsd(userId);

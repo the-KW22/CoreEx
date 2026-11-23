@@ -74,10 +74,11 @@ public class AiService {
 	/**
 	 * Counts one Chat call against the User's budget at their chosen model's prices. Call it after every call.
 	 * shortcut: the key is looked up again here, so a key removed while a turn runs makes that turn count; upgrade by carrying the route from the call to the count.
+	 * Each provider web search adds its price (AiProperties.webSearchMicroUsd) on the Shared key only.
 	 */
-	public void record(UUID ownerId, long inputTokens, long outputTokens) {
+	public void record(UUID ownerId, long inputTokens, long outputTokens, long webSearches) {
 		var route = userAi.resolve(ownerId);
-		charge(ownerId, route.ownKey(), route.model(), inputTokens, outputTokens);
+		charge(ownerId, route.ownKey(), route.model(), inputTokens, outputTokens, webSearches);
 	}
 
 	/** One turn of a conversation at the User's chosen model, on their own key when they have one. */
@@ -106,7 +107,7 @@ public class AiService {
 			throw new ApiException(HttpStatus.BAD_GATEWAY, "AI_UNAVAILABLE",
 					"The AI service could not answer just now. Try again, or fill the fields in by hand.");
 		}
-		charge(ownerId, ownKey, price, reply.inputTokens(), reply.outputTokens());
+		charge(ownerId, ownKey, price, reply.inputTokens(), reply.outputTokens(), 0);
 		return reply;
 	}
 
@@ -138,9 +139,10 @@ public class AiService {
 	}
 
 	/** Counts a call against the budget unless it ran on the User's own key. */
-	private void charge(UUID ownerId, Optional<String> ownKey, ModelPrice price, long inputTokens, long outputTokens) {
+	private void charge(UUID ownerId, Optional<String> ownKey, ModelPrice price, long inputTokens, long outputTokens,
+			long webSearches) {
 		if (ownKey.isEmpty()) {
-			budget.record(ownerId, cost(price, inputTokens, outputTokens));
+			budget.record(ownerId, cost(price, inputTokens, outputTokens) + webSearches * properties.webSearchMicroUsd());
 		}
 	}
 

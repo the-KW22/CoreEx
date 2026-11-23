@@ -158,8 +158,8 @@ class AiSettingsApiTest extends ApiTest {
 	void usageShowsOnlyTheUsersOwnSpendingTheBudgetAndWhenItStartsAgain() throws Exception {
 		var other = UUID.randomUUID();
 		jdbc.sql("insert into users (id, email, role) values (:id, 'o@example.com', 'USER')").param("id", other).update();
-		ai.record(userId, 1_000, 0); // 1,000 input tokens at $4 per million: 0.004 dollars
-		ai.record(other, 2_000, 0);
+		ai.record(userId, 1_000, 0, 0); // 1,000 input tokens at $4 per million: 0.004 dollars
+		ai.record(other, 2_000, 0, 0);
 
 		var usage = JSON.readTree(get("/api/ai/usage", user).body());
 
@@ -172,7 +172,7 @@ class AiSettingsApiTest extends ApiTest {
 
 	@Test
 	void usageStartsAgainAtMidnightUtc() throws Exception {
-		ai.record(userId, 1_000, 0);
+		ai.record(userId, 1_000, 0, 0);
 		assertThat(JSON.readTree(get("/api/ai/usage", user).body()).path("spentUsd").asDouble()).isGreaterThan(0);
 
 		clock.advance(Duration.ofHours(25));

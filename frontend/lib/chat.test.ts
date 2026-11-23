@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { type ChatMessage, type Source, failureNotice, messageText, noteTitle, offersSearch, sourceHref, visibleMessages } from "./chat";
+import { type ChatMessage, type Source, failureNotice, messageText, noteTitle, offersSearch, sourceHref, siteOf, visibleMessages, webSources } from "./chat";
 
 const message = (blocks: unknown[], status = "COMPLETE"): ChatMessage =>
   ({ id: "1", role: "ASSISTANT", blocks, status, sources: [], createdAt: "" }) as unknown as ChatMessage;
@@ -55,5 +55,30 @@ describe("sourceHref", () => {
   it("opens a Note without a heading, or any other Item, as it is", () => {
     expect(sourceHref(source("NOTE", null))).toBe("/notes/n1");
     expect(sourceHref(source("RESUME", "x"))).toBe("/career/resumes/n1");
+  });
+});
+
+describe("webSources", () => {
+  it("keeps web addresses, once each, and gives a missing title the site name", () => {
+    expect(
+      webSources([
+        { url: "https://example.com/a", title: "A page" },
+        { url: "https://example.com/a", title: "Again" },
+        { url: "http://news.example.org/x", title: " " },
+      ]),
+    ).toEqual([
+      { url: "https://example.com/a", title: "A page" },
+      { url: "http://news.example.org/x", title: "news.example.org" },
+    ]);
+  });
+
+  it("drops anything that is not a web address, and anything that is not a list", () => {
+    expect(webSources([{ url: "javascript:alert(1)", title: "x" }, { url: "data:text/html,hi" }, { url: "not a url" }, null, { title: "no url" }])).toEqual([]);
+    expect(webSources(undefined)).toEqual([]);
+    expect(webSources("https://example.com")).toEqual([]);
+  });
+
+  it("names the site of a link without www", () => {
+    expect(siteOf("https://www.example.com/a/b")).toBe("example.com");
   });
 });

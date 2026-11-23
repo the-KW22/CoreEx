@@ -1,7 +1,9 @@
+import { type WebSource, webSources } from "@/lib/chat";
+
 export type ChatEvent =
   | { type: "text"; text: string }
   | { type: "tool"; name: string }
-  | { type: "done"; status: "COMPLETE" | "STOPPED"; sources: unknown[] }
+  | { type: "done"; status: "COMPLETE" | "STOPPED"; sources: unknown[]; web: WebSource[] }
   | { type: "error"; code: string; message: string };
 
 // Turns one parsed event's JSON payload into a ChatEvent, or null when the fields do not match.
@@ -13,7 +15,7 @@ function toChatEvent(name: string, data: Record<string, unknown>): ChatEvent | n
       return typeof data.name === "string" ? { type: "tool", name: data.name } : null;
     case "done":
       return (data.status === "COMPLETE" || data.status === "STOPPED") && Array.isArray(data.sources)
-        ? { type: "done", status: data.status, sources: data.sources }
+        ? { type: "done", status: data.status, sources: data.sources, web: webSources(data.webSources) }
         : null;
     case "error":
       return typeof data.code === "string" && typeof data.message === "string"
