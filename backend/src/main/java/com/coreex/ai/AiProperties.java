@@ -12,7 +12,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * page and the database then wins ({@link AiSettings}). {@code models} is the list an Admin picks from, with each model's
  * prices in dollars per million tokens.
  * {@code contextClearTokens} is the conversation size past which the provider clears its oldest tool results (ADR 0009);
- * 0 turns that off.
+ * 0 turns that off. {@code keySecret} seals Users' own keys ({@link AiKeyVault}); without it nobody can store one.
+ * {@code ownKeyContextClearTokens} is the same threshold for a User's own key, which is allowed a longer context.
  * shortcut: prices are set by hand here, so they must be updated when the provider changes them, and the higher price of
  * Haiku 5.5 for prompts over 100K tokens is not modelled. Upgrade by reading the prices from the provider.
  */
@@ -20,7 +21,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 record AiProperties(@DefaultValue("anthropic") String provider, @DefaultValue("") String apiKey,
 		@DefaultValue("claude-opus-5-5") String model, @DefaultValue("") String baseUrl,
 		@DefaultValue("0.50") double dailyBudgetUsd, @DefaultValue("16000") long maxOutputTokens,
-		@DefaultValue("100000") long contextClearTokens, List<ModelPrice> models) {
+		@DefaultValue("100000") long contextClearTokens, List<ModelPrice> models,
+		@DefaultValue("") String keySecret, @DefaultValue("300000") long ownKeyContextClearTokens) {
 
 	/** One model an Admin may pick, and what it costs. */
 	record ModelPrice(String id, String name, double inputUsdPerMillion, double outputUsdPerMillion) {

@@ -388,6 +388,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ai/preferences/model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["pickModel"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["saveKey"];
+        post?: never;
+        delete: operations["deleteKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{id}/quota": {
         parameters: {
             query?: never;
@@ -2241,6 +2273,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ai/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_10"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users": {
         parameters: {
             query?: never;
@@ -3131,6 +3179,15 @@ export interface components {
             version: number;
             /** Format: date-time */
             updatedAt: string;
+        };
+        ModelRequest: {
+            model: string;
+        };
+        KeyRequest: {
+            /** @description The provider: only anthropic */
+            provider: string;
+            /** @description The key, up to 400 characters */
+            key: string;
         };
         SetQuotaRequest: {
             /**
@@ -4406,12 +4463,30 @@ export interface components {
              * @description When the budget starts again: the next midnight UTC
              */
             resetsAt: string;
-            /** @description False when AI is off, by the key or by an Admin */
+            /** @description False when AI is off for this User, by the Shared key or by an Admin */
             available: boolean;
+            /** @description True when this User uses their own key, which is not counted in the budget */
+            ownKey: boolean;
         };
         Status: {
             /** @description False until the owner sets the Shared key, or while an Admin has switched it off: AI features then show as pending */
             available: boolean;
+        };
+        KeyView: {
+            /** @description The provider the key is for: anthropic */
+            provider: string;
+            /** @description The last four characters of the key, the only part ever shown */
+            last4: string;
+        };
+        Preferences: {
+            /** @description The model in force for this User's Chats */
+            model: string;
+            /** @description The models a User may pick, with their prices */
+            models: components["schemas"]["ModelOption"][];
+            /** @description This User's own key, or null when none is stored */
+            key?: components["schemas"]["KeyView"];
+            /** @description False when the server has no vault secret, so keys cannot be stored */
+            keysAvailable: boolean;
         };
         UserPage: {
             items: components["schemas"]["UserResponse"][];
@@ -5873,6 +5948,81 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["DebriefResponse"];
                 };
+            };
+        };
+    };
+    pickModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelRequest"];
+            };
+        };
+        responses: {
+            /** @description Code UNKNOWN_MODEL: the model is not in the list */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    saveKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Code UNKNOWN_PROVIDER: the provider is not anthropic. Code KEY_REJECTED: the provider did not accept the key */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code KEYS_OFF: the server has no vault secret, so keys cannot be stored */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    deleteKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -10090,6 +10240,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Status"];
+                };
+            };
+        };
+    };
+    get_10: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preferences"];
                 };
             };
         };

@@ -160,6 +160,11 @@ public class TestModel implements Model {
 		return new Reply(answer, inputTokens, outputTokens);
 	}
 
+	/** The key check is the fake provider's own rule (FakeModel), not this stand-in's, so there is nothing to check here. */
+	@Override
+	public void check() {
+	}
+
 	@Override
 	public Turn converse(String system, List<Message> messages, List<ToolSpec> tools, Consumer<String> onText, long maxTokens) {
 		conversed.add(new Conversed(system, List.copyOf(messages), List.copyOf(tools)));

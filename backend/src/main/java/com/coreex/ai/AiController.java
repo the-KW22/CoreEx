@@ -24,7 +24,8 @@ class AiController {
 	record Usage(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "What this User has used today (UTC), in dollars") double spentUsd,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Daily AI budget, in dollars") double budgetUsd,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "When the budget starts again: the next midnight UTC") Instant resetsAt,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "False when AI is off, by the key or by an Admin") boolean available) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "False when AI is off for this User, by the Shared key or by an Admin") boolean available,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "True when this User uses their own key, which is not counted in the budget") boolean ownKey) {
 	}
 
 	private final AiService ai;
@@ -37,15 +38,15 @@ class AiController {
 	}
 
 	@GetMapping("/status")
-	Status status() {
-		return new Status(ai.available());
+	Status status(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user) {
+		return new Status(ai.available(user.id()));
 	}
 
 	/** Only the signed-in User's own spending: the budget is per User, and nobody else's is ever shown. */
 	@GetMapping("/usage")
 	Usage usage(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user) {
 		return new Usage(budget.spentToday(user.id()) / 1_000_000.0, budget.budgetMicroUsd() / 1_000_000.0, budget.resetsAt(),
-				ai.available());
+				ai.available(user.id()), ai.hasOwnKey(user.id()));
 	}
 
 }

@@ -164,7 +164,7 @@ public class ChatService {
 	 * thrown before anything is streamed.
 	 */
 	private void start(User owner, UUID chatId, boolean notes, ChatContext context, SseEmitter out, Consumer<Instant> store) {
-		ai.requireOn();
+		ai.requireOn(owner.id());
 		ai.requireRoom(owner.id());
 		// The claim's token: the database keeps microseconds, so the release must match the claim to the microsecond.
 		var now = clock.instant().truncatedTo(ChronoUnit.MICROS);

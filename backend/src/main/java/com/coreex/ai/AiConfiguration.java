@@ -10,16 +10,13 @@ import org.springframework.context.annotation.Configuration;
 @Configuration(proxyBeanMethods = false)
 class AiConfiguration {
 
-	/** The provider the settings name; nothing is built (and no key is read) when AI is off. */
+	/**
+	 * The fake provider's model for the end-to-end tests. Anthropic is not built here: AiService makes its clients, one
+	 * per model for the Shared key and one per call for a User's own key. Nothing is built, and no key is read, when AI is off.
+	 */
 	@Bean
-	Model model(AiProperties properties, AiSettings settings) {
-		if (properties.provider().equals("fake")) {
-			return new FakeModel();
-		}
-		if (properties.on()) {
-			return new AnthropicModel(properties, () -> settings.current().model().id());
-		}
-		return new OffModel();
+	Model model(AiProperties properties) {
+		return properties.provider().equals("fake") ? new FakeModel("") : new OffModel();
 	}
 
 	/** AI is switched off: every call fails at once, and nothing is sent anywhere. */
@@ -32,6 +29,11 @@ class AiConfiguration {
 
 		@Override
 		public Turn converse(String system, List<Message> messages, List<ToolSpec> tools, Consumer<String> onText, long maxTokens) {
+			throw new Failure("AI is off");
+		}
+
+		@Override
+		public void check() {
 			throw new Failure("AI is off");
 		}
 

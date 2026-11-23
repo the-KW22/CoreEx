@@ -17,7 +17,8 @@ async function startChat(page: Page, text: string) {
 async function noteOverMcp(page: Page, title: string, body: string) {
   await page.goto("/settings/tokens");
   await page.getByRole("button", { name: "New Access token" }).click();
-  await page.getByRole("dialog", { name: "New Access token" }).getByLabel("Name").fill(`preview-${Date.now()}`);
+  const name = `preview-${Date.now()}`;
+  await page.getByRole("dialog", { name: "New Access token" }).getByLabel("Name").fill(name);
   await page.getByRole("button", { name: "Create token" }).click();
   const secret = await page.getByRole("dialog", { name: "Copy your Access token" }).getByLabel("Access token").inputValue();
   await page.getByRole("button", { name: "Done" }).click();
@@ -32,6 +33,11 @@ async function noteOverMcp(page: Page, title: string, body: string) {
     },
   });
   expect(response.ok()).toBeTruthy();
+  // The account holds at most 10 live Access tokens, so the one made for this call is revoked at once.
+  await page.goto("/settings/tokens");
+  await page.getByRole("button", { name: `Revoke ${name}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Revoke" }).click();
+  await expect(page.getByText(`Revoked ${name}`)).toBeVisible();
   return JSON.parse((await response.json()).result.content[0].text) as { id: string; version: number };
 }
 

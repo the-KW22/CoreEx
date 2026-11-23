@@ -89,7 +89,12 @@ function ProposalCard({
       </div>
       {p.change && (
         <dl className="grid gap-1 text-sm">
-          {p.change.subject && <dd className="font-medium">{p.change.subject}</dd>}
+          {p.change.subject && (
+            <div className="flex gap-2">
+              <dt className="text-muted-foreground">Item:</dt>
+              <dd className="font-medium">{p.change.subject}</dd>
+            </div>
+          )}
           <div className="flex gap-2">
             <dt className="text-muted-foreground">Before:</dt>
             <dd>{p.change.before || "Nothing"}</dd>

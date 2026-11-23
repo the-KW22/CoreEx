@@ -231,7 +231,7 @@ final class ChatReply {
 				addNote(TIME_LIMIT);
 				return COMPLETE;
 			}
-			if (toolSteps > 0 && !ai.available()) {
+			if (toolSteps > 0 && !ai.available(owner.id())) {
 				// An Admin's switch is for emergencies: it ends a reply that is already running, not only new ones.
 				addNote(SWITCHED_OFF);
 				return COMPLETE;
@@ -270,7 +270,7 @@ final class ChatReply {
 		assistantId = chats.addMessage(chatId, Model.Role.ASSISTANT, List.of(), STREAMING, null, List.of(), now);
 		Model.Turn turn;
 		try {
-			turn = ai.converse(ChatPrompt.forReply(context), history, offered(), this::onText, properties.maxOutputTokens());
+			turn = ai.converse(owner.id(), ChatPrompt.forReply(context), history, offered(), this::onText, properties.maxOutputTokens());
 		}
 		catch (RuntimeException e) {
 			if (stop.get()) {

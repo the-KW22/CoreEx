@@ -15,6 +15,20 @@ class FakeModel implements Model {
 
 	private final JsonMapper json = JsonMapper.builder().build();
 
+	/** The key the caller gave, which only {@link #check} looks at: "invalid" is the one a test uses to be refused. */
+	private final String key;
+
+	FakeModel(String key) {
+		this.key = key;
+	}
+
+	@Override
+	public void check() {
+		if ("invalid".equals(key)) {
+			throw new Failure("The provider did not accept this key");
+		}
+	}
+
 	/**
 	 * A conversation gets one fixed reply. Two triggers in the last message serve the Chat end-to-end tests: "[slow]" writes
 	 * a long reply a word at a time (so Stop has something to stop), and "[search]" first runs the search tool with the
