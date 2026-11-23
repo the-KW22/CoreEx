@@ -28,10 +28,10 @@ import tools.jackson.databind.json.JsonMapper;
 class ChatSources {
 
 	/** An Item a turn used. removed is true when the Item is in the Trash or gone for good. */
-	public record Source(UUID id, Item.Type type, String title, boolean removed) {
+	public record Source(UUID id, Item.Type type, String title, boolean removed, String heading) {
 	}
 
-	private record Ref(UUID id, Item.Type type, String title) {
+	private record Ref(UUID id, Item.Type type, String title, String heading) {
 	}
 
 	private static final JsonMapper JSON = JsonMapper.builder().build();
@@ -86,7 +86,7 @@ class ChatSources {
 		var refs = new LinkedHashMap<UUID, Ref>();
 		for (var message : turn) {
 			for (var quote : message.quotes()) {
-				refs.putIfAbsent(quote.id(), new Ref(quote.id(), quote.type(), quote.title()));
+				refs.putIfAbsent(quote.id(), new Ref(quote.id(), quote.type(), quote.title(), lastHeading(quote.headingPath())));
 			}
 			for (var block : message.blocks()) {
 				if (block instanceof ContentBlock.ToolResult result && !result.isError() && toolNames.containsKey(result.toolUseId())) {
@@ -103,8 +103,16 @@ class ChatSources {
 				.collect(Collectors.toMap(Item::id, Function.identity()));
 		return refs.values().stream().map(ref -> {
 			var now = live.get(ref.id());
-			return new Source(ref.id(), ref.type(), now == null ? ref.title() : now.title(), now == null);
+			return new Source(ref.id(), ref.type(), now == null ? ref.title() : now.title(), now == null, ref.heading());
 		}).toList();
+	}
+
+	/** The heading a piece sits under (the last of its path), which a source link opens the Note at; null when it has none. */
+	private static String lastHeading(String path) {
+		if (path == null || path.isBlank()) {
+			return null;
+		}
+		return path.substring(path.lastIndexOf('›') + 1).strip();
 	}
 
 	/** The Items one read tool's result names. A tool that reads no whole Item (lists, the graph) names none. */
@@ -128,7 +136,7 @@ class ChatSources {
 			var refs = new ArrayList<Ref>();
 			for (var chunk : JSON.readTree(content).path("chunks")) {
 				refs.add(new Ref(UUID.fromString(chunk.path("id").asString()), Item.Type.valueOf(chunk.path("type").asString()),
-						chunk.path("title").asString()));
+						chunk.path("title").asString(), lastHeading(chunk.path("headingPath").isTextual() ? chunk.path("headingPath").asString() : null)));
 			}
 			return refs;
 		}
@@ -179,7 +187,7 @@ class ChatSources {
 		if (id == null || title == null || type == null) {
 			return List.of();
 		}
-		return List.of(new Ref(UUID.fromString(id), type, title));
+		return List.of(new Ref(UUID.fromString(id), type, title, null));
 	}
 
 }

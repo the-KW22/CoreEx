@@ -87,6 +87,7 @@ export function NoteEditor({
   tags,
   details,
   detailsCookie,
+  heading,
 }: {
   id: string;
   initial: { title: string; body: string; version: number; createdAt: string; updatedAt: string; editedBy: string | null };
@@ -95,6 +96,8 @@ export function NoteEditor({
   details: React.ReactNode;
   /** The remembered Details choice, or null to follow the screen width. */
   detailsCookie: "open" | "closed" | null;
+  /** A heading to scroll to on opening (a Chat source opens its Note at the piece the model used). */
+  heading?: string;
 }) {
   const [title, setTitle] = useState(initial.title);
   const [status, setStatus] = useState<Status>("saved");
@@ -326,6 +329,23 @@ export function NoteEditor({
       view.current = null;
     };
   }, [changed, lookUpLinks, showPreview]);
+
+  // Opened from a Chat source: puts the heading the model used at the top. Only the first time, so typing is never moved.
+  const scrolledTo = useRef<string | null>(null);
+  useEffect(() => {
+    const editor = view.current;
+    if (!heading || !editor || scrolledTo.current === heading) return;
+    scrolledTo.current = heading;
+    const plain = (text: string) => text.replace(/[*_`~]/g, "").trim().toLowerCase();
+    for (let n = 1; n <= editor.state.doc.lines; n++) {
+      const line = editor.state.doc.line(n);
+      const match = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line.text);
+      if (match && plain(match[1]) === plain(heading)) {
+        editor.dispatch({ selection: { anchor: line.from }, effects: EditorView.scrollIntoView(line.from, { y: "start", yMargin: 16 }) });
+        return;
+      }
+    }
+  }, [heading]);
 
   // Opening the Note: text typed before and never saved (a closed tab, a crash, an unreachable API) comes back.
   // On the stored version it is saved again; on an older one the Note starts in conflict, so the User chooses.

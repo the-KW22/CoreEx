@@ -15,9 +15,41 @@ class FakeModel implements Model {
 
 	private final JsonMapper json = JsonMapper.builder().build();
 
-	/** A conversation gets one fixed reply and no tool calls. */
+	/**
+	 * A conversation gets one fixed reply. Two triggers in the last message serve the Chat end-to-end tests: "[slow]" writes
+	 * a long reply a word at a time (so Stop has something to stop), and "[search]" first runs the search tool with the
+	 * rest of the message, then answers (so the answer has sources).
+	 */
 	@Override
 	public Turn converse(String system, List<Message> messages, List<ToolSpec> tools, Consumer<String> onText, long maxTokens) {
+		var last = messages.isEmpty() ? null : messages.get(messages.size() - 1);
+		var asked = last == null ? "" : last.blocks().stream().filter(b -> b instanceof ContentBlock.Text)
+				.map(b -> ((ContentBlock.Text) b).text()).reduce("", String::concat);
+		if (asked.contains("[search]")) {
+			var query = asked.replace("[search]", "").strip();
+			return new Turn(List.of(new ContentBlock.ToolUse("fake-search", "search", Map.of("query", query))),
+					StopReason.TOOL_USE, 100, 100);
+		}
+		if (last != null && last.blocks().stream().anyMatch(b -> b instanceof ContentBlock.ToolResult)) {
+			onText.accept("This is a fake reply from your Notes.");
+			return new Turn(List.of(new ContentBlock.Text("This is a fake reply from your Notes.")), StopReason.END_TURN, 100, 100);
+		}
+		if (asked.contains("[slow]")) {
+			var reply = new StringBuilder();
+			for (var i = 0; i < 60; i++) {
+				var word = "word" + i + " ";
+				onText.accept(word);
+				reply.append(word);
+				try {
+					Thread.sleep(250);
+				}
+				catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					break;
+				}
+			}
+			return new Turn(List.of(new ContentBlock.Text(reply.toString())), StopReason.END_TURN, 100, 100);
+		}
 		onText.accept("This is a fake reply.");
 		return new Turn(List.of(new ContentBlock.Text("This is a fake reply.")), StopReason.END_TURN, 100, 100);
 	}

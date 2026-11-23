@@ -26,7 +26,7 @@ The agreed design for the frontend redesign. It records **what** the UI looks li
 | Position | Entry | Who |
 |---|---|---|
 | Top | CoreEx logo, collapse button | All |
-| Modules | **Home**, **Knowledge Base**, **Assets**, **Graph**, **Career** | All |
+| Modules | **Home**, **Knowledge Base**, **Assets**, **Graph**, **Career**, **Chat** | All |
 | Divider, then | **Quick find** (Ctrl K, desktop rail only), **Search**, **Docs**, **Trash**, **Admin** | Admin only for Admin |
 | Bottom | Theme toggle, **Account** menu (email, Access tokens, Connect an Agent, Log out) | All |
 
@@ -58,6 +58,7 @@ The panel belongs to the Knowledge Base module: it shows only on Knowledge Base 
 | `/folders/[id]`, `/tags/[id]` | Same layout as All Items, scoped |
 | `/notes/[id]`, `/assets/[id]` | Note, Asset |
 | `/assets` | Assets: the same layout as All Items, with Assets only (`GET /api/items?type=ASSET`) and Upload as its one action |
+| `/chat`, `/chat/[id]` | Chat: a new Chat, and one saved Chat (section 6.14) |
 | `/tags`, `/trash`, `/search` | Tags, Trash, full-text Search results |
 | `/admin` (tabs: Overview, Users, Invites) | Admin |
 | `/settings/tokens` | Access tokens (from the Account menu; no panel beside it) |
@@ -320,6 +321,21 @@ The Knowledge Graph of one Folder and its subfolders (`?folderId=`), or of All I
 - Reached from **Export** in the account menu. A narrow page (max 672px): the heading, one line of purpose, **What is in the zip** (Notes as Markdown with Links as written, Assets as their files, Applications as one JSON file each with their timeline, Folders as folders, `manifest.json`; the Trash and Chats are not included; one export a minute) and a primary **Download everything** button with a download icon.
 - The button is a plain link to `/settings/export/download`, a route that passes the API's zip through with the User's session. The browser saves it as `coreex-export-<date>.zip` and the page stays. A refusal or failure comes back to the page as an Alert: "You can export once a minute. Try again shortly." (`?error=wait`) or "The export could not be made. Try again." (`?error=failed`).
 - No loading state of its own: the page has no data to wait for. Works in both themes and at phone width.
+
+### 6.14 Chat (`/chat`, `/chat/[id]`)
+
+A module of its own in the rail (after Career, a speech-bubbles icon), with no panel beside the rail: the Chat list is part of the page.
+
+- **Layout:** at desktop width a 16rem **Chats** list on the left (a **New chat** button, then each Chat's title and when it was last used, newest first; the open one is highlighted and has `aria-current`) and the conversation on the right, as tall as the window. On a phone the list is behind a **Chats** button above the conversation and opens as a Sheet; choosing a Chat closes it.
+- **`/chat`** is a Chat that does not exist yet: "Ask anything" with one line on what Chat can do. The Chat is made when the first message is sent, and then the address becomes `/chat/[id]`, so a visit never leaves an empty Chat behind.
+- **Conversation:** a bordered, scrolling `log` region. The User's messages are right-aligned `surface` bubbles; a reply is plain Markdown on the page, drawn by `components/chat-markdown.tsx`: no raw HTML, no images, links only to `http`, `https`, `mailto` or this app, and external links open in a new tab with `noopener`. Headings are small (none above 16px) so a reply never competes with the page title.
+- **While a reply is written** the text streams in over Server-Sent Events (through the `/chat-stream/[id]` route, which carries the session and hides the API address), with "Working…" under it, or "Working (search)…" while a tool runs. The region itself is not live, since every word would be read out; a separate polite status line says "Working on a reply.", then "Reply finished." or "Reply stopped.". A reply still running when the page opens (another tab, or after a reload) is shown as it is, and the page looks again every 3 seconds.
+- **Stop** replaces **Send** while a reply runs and keeps what was written, with a **Stopped** mark under it. A failed reply keeps its text and shows the reason in destructive text. A refusal before anything is stored (Chat off, budget used up, a reply already running) shows above the message box and puts the text back in it.
+- **Sources** sit under the reply they belong to: a row of chips, each a link to the Item (an Item since removed for good shows "(removed)" and is not a link). No chips when the model read nothing of the User's.
+- **Message box:** a labelled multi-line field (Enter sends, Shift+Enter adds a line, up to 20,000 characters), the **Use my Notes** checkbox (on by default, remembered by the Chat; its Tooltip says that off sends none of the Notes and gives the model no way to read them, and that quotes already in the Chat stay in its history), **Send** or **Stop**, and the privacy line: "Your questions, the Notes that closely match them and the Notes the model reads are sent to Anthropic to write the reply."
+- **Save as Note** under every finished reply makes a Note of the reply's Markdown (its title from the first heading or line) with the create-Note API and opens it. A failure shows beside the button.
+- **Delete Chat** (in the header, only for a saved Chat) opens a confirm: "The Chat and its messages are deleted for good. It does not go to the Trash." Then the User lands on `/chat`.
+- **Phone and keyboard:** every control is a native button, link or field with a name; the Chats Sheet traps focus and gives it back to its button. The page has one `h1` ("Chat").
 
 ## 7. Component map (shadcn/ui)
 

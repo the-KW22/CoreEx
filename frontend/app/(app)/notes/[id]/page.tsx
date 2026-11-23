@@ -14,7 +14,7 @@ import { NoteEditor } from "./note-editor";
 
 export default async function NotePage({ params, searchParams }: PageProps<"/notes/[id]">) {
   const { id } = await params;
-  const { depth: rawDepth, mentions } = await searchParams;
+  const { depth: rawDepth, mentions, heading } = await searchParams;
   const depth = parseDepth(rawDepth);
   const api = await getApi();
   const [result, list, itemTags, allTags, stories, jar] = await Promise.all([
@@ -46,6 +46,7 @@ export default async function NotePage({ params, searchParams }: PageProps<"/not
         key={note.id}
         id={note.id}
         initial={note}
+        heading={typeof heading === "string" ? heading : undefined}
         crumbs={[
           { href: "/items", label: "All Items" },
           ...(note.folderId ? pathTo(folders, note.folderId) : []).map((f) => ({ href: `/folders/${f.id}`, label: f.name })),

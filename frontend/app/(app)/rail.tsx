@@ -9,6 +9,7 @@ import {
   HouseIcon,
   WaypointsIcon,
   LibraryIcon,
+  MessagesSquareIcon,
   PanelLeftCloseIcon,
   PanelLeftIcon,
   PanelLeftOpenIcon,
@@ -54,6 +55,7 @@ const MODULES: { id: Module; href: string; label: string; icon: typeof HouseIcon
   { id: "assets", href: "/assets", label: "Assets", icon: FilesIcon },
   { id: "graph", href: "/graph", label: "Graph", icon: WaypointsIcon },
   { id: "career", href: "/career", label: "Career", icon: BriefcaseBusinessIcon },
+  { id: "chat", href: "/chat", label: "Chat", icon: MessagesSquareIcon },
 ];
 
 // A Tooltip only when the label is not already on screen.
@@ -202,7 +204,7 @@ export function Rail({
 
   // The two views sit on top of each other and slide; the one out of sight is inert, so it cannot be tabbed to or read.
   // Reduced motion is handled by the global rule in globals.css.
-  const pane = "absolute inset-0 flex flex-col transition-[transform,opacity] duration-[var(--duration-base)] ease-[var(--ease-out)]";
+  const pane = "absolute inset-0 flex flex-col overflow-y-auto [&>*]:shrink-0 transition-[transform,opacity] duration-[var(--duration-base)] ease-[var(--ease-out)]";
   const away = "pointer-events-none opacity-0";
 
   return (

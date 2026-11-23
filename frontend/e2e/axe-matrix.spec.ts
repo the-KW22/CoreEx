@@ -356,6 +356,10 @@ for (const colorScheme of ["dark", "light"] as const) {
         await page.getByRole("button", { name: "Empty Trash" }).click();
         await scan(page, failures, "empty trash confirm");
         await page.keyboard.press("Escape");
+        // Chat: the start page, which has no Chats to depend on (the Chat spec scans a conversation).
+        await page.goto("/chat");
+        await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+        await scan(page, failures, "chat");
         await page.goto("/admin");
         await page.getByRole("row").filter({ hasText: invited }).getByRole("button", { name: /^Revoke/ }).click();
         await scan(page, failures, "revoke confirm");
