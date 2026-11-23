@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { type ChatMessage, type Source, failureNotice, sourceHref, visibleMessages } from "@/lib/chat";
+import { type ChatMessage, type Source, failureNotice, offersSearch, sourceHref, visibleMessages } from "@/lib/chat";
 import { readChatEvents } from "@/lib/chat-stream";
 
 import { createChat, deleteChat, saveAsNote, stopChat } from "./actions";
@@ -77,6 +77,25 @@ function SaveAsNote({ text }: { text: string }) {
   );
 }
 
+// A failure in words, with a link to Search when that is a way out.
+function Notice({ text, search }: { text: string; search: boolean }) {
+  return (
+    <p role="alert" className="text-sm text-destructive">
+      {text}
+      {search && (
+        <>
+          {" "}
+          <Link href="/search" className="underline underline-offset-4">
+            Search your Notes
+          </Link>
+        </>
+      )}
+    </p>
+  );
+}
+
+type Problem = { text: string; search: boolean };
+
 function Reply({ text, status, sources, errorCode, working }: { text: string; status: string; sources: Source[]; errorCode?: string | null; working?: string | null }) {
   const busy = status === "STREAMING" || status === "WORKING";
   return (
@@ -84,11 +103,7 @@ function Reply({ text, status, sources, errorCode, working }: { text: string; st
       {text ? <ChatMarkdown>{text}</ChatMarkdown> : null}
       {busy && <p className="text-sm text-muted-foreground">{working ? `Working (${working.replaceAll("_", " ")})…` : "Working…"}</p>}
       {status === "STOPPED" && <p className="text-xs font-medium text-muted-foreground">Stopped</p>}
-      {status === "FAILED" && (
-        <p role="alert" className="text-sm text-destructive">
-          {failureNotice(errorCode)}
-        </p>
-      )}
+      {status === "FAILED" && <Notice text={failureNotice(errorCode)} search={offersSearch(errorCode)} />}
       <SourceList sources={sources} />
       {text && !busy && (
         <div className="mt-1">
@@ -109,7 +124,7 @@ export function Conversation({ chatId, initialMessages, initialUseNotes }: { cha
   // A new Chat is made on the first send; keep its id, so a retry after a refusal, and Stop, use it.
   const [startedId, setStartedId] = useState<string | null>(null);
   const activeId = chatId ?? startedId;
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Problem | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [announce, setAnnounce] = useState("");
   const end = useRef<HTMLDivElement>(null);
@@ -144,14 +159,14 @@ export function Conversation({ chatId, initialMessages, initialUseNotes }: { cha
     let id = activeId;
     if (!id) {
       id = await createChat();
-      if (!id) return setNotice(failureNotice(null));
+      if (!id) return setNotice({ text: failureNotice(null), search: true });
       setStartedId(id);
     }
     setDraft("");
     setPending({ user: text, text: "", tool: null, status: "WORKING", sources: [] });
     setAnnounce("Working on a reply.");
     let status: Pending["status"] = "COMPLETE";
-    let failure: string | null = null;
+    let failure: Problem | null = null;
     try {
       const res = await fetch(`/chat-stream/${id}`, {
         method: "POST",
@@ -163,7 +178,7 @@ export function Conversation({ chatId, initialMessages, initialUseNotes }: { cha
         const body = (await res.json().catch(() => null)) as { code?: string; message?: string } | null;
         setPending(null);
         setDraft(text);
-        setNotice(failureNotice(body?.code, body?.message));
+        setNotice({ text: failureNotice(body?.code, body?.message), search: offersSearch(body?.code) });
         return;
       }
       for await (const event of readChatEvents(res.body)) {
@@ -174,17 +189,17 @@ export function Conversation({ chatId, initialMessages, initialUseNotes }: { cha
           setPending((p) => p && { ...p, sources: event.sources as Source[] });
         } else if (event.type === "error") {
           status = "FAILED";
-          failure = failureNotice(event.code, event.message);
+          failure = { text: failureNotice(event.code, event.message), search: offersSearch(event.code) };
         }
       }
     } catch {
       // The tab lost the connection; the reply keeps running on the server, so the reload shows how it ended.
-      failure = "The connection was lost. Reload to see how the reply ended.";
+      failure = { text: "The connection was lost. Reload to see how the reply ended.", search: false };
       status = "FAILED";
     }
     setPending((p) => p && { ...p, status, tool: null });
     setNotice(failure);
-    setAnnounce(failure ?? (status === "STOPPED" ? "Reply stopped." : "Reply finished."));
+    setAnnounce(failure?.text ?? (status === "STOPPED" ? "Reply stopped." : "Reply finished."));
     // The Chat list lives in the layout, which a soft navigation keeps: refresh it so the new or renamed Chat shows.
     if (!chatId) router.replace(`/chat/${id}`);
     router.refresh();
@@ -231,11 +246,7 @@ export function Conversation({ chatId, initialMessages, initialUseNotes }: { cha
         {announce}
       </p>
 
-      {notice && (
-        <p role="alert" className="text-sm text-destructive">
-          {notice}
-        </p>
-      )}
+      {notice && <Notice text={notice.text} search={notice.search} />}
 
       <form
         className="grid gap-2"
@@ -306,7 +317,7 @@ export function Conversation({ chatId, initialMessages, initialUseNotes }: { cha
               onClick={() =>
                 startDelete(async () => {
                   const result = activeId ? await deleteChat(activeId) : undefined;
-                  if (result) setNotice(result.error);
+                  if (result) setNotice({ text: result.error, search: false });
                 })
               }
             >

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { type ChatMessage, type Source, failureNotice, messageText, noteTitle, sourceHref, visibleMessages } from "./chat";
+import { type ChatMessage, type Source, failureNotice, messageText, noteTitle, offersSearch, sourceHref, visibleMessages } from "./chat";
 
 const message = (blocks: unknown[], status = "COMPLETE"): ChatMessage =>
   ({ id: "1", role: "ASSISTANT", blocks, status, sources: [], createdAt: "" }) as unknown as ChatMessage;
@@ -32,6 +32,16 @@ describe("what a Chat shows", () => {
     expect(failureNotice("AI_OFF")).toMatch(/switched off/);
     expect(failureNotice("AI_UNAVAILABLE", "Out of credit.")).toBe("Out of credit.");
     expect(failureNotice(null)).toMatch(/Search/);
+  });
+
+  it("says when the budget starts again", () => {
+    expect(failureNotice("AI_BUDGET_SPENT")).toMatch(/starts again at midnight UTC/);
+  });
+
+  it("offers Search for every failure but a busy Chat", () => {
+    expect(offersSearch("AI_OFF")).toBe(true);
+    expect(offersSearch(null)).toBe(true);
+    expect(offersSearch("CHAT_BUSY")).toBe(false);
   });
 });
 
