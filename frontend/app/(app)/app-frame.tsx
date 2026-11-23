@@ -13,6 +13,7 @@ import type { RailState } from "@/lib/prefs";
 import type { TagColour } from "@/lib/tag-colour";
 
 import { CareerPanel } from "./career/career-panel";
+import { ChatDock } from "./chat/chat-dock";
 import { KbPanel } from "./kb-panel";
 import { Rail, railButton } from "./rail";
 import { Uploads } from "./assets/uploads";
@@ -98,7 +99,9 @@ export function AppFrame({ email, isAdmin, rail, folders, tags, children }: Prop
       </Sheet>
       <CommandPalette />
       <Uploads folders={folders} />
-      <Toaster />
+      <ChatDock />
+      {/* Bottom-centre, so a toast never covers the Chat button in the corner. */}
+      <Toaster position="bottom-center" />
     </TooltipProvider>
   );
 }

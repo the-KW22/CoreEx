@@ -8,6 +8,7 @@ import { FolderPicker } from "../../items/folder-picker";
 import { ItemBacklinks, ItemConnections, parseDepth } from "../../items/item-sections";
 import { ItemMentions, parseMentions } from "../../items/mentions";
 import { TagEditor } from "../../items/tag-editor";
+import { PageContext } from "../../chat/page-context";
 import { RecordOpen } from "../../search/record-open";
 import { StoryToggle } from "../../career/knowledge/story-toggle";
 import { NoteEditor } from "./note-editor";
@@ -38,11 +39,16 @@ export default async function NotePage({ params, searchParams }: PageProps<"/not
   }
 
   const folders = list?.data?.items ?? [];
+  // shortcut: a Note counts as just created when it is empty and under 30 seconds old by the API's clock, so a Note made
+  // by an empty click and opened a minute later counts as opened; upgrade when the API says how a Note was made.
+  const apiNow = Date.parse(result.response.headers.get("date") ?? "");
+  const created = !note.body.trim() && apiNow - Date.parse(note.createdAt) < 30_000;
   const remembered = jar.get("details")?.value;
 
   return (
     <>
       <RecordOpen id={note.id} />
+      <PageContext kind="NOTE" id={note.id} title={note.title || "Untitled"} created={created} />
       <NoteEditor
         key={note.id}
         id={note.id}
@@ -65,7 +71,7 @@ export default async function NotePage({ params, searchParams }: PageProps<"/not
         details={
           <div className="grid gap-6">
             <StoryToggle noteId={note.id} isStory={(stories?.data ?? []).some((x) => x.id === note.id)} />
-            <FolderPicker itemId={note.id} folderId={note.folderId} folders={folders} />
+            <FolderPicker itemId={note.id} kind="NOTE" title={note.title} folderId={note.folderId} folders={folders} />
             <ItemBacklinks itemId={note.id} />
             <ItemMentions itemId={note.id} size={parseMentions(mentions)} depth={depth} />
             <ItemConnections itemId={note.id} type="NOTE" folderId={note.folderId} depth={depth} />

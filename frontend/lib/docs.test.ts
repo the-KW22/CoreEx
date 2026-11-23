@@ -6,7 +6,7 @@ describe("neighbours", () => {
   it("has no previous page before the first one", () => {
     const { previous, next } = neighbours("/docs");
     expect(previous).toBeNull();
-    expect(next?.href).toBe("/docs/mcp");
+    expect(next?.href).toBe("/docs/shortcuts");
   });
 
   it("has no next page after the last one", () => {
@@ -21,7 +21,7 @@ describe("neighbours", () => {
   });
 
   it("ignores a trailing slash", () => {
-    expect(neighbours("/docs/mcp/").previous?.href).toBe("/docs");
+    expect(neighbours("/docs/mcp/").previous?.href).toBe("/docs/shortcuts");
   });
 
   it("gives nothing for a page that is not in the list", () => {

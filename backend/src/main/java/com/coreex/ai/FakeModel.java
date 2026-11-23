@@ -26,6 +26,16 @@ class FakeModel implements Model {
 		var last = messages.isEmpty() ? null : messages.get(messages.size() - 1);
 		var asked = last == null ? "" : last.blocks().stream().filter(b -> b instanceof ContentBlock.Text)
 				.map(b -> ((ContentBlock.Text) b).text()).reduce("", String::concat);
+		if (asked.contains("[where]")) {
+			// Says back the page, selection and trail parts of the system prompt, so a test can see what the model was told.
+			var told = new StringBuilder();
+			for (var tag : List.of("page", "selection", "trail")) {
+				var found = java.util.regex.Pattern.compile("(?s)<" + tag + ">(.*?)</" + tag + ">").matcher(system);
+				told.append(tag).append(": ").append(found.find() ? found.group(1).strip() : "none").append("\n");
+			}
+			onText.accept(told.toString());
+			return new Turn(List.of(new ContentBlock.Text(told.toString())), StopReason.END_TURN, 100, 100);
+		}
 		if (asked.contains("[search]")) {
 			var query = asked.replace("[search]", "").strip();
 			return new Turn(List.of(new ContentBlock.ToolUse(callId(), "search", Map.of("query", query))),

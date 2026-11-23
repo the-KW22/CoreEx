@@ -3604,10 +3604,42 @@ export interface components {
         ProposalList: {
             items: components["schemas"]["ProposalView"][];
         };
+        /** @description Where the User is in CoreEx when they send this message. It shapes this reply only and is never stored. */
+        ChatContext: {
+            /** @description The Note or Asset the User has open */
+            open?: components["schemas"]["OpenItem"];
+            /** @description Text the User selected in the Note editor */
+            selection?: string | null;
+            /** @description The User's recent actions, oldest first */
+            trail?: components["schemas"]["TrailStep"][] | null;
+        };
+        OpenItem: {
+            /** @enum {string} */
+            kind: "NOTE" | "ASSET";
+            /** Format: uuid */
+            id: string;
+            /** @description The Item's title */
+            title?: string | null;
+        };
         SendRequest: {
             text: string;
             /** @description The Use my Notes switch for this message; absent keeps the Chat's own setting */
             useNotes?: boolean | null;
+            /** @description Where the User is in CoreEx, for this reply only; never stored */
+            context?: components["schemas"]["ChatContext"];
+        };
+        TrailStep: {
+            /** @enum {string} */
+            action: "OPENED" | "CREATED" | "EDITED" | "MOVED" | "TRASHED" | "SEARCHED";
+            /** @enum {string|null} */
+            kind?: "NOTE" | "ASSET" | "FOLDER" | "TAG" | "SEARCH" | null;
+            /**
+             * Format: uuid
+             * @description The Item's id, absent for a search
+             */
+            id?: string | null;
+            /** @description The Item's title, or the search words for SEARCHED */
+            title?: string | null;
         };
         AnswerQuestionRequest: {
             toolUseId: string;
