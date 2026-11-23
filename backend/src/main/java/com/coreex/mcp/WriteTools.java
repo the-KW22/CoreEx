@@ -234,6 +234,12 @@ class WriteTools {
 				yield new ToolCatalogue.Change(item.title(), tagNames(now), tagNames(listed));
 			}
 			case "restore" -> new ToolCatalogue.Change(null, IN_TRASH, BACK);
+			case "add_fact" -> new ToolCatalogue.Change(text(input, "category"), null,
+					Objects.requireNonNullElse(text(input, "text"), "") + "\n“" + Objects.requireNonNullElse(text(input, "quote"), "") + "”");
+			case "add_story" -> new ToolCatalogue.Change(text(input, "title"), null,
+					"Situation: " + Objects.requireNonNullElse(text(input, "situation"), "") + "\nAction: "
+							+ Objects.requireNonNullElse(text(input, "action"), "") + "\nResult: "
+							+ Objects.requireNonNullElse(text(input, "result"), ""));
 			case "move_folder", "trash_folder" -> {
 				var folder = folders.requireLive(userId, id(input, "id"));
 				yield new ToolCatalogue.Change(folder.name(), place(userId, folder.parentId()),

@@ -40,9 +40,13 @@ class ChatRepository {
 
 	private static final ObjectWriter WEB_WRITER = JSON.writerFor(WEB);
 
+	private static final String CHAT_COLUMNS = "id, title, created_at, last_used_at, use_notes, scope, application_id, use_applications, use_knowledge";
+
 	private static final RowMapper<Chat> CHAT = (rs, n) -> new Chat(rs.getObject("id", UUID.class),
 			rs.getString("title"), rs.getObject("created_at", OffsetDateTime.class).toInstant(),
-			rs.getObject("last_used_at", OffsetDateTime.class).toInstant(), rs.getBoolean("use_notes"));
+			rs.getObject("last_used_at", OffsetDateTime.class).toInstant(), rs.getBoolean("use_notes"),
+			Chat.Scope.valueOf(rs.getString("scope")), rs.getObject("application_id", UUID.class),
+			rs.getBoolean("use_applications"), rs.getBoolean("use_knowledge"));
 
 	private static final RowMapper<ChatMessage> MESSAGE = (rs, n) -> new ChatMessage(rs.getObject("id", UUID.class),
 			Model.Role.valueOf(rs.getString("role")), JSON.readValue(rs.getString("content"), BLOCKS),
@@ -58,18 +62,20 @@ class ChatRepository {
 	}
 
 	List<Chat> list(UUID owner) {
-		return jdbc.sql("select id, title, created_at, last_used_at, use_notes from chats where owner_id = :owner order by last_used_at desc, id")
+		return jdbc.sql("select " + CHAT_COLUMNS + " from chats where owner_id = :owner order by last_used_at desc, id")
 				.param("owner", owner).query(CHAT).list();
 	}
 
 	Optional<Chat> find(UUID owner, UUID id) {
-		return jdbc.sql("select id, title, created_at, last_used_at, use_notes from chats where id = :id and owner_id = :owner")
+		return jdbc.sql("select " + CHAT_COLUMNS + " from chats where id = :id and owner_id = :owner")
 				.param("id", id).param("owner", owner).query(CHAT).optional();
 	}
 
-	Chat create(UUID owner, Instant now) {
-		return jdbc.sql("insert into chats (owner_id, created_at, last_used_at) values (:owner, :now, :now) returning id, title, created_at, last_used_at, use_notes")
-				.param("owner", owner).param("now", Timestamp.from(now)).query(CHAT).single();
+	/** A Career or Application Chat starts with Use my Notes off; a general one with it on, as before. */
+	Chat create(UUID owner, Instant now, Chat.Scope scope, UUID applicationId) {
+		return jdbc.sql("insert into chats (owner_id, created_at, last_used_at, scope, application_id, use_notes) values (:owner, :now, :now, :scope, :app, :notes) returning " + CHAT_COLUMNS)
+				.param("owner", owner).param("now", Timestamp.from(now)).param("scope", scope.name()).param("app", applicationId)
+				.param("notes", scope == Chat.Scope.GENERAL).query(CHAT).single();
 	}
 
 	boolean delete(UUID owner, UUID id) {
@@ -99,8 +105,9 @@ class ChatRepository {
 		jdbc.sql("update chats set title = :title where id = :id").param("title", title).param("id", id).update();
 	}
 
-	void setUseNotes(UUID id, boolean useNotes) {
-		jdbc.sql("update chats set use_notes = :useNotes where id = :id").param("useNotes", useNotes).param("id", id).update();
+	void setSwitches(UUID id, boolean useNotes, boolean useApplications, boolean useKnowledge) {
+		jdbc.sql("update chats set use_notes = :notes, use_applications = :apps, use_knowledge = :knowledge where id = :id")
+				.param("notes", useNotes).param("apps", useApplications).param("knowledge", useKnowledge).param("id", id).update();
 	}
 
 	boolean hasMessages(UUID chatId) {

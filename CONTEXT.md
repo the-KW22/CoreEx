@@ -76,6 +76,9 @@ _Avoid_: Segment, passage, fragment, block
 A saved back-and-forth in which a User asks a model questions or for work, and the model can read that User's Items to answer, showing the Notes it read as sources. It is kept until the User deletes it, does not go through the Trash, and is not an Item. It is also the name of the module.
 _Avoid_: Conversation, thread, assistant, bot, AI search
 
+**Career Chat**:
+A Chat whose scope is Career or one Application, fixed when it is made. Only these Chats may use the User's Facts, Stories and Career results, and only they may propose a Fact or a Story; a General Chat never does.
+
 **Proposal**:
 A change to the knowledge base that the model in a Chat offers, such as a new Note, an edit or a move to the Trash, and that happens only if the User approves it. An edit shows as a diff the User can change before approving, and is drawn on the Note itself when its page is open (Accept and Reject there answer the same Proposal); Proposals made in one reply can be approved together, all or nothing. Each is answered once (Applied, Rejected, or Replaced by a newer one for the same Note), and the record stays in the Chat. An Agent on `/mcp` makes the same changes straight away; a Proposal is how Chat makes them.
 _Avoid_: Suggestion, action, tool call, Suggested Link

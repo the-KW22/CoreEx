@@ -1,6 +1,7 @@
 import { Alert } from "@/components/alert";
 import { getApi } from "@/lib/api/server";
 
+import { CareerChatLink } from "../../chat/career-chat-link";
 import { Facts } from "./facts";
 import { PreferencesForm } from "./preferences";
 import { Stories } from "./stories";
@@ -25,7 +26,10 @@ export default async function KnowledgePage({ searchParams }: PageProps<"/career
   return (
     <div className="mx-auto grid max-w-4xl gap-10">
       <header className="grid gap-1">
-        <h1 className="text-2xl font-semibold">Knowledge</h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-2xl font-semibold">Knowledge</h1>
+          <CareerChatLink start={{ scope: "CAREER" }}>Career chat</CareerChatLink>
+        </div>
         <p className="text-sm text-muted-foreground">What the AI may say about you. It uses only Facts you keep, Stories and your own documents.</p>
       </header>
       <Facts

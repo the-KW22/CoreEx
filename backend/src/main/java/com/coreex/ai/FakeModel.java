@@ -33,7 +33,8 @@ class FakeModel implements Model {
 	 * A conversation gets one fixed reply. Two triggers in the last message serve the Chat end-to-end tests: "[slow]" writes
 	 * a long reply a word at a time (so Stop has something to stop), and "[search]" first runs the search tool with the
 	 * rest of the message, then answers (so the answer has sources). "[propose]" proposes a new Note whose text is the rest
-	 * of the message, and "[ask]" asks a question with two choices and goes on with the answer.
+	 * of the message, and "[ask]" asks a question with two choices and goes on with the answer. "[fact] text | quote"
+	 * proposes a Fact, "[story] title" a Story and "[knowledge] query" searches the Knowledge.
 	 */
 	@Override
 	public Turn converse(String system, List<Message> messages, List<ToolSpec> tools, Consumer<String> onText, long maxTokens) {
@@ -74,6 +75,24 @@ class FakeModel implements Model {
 			return new Turn(List.of(new ContentBlock.ToolUse(callId(), "ask_user_question",
 					Map.of("question", "Which Folder should it go in?", "choices", List.of("Work", "Home")))), StopReason.TOOL_USE, 100, 100);
 		}
+		if (asked.contains("[fact]")) {
+			// "[fact] <text> | <quote>": proposes a Fact with the category EXPERIENCE; the server sets its source.
+			var parts = asked.replace("[fact]", "").split("\\|", 2);
+			var quote = parts.length > 1 ? parts[1].strip() : "";
+			return new Turn(List.of(new ContentBlock.ToolUse(callId(), "add_fact",
+					Map.of("text", parts[0].strip(), "category", "EXPERIENCE", "quote", quote))), StopReason.TOOL_USE, 100, 100);
+		}
+		if (asked.contains("[story]")) {
+			// "[story] <title>": proposes a Story with short filler for its parts.
+			var title = asked.replace("[story]", "").strip();
+			return new Turn(List.of(new ContentBlock.ToolUse(callId(), "add_story", Map.of("title", title,
+					"situation", "A fake situation.", "action", "A fake action.", "result", "A fake result."))), StopReason.TOOL_USE, 100, 100);
+		}
+		if (asked.contains("[knowledge]")) {
+			// "[knowledge] <query>": searches the User's Knowledge, then answers.
+			return new Turn(List.of(new ContentBlock.ToolUse(callId(), "search_knowledge",
+					Map.of("query", asked.replace("[knowledge]", "").strip()))), StopReason.TOOL_USE, 100, 100);
+		}
 		if (asked.contains("[asset]")) {
 			// "[asset] <asset id>": reads that file with the read_asset tool, then answers.
 			return new Turn(List.of(new ContentBlock.ToolUse(callId(), "read_asset", Map.of("id", asked.replace("[asset]", "").strip()))),
@@ -87,6 +106,9 @@ class FakeModel implements Model {
 			var reply = called.contains("ask_user_question") ? "Going with: " + answer
 					: called.contains("create_note") ? "I proposed a Note. It waits for your approval."
 							: called.contains("read_asset") ? "I read the file."
+							: called.contains("search_knowledge") ? "I searched your Knowledge."
+							: called.contains("add_fact") ? "I proposed a Fact. It waits for your approval."
+							: called.contains("add_story") ? "I proposed a Story. It waits for your approval."
 							: "This is a fake reply from your Notes.";
 			onText.accept(reply);
 			return new Turn(List.of(new ContentBlock.Text(reply)), StopReason.END_TURN, 100, 100);

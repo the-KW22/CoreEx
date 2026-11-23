@@ -56,6 +56,10 @@ class ChatController {
 			Boolean useNotes,
 			@Schema(nullable = true, description = "The Use the web switch for this message only, off when absent; never remembered")
 			Boolean useWeb,
+			@Schema(nullable = true, description = "The Use my Applications switch (Career and Application Chats); absent keeps the Chat's own setting")
+			Boolean useApplications,
+			@Schema(nullable = true, description = "The Use my Knowledge switch (Career and Application Chats); absent keeps the Chat's own setting")
+			Boolean useKnowledge,
 			@Valid @Schema(nullable = true, description = "Where the User is in CoreEx, for this reply only; never stored")
 			ChatContext context) {
 
@@ -66,10 +70,19 @@ class ChatController {
 
 	}
 
+	/** The body that starts a Chat: GENERAL when none is given, and an Application id only for an APPLICATION Chat. */
+	record CreateRequest(@Schema(nullable = true, description = "GENERAL (the default), CAREER or APPLICATION") Chat.Scope scope,
+			@Schema(nullable = true, description = "The User's Application, for an APPLICATION Chat only") UUID applicationId) {
+	}
+
 	record ChatSummary(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant lastUsedAt) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant lastUsedAt,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Chat.Scope scope,
+			@Schema(nullable = true, description = "The Application of an APPLICATION Chat; null otherwise") UUID applicationId,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean useApplications,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean useKnowledge) {
 	}
 
 	record ChatList(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ChatSummary> items,
@@ -154,6 +167,10 @@ class ChatController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant lastUsedAt,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Use my Notes switch, as the Chat remembers it")
 			boolean useNotes,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "GENERAL, CAREER or APPLICATION; fixed when the Chat is made") Chat.Scope scope,
+			@Schema(nullable = true, description = "The Application of an APPLICATION Chat; null otherwise") UUID applicationId,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Use my Applications switch, as the Chat remembers it") boolean useApplications,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Use my Knowledge switch, as the Chat remembers it") boolean useKnowledge,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<MessageView> messages,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Proposals of the Chat, oldest first") List<ProposalView> proposals) {
 	}
@@ -171,17 +188,25 @@ class ChatController {
 	@Operation(summary = "The User's Chats, most recently used first")
 	ChatList list(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user) {
 		var items = chats.list(user.id()).stream()
-				.map(c -> new ChatSummary(c.id(), c.title(), c.createdAt(), c.lastUsedAt())).toList();
+				.map(c -> new ChatSummary(c.id(), c.title(), c.createdAt(), c.lastUsedAt(), c.scope(), c.applicationId(),
+						c.useApplications(), c.useKnowledge())).toList();
 		return new ChatList(items, items.size());
 	}
 
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
-	@Operation(summary = "Starts an empty Chat in the general scope")
+	@Operation(summary = "Starts an empty Chat: in the general scope unless a scope is given")
 	@ApiResponse(responseCode = "201", description = "The new Chat, titled New chat",
 			content = @Content(mediaType = JSON, schema = @Schema(implementation = ChatDetail.class)))
-	ChatDetail create(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user) {
-		return detail(new ChatService.Detail(chats.create(user.id()), List.of(), Map.of(), List.of()));
+	@ApiResponse(responseCode = "400", description = "Code INVALID_REQUEST: an APPLICATION Chat without its Application, or another scope with one",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	@ApiResponse(responseCode = "404", description = "Code NOT_FOUND: the Application is not the User's",
+			content = @Content(mediaType = JSON, schema = @Schema(implementation = ErrorBody.class)))
+	ChatDetail create(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
+			@RequestBody(required = false) CreateRequest request) {
+		var scope = request == null || request.scope() == null ? Chat.Scope.GENERAL : request.scope();
+		var applicationId = request == null ? null : request.applicationId();
+		return detail(new ChatService.Detail(chats.create(user.id(), scope, applicationId), List.of(), Map.of(), List.of()));
 	}
 
 	@GetMapping("/{id}")
@@ -220,7 +245,8 @@ class ChatController {
 	SseEmitter send(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @Valid @RequestBody SendRequest request) {
 		var emitter = new SseEmitter(properties.maxReplyDuration().plusMinutes(1).toMillis());
-		chats.reply(user, id, request.text(), request.useNotes(), request.useWeb(), request.context(), emitter);
+		chats.reply(user, id, request.text(), request.useNotes(), request.useWeb(), request.useApplications(),
+				request.useKnowledge(), request.context(), emitter);
 		return emitter;
 	}
 
@@ -292,7 +318,8 @@ class ChatController {
 								.map(s -> new SourceView(s.id(), s.type(), s.title(), s.removed(), s.heading())).toList(),
 						m.createdAt(), m.webSources()))
 				.toList();
-		return new ChatDetail(chat.id(), chat.title(), chat.createdAt(), chat.lastUsedAt(), chat.useNotes(), messages,
+		return new ChatDetail(chat.id(), chat.title(), chat.createdAt(), chat.lastUsedAt(), chat.useNotes(), chat.scope(),
+				chat.applicationId(), chat.useApplications(), chat.useKnowledge(), messages,
 				detail.proposals().stream().map(ChatController::view).toList());
 	}
 

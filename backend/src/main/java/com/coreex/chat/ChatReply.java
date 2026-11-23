@@ -141,8 +141,8 @@ final class ChatReply {
 
 	private final UUID chatId;
 
-	/** The Use my Notes switch for this reply: when off, no tools are offered and the tool blocks are not replayed. */
-	private final boolean useNotes;
+	/** Which tools this reply may use, from the Chat's scope and switches: the offered ones and each call are checked against it. */
+	private final ToolAccess access;
 
 	/** The Use the web switch for this reply only: when on, the provider's web tools are offered. */
 	private final boolean useWeb;
@@ -178,7 +178,7 @@ final class ChatReply {
 	private boolean clientGone;
 
 	ChatReply(ChatRepository chats, AiService ai, ChatTools tools, ChatProposals proposals, ChatProperties properties,
-			Clock clock, User owner, UUID chatId, boolean useNotes, boolean useWeb, ChatContext context, ChatSources sources,
+			Clock clock, User owner, UUID chatId, ToolAccess access, boolean useWeb, ChatContext context, ChatSources sources,
 			ChatAssets assets, SseEmitter out) {
 		this.chats = chats;
 		this.ai = ai;
@@ -188,7 +188,7 @@ final class ChatReply {
 		this.clock = clock;
 		this.owner = owner;
 		this.chatId = chatId;
-		this.useNotes = useNotes;
+		this.access = access;
 		this.useWeb = useWeb;
 		this.context = context;
 		this.sources = sources;
@@ -288,7 +288,8 @@ final class ChatReply {
 			for (var block : turn.blocks()) {
 				if (block instanceof ContentBlock.ToolUse use) {
 					send("tool", new ToolEvent(use.name()));
-					results.add(useNotes && proposals.handles(use.name()) ? propose(use) : runTool(use));
+					results.add(!access.allows(use.name(), use.input()) ? refused(use)
+							: proposals.handles(use.name()) ? propose(use) : runTool(use));
 				}
 			}
 			chats.addMessage(chatId, Model.Role.USER, results, COMPLETE, null, List.of(), clock.instant());
@@ -306,7 +307,7 @@ final class ChatReply {
 		assistantId = chats.addMessage(chatId, Model.Role.ASSISTANT, List.of(), STREAMING, null, List.of(), now);
 		Model.Turn turn;
 		try {
-			turn = ai.converse(owner.id(), ChatPrompt.forReply(context, useWeb), history, offered(), this::onText,
+			turn = ai.converse(owner.id(), ChatPrompt.forReply(context, useWeb, access.scope(), access.applicationId()), history, offered(), this::onText,
 					properties.maxOutputTokens());
 		}
 		catch (RuntimeException e) {
@@ -364,10 +365,9 @@ final class ChatReply {
 		}
 	}
 
-	/** With Use my Notes off nothing of the knowledge base is offered, but the model can still ask a question. */
+	/** The tools the Chat's scope and switches allow: with Use my Notes off, only the question tool (and the Career ones, if on). */
 	private List<Model.ToolSpec> offered() {
-		var offered = new ArrayList<>(useNotes ? tools.specs()
-				: tools.specs().stream().filter(spec -> ChatTools.ASK.equals(spec.name())).toList());
+		var offered = new ArrayList<>(tools.specs().stream().filter(spec -> access.offers(spec.name())).toList());
 		if (useWeb) {
 			// The provider counts max_uses for each call, so what is left of the reply's 5 searches is passed on every call.
 			var left = WEB_SEARCHES - searchesUsed;
@@ -430,6 +430,11 @@ final class ChatReply {
 		}
 	}
 
+	/** The answer to a call that the Chat's scope or switches do not allow: it is not run and not proposed. */
+	private static ContentBlock refused(ContentBlock.ToolUse use) {
+		return new ContentBlock.ToolResult(use.id(), ToolAccess.REFUSED, true);
+	}
+
 	private void addNote(String note) {
 		assistantBlocks = append(assistantBlocks, new ContentBlock.Text(note));
 		chats.setMessage(assistantId, assistantBlocks, COMPLETE, null);
@@ -471,8 +476,8 @@ final class ChatReply {
 
 	/**
 	 * The stored messages as the model receives them. A tool result is wrapped as data under its tool's name. A User's text
-	 * is followed by the pieces quoted for it. With Notes off no tools are offered, so the tool blocks are left out. A
-	 * message with nothing left in it is skipped.
+	 * is followed by the pieces quoted for it. A tool block is left out when the reply no longer offers its tool, since the
+	 * provider wants every tool call it sees to be offered. A message with nothing left in it is skipped.
 	 */
 	private List<Model.Message> history() {
 		var rows = chats.messages(chatId);
@@ -506,7 +511,7 @@ final class ChatReply {
 			var blocks = new ArrayList<ContentBlock>();
 			for (var block : row.blocks()) {
 				if (block instanceof ContentBlock.ToolUse || block instanceof ContentBlock.ToolResult) {
-					if (!paired(block, i, useRow, resultRow) || (!useNotes && !isQuestion(block, toolNames))) {
+					if (!paired(block, i, useRow, resultRow) || !access.offers(toolName(block, toolNames))) {
 						continue;
 					}
 					if (block instanceof ContentBlock.ToolResult result && result.assetId() != null) {
@@ -550,12 +555,12 @@ final class ChatReply {
 		};
 	}
 
-	/** The question tool is not about the knowledge base, so it stays in the history when Use my Notes is off. */
-	private static boolean isQuestion(ContentBlock block, Map<String, String> toolNames) {
+	/** The tool a tool call or its result belongs to; empty for any other block. */
+	private static String toolName(ContentBlock block, Map<String, String> toolNames) {
 		return switch (block) {
-			case ContentBlock.ToolUse use -> ChatTools.ASK.equals(use.name());
-			case ContentBlock.ToolResult result -> ChatTools.ASK.equals(toolNames.get(result.toolUseId()));
-			default -> false;
+			case ContentBlock.ToolUse use -> use.name();
+			case ContentBlock.ToolResult result -> toolNames.getOrDefault(result.toolUseId(), "");
+			default -> "";
 		};
 	}
 

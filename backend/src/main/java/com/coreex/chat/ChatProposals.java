@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.coreex.ai.Model;
 import com.coreex.ai.Model.ContentBlock;
 import com.coreex.common.ApiException;
 import com.coreex.identity.User;
@@ -40,6 +42,8 @@ class ChatProposals {
 
 	/** The tools whose Proposal has a text diff, and so an editable text. */
 	private static final Set<String> NOTE_TOOLS = Set.of("create_note", "update_note", "edit_note");
+
+	private static final String ADD_FACT = "add_fact";
 
 	private static final int RESULT_MAX = 1_000;
 
@@ -94,7 +98,10 @@ class ChatProposals {
 	 * for a Note replaces the older pending ones.
 	 */
 	String propose(User owner, UUID chatId, UUID messageId, UUID batchId, ContentBlock.ToolUse use) {
-		Map<String, Object> input = use.input() == null ? Map.of() : use.input();
+		var input = use.input() == null ? Map.<String, Object>of() : use.input();
+		if (ADD_FACT.equals(use.name())) {
+			input = factInput(chatId, input);
+		}
 		ToolCatalogue.NotePreview preview = NOTE_TOOLS.contains(use.name()) ? catalogue.preview(owner, use.name(), input) : null;
 		var target = preview == null ? null : preview.noteId();
 		var change = catalogue.describe(owner, use.name(), input);
@@ -107,6 +114,30 @@ class ChatProposals {
 		proposals.add(chatId, messageId, batchId, use.id(), use.name(), label(use.name(), input, preview), input, target,
 				preview == null ? null : preview.before(), preview == null ? null : preview.after(), change, now);
 		return PROPOSED;
+	}
+
+	/**
+	 * A Fact the model proposes keeps only its text, category and quote, and the Chat as its source, whatever the model sent.
+	 * The quote must be in the User's own messages of this Chat so far; approval checks it again (ADR 0013: evidence only).
+	 */
+	private Map<String, Object> factInput(UUID chatId, Map<String, Object> input) {
+		var quote = input.get("quote") instanceof String text ? text : "";
+		if (quote.isBlank() || !userText(chatId).contains(quote)) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "QUOTE_NOT_IN_CHAT", "That quote is not in your messages in this Chat.");
+		}
+		var sanitized = new LinkedHashMap<String, Object>();
+		sanitized.put("text", input.get("text"));
+		sanitized.put("category", input.get("category"));
+		sanitized.put("quote", quote);
+		sanitized.put("sourceKind", "CHAT");
+		sanitized.put("sourceId", chatId.toString());
+		return sanitized;
+	}
+
+	/** The text the User wrote in this Chat so far, their messages joined by NUL, so a quote never spans two of them (as at approval). */
+	private String userText(UUID chatId) {
+		return chats.messages(chatId).stream().filter(m -> m.role() == Model.Role.USER).flatMap(m -> m.blocks().stream())
+				.filter(b -> b instanceof ContentBlock.Text).map(b -> ((ContentBlock.Text) b).text()).collect(Collectors.joining("\u0000"));
 	}
 
 	/**
@@ -183,7 +214,8 @@ class ChatProposals {
 		if (!Proposal.APPLIED.equals(proposal.status()) || proposal.result() == null) {
 			return Optional.empty();
 		}
-		var type = NOTE_TOOLS.contains(proposal.tool()) ? "NOTE" : "update_asset".equals(proposal.tool()) ? "ASSET" : null;
+		var type = NOTE_TOOLS.contains(proposal.tool()) || "add_story".equals(proposal.tool()) ? "NOTE"
+				: "update_asset".equals(proposal.tool()) ? "ASSET" : null;
 		if (type == null) {
 			return Optional.empty();
 		}
@@ -214,6 +246,8 @@ class ChatProposals {
 			case "move_item" -> "Move an Item to a Folder";
 			case "trash_item" -> "Move an Item to the Trash";
 			case "restore" -> "Restore an Item from the Trash";
+			case "add_fact" -> "Add a Fact to Knowledge";
+			case "add_story" -> "Add a Story Note";
 			default -> tool;
 		};
 	}

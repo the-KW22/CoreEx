@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { type ChatMessage, type Source, failureNotice, messageText, noteTitle, offersSearch, sourceHref, siteOf, visibleMessages, webSources } from "./chat";
+import { type ChatMessage, type Source, careerSetup, failureNotice, messageText, newCareerSetup, noteTitle, offersSearch, readStart, scopeLabel, sourceHref, siteOf, startHref, visibleMessages, webSources } from "./chat";
 
 const message = (blocks: unknown[], status = "COMPLETE"): ChatMessage =>
   ({ id: "1", role: "ASSISTANT", blocks, status, sources: [], createdAt: "" }) as unknown as ChatMessage;
@@ -80,5 +80,39 @@ describe("webSources", () => {
 
   it("names the site of a link without www", () => {
     expect(siteOf("https://www.example.com/a/b")).toBe("example.com");
+  });
+});
+
+const APP = "0b4f6c1e-2d3a-4b5c-8d9e-0a1b2c3d4e5f";
+
+describe("Career scope", () => {
+  it("reads only a well-formed start from the address", () => {
+    expect(readStart("career", undefined)).toEqual({ scope: "CAREER" });
+    expect(readStart("application", APP)).toEqual({ scope: "APPLICATION", applicationId: APP });
+    expect(readStart("application", "not-an-id")).toBeNull();
+    expect(readStart("application", undefined)).toBeNull();
+    expect(readStart("other", APP)).toBeNull();
+    expect(readStart(undefined, undefined)).toBeNull();
+  });
+
+  it("builds the address that opens a new Chat of each scope", () => {
+    expect(startHref(null)).toBe("/chat");
+    expect(startHref({ scope: "CAREER" })).toBe("/chat?scope=career");
+    expect(startHref({ scope: "APPLICATION", applicationId: APP })).toBe(`/chat?scope=application&application=${APP}`);
+  });
+
+  it("gives a general Chat no Career setup and a Career Chat both switches", () => {
+    expect(careerSetup({ scope: "GENERAL" })).toBeUndefined();
+    expect(careerSetup({})).toBeUndefined();
+    expect(careerSetup({ scope: "CAREER", useApplications: false, useKnowledge: true })).toEqual({ scope: "CAREER", applicationId: null, useApplications: false, useKnowledge: true });
+    expect(careerSetup({ scope: "APPLICATION", applicationId: APP })).toEqual({ scope: "APPLICATION", applicationId: APP, useApplications: true, useKnowledge: true });
+    expect(newCareerSetup({ scope: "APPLICATION", applicationId: APP })).toEqual({ scope: "APPLICATION", applicationId: APP, useApplications: true, useKnowledge: true });
+  });
+
+  it("names a scope for the list", () => {
+    expect(scopeLabel("CAREER")).toBe("Career");
+    expect(scopeLabel("APPLICATION")).toBe("Application");
+    expect(scopeLabel("GENERAL")).toBeNull();
+    expect(scopeLabel(undefined)).toBeNull();
   });
 });

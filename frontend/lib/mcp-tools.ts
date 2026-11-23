@@ -330,8 +330,22 @@ export const MCP_TOOLS: McpTool[] = [
     name: "add_fact",
     group: "Career Facts",
     kind: "change",
-    summary: "Add a Career Fact the User gave, or pull one from a Resume or Note with the exact quote from it. A line already pulled, or one the User forgot, is refused.",
+    summary: "Add a Career Fact the User gave, or pull one from a Resume, a Note or one of their Chats with the exact quote from it. A line already pulled, or one the User forgot, is refused.",
     useWhen: "The User states something about their career, or confirms a line from a Resume or Note that belongs in Knowledge.",
+  },
+  {
+    name: "search_knowledge",
+    group: "Career Facts",
+    kind: "read",
+    summary: "Find the User's active Facts and Story Notes that match some words, best first. A switched-off Fact is never returned.",
+    useWhen: "You need evidence about the User for a job search task and do not know which Fact or Story holds it.",
+  },
+  {
+    name: "add_story",
+    group: "Career Facts",
+    kind: "change",
+    summary: "Make a Story Note: a title and the Situation, Task, Action, Result and Reflection of one example from the User's work, kept as a Note flagged as a Story.",
+    useWhen: "The User tells you an example worth keeping for interviews.",
   },
   {
     name: "switch_off_fact",

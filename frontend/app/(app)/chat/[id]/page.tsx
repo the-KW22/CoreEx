@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
+import { careerSetup } from "@/lib/chat";
 
 import { Conversation } from "../conversation";
 
@@ -14,5 +15,5 @@ export default async function ChatPage({ params }: PageProps<"/chat/[id]">) {
     if (result.response.status === 404) notFound();
     return <p role="alert">Could not load this Chat. Try again.</p>;
   }
-  return <Conversation key={id} chatId={id} initialMessages={chat.messages} initialProposals={chat.proposals} initialUseNotes={chat.useNotes} />;
+  return <Conversation key={id} chatId={id} initialMessages={chat.messages} initialProposals={chat.proposals} initialUseNotes={chat.useNotes} career={careerSetup(chat)} />;
 }

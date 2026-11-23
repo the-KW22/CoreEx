@@ -20,6 +20,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.coreex.ai.AiService;
 import com.coreex.ai.Model;
 import com.coreex.ai.Model.ContentBlock;
+import com.coreex.applications.ApplicationService;
 import com.coreex.common.ApiException;
 import com.coreex.identity.User;
 import com.coreex.search.SearchService;
@@ -59,6 +60,8 @@ public class ChatService {
 
 	private final ChatAssets assets;
 
+	private final ApplicationService applications;
+
 	private final ExecutorService replies = Executors.newVirtualThreadPerTaskExecutor();
 
 	/**
@@ -69,7 +72,7 @@ public class ChatService {
 	private final Map<UUID, ChatReply> running = new ConcurrentHashMap<>();
 
 	ChatService(ChatRepository chats, AiService ai, ChatTools tools, ChatProposals proposals, ChatProperties properties,
-			Clock clock, SearchService search, ChatSources sources, ChatAssets assets) {
+			Clock clock, SearchService search, ChatSources sources, ChatAssets assets, ApplicationService applications) {
 		this.chats = chats;
 		this.ai = ai;
 		this.tools = tools;
@@ -79,6 +82,7 @@ public class ChatService {
 		this.search = search;
 		this.sources = sources;
 		this.assets = assets;
+		this.applications = applications;
 	}
 
 	/** Replies still running when the server stops are interrupted; their messages are left for the next claim to fail. */
@@ -91,8 +95,16 @@ public class ChatService {
 		return chats.list(owner);
 	}
 
-	public Chat create(UUID owner) {
-		return chats.create(owner, clock.instant());
+	/** Starts an empty Chat of the scope. Only an APPLICATION Chat names an Application, and it must be the User's own. */
+	public Chat create(UUID owner, Chat.Scope scope, UUID applicationId) {
+		if ((scope == Chat.Scope.APPLICATION) != (applicationId != null)) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST",
+					"Only an Application Chat names an Application, and every Application Chat must name one.");
+		}
+		if (applicationId != null) {
+			applications.get(owner, applicationId);
+		}
+		return chats.create(owner, clock.instant(), scope, applicationId);
 	}
 
 	public Detail detail(UUID owner, UUID id) {
@@ -124,15 +136,16 @@ public class ChatService {
 	 * Use my Notes switch for this message; null keeps the one the Chat remembers. With Notes on, the closest pieces of the
 	 * User's Notes are quoted with the message and stored with it.
 	 */
-	public void reply(User owner, UUID chatId, String text, Boolean useNotes, Boolean useWeb, ChatContext context, SseEmitter out) {
+	public void reply(User owner, UUID chatId, String text, Boolean useNotes, Boolean useWeb, Boolean useApplications,
+			Boolean useKnowledge, ChatContext context, SseEmitter out) {
 		var chat = require(owner.id(), chatId);
-		var notes = useNotes != null ? useNotes : chat.useNotes();
-		start(owner, chatId, notes, Boolean.TRUE.equals(useWeb), context, out, now -> {
+		var access = ToolAccess.of(chat, useNotes, useApplications, useKnowledge);
+		start(owner, chatId, access, Boolean.TRUE.equals(useWeb), context, out, now -> {
 			var first = !chats.hasMessages(chatId);
-			var quotes = notes ? quotesFor(owner.id(), text) : List.<Quote>of();
+			var quotes = access.useNotes() ? quotesFor(owner.id(), text) : List.<Quote>of();
 			chats.addMessage(chatId, Model.Role.USER, List.of(new ContentBlock.Text(text)), "COMPLETE", null, quotes, now);
-			if (useNotes != null) {
-				chats.setUseNotes(chatId, useNotes);
+			if (useNotes != null || useApplications != null || useKnowledge != null) {
+				chats.setSwitches(chatId, access.useNotes(), access.useApplications(), access.useKnowledge());
 			}
 			if (first) {
 				chats.setTitle(chatId, titleFrom(text));
@@ -148,7 +161,7 @@ public class ChatService {
 	 */
 	public void answerQuestion(User owner, UUID chatId, String toolUseId, String text, SseEmitter out) {
 		var chat = require(owner.id(), chatId);
-		start(owner, chatId, chat.useNotes(), false, null, out, now -> {
+		start(owner, chatId, ToolAccess.of(chat, null, null, null), false, null, out, now -> {
 			var last = chats.messages(chatId).stream().reduce((a, b) -> b).orElse(null);
 			var calls = last == null || last.role() != Model.Role.ASSISTANT ? List.<ContentBlock.ToolUse>of()
 					: last.blocks().stream().filter(b -> b instanceof ContentBlock.ToolUse).map(b -> (ContentBlock.ToolUse) b).toList();
@@ -166,7 +179,7 @@ public class ChatService {
 	 * the server, which streams its events to {@code out}. Refusals (AI off, budget spent, a reply already running) are
 	 * thrown before anything is streamed.
 	 */
-	private void start(User owner, UUID chatId, boolean notes, boolean web, ChatContext context, SseEmitter out,
+	private void start(User owner, UUID chatId, ToolAccess access, boolean web, ChatContext context, SseEmitter out,
 			Consumer<Instant> store) {
 		ai.requireOn(owner.id());
 		ai.requireRoom(owner.id());
@@ -176,7 +189,7 @@ public class ChatService {
 			throw new ApiException(HttpStatus.CONFLICT, "CHAT_BUSY",
 					"This Chat is still answering the last message. Wait for it, or press Stop.");
 		}
-		var reply = new ChatReply(chats, ai, tools, proposals, properties, clock, owner, chatId, notes, web, context, sources,
+		var reply = new ChatReply(chats, ai, tools, proposals, properties, clock, owner, chatId, access, web, context, sources,
 				assets, out);
 		try {
 			chats.failStreaming(chatId);

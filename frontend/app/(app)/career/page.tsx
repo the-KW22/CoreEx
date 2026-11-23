@@ -6,6 +6,7 @@ import { getApi, timezoneCookie } from "@/lib/api/server";
 import { formatLocal } from "@/lib/applications";
 import { SHOW } from "@/lib/career-entries";
 
+import { CareerChatLink } from "../chat/career-chat-link";
 import { BriefingActions } from "./today-briefing";
 
 type Entry = components["schemas"]["EntryResponse"];
@@ -29,7 +30,10 @@ export default async function CareerTodayPage() {
   return (
     <div className="mx-auto grid max-w-3xl gap-10">
       <header className="grid gap-1">
-        <h1 className="text-2xl font-semibold">Today</h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-2xl font-semibold">Today</h1>
+          <CareerChatLink start={{ scope: "CAREER" }}>Career chat</CareerChatLink>
+        </div>
         <p className="text-sm text-muted-foreground">What needs you now, and what is coming up across your Applications.</p>
       </header>
       <EntryList id="needs-you" title="Needs you" empty="Nothing needs you right now." entries={needsYou} zone={zone} sends={sends} />

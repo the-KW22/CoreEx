@@ -4,12 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getApi } from "@/lib/api/server";
-import { noteTitle } from "@/lib/chat";
+import { type ChatStart, careerSetup, noteTitle } from "@/lib/chat";
 
-// A new, empty Chat; its id, or null when the API could not make one.
-export async function createChat(): Promise<string | null> {
+// A new, empty Chat (of a Career or Application scope when given); its id, or null when the API could not make one.
+export async function createChat(start: ChatStart | null = null): Promise<string | null> {
   const api = await getApi();
-  const result = await api.POST("/api/chats").catch(() => null);
+  const result = await api.POST("/api/chats", { body: start ? { scope: start.scope, applicationId: start.scope === "APPLICATION" ? start.applicationId : null } : undefined }).catch(() => null);
   return result?.data?.id ?? null;
 }
 
@@ -55,7 +55,7 @@ export async function loadDock() {
   const latest = list.data.items[0];
   const detail = latest ? await api.GET("/api/chats/{id}", { params: { path: { id: latest.id } } }).catch(() => null) : null;
   if (latest && !detail?.data) return null;
-  return { chat: latest && detail?.data ? { id: latest.id, messages: detail.data.messages, proposals: detail.data.proposals, useNotes: detail.data.useNotes } : null, usage: usage?.data ?? null };
+  return { chat: latest && detail?.data ? { id: latest.id, messages: detail.data.messages, proposals: detail.data.proposals, useNotes: detail.data.useNotes, career: careerSetup(detail.data) } : null, usage: usage?.data ?? null };
 }
 
 // One Chat again, after a reply, so the panel shows what the server stored.
@@ -63,5 +63,5 @@ export async function loadChat(id: string) {
   const api = await getApi();
   const [detail, usage] = await Promise.all([api.GET("/api/chats/{id}", { params: { path: { id } } }).catch(() => null), api.GET("/api/ai/usage").catch(() => null)]);
   if (!detail?.data) return null;
-  return { chat: { id, messages: detail.data.messages, proposals: detail.data.proposals, useNotes: detail.data.useNotes }, usage: usage?.data ?? null };
+  return { chat: { id, messages: detail.data.messages, proposals: detail.data.proposals, useNotes: detail.data.useNotes, career: careerSetup(detail.data) }, usage: usage?.data ?? null };
 }

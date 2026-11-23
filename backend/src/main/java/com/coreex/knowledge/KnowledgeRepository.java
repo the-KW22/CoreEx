@@ -13,6 +13,8 @@ import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
+import tools.jackson.databind.json.JsonMapper;
+
 /** Every query carries the owner id. */
 @Repository
 public class KnowledgeRepository {
@@ -24,7 +26,7 @@ public class KnowledgeRepository {
 	public record Revision(String text, Instant savedAt) {
 	}
 
-	record StoryRow(UUID id, String title, Instant updatedAt) {
+	public record StoryRow(UUID id, String title, Instant updatedAt) {
 	}
 
 	public record PreferencesRow(String targetRoles, List<String> places, BigDecimal minBasePay, String currency, String payPeriod,
@@ -32,6 +34,8 @@ public class KnowledgeRepository {
 	}
 
 	private static final String FACT = "id, text, category, source_kind, source_id, quote, source_key, status, updated_at";
+
+	private static final JsonMapper JSON = JsonMapper.builder().build();
 
 	private final JdbcClient jdbc;
 
@@ -124,6 +128,28 @@ public class KnowledgeRepository {
 	List<String> sourceKeys(UUID ownerId) {
 		return jdbc.sql("select source_key from facts where owner_id = :owner and source_key is not null").param("owner", ownerId)
 				.query(String.class).list();
+	}
+
+	/**
+	 * The text the User wrote in one of their Chats, the messages' text blocks joined: what a Fact from that Chat may quote.
+	 * Reads the chat tables on purpose, since ChatService would make a bean cycle through ToolCatalogue. Empty when the Chat is
+	 * not the User's.
+	 */
+	String chatUserText(UUID ownerId, UUID chatId) {
+		var contents = jdbc.sql("""
+				select m.content::text from chat_messages m join chats c on c.id = m.chat_id
+				where c.owner_id = :owner and c.id = :chat and m.role = 'USER' order by m.position""")
+				.param("owner", ownerId).param("chat", chatId).query(String.class).list();
+		var texts = new java.util.ArrayList<String>();
+		for (var content : contents) {
+			for (var block : JSON.readTree(content)) {
+				if ("text".equals(block.path("type").asString())) {
+					texts.add(block.path("text").asString());
+				}
+			}
+		}
+		// NUL between messages, so a quote can never be matched across two of them.
+		return String.join("\u0000", texts);
 	}
 
 	/** The Resume's plain text; empty when it is missing, not the User's or in the Trash. */

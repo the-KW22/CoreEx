@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { type ChatMessage, type Source, type WebSource, failureNotice, offersSearch, siteOf, sourceHref, visibleMessages, webSources } from "@/lib/chat";
+import { type CareerSetup, type ChatMessage, type Source, type WebSource, failureNotice, offersSearch, siteOf, sourceHref, visibleMessages, webSources } from "@/lib/chat";
 import { chatContext } from "@/lib/chat-context";
 import { readChatEvents } from "@/lib/chat-stream";
 import { type Proposal, groupByMessage, pendingQuestion } from "@/lib/proposals";
@@ -28,6 +28,12 @@ import { ProposalCards } from "./proposal-cards";
 import { QuestionCard } from "./question-card";
 
 const USE_WEB_HELP = "On: for this message only, the model can search the web and read pages (up to 5 searches). Your question and what it looks up are sent to the search provider. Nothing from your Notes should be put in a search, but that is an instruction to the model, not something CoreEx can enforce.";
+
+const USE_APPLICATIONS_HELP = "Off: the model gets no way to read your Applications or what the Career AI made for them.";
+
+const USE_THIS_APPLICATION_HELP = "Off: the model gets no way to read this Application or what the Career AI made for it.";
+
+const USE_KNOWLEDGE_HELP = "Off: the model gets no way to read your Facts or Stories, and cannot propose one. A Fact you switched off is never sent, whatever this says.";
 
 const USE_NOTES_HELP = "Off: nothing from your Notes is sent for this message, and the model gets no way to read them. Quotes already in this Chat stay in its history.";
 
@@ -135,6 +141,7 @@ export function Conversation({
   initialMessages,
   initialProposals,
   initialUseNotes,
+  career,
   initialDraft = "",
   dock,
 }: {
@@ -142,6 +149,8 @@ export function Conversation({
   initialMessages: ChatMessage[];
   initialProposals: Proposal[];
   initialUseNotes: boolean;
+  /** Set for a Career or Application Chat: its scope and the two switches it remembers. */
+  career?: CareerSetup;
   /** A message prepared by another screen; the User still sends it. */
   initialDraft?: string;
   /** In the floating panel: no navigation, the panel reloads the Chat itself and has its own header. */
@@ -152,6 +161,8 @@ export function Conversation({
   const [pending, setPending] = useState<Pending | null>(null);
   const [draft, setDraft] = useState(initialDraft);
   const [useNotes, setUseNotes] = useState(initialUseNotes);
+  const [useApplications, setUseApplications] = useState(career?.useApplications ?? true);
+  const [useKnowledge, setUseKnowledge] = useState(career?.useKnowledge ?? true);
   // The web is off for every message until the User turns it on, and goes off again once it is sent.
   const [useWeb, setUseWeb] = useState(false);
   // A new Chat is made on the first send; keep its id, so a retry after a refusal, and Stop, use it.
@@ -200,7 +211,8 @@ export function Conversation({
     setDraft("");
     const web = useWeb;
     setUseWeb(false);
-    await stream(id, "", { text, useNotes, useWeb: web, context: chatContext() }, text, () => {
+    const switches = career ? { useApplications, useKnowledge } : {};
+    await stream(id, "", { text, useNotes, useWeb: web, ...switches, context: chatContext() }, text, () => {
       setDraft(text);
       setUseWeb(web);
     });
@@ -209,7 +221,7 @@ export function Conversation({
   // A new Chat is made on the first send (or the first answer).
   async function ensureChat(): Promise<string | null> {
     if (activeId) return activeId;
-    const made = await createChat();
+    const made = await createChat(career ? (career.scope === "APPLICATION" && career.applicationId ? { scope: "APPLICATION", applicationId: career.applicationId } : { scope: "CAREER" }) : null);
     if (!made) {
       setNotice({ text: failureNotice(null), search: true });
       return null;
@@ -277,6 +289,22 @@ export function Conversation({
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <header className={dock ? "sr-only" : "flex items-center justify-between gap-2"}>
         {dock ? <h2>Chat</h2> : <h1 className="text-xl font-semibold tracking-tight">Chat</h1>}
+        {career && !dock && (
+          <p className="mr-auto rounded-full border border-border px-2 py-0.5 text-xs font-medium">
+            {career.scope === "APPLICATION" ? (
+              <>
+                About one Application{career.applicationId && (
+                  <>
+                    {": "}
+                    <Link href={`/career/applications/${career.applicationId}`} className="underline underline-offset-4">open it</Link>
+                  </>
+                )}
+              </>
+            ) : (
+              "Career chat"
+            )}
+          </p>
+        )}
         {activeId && !dock && (
           <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)}>
             <Trash2Icon aria-hidden /> Delete Chat
@@ -371,6 +399,38 @@ export function Conversation({
               {USE_NOTES_HELP}
             </TooltipContent>
           </Tooltip>
+          {career && (
+            <>
+              <span id="use-applications-help" className="sr-only">
+                {career.scope === "APPLICATION" ? USE_THIS_APPLICATION_HELP : USE_APPLICATIONS_HELP}
+              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={useApplications} onChange={(e) => setUseApplications(e.target.checked)} aria-describedby="use-applications-help" className="size-4" />
+                    {career.scope === "APPLICATION" ? "Use this Application" : "Use my Applications"}
+                  </label>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-64">
+                  {career.scope === "APPLICATION" ? USE_THIS_APPLICATION_HELP : USE_APPLICATIONS_HELP}
+                </TooltipContent>
+              </Tooltip>
+              <span id="use-knowledge-help" className="sr-only">
+                {USE_KNOWLEDGE_HELP}
+              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={useKnowledge} onChange={(e) => setUseKnowledge(e.target.checked)} aria-describedby="use-knowledge-help" className="size-4" />
+                    Use my Knowledge
+                  </label>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-64">
+                  {USE_KNOWLEDGE_HELP}
+                </TooltipContent>
+              </Tooltip>
+            </>
+          )}
           <span id="use-web-help" className="sr-only">
             {USE_WEB_HELP}
           </span>
@@ -396,7 +456,7 @@ export function Conversation({
           )}
         </div>
         <p className="text-xs text-muted-foreground">
-          Your questions, the Notes that closely match them, the Notes and files the model reads are sent to Anthropic to write the reply. With the web on, what it looks up goes to the search provider too.
+          Your questions, the Notes that closely match them, the Notes and files the model reads are sent to Anthropic to write the reply. {career ? "In a Career chat, the Facts, Stories and Applications it reads are sent too. " : ""}With the web on, what it looks up goes to the search provider too.
         </p>
       </form>
 
