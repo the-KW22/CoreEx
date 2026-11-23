@@ -20,6 +20,7 @@ import com.coreex.TestJwts;
 import com.coreex.TestModel;
 import com.coreex.ai.Model.ContentBlock;
 import com.coreex.ai.Model.Message;
+import com.coreex.ai.Model.ToolSpec;
 import com.coreex.ai.Model.Turn;
 import com.coreex.embeddings.Embedder;
 
@@ -185,7 +186,7 @@ class ChatRetrievalApiTest extends ApiTest {
 
 		say(CHUNK, false, TestModel.text("done"));
 
-		assertThat(model.conversed().get(0).tools()).isEmpty();
+		assertThat(model.conversed().get(0).tools()).extracting(ToolSpec::name).containsExactly("ask_user_question");
 		assertThat(sentText(0)).doesNotContain("<note");
 	}
 
@@ -197,7 +198,7 @@ class ChatRetrievalApiTest extends ApiTest {
 		say("again", false, TestModel.text("second"));
 
 		var history = model.conversed().get(2);
-		assertThat(history.tools()).isEmpty();
+		assertThat(history.tools()).extracting(ToolSpec::name).containsExactly("ask_user_question");
 		assertThat(history.messages()).allSatisfy(m -> assertThat(m.blocks()).allMatch(b -> b instanceof ContentBlock.Text));
 		assertThat(sentText(2)).contains("<note id=\"");
 	}
@@ -208,7 +209,7 @@ class ChatRetrievalApiTest extends ApiTest {
 		assertThat(detail().path("useNotes").asBoolean()).isFalse();
 
 		say("two", null, TestModel.text("b"));
-		assertThat(model.conversed().get(1).tools()).isEmpty();
+		assertThat(model.conversed().get(1).tools()).extracting(ToolSpec::name).containsExactly("ask_user_question");
 		assertThat(detail().path("useNotes").asBoolean()).isFalse();
 
 		say("three", true, TestModel.text("c"));

@@ -37,10 +37,19 @@ class ChatToolsApiTest extends ApiTest {
 	private static final JsonMapper JSON = JsonMapper.builder().build();
 
 	/** The read tools Chat offers: every read tool of the catalogue but list_trash, with Chat's own search. */
-	private static final Set<String> OFFERED = Set.of("search", "list_items", "get_item", "get_asset_url", "list_folders",
+	private static final Set<String> READS = Set.of("search", "list_items", "get_item", "get_asset_url", "list_folders",
 			"get_graph", "suggest_links", "list_tags", "list_applications", "get_application",
 			"get_application_results", "list_facts", "get_fact", "list_cover_letters", "get_cover_letter", "list_resumes",
-			"get_resume");
+			"get_resume", "list_trash");
+
+	/** The write tools the model may propose (never uploads or Career writes), and the question tool. */
+	private static final Set<String> PROPOSABLE = Set.of("create_note", "update_note", "edit_note", "update_asset",
+			"create_folder", "rename_folder", "move_folder", "trash_folder", "create_tag", "rename_tag", "set_tag_colour",
+			"set_tags", "move_item", "trash_item", "restore");
+
+	private static final Set<String> OFFERED = java.util.stream.Stream
+			.of(READS.stream(), PROPOSABLE.stream(), java.util.stream.Stream.of("ask_user_question"))
+			.flatMap(s -> s).collect(java.util.stream.Collectors.toSet());
 
 	@Autowired
 	JdbcClient jdbc;
@@ -123,7 +132,7 @@ class ChatToolsApiTest extends ApiTest {
 	}
 
 	@Test
-	void theOfferedToolsAreTheReadToolsWithObjectSchemas() throws Exception {
+	void theOfferedToolsAreTheReadToolsTheProposableWriteToolsAndTheQuestionWithObjectSchemas() throws Exception {
 		reply("Hi", TestModel.text("ok"));
 
 		var tools = model.conversed().get(0).tools();
@@ -139,14 +148,13 @@ class ChatToolsApiTest extends ApiTest {
 
 	@Test
 	void theCatalogueHoldsExactlyTheReadToolsSoNoWriteToolIsMarkedReadOnly() {
-		var catalogued = new HashSet<>(OFFERED);
-		catalogued.add("list_trash");
-
-		assertThat(catalogue.specs().stream().map(ToolSpec::name)).containsExactlyInAnyOrderElementsOf(catalogued);
+		assertThat(catalogue.specs().stream().map(ToolSpec::name)).containsExactlyInAnyOrderElementsOf(new HashSet<>(READS));
+		assertThat(catalogue.writeSpecs().stream().map(ToolSpec::name)).containsExactlyInAnyOrderElementsOf(PROPOSABLE);
+		assertThat(PROPOSABLE).doesNotContain("start_upload", "confirm_upload");
 	}
 
 	@Test
-	void writeToolsTheTrashAndUnknownNamesAreRefusedAndChangeNothing() throws Exception {
+	void writeToolsOnlyMakeProposalsAndUnknownNamesAndBadEditsAreRefusedAndNothingChanges() throws Exception {
 		var note = note(ownerToken, "Plan", "Original text");
 		var id = "\"" + note + "\"";
 
@@ -154,14 +162,18 @@ class ChatToolsApiTest extends ApiTest {
 				TestModel.toolUse("edit_note", "{\"id\":" + id + ",\"oldText\":\"Original\",\"newText\":\"Changed\"}"),
 				TestModel.toolUse("trash_item", "{\"id\":" + id + "}"), TestModel.toolUse("list_trash", "{}"),
 				TestModel.toolUse("create_note", "{\"title\":\"New\",\"markdown\":\"x\"}"),
-				TestModel.toolUse("no_such_tool", "{}"), TestModel.text("done"));
+				TestModel.toolUse("start_upload", "{}"), TestModel.toolUse("no_such_tool", "{}"), TestModel.text("done"));
 
 		var results = toolResults(stored);
-		assertThat(results).hasSize(5);
-		assertThat(results).allSatisfy(result -> assertThat(result.path("isError").asBoolean()).isTrue());
+		assertThat(results).hasSize(6);
+		// A bad edit (no version) and the names that are not on the list are refused; a real write waits as a Proposal.
+		assertThat(results.stream().map(r -> r.path("isError").asBoolean()).toList())
+				.containsExactly(true, false, false, false, true, true);
+		assertThat(results.get(1).path("content").asString()).contains("Proposed").contains("Nothing has changed");
 		var after = get("/api/notes/" + note, ownerToken);
 		assertThat(after.statusCode()).as(after.body()).isEqualTo(200);
 		assertThat(after.body()).contains("Original text").doesNotContain("Changed");
+		assertThat(get("/api/items?type=NOTE", ownerToken).body()).doesNotContain("\"New\"");
 	}
 
 	@Test

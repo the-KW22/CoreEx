@@ -982,6 +982,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/chats/{id}/proposals/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approves or rejects Proposals */
+        post: operations["answerProposals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/chats/{id}/messages": {
         parameters: {
             query?: never;
@@ -996,6 +1013,26 @@ export interface paths {
          * @description The reply streams as Server-Sent Events. `text` carries a piece of the answer ({text}), `tool` a tool the model is running ({name}), `done` ends the reply ({status}: COMPLETE or STOPPED, and {sources}: the Items the turn used), and `error` ends it with a failure ({code}, {message}); the failure is also stored on the message. Refusals come before the stream, as JSON: AI_OFF (503), AI_BUDGET_SPENT (429), CHAT_BUSY (409), NOT_FOUND (404).
          */
         post: operations["send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chats/{id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answers the model's question and streams the rest of the reply
+         * @description The reply streams as Server-Sent Events. `text` carries a piece of the answer ({text}), `tool` a tool the model is running ({name}), `done` ends the reply ({status}: COMPLETE or STOPPED, and {sources}: the Items the turn used), and `error` ends it with a failure ({code}, {message}); the failure is also stored on the message. Refusals come before the stream, as JSON: AI_OFF (503), AI_BUDGET_SPENT (429), CHAT_BUSY (409), NOT_FOUND (404).
+         */
+        post: operations["answer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3429,9 +3466,18 @@ export interface components {
             /** @description The Use my Notes switch, as the Chat remembers it */
             useNotes: boolean;
             messages: components["schemas"]["MessageView"][];
+            /** @description The Proposals of the Chat, oldest first */
+            proposals: components["schemas"]["ProposalView"][];
         };
         ContentBlock: {
             type: string;
+        };
+        LinkView: {
+            /** Format: uuid */
+            id: string;
+            /** @description NOTE or ASSET */
+            type: string;
+            title: string;
         };
         MessageView: {
             /** Format: uuid */
@@ -3446,6 +3492,37 @@ export interface components {
             errorCode?: string | null;
             /** @description On the last assistant message of a turn: the Items the turn used; empty elsewhere */
             sources: components["schemas"]["SourceView"][];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ProposalView: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description The reply that made it: Proposals with the same batch can be approved together
+             */
+            batchId: string;
+            /**
+             * Format: uuid
+             * @description The assistant message it was made in
+             */
+            messageId: string;
+            tool: string;
+            /** @description What it would do, in words */
+            label: string;
+            /** @description PENDING, APPLIED, REJECTED or REPLACED */
+            status: string;
+            /** @description The Note's text now, for a Note edit */
+            before?: string | null;
+            /** @description The Note's text as it would be, for a Note tool; the User may edit it */
+            after?: string | null;
+            /** @description The other inputs of the tool, for the card's details */
+            details: {
+                [key: string]: unknown;
+            };
+            /** @description The Note or Asset an applied Proposal made or changed */
+            link?: components["schemas"]["LinkView"];
             /** Format: date-time */
             createdAt: string;
         };
@@ -3480,10 +3557,29 @@ export interface components {
                 [key: string]: unknown;
             };
         });
+        AnswerProposalsRequest: {
+            ids: string[];
+            /**
+             * @description APPROVE or REJECT
+             * @enum {string}
+             */
+            decision: "APPROVE" | "REJECT";
+            /** @description The User's own text for a Note Proposal, by its id, saved in place of the model's */
+            edits?: {
+                [key: string]: string;
+            } | null;
+        };
+        ProposalList: {
+            items: components["schemas"]["ProposalView"][];
+        };
         SendRequest: {
             text: string;
             /** @description The Use my Notes switch for this message; absent keeps the Chat's own setting */
             useNotes?: boolean | null;
+        };
+        AnswerQuestionRequest: {
+            toolUseId: string;
+            text: string;
         };
         UploadIntentRequest: {
             filename: string;
@@ -7251,6 +7347,50 @@ export interface operations {
             };
         };
     };
+    answerProposals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerProposalsRequest"];
+            };
+        };
+        responses: {
+            /** @description The Proposals as they are now */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalList"];
+                };
+            };
+            /** @description Code NOT_FOUND: no such Chat or Proposal (also for another User's) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code ALREADY_ANSWERED, CHAT_BUSY (a reply is running) or VERSION_CONFLICT (the Note changed since: ask Chat to redo it); nothing was applied */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     send: {
         parameters: {
             query?: never;
@@ -7295,6 +7435,41 @@ export interface operations {
             };
             /** @description Code AI_OFF: AI is not switched on */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerQuestionRequest"];
+            };
+        };
+        responses: {
+            /** @description The reply as Server-Sent Events (text/event-stream) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Code NO_PENDING_QUESTION or CHAT_BUSY */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

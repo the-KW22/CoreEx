@@ -3,7 +3,7 @@
 import { ArrowUpIcon, FileTextIcon, SquareIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 
 import { ChatMarkdown } from "@/components/chat-markdown";
 import {
@@ -20,8 +20,11 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type ChatMessage, type Source, failureNotice, offersSearch, sourceHref, visibleMessages } from "@/lib/chat";
 import { readChatEvents } from "@/lib/chat-stream";
+import { type Proposal, groupByMessage, pendingQuestion } from "@/lib/proposals";
 
 import { createChat, deleteChat, saveAsNote, stopChat } from "./actions";
+import { ProposalCards } from "./proposal-cards";
+import { QuestionCard } from "./question-card";
 
 const USE_NOTES_HELP = "Off: nothing from your Notes is sent for this message, and the model gets no way to read them. Quotes already in this Chat stay in its history.";
 
@@ -115,7 +118,17 @@ function Reply({ text, status, sources, errorCode, working }: { text: string; st
 }
 
 // One Chat's conversation and message box. `chatId` is null on /chat: the Chat is made when the first message is sent.
-export function Conversation({ chatId, initialMessages, initialUseNotes }: { chatId: string | null; initialMessages: ChatMessage[]; initialUseNotes: boolean }) {
+export function Conversation({
+  chatId,
+  initialMessages,
+  initialProposals,
+  initialUseNotes,
+}: {
+  chatId: string | null;
+  initialMessages: ChatMessage[];
+  initialProposals: Proposal[];
+  initialUseNotes: boolean;
+}) {
   const router = useRouter();
   const [seen, setSeen] = useState(initialMessages);
   const [pending, setPending] = useState<Pending | null>(null);
@@ -137,6 +150,11 @@ export function Conversation({ chatId, initialMessages, initialUseNotes }: { cha
   }
 
   const messages = visibleMessages(initialMessages);
+  const shown = new Map(messages.map((m) => [m.id, m]));
+  // A message with only tool calls shows nothing itself, but the Proposals it made still show under it.
+  const proposalsByMessage = groupByMessage(initialProposals);
+  // Only a real stored call that nothing has answered makes a card; text the model writes never does.
+  const question = pending ? null : pendingQuestion(initialMessages);
   const last = initialMessages.at(-1);
   const running = pending?.status === "WORKING";
   // A reply started elsewhere (another tab, or before a reload) is still being written: look again until it ends.
@@ -156,28 +174,49 @@ export function Conversation({ chatId, initialMessages, initialUseNotes }: { cha
     const text = draft.trim();
     if (!text || running) return;
     setNotice(null);
-    let id = activeId;
-    if (!id) {
-      id = await createChat();
-      if (!id) return setNotice({ text: failureNotice(null), search: true });
-      setStartedId(id);
-    }
+    const id = await ensureChat();
+    if (!id) return;
     setDraft("");
-    setPending({ user: text, text: "", tool: null, status: "WORKING", sources: [] });
+    await stream(id, "", { text, useNotes }, text, () => setDraft(text));
+  }
+
+  // A new Chat is made on the first send (or the first answer).
+  async function ensureChat(): Promise<string | null> {
+    if (activeId) return activeId;
+    const made = await createChat();
+    if (!made) {
+      setNotice({ text: failureNotice(null), search: true });
+      return null;
+    }
+    setStartedId(made);
+    return made;
+  }
+
+  // The answer to the question card continues the same conversation: it streams like a sent message.
+  async function answerQuestion(toolUseId: string, text: string) {
+    if (running || !activeId) return;
+    setNotice(null);
+    await stream(activeId, "/answer", { toolUseId, text }, text, () => undefined);
+  }
+
+  // Streams a reply from the route `path` under the Chat. `shown` is the User's side of it; a refusal before anything is
+  // stored calls `restore`, so nothing the User typed is lost.
+  async function stream(id: string, path: "" | "/answer", payload: object, shown: string, restore: () => void) {
+    setPending({ user: shown, text: "", tool: null, status: "WORKING", sources: [] });
     setAnnounce("Working on a reply.");
     let status: Pending["status"] = "COMPLETE";
     let failure: Problem | null = null;
     try {
-      const res = await fetch(`/chat-stream/${id}`, {
+      const res = await fetch(`/chat-stream/${id}${path}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, useNotes }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok || !res.body) {
         // A refusal comes before anything is stored: put the text back so nothing is lost.
         const body = (await res.json().catch(() => null)) as { code?: string; message?: string } | null;
         setPending(null);
-        setDraft(text);
+        restore();
         setNotice({ text: failureNotice(body?.code, body?.message), search: offersSearch(body?.code) });
         return;
       }
@@ -225,14 +264,29 @@ export function Conversation({ chatId, initialMessages, initialUseNotes }: { cha
             </p>
           </div>
         )}
-        {messages.map((m) =>
-          m.role === "USER" ? (
-            <p key={m.id} className="max-w-[min(100%,40rem)] justify-self-end whitespace-pre-wrap rounded-[14px] bg-surface px-3 py-2">
-              {m.text}
-            </p>
-          ) : (
-            <Reply key={m.id} text={m.text ?? ""} status={m.status} sources={m.sources} errorCode={m.errorCode} />
-          ),
+        {initialMessages.map((raw) => {
+          const m = shown.get(raw.id);
+          const proposals = proposalsByMessage.get(raw.id);
+          return (
+            <Fragment key={raw.id}>
+              {m &&
+                (m.role === "USER" ? (
+                  <p className="max-w-[min(100%,40rem)] justify-self-end whitespace-pre-wrap rounded-[14px] bg-surface px-3 py-2">{m.text}</p>
+                ) : (
+                  <Reply text={m.text ?? ""} status={m.status} sources={m.sources} errorCode={m.errorCode} />
+                ))}
+              {proposals && activeId && <ProposalCards chatId={activeId} proposals={proposals} busy={running || elsewhere} onAnswered={() => router.refresh()} />}
+            </Fragment>
+          );
+        })}
+        {question && !running && !elsewhere && (
+          <QuestionCard
+            key={question.toolUseId}
+            question={question.question}
+            choices={question.choices}
+            disabled={running}
+            onAnswer={(text) => void answerQuestion(question.toolUseId, text)}
+          />
         )}
         {pending && (
           <>

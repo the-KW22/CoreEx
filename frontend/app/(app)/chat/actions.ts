@@ -37,3 +37,11 @@ export async function saveAsNote(markdown: string): Promise<{ error: string } | 
   if (!result?.data) return { error: result?.error?.message ?? "Could not save the reply as a Note. Try again." };
   redirect(`/notes/${result.data.id}`);
 }
+
+// Approves or rejects Proposals the User has seen. A batch is applied all or nothing on the server. No redirect: the caller refreshes the page.
+export async function answerProposals(chatId: string, ids: string[], decision: "APPROVE" | "REJECT", edits: Record<string, string>): Promise<{ ok: true } | { error: string }> {
+  const api = await getApi();
+  const result = await api.POST("/api/chats/{id}/proposals/answer", { params: { path: { id: chatId } }, body: { ids, decision, edits } }).catch(() => null);
+  if (!result?.data) return { error: result?.error?.message ?? "Could not save your answer. Try again." };
+  return { ok: true };
+}

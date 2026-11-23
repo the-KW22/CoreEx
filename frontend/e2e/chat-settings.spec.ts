@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { expectNoViolations, signIn } from "./helpers";
 
+// It changes the Shared key for everyone, so run it alone or with --workers=1.
 // Needs the API started with COREEX_AI_PROVIDER=fake (and E2E_FAKE_AI=1 here). The test account is the owner, so it is an
 // Admin. The settings are one row shared by everything, so the test puts them back in a `finally`.
 async function saveSettings(page: Page, on: boolean, budget: string) {

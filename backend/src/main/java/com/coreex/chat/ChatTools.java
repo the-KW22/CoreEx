@@ -12,6 +12,9 @@ import com.coreex.identity.User;
  */
 public interface ChatTools {
 
+	/** The Chat-only tool that asks the User a question; a reply that calls it ends and waits for the answer (#376). */
+	String ASK = "ask_user_question";
+
 	List<Model.ToolSpec> specs();
 
 	String run(User user, String name, Map<String, Object> input);

@@ -18,7 +18,8 @@ class FakeModel implements Model {
 	/**
 	 * A conversation gets one fixed reply. Two triggers in the last message serve the Chat end-to-end tests: "[slow]" writes
 	 * a long reply a word at a time (so Stop has something to stop), and "[search]" first runs the search tool with the
-	 * rest of the message, then answers (so the answer has sources).
+	 * rest of the message, then answers (so the answer has sources). "[propose]" proposes a new Note whose text is the rest
+	 * of the message, and "[ask]" asks a question with two choices and goes on with the answer.
 	 */
 	@Override
 	public Turn converse(String system, List<Message> messages, List<ToolSpec> tools, Consumer<String> onText, long maxTokens) {
@@ -27,12 +28,28 @@ class FakeModel implements Model {
 				.map(b -> ((ContentBlock.Text) b).text()).reduce("", String::concat);
 		if (asked.contains("[search]")) {
 			var query = asked.replace("[search]", "").strip();
-			return new Turn(List.of(new ContentBlock.ToolUse("fake-search", "search", Map.of("query", query))),
+			return new Turn(List.of(new ContentBlock.ToolUse(callId(), "search", Map.of("query", query))),
 					StopReason.TOOL_USE, 100, 100);
 		}
+		if (asked.contains("[propose]")) {
+			var text = asked.replace("[propose]", "").strip();
+			return new Turn(List.of(new ContentBlock.ToolUse(callId(), "create_note", Map.of("markdown", "# " + text + "\nProposed by the fake model."))),
+					StopReason.TOOL_USE, 100, 100);
+		}
+		if (asked.contains("[ask]")) {
+			return new Turn(List.of(new ContentBlock.ToolUse(callId(), "ask_user_question",
+					Map.of("question", "Which Folder should it go in?", "choices", List.of("Work", "Home")))), StopReason.TOOL_USE, 100, 100);
+		}
 		if (last != null && last.blocks().stream().anyMatch(b -> b instanceof ContentBlock.ToolResult)) {
-			onText.accept("This is a fake reply from your Notes.");
-			return new Turn(List.of(new ContentBlock.Text("This is a fake reply from your Notes.")), StopReason.END_TURN, 100, 100);
+			var answer = last.blocks().stream().filter(b -> b instanceof ContentBlock.ToolResult)
+					.map(b -> ((ContentBlock.ToolResult) b).content()).reduce("", String::concat);
+			var called = messages.size() < 2 ? "" : messages.get(messages.size() - 2).blocks().stream()
+					.filter(b -> b instanceof ContentBlock.ToolUse).map(b -> ((ContentBlock.ToolUse) b).name()).reduce("", String::concat);
+			var reply = called.contains("ask_user_question") ? "Going with: " + answer
+					: called.contains("create_note") ? "I proposed a Note. It waits for your approval."
+							: "This is a fake reply from your Notes.";
+			onText.accept(reply);
+			return new Turn(List.of(new ContentBlock.Text(reply)), StopReason.END_TURN, 100, 100);
 		}
 		if (asked.contains("[slow]")) {
 			var reply = new StringBuilder();
@@ -52,6 +69,11 @@ class FakeModel implements Model {
 		}
 		onText.accept("This is a fake reply.");
 		return new Turn(List.of(new ContentBlock.Text("This is a fake reply.")), StopReason.END_TURN, 100, 100);
+	}
+
+	/** A tool call id of its own, since a Chat keeps every call and a Proposal is stored by it. */
+	private static String callId() {
+		return "fake-" + java.util.UUID.randomUUID();
 	}
 
 	@Override

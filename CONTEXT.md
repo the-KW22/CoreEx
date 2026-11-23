@@ -76,6 +76,10 @@ _Avoid_: Segment, passage, fragment, block
 A saved back-and-forth in which a User asks a model questions or for work, and the model can read that User's Items to answer, showing the Notes it read as sources. It is kept until the User deletes it, does not go through the Trash, and is not an Item. It is also the name of the module.
 _Avoid_: Conversation, thread, assistant, bot, AI search
 
+**Proposal**:
+A change to the knowledge base that the model in a Chat offers, such as a new Note, an edit or a move to the Trash, and that happens only if the User approves it. An edit shows as a diff the User can change before approving; Proposals made in one reply can be approved together, all or nothing. Each is answered once (Applied, Rejected, or Replaced by a newer one for the same Note), and the record stays in the Chat. An Agent on `/mcp` makes the same changes straight away; a Proposal is how Chat makes them.
+_Avoid_: Suggestion, action, tool call, Suggested Link
+
 **Shared key**:
 The model provider key CoreEx pays for, which every User's Chats use. An Admin can turn it off at any time.
 _Avoid_: Platform key, default key

@@ -3,6 +3,7 @@ package com.coreex.mcp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.ai.mcp.annotation.McpTool;
@@ -15,6 +16,7 @@ import com.coreex.assets.AssetService;
 import com.coreex.common.ApiException;
 import com.coreex.folders.Folder;
 import com.coreex.folders.FolderService;
+import com.coreex.identity.User;
 import com.coreex.items.Item;
 import com.coreex.items.ItemService;
 import com.coreex.notes.Note;
@@ -36,6 +38,8 @@ import io.modelcontextprotocol.common.McpTransportContext;
  */
 @Component
 class WriteTools {
+
+	private static final tools.jackson.databind.json.JsonMapper JSON = tools.jackson.databind.json.JsonMapper.builder().build();
 
 	record NoteSaved(UUID id, String title, int version, Instant updatedAt) {
 	}
@@ -138,7 +142,16 @@ class WriteTools {
 		if (current.version() != version) {
 			throw conflict();
 		}
-		var text = current.body();
+		var text = applyEdits(current.body(), edits);
+		// As in the editor, the title follows the heading only when the edit touched the first line.
+		var firstLineChanged = !text.lines().findFirst().equals(current.body().lines().findFirst());
+		return save(agent, current, firstLineChanged ? Input.title(null, text, current.title()) : current.title(), text,
+				version);
+	}
+
+	/** The text after the replacements, each applied in order; the first that cannot be applied cancels all of them. */
+	private static String applyEdits(String original, List<TextEdit> edits) {
+		var text = original;
 		for (int i = 0; i < edits.size(); i++) {
 			var oldText = edits.get(i).oldText();
 			if (oldText == null || oldText.isEmpty()) {
@@ -154,11 +167,57 @@ class WriteTools {
 			var newText = edits.get(i).newText() == null ? "" : edits.get(i).newText();
 			text = text.substring(0, at) + newText + text.substring(at + oldText.length());
 		}
-		text = Input.markdown(text);
-		// As in the editor, the title follows the heading only when the edit touched the first line.
-		var firstLineChanged = !text.lines().findFirst().equals(current.body().lines().findFirst());
-		return save(agent, current, firstLineChanged ? Input.title(null, text, current.title()) : current.title(), text,
-				version);
+		return Input.markdown(text);
+	}
+
+	/**
+	 * What a Note tool would write, worked out without writing it, for Chat to show as a diff before the User approves.
+	 * Refuses what the tool itself would refuse (a stale version, an edit that does not apply), so the model hears of it at
+	 * once. Only create_note, update_note and edit_note have a preview.
+	 */
+	ToolCatalogue.NotePreview preview(User user, String tool, Map<String, Object> input) {
+		return switch (tool) {
+			case "create_note" -> new ToolCatalogue.NotePreview(null, null, null, Input.markdown(text(input, "markdown")));
+			case "update_note" -> {
+				var current = notes.get(user.id(), noteId(input));
+				if (current.version() != version(input)) {
+					throw conflict();
+				}
+				yield new ToolCatalogue.NotePreview(current.id(), current.version(), current.body(),
+						Input.markdown(text(input, "markdown")));
+			}
+			case "edit_note" -> {
+				var current = notes.get(user.id(), noteId(input));
+				if (current.version() != version(input)) {
+					throw conflict();
+				}
+				var edits = JSON.convertValue(input.get("edits"), JSON.getTypeFactory().constructCollectionType(List.class, TextEdit.class));
+				if (edits == null || ((List<?>) edits).isEmpty()) {
+					throw Input.invalid("Give at least one edit.");
+				}
+				@SuppressWarnings("unchecked")
+				var list = (List<TextEdit>) edits;
+				yield new ToolCatalogue.NotePreview(current.id(), current.version(), current.body(), applyEdits(current.body(), list));
+			}
+			default -> throw Input.invalid("This tool has no preview.");
+		};
+	}
+
+	private static String text(Map<String, Object> input, String field) {
+		return input.get(field) instanceof String value ? value : null;
+	}
+
+	private static UUID noteId(Map<String, Object> input) {
+		try {
+			return UUID.fromString(String.valueOf(input.get("id")));
+		}
+		catch (IllegalArgumentException e) {
+			throw Input.invalid("id is not a valid id.");
+		}
+	}
+
+	private static int version(Map<String, Object> input) {
+		return input.get("version") instanceof Number number ? number.intValue() : -1;
 	}
 
 	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "create_folder", description = "Create a Folder, at the top level or inside another Folder.")
