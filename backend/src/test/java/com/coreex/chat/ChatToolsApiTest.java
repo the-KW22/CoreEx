@@ -40,16 +40,16 @@ class ChatToolsApiTest extends ApiTest {
 	private static final Set<String> READS = Set.of("search", "list_items", "get_item", "get_asset_url", "list_folders",
 			"get_graph", "suggest_links", "list_tags", "list_applications", "get_application",
 			"get_application_results", "list_facts", "get_fact", "list_cover_letters", "get_cover_letter", "list_resumes",
-			"get_resume", "list_trash");
+			"get_resume", "list_trash", "search_knowledge");
 
-	/** The write tools the model may propose (never uploads or Career writes), and the question tool. */
+	/** The write tools the model may propose (never uploads; the Facts and Stories are the only Career writes), and the question tool. */
 	private static final Set<String> PROPOSABLE = Set.of("create_note", "update_note", "edit_note", "update_asset",
 			"create_folder", "rename_folder", "move_folder", "trash_folder", "create_tag", "rename_tag", "set_tag_colour",
-			"set_tags", "move_item", "trash_item", "restore");
-
+			"set_tags", "move_item", "trash_item", "restore", "add_fact", "add_story");
+	/** What a General Chat is offered: the Career tools that return Facts or results and the Career proposals are left out. */
 	private static final Set<String> OFFERED = java.util.stream.Stream
 			.of(READS.stream(), PROPOSABLE.stream(), java.util.stream.Stream.of("ask_user_question", "read_asset"))
-			.flatMap(s -> s).collect(java.util.stream.Collectors.toSet());
+			.flatMap(s -> s).filter(n -> !java.util.Set.of("list_facts", "get_fact", "search_knowledge", "get_application_results", "add_fact", "add_story").contains(n)).collect(java.util.stream.Collectors.toSet());
 
 	@Autowired
 	JdbcClient jdbc;

@@ -277,7 +277,7 @@ class ChatProposalsApiTest extends ApiTest {
 		assertThat(response.body()).contains("event:done");
 		assertThat(detail().path("proposals")).isEmpty();
 		assertThat(noteExists("Sneaky")).isFalse();
-		assertThat(detail().toString()).contains("That tool is not available in Chat.");
+		assertThat(detail().toString()).contains("That tool is not available in this Chat.");
 	}
 
 	@Test

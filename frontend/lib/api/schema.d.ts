@@ -990,7 +990,7 @@ export interface paths {
         /** The User's Chats, most recently used first */
         get: operations["list_8"];
         put?: never;
-        /** Starts an empty Chat in the general scope */
+        /** Starts an empty Chat: in the general scope unless a scope is given */
         post: operations["create_6"];
         delete?: never;
         options?: never;
@@ -3529,6 +3529,18 @@ export interface components {
             /** Format: date-time */
             acceptedAt: string | null;
         };
+        CreateRequest: {
+            /**
+             * @description GENERAL (the default), CAREER or APPLICATION
+             * @enum {string|null}
+             */
+            scope?: "GENERAL" | "CAREER" | "APPLICATION" | null;
+            /**
+             * Format: uuid
+             * @description The User's Application, for an APPLICATION Chat only
+             */
+            applicationId?: string | null;
+        };
         ChangeView: {
             /** @description What the change is about, such as the Item's title */
             subject?: string | null;
@@ -3547,6 +3559,20 @@ export interface components {
             lastUsedAt: string;
             /** @description The Use my Notes switch, as the Chat remembers it */
             useNotes: boolean;
+            /**
+             * @description GENERAL, CAREER or APPLICATION; fixed when the Chat is made
+             * @enum {string}
+             */
+            scope: "GENERAL" | "CAREER" | "APPLICATION";
+            /**
+             * Format: uuid
+             * @description The Application of an APPLICATION Chat; null otherwise
+             */
+            applicationId?: string | null;
+            /** @description The Use my Applications switch, as the Chat remembers it */
+            useApplications: boolean;
+            /** @description The Use my Knowledge switch, as the Chat remembers it */
+            useKnowledge: boolean;
             messages: components["schemas"]["MessageView"][];
             /** @description The Proposals of the Chat, oldest first */
             proposals: components["schemas"]["ProposalView"][];
@@ -3693,6 +3719,10 @@ export interface components {
             useNotes?: boolean | null;
             /** @description The Use the web switch for this message only, off when absent; never remembered */
             useWeb?: boolean | null;
+            /** @description The Use my Applications switch (Career and Application Chats); absent keeps the Chat's own setting */
+            useApplications?: boolean | null;
+            /** @description The Use my Knowledge switch (Career and Application Chats); absent keeps the Chat's own setting */
+            useKnowledge?: boolean | null;
             /** @description Where the User is in CoreEx, for this reply only; never stored */
             context?: components["schemas"]["ChatContext"];
         };
@@ -4333,6 +4363,15 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             lastUsedAt: string;
+            /** @enum {string} */
+            scope: "GENERAL" | "CAREER" | "APPLICATION";
+            /**
+             * Format: uuid
+             * @description The Application of an APPLICATION Chat; null otherwise
+             */
+            applicationId?: string | null;
+            useApplications: boolean;
+            useKnowledge: boolean;
         };
         EntryResponse: {
             /** Format: uuid */
@@ -7530,7 +7569,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CreateRequest"];
+            };
+        };
         responses: {
             /** @description The new Chat, titled New chat */
             201: {
@@ -7539,6 +7582,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChatDetail"];
+                };
+            };
+            /** @description Code INVALID_REQUEST: an APPLICATION Chat without its Application, or another scope with one */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND: the Application is not the User's */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };

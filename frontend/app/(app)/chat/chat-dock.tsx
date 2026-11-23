@@ -167,6 +167,7 @@ export function ChatDock() {
                 initialMessages={chat?.messages ?? []}
                 initialProposals={chat?.proposals ?? []}
                 initialUseNotes={chat?.useNotes ?? true}
+                career={chat?.career}
                 initialDraft={seed.text}
                 dock={{
                   onStarted: (id) => {

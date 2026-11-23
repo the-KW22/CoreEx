@@ -80,7 +80,7 @@ public class KnowledgeService {
 	public FactView create(UUID ownerId, String text, String category, String sourceKind, UUID sourceId, String quote) {
 		String key = null;
 		if (!"MANUAL".equals(sourceKind)) {
-			var source = sourceText(ownerId, sourceKind, sourceId);
+			var source = "CHAT".equals(sourceKind) ? repo.chatUserText(ownerId, sourceId) : sourceText(ownerId, sourceKind, sourceId);
 			if (quote == null || quote.isBlank() || !source.contains(quote)) {
 				throw new ApiException(HttpStatus.BAD_REQUEST, "QUOTE_NOT_IN_SOURCE",
 						"That quote is not in the current text of the source.");
@@ -150,7 +150,13 @@ public class KnowledgeService {
 	/** A new Note with the five Story headings and the Story flag set. */
 	@Transactional
 	public Note newStory(UUID ownerId, String title) {
-		var note = notes.create(ownerId, null, title == null || title.isBlank() ? "Untitled Story" : title, STORY_BODY);
+		return newStory(ownerId, title, STORY_BODY);
+	}
+
+	/** A new Note with the given Story text (its headings are the caller's) and the Story flag set. */
+	@Transactional
+	public Note newStory(UUID ownerId, String title, String body) {
+		var note = notes.create(ownerId, null, title == null || title.isBlank() ? "Untitled Story" : title, body);
 		repo.setStory(ownerId, note.id(), true);
 		return note;
 	}

@@ -1,15 +1,16 @@
 "use client";
 
-import { MessageSquarePlusIcon, MessagesSquareIcon } from "lucide-react";
+import { BriefcaseIcon, MessageSquarePlusIcon, MessagesSquareIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { type ChatScope, scopeLabel, startHref } from "@/lib/chat";
 import { cn } from "@/lib/utils";
 
-type Entry = { id: string; title: string; lastUsedAt: string };
+type Entry = { id: string; title: string; lastUsedAt: string; scope?: string };
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 
@@ -19,6 +20,11 @@ function ChatList({ chats, current, onPick }: { chats: Entry[] | null; current: 
       <Button asChild variant="outline" size="sm" className="mb-2 justify-start">
         <Link href="/chat" onClick={onPick}>
           <MessageSquarePlusIcon aria-hidden /> New chat
+        </Link>
+      </Button>
+      <Button asChild variant="outline" size="sm" className="mb-2 justify-start">
+        <Link href={startHref({ scope: "CAREER" })} onClick={onPick}>
+          <BriefcaseIcon aria-hidden /> New Career chat
         </Link>
       </Button>
       {chats === null && <p role="alert" className="text-sm text-muted-foreground">Could not load your Chats.</p>}
@@ -32,7 +38,10 @@ function ChatList({ chats, current, onPick }: { chats: Entry[] | null; current: 
           className={cn("grid gap-0.5 rounded-md px-2.5 py-2 text-sm hover:bg-surface", current === c.id && "bg-surface")}
         >
           <span className="truncate font-medium">{c.title}</span>
-          <span className="text-xs text-muted-foreground">{when(c.lastUsedAt)}</span>
+          <span className="text-xs text-muted-foreground">
+            {scopeLabel(c.scope as ChatScope | undefined) ? `${scopeLabel(c.scope as ChatScope | undefined)} · ` : ""}
+            {when(c.lastUsedAt)}
+          </span>
         </Link>
       ))}
     </nav>

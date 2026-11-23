@@ -29,17 +29,20 @@ import tools.jackson.databind.json.JsonMapper;
  * The tools, each defined once as an {@code @McpTool} method, for both front doors: {@code /mcp} exposes them through
  * the MCP starter, and Chat calls them here (ADR 0007). The read tools (marked {@code readOnlyHint}) run straight away.
  * The write tools Chat may offer are a fixed list: Chat never runs one when the model calls it, it stores a Proposal, and
- * {@link #apply} runs it only once the User has approved (ADR 0009). Uploads and the Career writes are not on the list.
+ * {@link #apply} runs it only once the User has approved (ADR 0009). Uploads and the other Career writes are not on the list.
  */
 @Component
 public class ToolCatalogue {
 
 	private static final JsonMapper JSON = JsonMapper.builder().build();
 
-	/** The write tools a Chat may propose: what an Agent can do to Notes, Assets, Folders and Tags, never for good. */
+	/**
+	 * The write tools a Chat may propose: what an Agent can do to Notes, Assets, Folders and Tags, never for good, and the
+	 * Career Facts and Stories the User approves.
+	 */
 	private static final Set<String> PROPOSABLE = Set.of("create_note", "update_note", "edit_note", "update_asset",
 			"create_folder", "rename_folder", "move_folder", "trash_folder", "create_tag", "rename_tag", "set_tag_colour",
-			"set_tags", "move_item", "trash_item", "restore");
+			"set_tags", "move_item", "trash_item", "restore", "add_fact", "add_story");
 
 	/** What a Note tool would write: the Note it changes (null for a new one), its version, and its text before and after. */
 	public record NotePreview(UUID noteId, Integer version, String before, String after) {

@@ -182,7 +182,7 @@ function FactRow({ fact }: { fact: Fact }) {
         <>
           <p className="text-sm">{fact.text}</p>
           <p className="text-xs text-muted-foreground">
-            {label(fact.category)}{fact.status === "OFF" ? " · Switched off: never sent to AI" : ""}{fact.quote ? ` · From your ${fact.sourceKind === "RESUME" ? "Resume" : "Note"}` : " · Added by hand"}
+            {label(fact.category)}{fact.status === "OFF" ? " · Switched off: never sent to AI" : ""}{fact.quote ? ` · From ${fact.sourceKind === "RESUME" ? "your Resume" : fact.sourceKind === "CHAT" ? "a Chat" : "your Note"}` : " · Added by hand"}
           </p>
           {fact.quote && <q className="text-xs text-muted-foreground">{fact.quote}</q>}
           {fact.revisions.length > 0 && <p className="text-xs text-muted-foreground">Earlier wording: {fact.revisions.map((r) => r.text).join(" / ")}</p>}

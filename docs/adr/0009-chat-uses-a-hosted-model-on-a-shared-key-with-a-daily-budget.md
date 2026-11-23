@@ -55,3 +55,11 @@ Built in issues #204 and #205. Where this section and the text above differ, thi
 
 - **Files:** a `read_asset` tool loads one image or PDF the User owns and gives it to the model inside the tool result. The stored message keeps only the Asset's id and media type; the file is loaded again from storage each time the history is sent, and if it is gone, in the Trash or over the cap the model is told it is no longer available. Cap: 5 MB and about 20 PDF pages. The tokens count toward the budget like any turn.
 - **Web:** the provider's own server-side search and page reading, offered only when the User turns on "Use the web" for that message. At most 5 searches a reply; each search adds its price to the turn's cost on the Shared key. The provider's search blocks are not kept in the Chat history; the sources shown are the pages it reports as retrieved, stored with the reply, never links the model wrote. A reply the provider pauses mid-search ends with what was written.
+
+## Update: Career scope (2026-11-23)
+
+Built in issues #289 and #290. Where this section and the text above differ, this section wins.
+
+- **Scope and switches.** A Chat's scope is fixed when it is made: general (as before), career, or one Application. A career or Application Chat starts with Use my Notes off. Two more switches sit beside it, Use my Applications and Use my Knowledge, on by default and remembered within the Chat.
+- **Career tools only in career scopes.** Facts, Stories and Career results (`list_facts`, `get_fact`, `search_knowledge`, `get_application_results`) never reach a general Chat, and a general Chat that asks for them is refused. General search never returns them either. An Application Chat sees only its own Application.
+- **Proposals of Facts and Stories.** A career Chat can propose a Fact or a Story, and nothing is saved until the User approves it. A Fact proposed from the User's words in a Chat keeps that Chat as its source, and its quote must be in the User's own messages of that Chat: the check runs when it is proposed and again when it is approved. There is no automatic memory: no Fact is saved from a Chat unless the User approves it.
