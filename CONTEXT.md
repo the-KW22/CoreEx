@@ -80,6 +80,10 @@ _Avoid_: Conversation, thread, assistant, bot, AI search
 A change to the knowledge base that the model in a Chat offers, such as a new Note, an edit or a move to the Trash, and that happens only if the User approves it. An edit shows as a diff the User can change before approving, and is drawn on the Note itself when its page is open (Accept and Reject there answer the same Proposal); Proposals made in one reply can be approved together, all or nothing. Each is answered once (Applied, Rejected, or Replaced by a newer one for the same Note), and the record stays in the Chat. An Agent on `/mcp` makes the same changes straight away; a Proposal is how Chat makes them.
 _Avoid_: Suggestion, action, tool call, Suggested Link
 
+**Own key**:
+A model provider key a User stores in Chat and AI settings. While they have one, every Chat turn and Career AI action of theirs uses it instead of the Shared key: it is billed to them by the provider, is not counted toward the Daily Chat budget and works when an Admin has switched the Shared key off. It is stored encrypted, write-only (only its last 4 characters are shown), and removing it returns the User to the Shared key.
+_Avoid_: personal key, BYOK
+
 **Shared key**:
 The model provider key CoreEx pays for, which every User's Chats use. An Admin can turn it off at any time.
 _Avoid_: Platform key, default key

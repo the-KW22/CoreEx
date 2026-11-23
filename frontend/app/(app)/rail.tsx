@@ -323,6 +323,9 @@ export function Rail({
               <Link href="/settings/tokens">Access tokens</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
+              <Link href="/settings/ai">Chat and AI</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
               <Link href="/docs/mcp">Connect an Agent</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>

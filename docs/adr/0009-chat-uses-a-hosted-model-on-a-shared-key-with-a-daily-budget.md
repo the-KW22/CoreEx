@@ -39,3 +39,12 @@ Decided after comparing Chat with Reactive Resume's AI Assistant. Where this sec
 - **A batch is one transaction.** Proposals made in one reply can be approved together; one failure applies none. An edit remembers the Note version it was based on, so a changed Note refuses with `VERSION_CONFLICT`. A newer Proposal for a Note replaces the older pending ones. The User can edit the text before approving; their words are what is saved.
 - **The model is told through the history.** The stored result of each proposing call is rewritten to Applied, Rejected or Replaced, so the next turn replays what happened.
 - **A question ends the reply.** `ask_user_question` is the one Chat-only tool; the reply stops with the call pending, and the answer is stored as its result and continues the conversation. A card exists only for a stored pending call, never for text.
+
+## Update: own keys and the model choice (2026-11-23)
+
+Built in issue #203. Where this section and the text above differ, this section wins.
+
+- **A User can store their own provider key** (Anthropic only until other providers are added). While they have one, every Chat turn and Career AI action of theirs uses it and never the Shared key. Those calls are not counted toward the Daily Chat budget and are not stopped by the Admin switch or by a missing Shared key. Removing the key returns them to the Shared key and its budget.
+- **Storage:** sealed by the API with AES-GCM under a key made from `COREEX_AI_KEY_SECRET`, which is held only in the host's environment, in a `coreex` table with row level security. Without the secret, keys cannot be saved at all. It is write-only: the API and the screens show only the provider and the last 4 characters, and the key is never logged, never in an error message, never in an Admin endpoint and never on `/mcp` (ADR 0004). A key is checked with one tiny provider call before it is stored. A key that can no longer be opened (the secret changed) counts as no key.
+- **Every User picks the model for their Chats**, on the Shared key too; the Admin's model is the default and still the model for Career. The budget counts cost at the picked model's price, so a cheaper model lasts longer.
+- **Context editing** clears old tool results at about 300k tokens on an own key (about 100k on the Shared key).

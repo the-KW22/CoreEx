@@ -123,7 +123,8 @@ class AnthropicModelTest {
 
 	private AnthropicModel model() {
 		return new AnthropicModel(new AiProperties("anthropic", "sk-test-key", "claude-opus-5-5",
-				"http://127.0.0.1:" + server.getAddress().getPort(), 0.5, 1000, 100_000, null), () -> "claude-opus-5-5");
+				"http://127.0.0.1:" + server.getAddress().getPort(), 0.5, 1000, 100_000, null, "", 300_000), "sk-test-key",
+				"claude-opus-5-5", 100_000);
 	}
 
 	private static Message user(String text) {
@@ -155,6 +156,15 @@ class AnthropicModelTest {
 		assertThatThrownBy(() -> model().ask("s", "d", Map.of("type", "object"), 100)).isInstanceOf(Model.Failure.class)
 				.hasMessageNotContaining("secret detail")
 				.satisfies(e -> assertThat(((Model.Failure) e).kind()).isEqualTo(Model.Failure.Kind.UNAVAILABLE));
+	}
+
+	@Test
+	void aKeyTheProviderRefusesFailsTheCheckWithoutItsDetails() {
+		status = 401;
+		answer = "{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"secret detail\"}}";
+
+		assertThatThrownBy(() -> model().check()).isInstanceOf(Model.Failure.class).hasMessageNotContaining("secret detail");
+		assertThat(path.get()).isEqualTo("/v1/messages");
 	}
 
 	@Test

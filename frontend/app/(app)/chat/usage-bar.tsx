@@ -1,13 +1,26 @@
 "use client";
 
+import Link from "next/link";
+
 import { formatMoney, untilReset, usagePercent } from "@/lib/chat-usage";
 import { cn } from "@/lib/utils";
 
-export type Usage = { spentUsd: number; budgetUsd: number; resetsAt: string; available: boolean };
+export type Usage = { spentUsd: number; budgetUsd: number; resetsAt: string; available: boolean; ownKey?: boolean };
 
 // Today's AI budget for this User, above the Chat (docs/DESIGN.md section 6.12). The meaning is in the text, not the colour.
 export function UsageBar({ usage }: { usage: Usage | null }) {
   if (!usage) return null;
+  // On the User's own key nothing is counted against the Daily budget, so there is no bar to show.
+  if (usage.ownKey) {
+    return (
+      <p className="mb-2 text-sm text-muted-foreground">
+        Using your own key: not counted toward today&apos;s budget.{" "}
+        <Link href="/settings/ai" className="underline underline-offset-4">
+          Chat and AI settings
+        </Link>
+      </p>
+    );
+  }
   if (!usage.available) return <p className="mb-2 text-sm text-muted-foreground">Chat is switched off right now.</p>;
 
   const percent = usagePercent(usage.spentUsd, usage.budgetUsd);

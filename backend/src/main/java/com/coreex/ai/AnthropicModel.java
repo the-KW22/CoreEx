@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -36,7 +35,7 @@ import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.OutputConfig;
 
 /** Claude, on the Shared key, through the official Java SDK. The key never leaves the backend. */
-class AnthropicModel implements Model {
+class AnthropicModel implements Model, AutoCloseable {
 
 	private static final Logger log = LoggerFactory.getLogger(AnthropicModel.class);
 
@@ -48,18 +47,18 @@ class AnthropicModel implements Model {
 	/** A streamed reply gives up well inside the five-minute reply limit (ChatProperties). */
 	private static final RequestOptions CONVERSE_TIMEOUT = RequestOptions.builder().timeout(Duration.ofMinutes(2)).build();
 
-	/** The model of the moment: an Admin can change it, so it is read for every call. */
-	private final Supplier<String> model;
+	/** The model this instance calls; a Shared key keeps one instance per model, and an own key makes a fresh one. */
+	private final String modelId;
 
 	private final long contextClearTokens;
 
 	private final AnthropicClient client;
 
-	AnthropicModel(AiProperties properties, Supplier<String> model) {
-		this.model = model;
-		this.contextClearTokens = properties.contextClearTokens();
+	AnthropicModel(AiProperties properties, String apiKey, String modelId, long contextClearTokens) {
+		this.modelId = modelId;
+		this.contextClearTokens = contextClearTokens;
 		// shortcut: no SDK retries for any call (the SDK has no per-call setting), so asks also fail at once, upgrade with a second client for asks when Career sees overloaded errors often.
-		var builder = AnthropicOkHttpClient.builder().apiKey(properties.apiKey()).maxRetries(0);
+		var builder = AnthropicOkHttpClient.builder().apiKey(apiKey).maxRetries(0);
 		if (!properties.baseUrl().isBlank()) {
 			builder.baseUrl(properties.baseUrl());
 		}
@@ -71,7 +70,7 @@ class AnthropicModel implements Model {
 		try {
 			var shape = JsonOutputFormat.Schema.builder();
 			schema.forEach((name, value) -> shape.putAdditionalProperty(name, JsonValue.from(value)));
-			var params = MessageCreateParams.builder().model(model.get()).maxTokens(maxTokens).system(system)
+			var params = MessageCreateParams.builder().model(modelId).maxTokens(maxTokens).system(system)
 					.outputConfig(OutputConfig.builder().format(JsonOutputFormat.builder().schema(shape.build()).build()).build())
 					.addUserMessage(data).build();
 			var response = client.messages().create(params);
@@ -106,10 +105,25 @@ class AnthropicModel implements Model {
 		}
 	}
 
+	@Override
+	public void check() {
+		try {
+			client.messages().create(MessageCreateParams.builder().model(modelId).maxTokens(1).addUserMessage("Hi").build());
+		}
+		catch (RuntimeException e) {
+			throw failure(e);
+		}
+	}
+
+	@Override
+	public void close() {
+		client.close();
+	}
+
 	/** The request: the instructions and the tools are cached, and old tool results are cleared past the threshold. */
 	private com.anthropic.models.beta.messages.MessageCreateParams params(String system, List<Message> messages, List<ToolSpec> tools,
 			long maxTokens) {
-		var builder = com.anthropic.models.beta.messages.MessageCreateParams.builder().model(model.get()).maxTokens(maxTokens)
+		var builder = com.anthropic.models.beta.messages.MessageCreateParams.builder().model(modelId).maxTokens(maxTokens)
 				.system(com.anthropic.models.beta.messages.MessageCreateParams.System.ofBetaTextBlockParams(List.of(
 						BetaTextBlockParam.builder().text(system).cacheControl(cache()).build())));
 		// The cache covers the tools and the instructions up to the last tool, so the last tool carries the marker.

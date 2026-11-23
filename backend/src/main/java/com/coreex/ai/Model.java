@@ -27,6 +27,9 @@ public interface Model {
 	 */
 	Turn converse(String system, List<Message> messages, List<ToolSpec> tools, Consumer<String> onText, long maxTokens);
 
+	/** Sends the smallest possible call, to see whether the provider accepts this key. Throws Failure when it does not. */
+	void check();
+
 	/** A piece of a message, stored as JSON, so the type is kept in a {@code type} field. */
 	@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 	@JsonSubTypes({ @JsonSubTypes.Type(value = ContentBlock.Text.class, name = "text"),
