@@ -36,6 +36,8 @@ final class ChatReply {
 
 	static final String BUDGET_SPENT = "Daily budget used up. It starts again at midnight UTC.";
 
+	static final String SWITCHED_OFF = "Chat was switched off, so the reply stopped here.";
+
 	static final String STOPPED = "STOPPED";
 
 	static final String COMPLETE = "COMPLETE";
@@ -218,6 +220,11 @@ final class ChatReply {
 			}
 			if (toolSteps >= properties.maxToolSteps() || (assistantId != null && timeUp())) {
 				addNote(TIME_LIMIT);
+				return COMPLETE;
+			}
+			if (toolSteps > 0 && !ai.available()) {
+				// An Admin's switch is for emergencies: it ends a reply that is already running, not only new ones.
+				addNote(SWITCHED_OFF);
 				return COMPLETE;
 			}
 			if (toolSteps > 0 && budgetSpent()) {

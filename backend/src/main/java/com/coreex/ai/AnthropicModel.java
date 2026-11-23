@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -47,14 +48,15 @@ class AnthropicModel implements Model {
 	/** A streamed reply gives up well inside the five-minute reply limit (ChatProperties). */
 	private static final RequestOptions CONVERSE_TIMEOUT = RequestOptions.builder().timeout(Duration.ofMinutes(2)).build();
 
-	private final String model;
+	/** The model of the moment: an Admin can change it, so it is read for every call. */
+	private final Supplier<String> model;
 
 	private final long contextClearTokens;
 
 	private final AnthropicClient client;
 
-	AnthropicModel(AiProperties properties) {
-		this.model = properties.model();
+	AnthropicModel(AiProperties properties, Supplier<String> model) {
+		this.model = model;
 		this.contextClearTokens = properties.contextClearTokens();
 		// shortcut: no SDK retries for any call (the SDK has no per-call setting), so asks also fail at once, upgrade with a second client for asks when Career sees overloaded errors often.
 		var builder = AnthropicOkHttpClient.builder().apiKey(properties.apiKey()).maxRetries(0);
@@ -69,7 +71,7 @@ class AnthropicModel implements Model {
 		try {
 			var shape = JsonOutputFormat.Schema.builder();
 			schema.forEach((name, value) -> shape.putAdditionalProperty(name, JsonValue.from(value)));
-			var params = MessageCreateParams.builder().model(model).maxTokens(maxTokens).system(system)
+			var params = MessageCreateParams.builder().model(model.get()).maxTokens(maxTokens).system(system)
 					.outputConfig(OutputConfig.builder().format(JsonOutputFormat.builder().schema(shape.build()).build()).build())
 					.addUserMessage(data).build();
 			var response = client.messages().create(params);
@@ -107,7 +109,7 @@ class AnthropicModel implements Model {
 	/** The request: the instructions and the tools are cached, and old tool results are cleared past the threshold. */
 	private com.anthropic.models.beta.messages.MessageCreateParams params(String system, List<Message> messages, List<ToolSpec> tools,
 			long maxTokens) {
-		var builder = com.anthropic.models.beta.messages.MessageCreateParams.builder().model(model).maxTokens(maxTokens)
+		var builder = com.anthropic.models.beta.messages.MessageCreateParams.builder().model(model.get()).maxTokens(maxTokens)
 				.system(com.anthropic.models.beta.messages.MessageCreateParams.System.ofBetaTextBlockParams(List.of(
 						BetaTextBlockParam.builder().text(system).cacheControl(cache()).build())));
 		// The cache covers the tools and the instructions up to the last tool, so the last tool carries the marker.

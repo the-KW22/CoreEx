@@ -12,12 +12,12 @@ class AiConfiguration {
 
 	/** The provider the settings name; nothing is built (and no key is read) when AI is off. */
 	@Bean
-	Model model(AiProperties properties) {
+	Model model(AiProperties properties, AiSettings settings) {
 		if (properties.provider().equals("fake")) {
 			return new FakeModel();
 		}
 		if (properties.on()) {
-			return new AnthropicModel(properties);
+			return new AnthropicModel(properties, () -> settings.current().model().id());
 		}
 		return new OffModel();
 	}
