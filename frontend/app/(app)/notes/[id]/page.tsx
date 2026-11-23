@@ -17,12 +17,13 @@ export default async function NotePage({ params, searchParams }: PageProps<"/not
   const { depth: rawDepth, mentions, heading } = await searchParams;
   const depth = parseDepth(rawDepth);
   const api = await getApi();
-  const [result, list, itemTags, allTags, stories, jar] = await Promise.all([
+  const [result, list, itemTags, allTags, stories, waiting, jar] = await Promise.all([
     api.GET("/api/notes/{id}", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/folders").catch(() => null),
     api.GET("/api/items/{id}/tags", { params: { path: { id } } }).catch(() => null),
     api.GET("/api/tags").catch(() => null),
     api.GET("/api/knowledge/stories").catch(() => null),
+    api.GET("/api/chats/proposals", { params: { query: { noteId: id } } }).catch(() => null),
     cookies(),
   ]);
 
@@ -47,6 +48,7 @@ export default async function NotePage({ params, searchParams }: PageProps<"/not
         id={note.id}
         initial={note}
         heading={typeof heading === "string" ? heading : undefined}
+        proposals={waiting?.data?.items ?? []}
         crumbs={[
           { href: "/items", label: "All Items" },
           ...(note.folderId ? pathTo(folders, note.folderId) : []).map((f) => ({ href: `/folders/${f.id}`, label: f.name })),

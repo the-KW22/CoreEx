@@ -187,6 +187,11 @@ public class ChatService {
 		}
 	}
 
+	/** The pending Proposals for one Note across the owner's Chats (see {@link ChatProposals#pendingForNote}). */
+	List<Proposal> pendingForNote(UUID owner, UUID noteId) {
+		return proposals.pendingForNote(owner, noteId);
+	}
+
 	/**
 	 * Approves or rejects Proposals of the Chat (see {@link ChatProposals#answer}). Refused while a reply is running, since
 	 * the reply is still writing the results the answers are written into.

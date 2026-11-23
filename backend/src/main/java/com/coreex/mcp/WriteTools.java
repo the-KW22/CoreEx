@@ -1,9 +1,11 @@
 package com.coreex.mcp;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.ai.mcp.annotation.McpTool;
@@ -67,6 +69,12 @@ class WriteTools {
 	private static final int MIME_MAX = 100;
 
 	private static final String TRASH_HINT = " Use restore to bring it back.";
+
+	private static final String TOP_LEVEL = "At the top level";
+
+	private static final String IN_TRASH = "In the Trash";
+
+	private static final String BACK = "Back where it was";
 
 	private final ItemService items;
 
@@ -201,6 +209,96 @@ class WriteTools {
 			}
 			default -> throw Input.invalid("This tool has no preview.");
 		};
+	}
+
+	/**
+	 * The words for an organising change's card, worked out before anything changes: what it is about, and where it is
+	 * or its state before and after. Null for the tools that have none (Note tools and creates). Throws when a lookup
+	 * fails; {@link ToolCatalogue#describe} turns that into no words.
+	 */
+	ToolCatalogue.Change describe(User user, String tool, Map<String, Object> input) {
+		var userId = user.id();
+		return switch (tool) {
+			case "move_item" -> {
+				var item = itemNamed(userId, input);
+				yield new ToolCatalogue.Change(item.title(), place(userId, item.folderId()), place(userId, id(input, "folderId")));
+			}
+			case "trash_item" -> {
+				var item = itemNamed(userId, input);
+				yield new ToolCatalogue.Change(item.title(), place(userId, item.folderId()), IN_TRASH);
+			}
+			case "set_tags" -> {
+				var item = itemNamed(userId, input);
+				var now = tagService.forItem(userId, item.id()).stream().map(Tag::name).toList();
+				var listed = input.get("tags") instanceof List<?> tags ? tags.stream().map(String::valueOf).toList() : List.<String>of();
+				yield new ToolCatalogue.Change(item.title(), tagNames(now), tagNames(listed));
+			}
+			case "restore" -> new ToolCatalogue.Change(null, IN_TRASH, BACK);
+			case "move_folder", "trash_folder" -> {
+				var folder = folders.requireLive(userId, id(input, "id"));
+				yield new ToolCatalogue.Change(folder.name(), place(userId, folder.parentId()),
+						tool.equals("trash_folder") ? IN_TRASH : place(userId, id(input, "parentId")));
+			}
+			case "rename_folder" -> {
+				var folder = folders.requireLive(userId, id(input, "id"));
+				yield new ToolCatalogue.Change("Folder", folder.name(), text(input, "name"));
+			}
+			case "rename_tag" -> {
+				var tag = tagService.requireTag(userId, id(input, "id"));
+				yield new ToolCatalogue.Change("Tag", tag.name(), text(input, "name"));
+			}
+			case "set_tag_colour" -> {
+				var tag = tagService.requireTag(userId, id(input, "id"));
+				yield new ToolCatalogue.Change(tag.name(), colour(tag.colour()), colour(input.get("colour")));
+			}
+			case "update_asset" -> {
+				var asset = assets.get(user, id(input, "id"));
+				var title = text(input, "title");
+				var description = text(input, "description");
+				var was = new ArrayList<String>();
+				var becomes = new ArrayList<String>();
+				if (title != null) {
+					was.add("Title: " + asset.title());
+					becomes.add("Title: " + title);
+				}
+				if (description != null) {
+					was.add("Description: " + Objects.requireNonNullElse(asset.description(), "none"));
+					becomes.add("Description: " + description);
+				}
+				yield new ToolCatalogue.Change(asset.title(), String.join("; ", was), String.join("; ", becomes));
+			}
+			default -> null;
+		};
+	}
+
+	private Item itemNamed(UUID userId, Map<String, Object> input) {
+		return items.findLive(userId, List.of(id(input, "id"))).stream().findFirst()
+				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "There is no such Item."));
+	}
+
+	/** Where a Folder is: its full path, or the top level when it is none. */
+	private String place(UUID userId, UUID folderId) {
+		if (folderId == null) {
+			return TOP_LEVEL;
+		}
+		var path = folders.paths(userId).get(folderId);
+		if (path == null) {
+			throw new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "There is no such Folder.");
+		}
+		return "In the Folder “" + path + "”";
+	}
+
+	private static String tagNames(List<String> names) {
+		return names.isEmpty() ? "No Tags" : String.join(", ", names);
+	}
+
+	private static String colour(Object colour) {
+		return colour == null ? "Automatic" : colour.toString().toLowerCase(Locale.ROOT);
+	}
+
+	/** The id in the input under this field, or null when it is not given. */
+	private static UUID id(Map<String, Object> input, String field) {
+		return input.get(field) == null ? null : UUID.fromString(String.valueOf(input.get(field)));
 	}
 
 	private static String text(Map<String, Object> input, String field) {

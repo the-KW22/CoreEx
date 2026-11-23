@@ -45,6 +45,12 @@ public class ToolCatalogue {
 	public record NotePreview(UUID noteId, Integer version, String before, String after) {
 	}
 
+	/** The words on a Proposal's card for an organising change: what it is about, and where it is or its state, before and after. */
+	public record Change(String subject, String before, String after) {
+	}
+
+	private static final int CHANGE_MAX = 500;
+
 	private record Tool(String name, String description, Object bean, Method method) {
 	}
 
@@ -126,6 +132,25 @@ public class ToolCatalogue {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "UNKNOWN_TOOL", "There is no such tool.");
 		}
 		return context.getBean(WriteTools.class).preview(user, name, input == null ? Map.of() : input);
+	}
+
+	/**
+	 * The words for a change's card, worked out before anything changes. Null for the tools that have none (Note tools and
+	 * creates) and when anything cannot be looked up: a Proposal is still stored without them, so this never throws.
+	 */
+	public Change describe(User user, String name, Map<String, Object> input) {
+		try {
+			var change = context.getBean(WriteTools.class).describe(user, name, input == null ? Map.of() : input);
+			return change == null ? null
+					: new Change(cap(change.subject()), cap(change.before()), cap(change.after()));
+		}
+		catch (RuntimeException e) {
+			return null;
+		}
+	}
+
+	private static String cap(String text) {
+		return text == null || text.length() <= CHANGE_MAX ? text : text.substring(0, CHANGE_MAX);
 	}
 
 	private String run(Tool tool, User user, Map<String, Object> input) {
