@@ -13,6 +13,7 @@ import { ItemFrame } from "../../items/item-frame";
 import { ItemBacklinks, ItemConnections, parseDepth } from "../../items/item-sections";
 import { ItemMentions, parseMentions } from "../../items/mentions";
 import { TagEditor } from "../../items/tag-editor";
+import { PageContext } from "../../chat/page-context";
 import { RecordOpen } from "../../search/record-open";
 import { deleteAsset } from "../actions";
 import { AssetText } from "./asset-text";
@@ -53,6 +54,7 @@ export default async function AssetPage({ params, searchParams }: PageProps<"/as
   return (
     <>
       <RecordOpen id={asset.id} />
+      <PageContext kind="ASSET" id={asset.id} title={asset.title} />
       <ItemFrame
         crumbs={[
           { href: "/assets", label: "Assets" },
@@ -77,7 +79,7 @@ export default async function AssetPage({ params, searchParams }: PageProps<"/as
             <AssetText id={asset.id} title={asset.title} description={asset.description} />
             {/* Where it lives and what it connects to, one section. */}
             <div className="grid gap-6">
-              <FolderPicker itemId={asset.id} folderId={asset.folderId} folders={folders} />
+              <FolderPicker itemId={asset.id} kind="ASSET" title={asset.title} folderId={asset.folderId} folders={folders} />
               <section aria-labelledby="asset-tags-heading" className="grid gap-2">
                 <h2 id="asset-tags-heading" className="text-xs font-semibold text-muted-foreground">
                   Tags

@@ -122,6 +122,8 @@ final class ChatReply {
 	/** The Use my Notes switch for this reply: when off, no tools are offered and the tool blocks are not replayed. */
 	private final boolean useNotes;
 
+	private final ChatContext context;
+
 	private final ChatSources sources;
 
 	private final SseEmitter out;
@@ -143,7 +145,7 @@ final class ChatReply {
 	private boolean clientGone;
 
 	ChatReply(ChatRepository chats, AiService ai, ChatTools tools, ChatProposals proposals, ChatProperties properties,
-			Clock clock, User owner, UUID chatId, boolean useNotes, ChatSources sources, SseEmitter out) {
+			Clock clock, User owner, UUID chatId, boolean useNotes, ChatContext context, ChatSources sources, SseEmitter out) {
 		this.chats = chats;
 		this.ai = ai;
 		this.tools = tools;
@@ -153,6 +155,7 @@ final class ChatReply {
 		this.owner = owner;
 		this.chatId = chatId;
 		this.useNotes = useNotes;
+		this.context = context;
 		this.sources = sources;
 		this.out = out;
 		this.deadline = clock.instant().plus(properties.maxReplyDuration());
@@ -267,7 +270,7 @@ final class ChatReply {
 		assistantId = chats.addMessage(chatId, Model.Role.ASSISTANT, List.of(), STREAMING, null, List.of(), now);
 		Model.Turn turn;
 		try {
-			turn = ai.converse(ChatPrompt.GENERAL, history, offered(), this::onText, properties.maxOutputTokens());
+			turn = ai.converse(ChatPrompt.forReply(context), history, offered(), this::onText, properties.maxOutputTokens());
 		}
 		catch (RuntimeException e) {
 			if (stop.get()) {

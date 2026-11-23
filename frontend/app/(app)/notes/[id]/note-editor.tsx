@@ -11,9 +11,11 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { MAX_SELECTION, recordAction, setOpenItem, setSelection } from "@/lib/chat-context";
 import type { Proposal } from "@/lib/proposals";
 
 import { answerProposals } from "../../chat/actions";
+import { AskChatIcon } from "../../chat/ask-chat";
 import { ItemFrame } from "../../items/item-frame";
 import {
   deleteNote,
@@ -111,6 +113,8 @@ export function NoteEditor({
 }) {
   const [title, setTitle] = useState(initial.title);
   const [status, setStatus] = useState<Status>("saved");
+  // Chat is told the title as it is now, not as it was when the page opened.
+  useEffect(() => setOpenItem({ kind: "NOTE", id, title: title || "Untitled" }), [id, title]);
   const [message, setMessage] = useState("");
   // "Load theirs" in progress, why it failed, and the copy of the User's text it made.
   const [copyBusy, setCopyBusy] = useState(false);
@@ -199,6 +203,7 @@ export function NoteEditor({
             // Saving does not refresh the page, so the Connections are reloaded when the Links changed.
             if (linkIds(saved.current.body).sort().join() !== linkIds(result.body).sort().join()) router.refresh();
             conflict.current = false;
+            recordAction({ action: "EDITED", kind: "NOTE", id, title: snapshot.title || "Untitled" });
             version.current = result.version;
             saved.current = snapshot;
             setSavedAt(result.updatedAt);
@@ -323,6 +328,11 @@ export function NoteEditor({
               else setPreview((p) => (p?.by === "caret" ? null : p));
             }
             if (update.selectionSet || update.docChanged) setActive([...activeFormats(update.state)].sort().join(" "));
+            // What the User has selected goes to Chat with their next message (docs/DESIGN.md section 6.14).
+            if (update.selectionSet || update.docChanged) {
+              const { from, to } = update.state.selection.main;
+              setSelection(from === to ? "" : update.state.sliceDoc(from, Math.min(to, from + MAX_SELECTION)));
+            }
             if (!update.docChanged || external.current) return;
             latest.current.body = update.state.doc.toString();
             // The first line as "# Heading" is the Note's title: typing in it changes the title too. Only when that
@@ -677,6 +687,7 @@ export function NoteEditor({
       crumbs={crumbs}
       current={title || "Untitled"}
       status={saveStatus}
+      extra={<AskChatIcon label="Ask Chat about this Note" text={`About my Note "${title || "Untitled"}": `} />}
       trash={{ id, action: deleteNote }}
       detailsCookie={detailsCookie}
       details={detailsBody}

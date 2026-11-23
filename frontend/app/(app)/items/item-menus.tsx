@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { components } from "@/lib/api/schema";
+import { recordAction } from "@/lib/chat-context";
 import type { Folder } from "@/lib/folders";
 import { itemHref } from "@/lib/items";
 
@@ -30,6 +31,9 @@ export type Item = components["schemas"]["ItemResponse"];
 type Op = { kind: "move" | "tag" | "trash"; items: Item[]; opener: HTMLElement | null; onDone?: (failed: Item[]) => void };
 
 export const itemTitle = (item: Item) => item.title || "Untitled";
+// Puts what was done on the session trail Chat reads (docs/DESIGN.md section 6.14); only Notes and Assets have a kind there.
+const trail = (action: "MOVED" | "TRASHED", item: Item) =>
+  recordAction({ action, kind: item.type === "NOTE" || item.type === "ASSET" ? item.type : undefined, id: item.id, title: itemTitle(item) });
 
 // Upload and Import open the Upload dialog.
 export function PickButton({ kind, label }: { kind: "upload" | "import"; label?: string }) {
@@ -131,6 +135,7 @@ export function ItemMenus({
         toast.error(`Could not move ${items.length === 1 ? `"${itemTitle(items[0])}"` : plural(items.length)} to the Trash. Try again.`);
         return;
       }
+      ok.forEach((item) => trail("TRASHED", item));
       mixed(ok, failed, "Moved");
       toast.success(`Moved ${ok.length === 1 ? `"${itemTitle(ok[0])}"` : plural(ok.length)} to the Trash`, {
         action: {
@@ -159,6 +164,7 @@ export function ItemMenus({
       }
       setOpen(false);
       const what = kind === "move" ? "Moved" : "Tagged";
+      if (kind === "move") ok.forEach((item) => trail("MOVED", item));
       if (!mixed(ok, failed, what)) toast.success(`${what} ${ok.length === 1 ? `"${itemTitle(ok[0])}"` : plural(ok.length)}`);
     });
   }

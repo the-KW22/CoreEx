@@ -275,7 +275,7 @@ Opened from **Access tokens** in the Account menu. Title, one sentence on what a
 - **Copy page** above the text copies the page's text (the Copy buttons of code blocks are left out).
 - Below `xl` the sidebar is a Sheet, opened by **Docs pages**; choosing a page closes it.
 
-Pages so far: **Introduction** (`/docs`) and the MCP guide. The Account menu's **Connect an Agent** item opens the guide at `/docs/mcp`, and `/help/mcp` redirects there.
+Pages so far: **Introduction** (`/docs`), **Keyboard shortcuts** (`/docs/shortcuts`) and the MCP guide. The Account menu's **Connect an Agent** item opens the guide at `/docs/mcp`, and `/help/mcp` redirects there.
 
 ### 6.11a MCP guide (`/docs/mcp` and its pages)
 
@@ -348,6 +348,9 @@ A module of its own in the rail (after Career, a speech-bubbles icon), with no p
 - **Save as Note** under every finished reply makes a Note of the reply's Markdown (its title from the first heading or line) with the create-Note API and opens it. A failure shows beside the button.
 - **Delete Chat** (in the header, only for a saved Chat) opens a confirm: "The Chat and its messages are deleted for good. It does not go to the Trash." Then the User lands on `/chat`.
 - **Phone and keyboard:** every control is a native button, link or field with a name; the Chats Sheet traps focus and gives it back to its button. The page has one `h1` ("Chat").
+- **Chat everywhere (the floating button and panel, #200, #202):** a round **Open Chat** button (a speech-bubble icon, Tooltip "Open Chat (Ctrl+J)", `aria-expanded`) sits in the bottom-right corner of every signed-in page except `/chat` itself. It opens a panel of about 400 x 600 px over the page (full screen under 768px) that is not modal, so the page stays readable and selectable behind it. The panel has a **New chat** button, **Expand** (opens the same Chat at `/chat/[id]`, or `/chat`) and **Close**, then the usage bar and the same conversation as the page. It opens the most recent saved Chat, or a new one when there is none: the same Chats as the module, not a second kind. Escape closes it and gives focus back to the button; Escape inside a Dialog of the panel closes only that Dialog. **Delete Chat** is on the full page only. Sonner toasts sit at the bottom centre so they never cover the button.
+- **Page awareness:** with each message, Chat is told which Note or Asset is open (its id and title only), the text the User has selected in the editor (up to 2,000 characters) and a **session trail**: the User's last 20 actions in this browser tab (opened, created, edited, moved, moved to Trash, searched), as titles and ids, with a repeat of the same action on the same Item counted once. The trail lives in the tab (session storage, gone when it closes); the server stores none of it, and none of it is Note text. The model reads an Item with its tools only when it needs the text. No keystrokes, scrolling or time on page are recorded.
+- **Hand-offs:** **Ask Chat about this Note** (a speech-bubble icon button in the Note's header bar) and **Ask Chat** on the Search page (beside the heading, when there is a search) open the panel with a new Chat and a prepared message in the box. The User still sends it. The text is passed in memory, never in a URL or history. **Ctrl+J** (Cmd+J on a Mac) opens and closes the panel from anywhere; it is listed on **Docs > Keyboard shortcuts** (`/docs/shortcuts`).
 
 ## 7. Component map (shadcn/ui)
 
@@ -365,7 +368,7 @@ Use shadcn components first (DEVELOPMENT.md §11), restyled to these tokens. Rea
 | Tags | Item, Popover, Radio Group (swatches), Input, Alert Dialog |
 | Search | Item, Pagination, Empty |
 | Admin | Tabs, Chart, Data Table, Input Group, Badge, Alert Dialog |
-| Feedback | Sonner toasts, e.g. "Moved to Trash · **Undo**" (Undo calls the existing restore endpoint) |
+| Feedback | Sonner toasts at the bottom centre, e.g. "Moved to Trash · **Undo**" (Undo calls the existing restore endpoint) |
 | Phone | Sheet (navigation), Drawer (Details panel) |
 
 The Admin storage "Chart" is a stacked bar drawn with divs and the Tag colour tokens, with its legend as the readable numbers. One bar does not justify the shadcn Chart (recharts, about 100 KB); use that component if a second real chart appears.

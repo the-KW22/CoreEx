@@ -35,6 +35,7 @@ import { activeModule, type Module } from "@/lib/modules";
 import { RAIL_COLLAPSED, RAIL_MAX, dragRail, formatRail, keyRail, type RailState } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
 
+import { clearTrail } from "@/lib/chat-context";
 import { signOut } from "../actions";
 import { clearAllUnsaved } from "./notes/[id]/recovery";
 import { openPalette } from "./search/command-palette";
@@ -332,6 +333,7 @@ export function Rail({
                 // Text kept in the browser for recovery must not stay for the next person on this computer.
                 // shortcut: the Disabled and Invite-only pages sign out without this, their entries last up to 7 days.
                 clearAllUnsaved();
+                clearTrail();
                 void signOut();
               }}
             >

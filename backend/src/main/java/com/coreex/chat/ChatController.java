@@ -53,7 +53,9 @@ class ChatController {
 
 	record SendRequest(@NotBlank @Size(max = 20_000) String text,
 			@Schema(nullable = true, description = "The Use my Notes switch for this message; absent keeps the Chat's own setting")
-			Boolean useNotes) {
+			Boolean useNotes,
+			@Valid @Schema(nullable = true, description = "Where the User is in CoreEx, for this reply only; never stored")
+			ChatContext context) {
 
 		// Pasted text often carries spaces and line breaks at the ends; trim before validation.
 		SendRequest {
@@ -214,7 +216,7 @@ class ChatController {
 	SseEmitter send(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@PathVariable UUID id, @Valid @RequestBody SendRequest request) {
 		var emitter = new SseEmitter(properties.maxReplyDuration().plusMinutes(1).toMillis());
-		chats.reply(user, id, request.text(), request.useNotes(), emitter);
+		chats.reply(user, id, request.text(), request.useNotes(), request.context(), emitter);
 		return emitter;
 	}
 

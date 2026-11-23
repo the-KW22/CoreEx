@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type ChatMessage, type Source, failureNotice, offersSearch, sourceHref, visibleMessages } from "@/lib/chat";
+import { chatContext } from "@/lib/chat-context";
 import { readChatEvents } from "@/lib/chat-stream";
 import { type Proposal, groupByMessage, pendingQuestion } from "@/lib/proposals";
 
@@ -123,20 +124,27 @@ export function Conversation({
   initialMessages,
   initialProposals,
   initialUseNotes,
+  initialDraft = "",
+  dock,
 }: {
   chatId: string | null;
   initialMessages: ChatMessage[];
   initialProposals: Proposal[];
   initialUseNotes: boolean;
+  /** A message prepared by another screen; the User still sends it. */
+  initialDraft?: string;
+  /** In the floating panel: no navigation, the panel reloads the Chat itself and has its own header. */
+  dock?: { onStarted: (id: string) => void; reload: () => void };
 }) {
   const router = useRouter();
   const [seen, setSeen] = useState(initialMessages);
   const [pending, setPending] = useState<Pending | null>(null);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(initialDraft);
   const [useNotes, setUseNotes] = useState(initialUseNotes);
   // A new Chat is made on the first send; keep its id, so a retry after a refusal, and Stop, use it.
   const [startedId, setStartedId] = useState<string | null>(null);
   const activeId = chatId ?? startedId;
+  const refresh = () => (dock ? dock.reload() : router.refresh());
   const [notice, setNotice] = useState<Problem | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [announce, setAnnounce] = useState("");
@@ -162,9 +170,9 @@ export function Conversation({
 
   useEffect(() => {
     if (!elsewhere) return;
-    const timer = setInterval(() => router.refresh(), 3000);
+    const timer = setInterval(() => (dock ? dock.reload() : router.refresh()), 3000);
     return () => clearInterval(timer);
-  }, [elsewhere, router]);
+  }, [elsewhere, router, dock]);
 
   useEffect(() => {
     end.current?.scrollIntoView?.({ block: "end" });
@@ -177,7 +185,7 @@ export function Conversation({
     const id = await ensureChat();
     if (!id) return;
     setDraft("");
-    await stream(id, "", { text, useNotes }, text, () => setDraft(text));
+    await stream(id, "", { text, useNotes, context: chatContext() }, text, () => setDraft(text));
   }
 
   // A new Chat is made on the first send (or the first answer).
@@ -240,15 +248,18 @@ export function Conversation({
     setNotice(failure);
     setAnnounce(failure?.text ?? (status === "STOPPED" ? "Reply stopped." : "Reply finished."));
     // The Chat list lives in the layout, which a soft navigation keeps: refresh it so the new or renamed Chat shows.
-    if (!chatId) router.replace(`/chat/${id}`);
-    router.refresh();
+    if (!chatId) {
+      if (dock) dock.onStarted(id);
+      else router.replace(`/chat/${id}`);
+    }
+    refresh();
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <header className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">Chat</h1>
-        {activeId && (
+      <header className={dock ? "sr-only" : "flex items-center justify-between gap-2"}>
+        {dock ? <h2>Chat</h2> : <h1 className="text-xl font-semibold tracking-tight">Chat</h1>}
+        {activeId && !dock && (
           <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)}>
             <Trash2Icon aria-hidden /> Delete Chat
           </Button>
@@ -275,7 +286,7 @@ export function Conversation({
                 ) : (
                   <Reply text={m.text ?? ""} status={m.status} sources={m.sources} errorCode={m.errorCode} />
                 ))}
-              {proposals && activeId && <ProposalCards chatId={activeId} proposals={proposals} busy={running || elsewhere} onAnswered={() => router.refresh()} />}
+              {proposals && activeId && <ProposalCards chatId={activeId} proposals={proposals} busy={running || elsewhere} onAnswered={refresh} />}
             </Fragment>
           );
         })}
