@@ -36,3 +36,25 @@ export async function revokeInvite(id: string): Promise<boolean> {
   revalidatePath("/admin");
   return !!result?.data;
 }
+
+export type ChatSettingsResult = { ok: true } | { error: string };
+
+// The Chat card's save. A 400 carries the API's words for a bad model or budget; anything else gets a plain line.
+export async function saveChatSettings(formData: FormData): Promise<ChatSettingsResult> {
+  const api = await getApi();
+  const result = await api
+    .PUT("/api/admin/chat-settings", {
+      body: {
+        enabled: formData.get("enabled") === "on",
+        model: String(formData.get("model") ?? ""),
+        dailyBudgetUsd: Number(formData.get("dailyBudgetUsd")),
+      },
+    })
+    .catch(() => null);
+  if (!result?.data) {
+    const message = result?.response.status === 400 ? result.error?.message : null;
+    return { error: message || "Could not save the settings. Try again." };
+  }
+  revalidatePath("/admin/overview");
+  return { ok: true };
+}

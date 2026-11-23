@@ -22,22 +22,22 @@ public class AiService {
 
 	private final AiBudget budget;
 
-	private final AiProperties properties;
+	private final AiSettings settings;
 
-	AiService(Model model, AiBudget budget, AiProperties properties) {
+	AiService(Model model, AiBudget budget, AiSettings settings) {
 		this.model = model;
 		this.budget = budget;
-		this.properties = properties;
+		this.settings = settings;
 	}
 
-	/** Whether AI is switched on (a key or the fake provider is set): screens show a pending state when it is not. */
+	/** Whether AI is switched on (a key or the fake provider is set, and an Admin has not switched it off). */
 	public boolean available() {
-		return properties.on();
+		return settings.on();
 	}
 
-	/** Refuses with AI_OFF when AI is not switched on. Nothing is sent anywhere in that case. */
+	/** Refuses with AI_OFF when AI is not switched on, by the key or by an Admin. Nothing is sent anywhere then. */
 	public void requireOn() {
-		if (!properties.on()) {
+		if (!settings.on()) {
 			throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "AI_OFF",
 					"AI is not switched on for this CoreEx. You can fill the fields in by hand.");
 		}
@@ -70,7 +70,7 @@ public class AiService {
 		budget.requireRoom(ownerId);
 		Model.Reply reply;
 		try {
-			reply = model.ask(system, data, schema, properties.maxOutputTokens());
+			reply = model.ask(system, data, schema, settings.maxOutputTokens());
 		}
 		catch (Model.Failure e) {
 			throw new ApiException(HttpStatus.BAD_GATEWAY, "AI_UNAVAILABLE",
@@ -84,10 +84,11 @@ public class AiService {
 	 * What a model call cost, in millionths of a dollar, from the tokens the provider reported and the chosen model's
 	 * prices. Turns of a conversation are charged through this too.
 	 * shortcut: cache reads and writes are charged at the plain input price, not their discounts, so a long cached Chat
-	 * is billed above its real cost. Upgrade by passing the cache tokens separately once their prices are in AiProperties.
+	 * is billed above its real cost. Upgrade by passing the cache tokens separately once their prices are in the model list.
 	 */
 	public long costMicroUsd(long inputTokens, long outputTokens) {
-		return Math.round(inputTokens * properties.inputUsdPerMillion() + outputTokens * properties.outputUsdPerMillion());
+		var price = settings.current().model();
+		return Math.round(inputTokens * price.inputUsdPerMillion() + outputTokens * price.outputUsdPerMillion());
 	}
 
 }

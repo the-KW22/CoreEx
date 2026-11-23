@@ -123,7 +123,7 @@ class AnthropicModelTest {
 
 	private AnthropicModel model() {
 		return new AnthropicModel(new AiProperties("anthropic", "sk-test-key", "claude-opus-5-5",
-				"http://127.0.0.1:" + server.getAddress().getPort(), 0.5, 4.0, 20.0, 1000, 100_000));
+				"http://127.0.0.1:" + server.getAddress().getPort(), 0.5, 1000, 100_000, null), () -> "claude-opus-5-5");
 	}
 
 	private static Message user(String text) {

@@ -35,7 +35,7 @@ Because the cloud database holds real data, a migration is first exercised on lo
 | `STORAGE_BUCKET` | `assets` (the default) |
 | `EMBED_URL` | `https://<project ref>.supabase.co/functions/v1/embed-8ba850b7e5aa` (needed for Semantic search, see "The embed Edge Function") |
 | `EMBED_SECRET` | A long random secret, the same value as the function's secret in Supabase |
-| `ANTHROPIC_API_KEY` | The owner's **Shared key** for Claude (ADR 0009). Optional: without it AI is off ("Fill with AI" says so) and nothing is sent anywhere. It costs money, so also set `COREEX_AI_DAILY_BUDGET_USD` (per User per day, 0.50 by default); `COREEX_AI_MODEL` and the two price variables in `backend/.env.example` follow the model. Set a spending limit with the provider as well |
+| `ANTHROPIC_API_KEY` | The owner's **Shared key** for Claude (ADR 0009). Optional: without it AI is off ("Fill with AI" says so) and nothing is sent anywhere. It costs money: an Admin sets the on/off switch, the model and the budget per User per day on the Admin page (Chat card), taking effect at once; `COREEX_AI_DAILY_BUDGET_USD` (0.50) and `COREEX_AI_MODEL` (`claude-opus-5-5`) are only the defaults before one is set. The model list and its prices are in `AiProperties` and must be updated by hand when the provider changes them. Set a spending limit with the provider as well |
 | `EXPORT_PDF_URL` | `https://<the frontend's Vercel URL>/export/resume-pdf`. The Export zip draws each Resume's PDF there. Empty: Resumes still export as JSON and Markdown, and their PDFs are listed as omitted |
 | `EXPORT_PDF_SECRET` | A long random secret, the same value as `EXPORT_PDF_SECRET` on Vercel. Only the API and that route hold it |
 

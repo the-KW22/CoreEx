@@ -404,6 +404,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/chat-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_5"];
+        put: operations["update_2"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/trash/items/{id}/restore": {
         parameters: {
             query?: never;
@@ -1617,7 +1633,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_5"];
+        get: operations["get_6"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1713,7 +1729,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_6"];
+        get: operations["get_7"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1986,7 +2002,7 @@ export interface paths {
             cookie?: never;
         };
         /** One Chat with all its messages, in order */
-        get: operations["get_7"];
+        get: operations["get_8"];
         put?: never;
         post?: never;
         delete: operations["delete_5"];
@@ -2114,7 +2130,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_8"];
+        get: operations["get_9"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2131,6 +2147,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["appliedBefore"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["usage_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3082,6 +3114,44 @@ export interface components {
             storageQuotaBytes: number;
             /** @description True when an Admin set this User's quota */
             customQuota: boolean;
+        };
+        UpdateRequest: {
+            enabled: boolean;
+            model: string;
+            /**
+             * Format: double
+             * @description Dollars per User per UTC day, 0 to 100
+             */
+            dailyBudgetUsd: number;
+        };
+        ChatSettings: {
+            /** @description The Shared key's switch: off refuses every new AI call, Chat and Career alike */
+            enabled: boolean;
+            /** @description The id of the model in use, one of models */
+            model: string;
+            /**
+             * Format: double
+             * @description Dollars per User per UTC day
+             */
+            dailyBudgetUsd: number;
+            /** @description The models an Admin can pick, with their prices */
+            models: components["schemas"]["ModelOption"][];
+            /** @description False when the server has no key: AI is then off whatever the switch says */
+            keyConfigured: boolean;
+        };
+        ModelOption: {
+            id: string;
+            name: string;
+            /**
+             * Format: double
+             * @description Dollars per million input tokens
+             */
+            inputUsdPerMillion: number;
+            /**
+             * Format: double
+             * @description Dollars per million output tokens
+             */
+            outputUsdPerMillion: number;
         };
         CreateTagRequest: {
             name: string;
@@ -4160,8 +4230,27 @@ export interface components {
         EarlierList: {
             items: components["schemas"]["EarlierApplication"][];
         };
+        Usage: {
+            /**
+             * Format: double
+             * @description What this User has used today (UTC), in dollars
+             */
+            spentUsd: number;
+            /**
+             * Format: double
+             * @description The Daily AI budget, in dollars
+             */
+            budgetUsd: number;
+            /**
+             * Format: date-time
+             * @description When the budget starts again: the next midnight UTC
+             */
+            resetsAt: string;
+            /** @description False when AI is off, by the key or by an Admin */
+            available: boolean;
+        };
         Status: {
-            /** @description False until the owner sets the Shared key: AI features then show as pending */
+            /** @description False until the owner sets the Shared key, or while an Admin has switched it off: AI features then show as pending */
             available: boolean;
         };
         UserPage: {
@@ -5693,6 +5782,59 @@ export interface operations {
             };
             /** @description Code NOT_FOUND */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    get_5: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSettings"];
+                };
+            };
+        };
+    };
+    update_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The settings now in force */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSettings"];
+                };
+            };
+            /** @description Code INVALID_REQUEST: a model that is not in the list, or a budget outside 0 to 100 dollars */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8720,7 +8862,7 @@ export interface operations {
             };
         };
     };
-    get_5: {
+    get_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -8879,7 +9021,7 @@ export interface operations {
             };
         };
     };
-    get_6: {
+    get_7: {
         parameters: {
             query?: never;
             header?: never;
@@ -9366,7 +9508,7 @@ export interface operations {
             };
         };
     };
-    get_7: {
+    get_8: {
         parameters: {
             query?: never;
             header?: never;
@@ -9595,7 +9737,7 @@ export interface operations {
             };
         };
     };
-    get_8: {
+    get_9: {
         parameters: {
             query?: never;
             header?: never;
@@ -9646,6 +9788,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["DuplicatePostingResponse"];
+                };
+            };
+        };
+    };
+    usage_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Usage"];
                 };
             };
         };

@@ -444,6 +444,23 @@ class ChatApiTest extends ApiTest {
 	}
 
 	@Test
+	void switchingTheKeyOffDuringAReplyEndsItWithTheNoteAndTheModelIsNotCalledAgain() throws Exception {
+		var chat = createChat(owner);
+		model.script(TestModel.toolUse("switchoff", "{}"), TestModel.text("never sent"));
+
+		try {
+			var response = say(owner, chat, "Use the tool");
+
+			assertThat(response.body()).contains("event:done").contains("\"status\":\"COMPLETE\"").doesNotContain("event:error");
+			assertThat(model.conversed()).hasSize(1);
+			assertThat(read(owner, chat)).contains("Chat was switched off, so the reply stopped here.");
+		}
+		finally {
+			jdbc.sql("update ai_settings set enabled = true").update();
+		}
+	}
+
+	@Test
 	void aSpentBudgetRefusesBeforeTheStreamWithAnswerThatItStartsAgainAtMidnight() throws Exception {
 		var chat = createChat(owner);
 		spend(owner, 10_000);

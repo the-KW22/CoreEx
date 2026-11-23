@@ -1,6 +1,7 @@
 package com.coreex.ai;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.UUID;
@@ -24,16 +25,26 @@ public class AiBudget {
 
 	private final Clock clock;
 
-	private final AiProperties properties;
+	private final AiSettings settings;
 
-	AiBudget(JdbcClient jdbc, Clock clock, AiProperties properties) {
+	AiBudget(JdbcClient jdbc, Clock clock, AiSettings settings) {
 		this.jdbc = jdbc;
 		this.clock = clock;
-		this.properties = properties;
+		this.settings = settings;
 	}
 
 	private LocalDate today() {
 		return clock.instant().atZone(ZoneOffset.UTC).toLocalDate();
+	}
+
+	/** When the budget starts again: the next midnight UTC. */
+	Instant resetsAt() {
+		return today().plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+	}
+
+	/** The Daily AI budget an Admin set (or the default), in millionths of a dollar. */
+	long budgetMicroUsd() {
+		return settings.current().dailyBudgetMicroUsd();
 	}
 
 	long spentToday(UUID ownerId) {
@@ -43,7 +54,7 @@ public class AiBudget {
 
 	/** Refuses with the one answer Chat uses too when today's budget is used up. */
 	void requireRoom(UUID ownerId) {
-		if (spentToday(ownerId) >= Math.round(properties.dailyBudgetUsd() * 1_000_000)) {
+		if (spentToday(ownerId) >= budgetMicroUsd()) {
 			throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, SPENT,
 					"You have used today's AI budget. It starts again at midnight UTC.");
 		}

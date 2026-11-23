@@ -38,7 +38,7 @@ export function failureNotice(code: string | null | undefined, message?: string)
     case "AI_OFF":
       return "Chat is switched off right now.";
     case "AI_BUDGET_SPENT":
-      return message || "You have used today's Chat budget. It starts again at midnight UTC. Your saved Chats stay readable.";
+      return message || "You have used today's AI budget. It starts again at midnight UTC. Your saved Chats stay readable.";
     case "CHAT_BUSY":
       return "A reply is already running in this Chat.";
     default:
@@ -46,6 +46,9 @@ export function failureNotice(code: string | null | undefined, message?: string)
       return message || "Chat could not answer just now. Try again, or use Search to find your Notes.";
   }
 }
+
+// Every failure but a busy Chat gets a link to Search: waiting for a reply to finish is the only thing that helps there.
+export const offersSearch = (code: string | null | undefined) => code !== "CHAT_BUSY";
 
 // A source opens its Item; a Note found under a heading opens at that heading.
 export const sourceHref = (s: Source) => (s.type === "NOTE" && s.heading ? `${itemHref(s)}?heading=${encodeURIComponent(s.heading)}` : itemHref(s));
