@@ -40,25 +40,36 @@ record CareerTask(String kind, List<Input> inputs, String system, Map<String, Ob
 	private static final Map<String, Object> TEXT = Map.of("type", "string");
 
 	private static final Map<String, Object> REQUIREMENT = Map.of("type", "object", "properties",
-			Map.of("requirement", TEXT, "verdict", Map.of("type", "string", "enum", List.of("SUPPORTED", "PARTLY", "MISSING")),
-					"evidence", Map.of("type", "array", "items", TEXT), "note", TEXT),
-			"required", List.of("requirement", "verdict", "evidence", "note"), "additionalProperties", false);
+			Map.ofEntries(Map.entry("requirement", TEXT),
+					Map.entry("kind", Map.of("type", "string", "enum", List.of("MUST", "NICE", "GATE"))),
+					Map.entry("verdict", Map.of("type", "string", "enum", List.of("SUPPORTED", "PARTLY", "MISSING"))),
+					Map.entry("evidence", Map.of("type", "array", "items", TEXT)), Map.entry("note", TEXT),
+					Map.entry("plan", Map.of("type", "string", "enum", List.of("NONE", "FRAME", "CLOSE", "DO_NOT_CLAIM"))),
+					Map.entry("planNote", TEXT), Map.entry("confirm", TEXT)),
+			"required", List.of("requirement", "kind", "verdict", "evidence", "note", "plan", "planNote", "confirm"), "additionalProperties", false);
 
 	static final CareerTask FIT = new CareerTask("FIT",
 			List.of(Input.POSTING, Input.RESUME, Input.KNOWLEDGE, Input.STORIES, Input.PREFERENCES), """
-					You check how well a person's evidence fits a job posting, for a job tracker.
+					You check how well a person's evidence fits a job posting, for a job tracker, and read what the role really wants.
 					""" + RULES + """
 
 					Answer with:
-					- requirements: the posting's main requirements, at most 15. For each: requirement (short), verdict
-					  (SUPPORTED when the evidence clearly shows it, PARTLY when it shows some of it, MISSING when it does not),
-					  evidence (the ids that show it, empty when MISSING) and note (one short sentence).
+					- requirements: the posting's main requirements, at most 15. For each: requirement (short), kind (MUST for a
+					  required skill or experience, NICE for a bonus, GATE for a condition asked of every candidate such as work
+					  rights, a language or a location), verdict (SUPPORTED when the evidence clearly shows it, PARTLY when it shows
+					  some of it, MISSING when it does not), evidence (the ids that show it, empty when MISSING) and note (one short
+					  sentence). For a PARTLY or MISSING requirement also give plan (FRAME: a truthful way to present what the evidence
+					  does show; CLOSE: a fast way to close the gap; DO_NOT_CLAIM: the person should not claim it) and planNote (one
+					  short sentence); otherwise plan NONE and planNote empty. For a GATE the evidence does not show, confirm is one
+					  question for the person that asks, never says they lack it; otherwise confirm is empty.
+					- priorities: 3 to 5 short lines on what really decides the hire, read from the posting's wording.
+					- keywords: up to 20 skills and terms copied word for word from the posting.
 					- question: one question the person could ask the employer about this role.
-					- score: a whole number from 0 to 100, your estimate of how well the evidence matches the posting.""",
+					The score is worked out afterwards from your verdicts; do not give one.""",
 			Map.of("type", "object", "properties",
-					Map.of("score", Map.of("type", "integer"), "question", TEXT, "requirements",
-							Map.of("type", "array", "items", REQUIREMENT)),
-					"required", List.of("score", "question", "requirements"), "additionalProperties", false));
+					Map.of("question", TEXT, "requirements", Map.of("type", "array", "items", REQUIREMENT), "priorities",
+							Map.of("type", "array", "items", TEXT), "keywords", Map.of("type", "array", "items", TEXT)),
+					"required", List.of("question", "requirements", "priorities", "keywords"), "additionalProperties", false));
 
 	static final CareerTask DRAFT = new CareerTask("DRAFT",
 			List.of(Input.POSTING, Input.RESUME, Input.KNOWLEDGE, Input.STORIES, Input.QUESTION), """

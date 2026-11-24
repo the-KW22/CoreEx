@@ -3030,10 +3030,26 @@ export interface components {
         FitResponse: {
             /**
              * Format: int32
-             * @description An estimate from 0 to 100, never a measurement
+             * @description 0 to 100, worked out from the verdicts and the weights (an estimate of the match, not a measurement)
              */
             score: number;
+            /**
+             * Format: double
+             * @description The points behind the score, SUPPORTED 1 and PARTLY 0.5, times the weight; empty in a result made before kinds existed
+             */
+            points: number | null;
+            /**
+             * Format: int32
+             * @description The most the points could be
+             */
+            maximum: number | null;
             question: string;
+            /** @description What really decides the hire, read from the posting */
+            priorities: string[];
+            /** @description Words copied from the posting to reuse in an email or Cover Letter */
+            keywords: string[];
+            /** @description COREEX, or AGENT when the User's agent saved it over MCP */
+            source: string | null;
             requirements: components["schemas"]["RequirementResponse"][];
         };
         PointResponse: {
@@ -3091,6 +3107,20 @@ export interface components {
             note: string;
             /** @description What shows it; a forgotten or switched-off Fact is left out */
             evidence: components["schemas"]["EvidenceResponse"][];
+            /**
+             * @description MUST, NICE or GATE; empty in a result made before kinds existed
+             * @enum {string|null}
+             */
+            kind: "MUST" | "NICE" | "GATE" | null;
+            /**
+             * @description What to do about a gap: NONE, FRAME, CLOSE or DO_NOT_CLAIM
+             * @enum {string|null}
+             */
+            plan: "NONE" | "FRAME" | "CLOSE" | "DO_NOT_CLAIM" | null;
+            /** @description One short line on the plan; empty when there is none */
+            planNote: string;
+            /** @description A question for the User on a GATE the evidence does not show; empty otherwise */
+            confirm: string;
         };
         ResultResponse: {
             /** Format: uuid */

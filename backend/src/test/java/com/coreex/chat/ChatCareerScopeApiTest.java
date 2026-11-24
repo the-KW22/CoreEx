@@ -140,7 +140,8 @@ class ChatCareerScopeApiTest extends ApiTest {
 		say(chat, "What do I know?", TestModel.toolUse("list_facts", "{}"), TestModel.text("done"));
 
 		assertThat(offered()).contains("search", "list_applications")
-				.doesNotContain("list_facts", "get_fact", "search_knowledge", "get_application_results", "add_fact", "add_story");
+				.doesNotContain("list_facts", "get_fact", "search_knowledge", "get_application_results", "add_fact", "add_story",
+						"run_fit_check", "save_fit_check");
 		assertThat(detail(chat).toString()).contains("That tool is not available in this Chat.");
 		assertThat(detail(chat).path("proposals")).isEmpty();
 	}

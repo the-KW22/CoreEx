@@ -2,8 +2,9 @@ import { expect, test } from "@playwright/test";
 import { expectNoViolations, newApplication, signIn } from "./helpers";
 
 // Needs the API started with COREEX_AI_PROVIDER=fake (and E2E_FAKE_AI=1 here): the fake model cites the first active
-// Fact it is given, scores 72, and always reports one requirement as missing.
-test("runs a Fit check, shows its evidence, the estimate and Add evidence, then marks it Out of date", async ({ page }) => {
+// Fact it is given for "Builds web services" (a must-have, supported), and reports a nice-to-have and a hard gate as
+// missing, with a plan for each and a question on the gate. With one Fact the score is 40 (2 of 5 points).
+test("runs a Fit check, shows its evidence, the points and Add evidence, then marks it Out of date", async ({ page }) => {
   test.skip(process.env.E2E_FAKE_AI !== "1", "Requires the local fake AI provider");
   test.setTimeout(180_000);
   const stamp = Date.now();
@@ -21,9 +22,19 @@ test("runs a Fit check, shows its evidence, the estimate and Add evidence, then 
   await expect(page.getByRole("tabpanel", { name: "Fit" }).getByText(/^Sends: the posting, your Resume, your Knowledge/)).toBeVisible();
   await page.getByRole("button", { name: "Run Fit check" }).click();
   const panel = page.getByRole("tabpanel", { name: "Fit" });
-  await expect(panel.getByText("72", { exact: true })).toBeVisible({ timeout: 30_000 });
-  await expect(panel.getByText(/an estimate, not a measurement/)).toBeVisible();
+  await expect(panel.getByText("40", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(panel.getByText(/2 of 5 points/)).toBeVisible();
+  await expect(panel.getByText("Made by CoreEx")).toBeVisible();
+  await expect(panel.getByText("What decides the hire")).toBeVisible();
+  await expect(panel.getByText("Ships web services", { exact: true })).toBeVisible();
+  await expect(panel.getByText("Nice-to-haves")).toBeVisible();
   await expect(panel.getByText("Leads a team of ten", { exact: false }).first()).toBeVisible();
+  await expect(panel.getByText(/Mention the mentoring you did/)).toBeVisible();
+  await expect(panel.getByText("Hard gates")).toBeVisible();
+  await expect(panel.getByText("Confirm before applying:")).toBeVisible();
+  await expect(panel.getByText(/Do you have the right to work in Singapore/)).toBeVisible();
+  await expect(panel.getByText("Keywords from the posting")).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Copy keywords" })).toBeVisible();
   await expect(panel.getByText("A question to ask:")).toBeVisible();
   await expect(panel.getByRole("link", { name: /Add evidence/ }).first()).toBeVisible();
   await expectNoViolations(page);
