@@ -4,6 +4,7 @@ export type DocPage = { href: string; title: string; group: string };
 
 export const DOC_PAGES: DocPage[] = [
   { href: "/docs", title: "Introduction", group: "Getting started" },
+  { href: "/docs/shortcuts", title: "Keyboard shortcuts", group: "Getting started" },
   { href: "/docs/mcp", title: "Overview", group: "MCP" },
   { href: "/docs/mcp/quick-start", title: "Quick start", group: "MCP" },
   { href: "/docs/mcp/connect", title: "Connect a client", group: "MCP" },

@@ -375,8 +375,11 @@ class ExportApiTest extends ApiTest {
 		var zip = exported(userA);
 
 		assertThat(zip.keySet()).containsExactlyInAnyOrder("Jobs/CV.json", "Jobs/CV.md", "Jobs/CV.pdf", "career/facts.json", "career/offers.json", "career/results.json", "manifest.json");
-		// The JSON is the Resume's document, and the Markdown is the same text the Resume's own endpoint gives.
-		assertThat(JSON.readTree(text(zip, "Jobs/CV.json"))).isEqualTo(stored.path("document"));
+		// The JSON is the Resume's document with its kind, and the Markdown is the same text the Resume's own endpoint gives.
+		var exported = JSON.readTree(text(zip, "Jobs/CV.json"));
+		assertThat(exported.path("kind").asString()).isEqualTo("RESUME");
+		assertThat(exported.path("basics")).isEqualTo(stored.path("document").path("basics"));
+		assertThat(exported.path("sections")).isEqualTo(stored.path("document").path("sections"));
 		assertThat(text(zip, "Jobs/CV.md")).isEqualTo(markdown).isNotBlank();
 		assertThat(zip.get("Jobs/CV.pdf")).isEqualTo(TestResumePdfRenderer.PDF);
 		assertThat(renderer.requests()).hasSize(1);

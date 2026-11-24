@@ -21,3 +21,45 @@ The first version only reads. A Note can contain text written to look like instr
 - The price of each model lives in configuration next to the model list and must be updated when the provider changes prices.
 - `/mcp` and Search keep working when the provider is down or out of credit, because only the Chat module depends on it.
 - A saved Chat keeps text it quoted from a Note after that Note leaves the Trash for good, with the source marked as removed (`CONTEXT.md`, Trash). Text already sent to the provider is covered by its retention terms, not by CoreEx.
+
+## Update: retrieval, switches and cost (2026-11-22)
+
+Decided after comparing Chat with Reactive Resume's AI Assistant. Where this section and the text above differ, this section wins.
+
+- **Strong matches are sent up front.** Before each reply, Semantic search runs on the User's message, and the top 3 Chunks above the search's similarity threshold go to the model as data, before it decides anything. They count as sources. The model can still search (which returns Chunks, not whole Notes) and read a whole Note when it needs one. So Note text can reach the provider without the model asking for it, whenever a message closely matches the User's Notes; the Chat module's privacy note says so.
+- **A "Use my Notes" switch** in the message box, on by default and remembered within a Chat, turns that off for a message: nothing is fetched up front and no knowledge tools are offered. Notes quoted earlier stay in the Chat's history and are still sent with later turns.
+- **One engine, several scopes.** A Chat has a scope fixed when it is created (`general` first; Career adds `career` and `application`). The engine is the same for every scope; a scope only brings its instructions and the tools it starts from.
+- **Long Chats stay affordable** through prompt caching of the instructions and tools, and the provider's own context editing, which clears the oldest tool results once the history passes a size: about 100k tokens on the Shared key, about 300k on a User's own key. The saved Chat keeps everything; only what is re-sent shrinks.
+- **Replies are bounded:** one reply at a time per Chat, at most 15 tool steps and 5 minutes per reply, and Stop keeps what was written.
+- **Web search** (later) uses the provider's own search and page-reading tools behind a "Use the web" switch, off by default, with at most 5 searches per reply. The page reader only opens links that appear in the conversation. Note text must not be put in search queries; this is an instruction to the model, not something CoreEx can enforce.
+
+## Update: Proposals and questions (2026-11-23)
+
+- **Writes wait for approval, in the API.** The write tools Chat offers are those of `/mcp` from a fixed list (never uploads or Career writes). A call stores a Proposal; it runs, as the Chat agent through the same service method, only when the User approves. An instruction planted in a Note can at worst produce a Proposal the User rejects.
+- **A batch is one transaction.** Proposals made in one reply can be approved together; one failure applies none. An edit remembers the Note version it was based on, so a changed Note refuses with `VERSION_CONFLICT`. A newer Proposal for a Note replaces the older pending ones. The User can edit the text before approving; their words are what is saved.
+- **The model is told through the history.** The stored result of each proposing call is rewritten to Applied, Rejected or Replaced, so the next turn replays what happened.
+- **A question ends the reply.** `ask_user_question` is the one Chat-only tool; the reply stops with the call pending, and the answer is stored as its result and continues the conversation. A card exists only for a stored pending call, never for text.
+
+## Update: own keys and the model choice (2026-11-23)
+
+Built in issue #203. Where this section and the text above differ, this section wins.
+
+- **A User can store their own provider key** (Anthropic only until other providers are added). While they have one, every Chat turn and Career AI action of theirs uses it and never the Shared key. Those calls are not counted toward the Daily Chat budget and are not stopped by the Admin switch or by a missing Shared key. Removing the key returns them to the Shared key and its budget.
+- **Storage:** sealed by the API with AES-GCM under a key made from `COREEX_AI_KEY_SECRET`, which is held only in the host's environment, in a `coreex` table with row level security. Without the secret, keys cannot be saved at all. It is write-only: the API and the screens show only the provider and the last 4 characters, and the key is never logged, never in an error message, never in an Admin endpoint and never on `/mcp` (ADR 0004). A key is checked with one tiny provider call before it is stored. A key that can no longer be opened (the secret changed) counts as no key.
+- **Every User picks the model for their Chats**, on the Shared key too; the Admin's model is the default and still the model for Career. The budget counts cost at the picked model's price, so a cheaper model lasts longer.
+- **Context editing** clears old tool results at about 300k tokens on an own key (about 100k on the Shared key).
+
+## Update: reading files and the web (2026-11-23)
+
+Built in issues #204 and #205. Where this section and the text above differ, this section wins.
+
+- **Files:** a `read_asset` tool loads one image or PDF the User owns and gives it to the model inside the tool result. The stored message keeps only the Asset's id and media type; the file is loaded again from storage each time the history is sent, and if it is gone, in the Trash or over the cap the model is told it is no longer available. Cap: 5 MB and about 20 PDF pages. The tokens count toward the budget like any turn.
+- **Web:** the provider's own server-side search and page reading, offered only when the User turns on "Use the web" for that message. At most 5 searches a reply; each search adds its price to the turn's cost on the Shared key. The provider's search blocks are not kept in the Chat history; the sources shown are the pages it reports as retrieved, stored with the reply, never links the model wrote. A reply the provider pauses mid-search ends with what was written.
+
+## Update: Career scope (2026-11-23)
+
+Built in issues #289 and #290. Where this section and the text above differ, this section wins.
+
+- **Scope and switches.** A Chat's scope is fixed when it is made: general (as before), career, or one Application. A career or Application Chat starts with Use my Notes off. Two more switches sit beside it, Use my Applications and Use my Knowledge, on by default and remembered within the Chat.
+- **Career tools only in career scopes.** Facts, Stories and Career results (`list_facts`, `get_fact`, `search_knowledge`, `get_application_results`) never reach a general Chat, and a general Chat that asks for them is refused. General search never returns them either. An Application Chat sees only its own Application.
+- **Proposals of Facts and Stories.** A career Chat can propose a Fact or a Story, and nothing is saved until the User approves it. A Fact proposed from the User's words in a Chat keeps that Chat as its source, and its quote must be in the User's own messages of that Chat: the check runs when it is proposed and again when it is approved. There is no automatic memory: no Fact is saved from a Chat unless the User approves it.

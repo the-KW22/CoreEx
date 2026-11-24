@@ -28,10 +28,11 @@ export async function createResume(
   title: string,
   sample: boolean,
   imported?: components["schemas"]["ResumeDocument"],
+  kind: "RESUME" | "CV" = "RESUME",
 ): Promise<ResumeResult> {
   const api = await getApi();
   const result = await api
-    .POST("/api/resumes", { body: { title: title.trim() || undefined, sample, document: imported } })
+    .POST("/api/resumes", { body: { title: title.trim() || undefined, sample, document: imported, kind } })
     .catch(() => null);
   if (!result) return failed("Cannot reach the CoreEx API.");
   return done(!!result.data) ? { ok: true } : failed(result.error?.message);

@@ -5,13 +5,16 @@ import { getApi } from "@/lib/api/server";
 import { formatBytes } from "@/lib/items";
 import { storageSegments } from "@/lib/storage";
 
+import { ChatCard } from "./chat-card";
+
 // The Overview tab: stats and where the hosting limit's storage goes (docs/DESIGN.md section 6.7).
 export default async function AdminOverviewPage() {
   const api = await getApi();
-  const [result, users] = await Promise.all([
+  const [result, users, chat] = await Promise.all([
     api.GET("/api/admin/overview").catch(() => null),
     // shortcut: the chart breaks down the 100 newest Users and lumps the rest into "Others", add an Admin endpoint for per-User totals when there are more.
     api.GET("/api/admin/users", { params: { query: { size: 100 } } }).catch(() => null),
+    api.GET("/api/admin/chat-settings").catch(() => null),
   ]);
 
   if (!result) {
@@ -93,6 +96,8 @@ export default async function AdminOverviewPage() {
           file, including those still in the Trash, until they are removed for good.
         </p>
       </section>
+
+      {chat?.data && <ChatCard settings={chat.data} />}
     </div>
   );
 }

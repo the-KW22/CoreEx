@@ -3,14 +3,32 @@ package com.coreex.mcp;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
+
+import com.coreex.TestModel;
 
 import tools.jackson.databind.JsonNode;
 
 /** The Career tools: Facts and Career results through the MCP, checked against the REST API. */
+@TestPropertySource(properties = { "coreex.ai.provider=fake", "coreex.ai.daily-budget-usd=0.01" })
 class McpCareerToolsApiTest extends McpApiTest {
+
+	private static final String FIT_NO_REQUIREMENTS = "{\"question\":\"Why?\",\"requirements\":[]}";
+
+	@Autowired TestModel model;
+
+	@BeforeEach
+	void fakeModel() {
+		model.clear();
+		model.tokens(1, 1);
+	}
 
 	/** The error text of a tool call made with the given Access token. */
 	private String failsFor(String bearer, String tool, String arguments) throws Exception {
@@ -27,12 +45,31 @@ class McpCareerToolsApiTest extends McpApiTest {
 		return call("list_facts", "{}");
 	}
 
+	private String application(String bearer) throws Exception {
+		return call(bearer, "create_application", "{\"company\":\"Acme\",\"role\":\"Engineer\",\"postingText\":\"Build APIs\"}")
+				.path("id").asString();
+	}
+
+	private JsonNode results(String application) throws Exception {
+		return call("get_application_results", "{\"applicationId\":\"" + application + "\"}").path("results");
+	}
+
+	private static String appArgs(String application) {
+		return "{\"applicationId\":\"" + application + "\"}";
+	}
+
+	/** The arguments of save_fit_check: the fit is a JSON string inside them, so it is escaped by the mapper. */
+	private static String saveArgs(String application, String fit) throws Exception {
+		return JSON.writeValueAsString(Map.of("applicationId", application, "fit", fit));
+	}
+
 	@Test
 	void theCareerToolsAreListed() throws Exception {
 		var names = new ArrayList<String>();
 		rpc(token, "tools/list", "{}").path("result").path("tools").forEach(t -> names.add(t.path("name").asString()));
 
-		assertThat(names).contains("list_facts", "get_fact", "add_fact", "switch_off_fact", "get_application_results");
+		assertThat(names).contains("list_facts", "get_fact", "add_fact", "switch_off_fact", "get_application_results", "run_fit_check",
+				"save_fit_check");
 	}
 
 	@Test
@@ -134,6 +171,136 @@ class McpCareerToolsApiTest extends McpApiTest {
 		assertThat(results.get(0).path("result").path("score").asInt()).isEqualTo(80);
 		assertThat(results.get(0).path("resolution").isNull()).isTrue();
 		assertThat(results.get(0).path("createdAt").isMissingNode()).isFalse();
+	}
+
+	@Test
+	void runFitCheckRunsTheFitCheckForTheOwnerWithTheModel() throws Exception {
+		var application = application(token);
+		var fact = addFact("Built the billing service", "EXPERIENCE");
+		model.answer(JSON.writeValueAsString(Map.of("question", "Why?", "requirements", List.of(Map.of("requirement", "Builds APIs",
+				"kind", "MUST", "verdict", "SUPPORTED", "evidence", List.of(fact), "note", "Shown.")))));
+
+		var row = call("run_fit_check", appArgs(application));
+
+		assertThat(row.path("kind").asString()).isEqualTo("FIT");
+		assertThat(row.path("result").path("source").asString()).isEqualTo("COREEX");
+		assertThat(row.path("result").path("score").asInt()).isEqualTo(100);
+		assertThat(row.path("outOfDate").asBoolean()).isFalse();
+		assertThat(model.asked()).hasSize(1);
+		assertThat(results(application).size()).isEqualTo(1);
+	}
+
+	@Test
+	void runFitCheckIsRefusedForAnotherUsersApplication() throws Exception {
+		var application = application(token);
+		var otherToken = newToken(newUser("b@example.com"));
+
+		assertThat(failsFor(otherToken, "run_fit_check", appArgs(application))).containsIgnoringCase("no such");
+		assertThat(model.asked()).isEmpty();
+		assertThat(results(application).size()).isZero();
+	}
+
+	@Test
+	void runFitCheckIsRefusedWithTheButtonsBudgetErrorWhenTheBudgetIsSpent() throws Exception {
+		var application = application(token);
+		model.answer(JSON.writeValueAsString(Map.of("question", "Why?", "requirements", List.of())));
+		model.tokens(10_000_000, 0);
+
+		// The first run is within the budget and spends it; the next is refused with the same message the Fit check button gives.
+		call("run_fit_check", appArgs(application));
+		assertThat(failsFor(token, "run_fit_check", appArgs(application))).containsIgnoringCase("today's AI budget");
+	}
+
+	@Test
+	void saveFitCheckSavesTheAgentsAnswerWithAServerScoreAndNoModelCall() throws Exception {
+		var application = application(token);
+		var fact = addFact("Built the billing service", "EXPERIENCE");
+		var fit = "{\"score\":99,\"question\":\"Why?\",\"priorities\":[\"Ships APIs\"],\"keywords\":[\"APIs\"],\"requirements\":"
+				+ "[{\"requirement\":\"Builds APIs\",\"kind\":\"MUST\",\"verdict\":\"SUPPORTED\",\"evidence\":[\"" + fact
+				+ "\"],\"note\":\"Shown.\"}]}";
+
+		var row = call("save_fit_check", saveArgs(application, fit));
+
+		assertThat(row.path("kind").asString()).isEqualTo("FIT");
+		assertThat(row.path("result").path("source").asString()).isEqualTo("AGENT");
+		assertThat(row.path("result").path("score").asInt()).isEqualTo(100);
+		assertThat(model.asked()).isEmpty();
+		assertThat(results(application).size()).isEqualTo(1);
+	}
+
+	@Test
+	void saveFitCheckSpendsNoBudgetSoARunStillGoes() throws Exception {
+		var application = application(token);
+		model.tokens(10_000_000, 0);
+		model.answer(JSON.writeValueAsString(Map.of("question", "Why?", "requirements", List.of())));
+
+		// Two saves spend nothing, so the first model run is still within the budget.
+		call("save_fit_check", saveArgs(application, FIT_NO_REQUIREMENTS));
+		call("save_fit_check", saveArgs(application, FIT_NO_REQUIREMENTS));
+		call("run_fit_check", appArgs(application));
+
+		assertThat(model.asked()).hasSize(1);
+		assertThat(failsFor(token, "run_fit_check", appArgs(application))).containsIgnoringCase("today's AI budget");
+	}
+
+	@Test
+	void saveFitCheckIsRefusedForAnotherUsersApplication() throws Exception {
+		var application = application(token);
+		var otherToken = newToken(newUser("b@example.com"));
+
+		assertThat(failsFor(otherToken, "save_fit_check", saveArgs(application, FIT_NO_REQUIREMENTS))).containsIgnoringCase("no such");
+		assertThat(results(application).size()).isZero();
+	}
+
+	@Test
+	void saveFitCheckDropsAFactOfAnotherUserAndTheRequirementIsMissing() throws Exception {
+		var application = application(token);
+		var theirs = call(newToken(newUser("b@example.com")), "add_fact",
+				"{\"text\":\"Shipped a payments API\",\"category\":\"ACHIEVEMENT\"}").path("id").asString();
+		var fit = "{\"question\":\"Why?\",\"requirements\":[{\"requirement\":\"Builds APIs\",\"kind\":\"MUST\",\"verdict\":\"SUPPORTED\","
+				+ "\"evidence\":[\"" + theirs + "\"],\"note\":\"n\"}]}";
+
+		var row = call("save_fit_check", saveArgs(application, fit));
+
+		var requirement = row.path("result").path("requirements").get(0);
+		assertThat(requirement.path("verdict").asString()).isEqualTo("MISSING");
+		assertThat(requirement.path("evidence").size()).isZero();
+		assertThat(row.path("result").path("score").asInt()).isZero();
+		assertThat(row.toString()).doesNotContain("Shipped a payments API");
+	}
+
+	@Test
+	void saveFitCheckRefusesBrokenJsonAndSavesNothing() throws Exception {
+		var application = application(token);
+
+		assertThat(callFails("save_fit_check", saveArgs(application, "{not json"))).containsIgnoringCase("nothing was saved");
+		assertThat(results(application).size()).isZero();
+	}
+
+	@Test
+	void saveFitCheckRefusesATooLongTextAndSavesNothing() throws Exception {
+		var application = application(token);
+		var fit = "{\"question\":\"" + "x".repeat(60_001) + "\",\"requirements\":[]}";
+
+		assertThat(callFails("save_fit_check", saveArgs(application, fit))).containsIgnoringCase("too long");
+		assertThat(results(application).size()).isZero();
+	}
+
+	@Test
+	void aSavedFitCheckIsOutOfDateAfterAFactIsAddedOrEdited() throws Exception {
+		var application = application(token);
+		call("save_fit_check", saveArgs(application, FIT_NO_REQUIREMENTS));
+		assertThat(results(application).get(0).path("outOfDate").asBoolean()).isFalse();
+
+		var added = addFact("Built the billing service", "EXPERIENCE");
+		assertThat(results(application).get(0).path("outOfDate").asBoolean()).isTrue();
+
+		call("save_fit_check", saveArgs(application, FIT_NO_REQUIREMENTS));
+		assertThat(results(application).get(0).path("outOfDate").asBoolean()).isFalse();
+
+		assertThat(put("/api/knowledge/facts/" + added, jwt, "{\"text\":\"Built the invoicing service\",\"category\":\"EXPERIENCE\"}")
+				.statusCode()).isEqualTo(200);
+		assertThat(results(application).get(0).path("outOfDate").asBoolean()).isTrue();
 	}
 
 }

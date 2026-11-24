@@ -162,6 +162,48 @@ class ResumeLibraryApiTest extends ApiTest {
 		assertThat(titles(get("/api/resumes?sort=nonsense", userA).body())).first().isEqualTo("Gamma 100% engineer");
 	}
 
+	@Test
+	void aNewResumeIsAResumeAndACvIsMadeOnlyWhenAskedFor() throws Exception {
+		var plain = made(userA, "Plain");
+		var cv = post("/api/resumes", userA, "{\"title\":\"Master\",\"kind\":\"CV\"}");
+		assertThat(cv.statusCode()).as(cv.body()).isEqualTo(201);
+		assertThat(field(cv.body(), "kind")).isEqualTo("CV");
+
+		assertThat(field(get("/api/resumes/" + plain, userA).body(), "kind")).isEqualTo("RESUME");
+		assertThat(field(get("/api/resumes/" + field(cv.body(), "id"), userA).body(), "kind")).isEqualTo("CV");
+		assertThat(get("/api/resumes", userA).body()).contains("\"kind\":\"CV\"", "\"kind\":\"RESUME\"");
+	}
+
+	@Test
+	void theListFiltersByKindAndTheTotalFollowsIt() throws Exception {
+		made(userA, "Plain");
+		post("/api/resumes", userA, "{\"title\":\"Master\",\"kind\":\"CV\"}");
+
+		var cvs = get("/api/resumes?kind=CV", userA).body();
+		assertThat(titles(cvs)).containsExactly("Master");
+		assertThat(cvs).contains("\"total\":1");
+		var resumes = get("/api/resumes?kind=RESUME", userA).body();
+		assertThat(titles(resumes)).containsExactly("Plain");
+		assertThat(resumes).contains("\"total\":1");
+		assertThat(get("/api/resumes", userA).body()).contains("\"total\":2");
+	}
+
+	@Test
+	void aCopyOfACvIsAResume() throws Exception {
+		var cv = post("/api/resumes", userA, "{\"title\":\"Master\",\"kind\":\"CV\"}");
+		var copy = post("/api/resumes/" + field(cv.body(), "id") + "/duplicate", userA, null);
+		assertThat(copy.statusCode()).as(copy.body()).isEqualTo(201);
+		assertThat(field(copy.body(), "kind")).isEqualTo("RESUME");
+	}
+
+	@Test
+	void anotherUsersCvIsNotFoundAndNotListed() throws Exception {
+		var cv = field(post("/api/resumes", userA, "{\"title\":\"Master\",\"kind\":\"CV\"}").body(), "id");
+
+		assertThat(get("/api/resumes/" + cv, userB).statusCode()).isEqualTo(404);
+		assertThat(get("/api/resumes?kind=CV", userB).body()).doesNotContain(cv).contains("\"total\":0");
+	}
+
 	private static java.util.List<String> titles(String body) {
 		return Pattern.compile("\"title\":\"([^\"]*)\"").matcher(body).results().map(m -> m.group(1)).toList();
 	}

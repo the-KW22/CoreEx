@@ -11,7 +11,11 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { MAX_SELECTION, recordAction, setOpenItem, setSelection } from "@/lib/chat-context";
+import type { Proposal } from "@/lib/proposals";
 
+import { answerProposals } from "../../chat/actions";
+import { AskChatIcon } from "../../chat/ask-chat";
 import { ItemFrame } from "../../items/item-frame";
 import {
   deleteNote,
@@ -33,6 +37,9 @@ import { clearUnsaved, recoveryAction, storeUnsaved, takeNewestUnsaved } from ".
 import { NoteHistory } from "./note-history";
 import { type LinkTarget, linkCompletion, linkField, linkIds, setLinks } from "./links";
 import { livePreview } from "./live-preview";
+import { ProposalBar } from "./proposal-bar";
+import { proposalMarks, sameText } from "./proposal-marks";
+import { flashRange, proposalView, showProposal } from "./proposal-view";
 import { slashCompletion } from "./slash";
 import { linkAt, titleFromBody, withHeading, wordCount } from "./text";
 import { EditorToolbar } from "./toolbar";
@@ -44,6 +51,8 @@ const TITLE_MAX = 200;
 const STORE_MS = 500;
 // How often an open Note asks whether it was changed elsewhere (an Agent, another tab).
 const POLL_MS = 10_000;
+// How long a just-accepted change stays marked.
+const FLASH_MS = 2000;
 
 type Status = "saved" | "unsaved" | "saving" | "conflict" | "error";
 type Text = { title: string; body: string };
@@ -87,7 +96,11 @@ export function NoteEditor({
   tags,
   details,
   detailsCookie,
+  heading,
+  proposals = [],
 }: {
+  /** Chat Proposals still waiting for this Note: one is drawn on the text when it was made for the text as it is now. */
+  proposals?: Proposal[];
   id: string;
   initial: { title: string; body: string; version: number; createdAt: string; updatedAt: string; editedBy: string | null };
   crumbs: { href: string; label: string }[];
@@ -95,9 +108,13 @@ export function NoteEditor({
   details: React.ReactNode;
   /** The remembered Details choice, or null to follow the screen width. */
   detailsCookie: "open" | "closed" | null;
+  /** A heading to scroll to on opening (a Chat source opens its Note at the piece the model used). */
+  heading?: string;
 }) {
   const [title, setTitle] = useState(initial.title);
   const [status, setStatus] = useState<Status>("saved");
+  // Chat is told the title as it is now, not as it was when the page opened.
+  useEffect(() => setOpenItem({ kind: "NOTE", id, title: title || "Untitled" }), [id, title]);
   const [message, setMessage] = useState("");
   // "Load theirs" in progress, why it failed, and the copy of the User's text it made.
   const [copyBusy, setCopyBusy] = useState(false);
@@ -119,6 +136,12 @@ export function NoteEditor({
   const [active, setActive] = useState("");
   // Focus mode: the writing column fills the window and the rest of the page is out of reach.
   const [focus, setFocus] = useState(false);
+  // The Proposal drawn on the text now, and whether its answer is on its way. Any change to the text ends it.
+  const [shown, setShown] = useState<Proposal | null>(null);
+  const [answering, setAnswering] = useState(false);
+  const [proposalError, setProposalError] = useState<string | null>(null);
+  // Proposals answered here: the page's list is from before, so they must not be drawn again.
+  const answered = useRef(new Set<string>());
 
   const host = useRef<HTMLDivElement>(null);
   const layer = useRef<HTMLDivElement>(null);
@@ -180,6 +203,7 @@ export function NoteEditor({
             // Saving does not refresh the page, so the Connections are reloaded when the Links changed.
             if (linkIds(saved.current.body).sort().join() !== linkIds(result.body).sort().join()) router.refresh();
             conflict.current = false;
+            recordAction({ action: "EDITED", kind: "NOTE", id, title: snapshot.title || "Untitled" });
             version.current = result.version;
             saved.current = snapshot;
             setSavedAt(result.updatedAt);
@@ -275,6 +299,7 @@ export function NoteEditor({
           markdown({ base: markdownLanguage }),
           linkField,
           livePreview,
+          proposalView,
           autocompletion({ override: [linkCompletion(suggestLinks), slashCompletion] }),
           EditorView.lineWrapping,
           noteTheme,
@@ -291,6 +316,8 @@ export function NoteEditor({
           }),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
+              // The preview drops itself in the editor (proposal-view.ts); the bar goes with it.
+              setShown(null);
               clearTimeout(linkTimer.current);
               linkTimer.current = setTimeout(() => void lookUpLinks(), LINK_LOOKUP_MS);
             }
@@ -301,6 +328,11 @@ export function NoteEditor({
               else setPreview((p) => (p?.by === "caret" ? null : p));
             }
             if (update.selectionSet || update.docChanged) setActive([...activeFormats(update.state)].sort().join(" "));
+            // What the User has selected goes to Chat with their next message (docs/DESIGN.md section 6.14).
+            if (update.selectionSet || update.docChanged) {
+              const { from, to } = update.state.selection.main;
+              setSelection(from === to ? "" : update.state.sliceDoc(from, Math.min(to, from + MAX_SELECTION)));
+            }
             if (!update.docChanged || external.current) return;
             latest.current.body = update.state.doc.toString();
             // The first line as "# Heading" is the Note's title: typing in it changes the title too. Only when that
@@ -326,6 +358,23 @@ export function NoteEditor({
       view.current = null;
     };
   }, [changed, lookUpLinks, showPreview]);
+
+  // Opened from a Chat source: puts the heading the model used at the top. Only the first time, so typing is never moved.
+  const scrolledTo = useRef<string | null>(null);
+  useEffect(() => {
+    const editor = view.current;
+    if (!heading || !editor || scrolledTo.current === heading) return;
+    scrolledTo.current = heading;
+    const plain = (text: string) => text.replace(/[*_`~]/g, "").trim().toLowerCase();
+    for (let n = 1; n <= editor.state.doc.lines; n++) {
+      const line = editor.state.doc.line(n);
+      const match = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line.text);
+      if (match && plain(match[1]) === plain(heading)) {
+        editor.dispatch({ selection: { anchor: line.from }, effects: EditorView.scrollIntoView(line.from, { y: "start", yMargin: 16 }) });
+        return;
+      }
+    }
+  }, [heading]);
 
   // Opening the Note: text typed before and never saved (a closed tab, a crash, an unreachable API) comes back.
   // On the stored version it is saved again; on an older one the Note starts in conflict, so the User chooses.
@@ -463,6 +512,50 @@ export function NoteEditor({
     [forget],
   );
 
+  // Draws a waiting Proposal on the text when it was made for exactly this text and nothing here is unsaved. Not while
+  // one is shown or being answered. The first fit wins; a Proposal for older text stays in the Chat, where it is stale.
+  useEffect(() => {
+    const editor = view.current;
+    if (!editor || shown || answering || !same(latest.current, saved.current)) return;
+    const fit = proposals.find((p) => !answered.current.has(p.id) && p.after != null && sameText(p.before ?? "", editor.state.doc.toString()));
+    if (!fit) return;
+    editor.dispatch({ effects: showProposal.of(proposalMarks(fit.before ?? "", fit.after!)) });
+    setProposalError(null);
+    setShown(fit);
+  }, [proposals, shown, answering]);
+
+  // The User's answer on the page: the same call as the card in the Chat. Accepting loads the stored Note at once (not
+  // in Undo) and marks what changed for a moment.
+  async function answerShown(decision: "APPROVE" | "REJECT") {
+    const proposal = shown;
+    const editor = view.current;
+    if (!proposal || !editor) return;
+    setAnswering(true);
+    setProposalError(null);
+    const result = await answerProposals(proposal.chatId, [proposal.id], decision, {}).catch(() => null);
+    setAnswering(false);
+    if (!result || "error" in result) {
+      setProposalError(result?.error ?? "Cannot reach the CoreEx API. Nothing was changed.");
+      return;
+    }
+    answered.current.add(proposal.id);
+    editor.dispatch({ effects: showProposal.of(null) });
+    setShown(null);
+    // The bar (and the button just used) is gone: keep the keyboard in the Note.
+    editor.focus();
+    if (decision === "REJECT") {
+      setNotice({ before: "Proposal rejected. Nothing was changed." });
+      return;
+    }
+    const theirs = await noteIfNewer(id, version.current).catch(() => null);
+    if (!theirs) return;
+    const edit = smallestEdit(editor.state.doc.toString(), theirs.body);
+    show(theirs);
+    setNotice({ before: "Proposal accepted. The Note now has the proposed text." });
+    editor.dispatch({ effects: flashRange.of({ from: edit.from, to: edit.from + edit.insert.length }) });
+    setTimeout(() => view.current?.dispatch({ effects: flashRange.of(null) }), FLASH_MS);
+  }
+
   // Asks every POLL_MS while the tab is visible, and again when it becomes visible, whether the Note was changed
   // elsewhere (an Agent, another tab). With nothing unsaved the new text is loaded; with unsaved text the conflict
   // opens now instead of at the next save.
@@ -594,6 +687,7 @@ export function NoteEditor({
       crumbs={crumbs}
       current={title || "Untitled"}
       status={saveStatus}
+      extra={<AskChatIcon label="Ask Chat about this Note" text={`About my Note "${title || "Untitled"}": `} />}
       trash={{ id, action: deleteNote }}
       detailsCookie={detailsCookie}
       details={detailsBody}
@@ -648,6 +742,7 @@ export function NoteEditor({
               </Button>
             </p>
           )}
+          {shown && <ProposalBar label={shown.label} chatId={shown.chatId} busy={answering} error={proposalError} onAnswer={(d) => void answerShown(d)} />}
           {status === "error" && (
             <div
               role="alert"

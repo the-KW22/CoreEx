@@ -165,8 +165,9 @@ class SearchRepository {
 				+ " desc, i.updated_at desc, i.id limit :limit").params(params).query(UUID.class).list();
 	}
 
-	/** A Note found by meaning: the Note, and the text of its closest Chunk. */
-	record Near(UUID id, Item.Type type, String title, UUID folderId, Instant updatedAt, String content) {
+	/** A Note found by meaning: the Note, its closest Chunk's text, and the cosine distance to the query. */
+	record Near(UUID id, Item.Type type, String title, UUID folderId, Instant updatedAt, String content,
+			double distance) {
 	}
 
 	/**
@@ -185,7 +186,7 @@ class SearchRepository {
 		params.put("chunks", chunks);
 		params.put("limit", limit);
 		return jdbc.sql("""
-				select hit.id, hit.type, hit.title, hit.folder_id, hit.updated_at, best.content
+				select hit.id, hit.type, hit.title, hit.folder_id, hit.updated_at, best.content, best.distance
 				from (
 				  select distinct on (near.note_id) near.note_id, near.content, near.distance
 				  from (
@@ -204,7 +205,8 @@ class SearchRepository {
 				limit :limit""").params(params)
 				.query((rs, n) -> new Near(rs.getObject("id", UUID.class), Item.Type.valueOf(rs.getString("type")),
 						rs.getString("title"), rs.getObject("folder_id", UUID.class),
-						rs.getObject("updated_at", OffsetDateTime.class).toInstant(), rs.getString("content")))
+						rs.getObject("updated_at", OffsetDateTime.class).toInstant(), rs.getString("content"),
+						rs.getDouble("distance")))
 				.list();
 	}
 

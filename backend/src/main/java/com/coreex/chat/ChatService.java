@@ -1,0 +1,254 @@
+package com.coreex.chat;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Consumer;
+
+import jakarta.annotation.PreDestroy;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import com.coreex.ai.AiService;
+import com.coreex.ai.Model;
+import com.coreex.ai.Model.ContentBlock;
+import com.coreex.applications.ApplicationService;
+import com.coreex.common.ApiException;
+import com.coreex.identity.User;
+import com.coreex.search.SearchService;
+
+/**
+ * Chats belong to one User: every method takes the owner and answers 404 for anyone else's Chat, Admins included
+ * (ADR 0004). A reply holds the Chat's claim until it ends, so one reply runs at a time per Chat.
+ */
+@Service
+public class ChatService {
+
+	/** How many pieces of the User's Notes are quoted up front for each message. */
+	static final int UP_FRONT = 3;
+
+	/**
+	 * A Chat with its messages in order, the sources of each turn by the id of its last assistant message, and its
+	 * Proposals.
+	 */
+	record Detail(Chat chat, List<ChatMessage> messages, Map<UUID, List<ChatSources.Source>> sources, List<Proposal> proposals) {
+	}
+
+	private final ChatRepository chats;
+
+	private final AiService ai;
+
+	private final ChatTools tools;
+
+	private final ChatProposals proposals;
+
+	private final ChatProperties properties;
+
+	private final Clock clock;
+
+	private final SearchService search;
+
+	private final ChatSources sources;
+
+	private final ChatAssets assets;
+
+	private final ApplicationService applications;
+
+	private final ExecutorService replies = Executors.newVirtualThreadPerTaskExecutor();
+
+	/**
+	 * The replies running now, by Chat, so Stop and delete can reach them.
+	 * shortcut: in memory, so Stop reaches a reply only on the API instance running it; move the stop flag to the database
+	 * when there are several instances.
+	 */
+	private final Map<UUID, ChatReply> running = new ConcurrentHashMap<>();
+
+	ChatService(ChatRepository chats, AiService ai, ChatTools tools, ChatProposals proposals, ChatProperties properties,
+			Clock clock, SearchService search, ChatSources sources, ChatAssets assets, ApplicationService applications) {
+		this.chats = chats;
+		this.ai = ai;
+		this.tools = tools;
+		this.proposals = proposals;
+		this.properties = properties;
+		this.clock = clock;
+		this.search = search;
+		this.sources = sources;
+		this.assets = assets;
+		this.applications = applications;
+	}
+
+	/** Replies still running when the server stops are interrupted; their messages are left for the next claim to fail. */
+	@PreDestroy
+	void shutdown() {
+		replies.shutdownNow();
+	}
+
+	public List<Chat> list(UUID owner) {
+		return chats.list(owner);
+	}
+
+	/** Starts an empty Chat of the scope. Only an APPLICATION Chat names an Application, and it must be the User's own. */
+	public Chat create(UUID owner, Chat.Scope scope, UUID applicationId) {
+		if ((scope == Chat.Scope.APPLICATION) != (applicationId != null)) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST",
+					"Only an Application Chat names an Application, and every Application Chat must name one.");
+		}
+		if (applicationId != null) {
+			applications.get(owner, applicationId);
+		}
+		return chats.create(owner, clock.instant(), scope, applicationId);
+	}
+
+	public Detail detail(UUID owner, UUID id) {
+		var chat = require(owner, id);
+		var messages = chats.messages(id);
+		return new Detail(chat, messages, sources.byLastAssistant(owner, messages), proposals.list(id));
+	}
+
+	/** Deletes the Chat and its messages. A reply running in it is asked to stop first. */
+	public void delete(UUID owner, UUID id) {
+		require(owner, id);
+		stopRunning(id);
+		chats.delete(owner, id);
+	}
+
+	/** Asks the running reply to stop, keeping what it wrote. Nothing to do when nothing runs. */
+	public void stop(UUID owner, UUID id) {
+		require(owner, id);
+		stopRunning(id);
+	}
+
+	Optional<ChatReply> running(UUID chatId) {
+		return Optional.ofNullable(running.get(chatId));
+	}
+
+	/**
+	 * Stores the User's message and starts the reply on the server, which streams its events to {@code out}. Refusals
+	 * (AI off, budget spent, a reply already running, no such Chat) are thrown before anything is streamed. useNotes is the
+	 * Use my Notes switch for this message; null keeps the one the Chat remembers. With Notes on, the closest pieces of the
+	 * User's Notes are quoted with the message and stored with it.
+	 */
+	public void reply(User owner, UUID chatId, String text, Boolean useNotes, Boolean useWeb, Boolean useApplications,
+			Boolean useKnowledge, ChatContext context, SseEmitter out) {
+		var chat = require(owner.id(), chatId);
+		var access = ToolAccess.of(chat, useNotes, useApplications, useKnowledge);
+		start(owner, chatId, access, Boolean.TRUE.equals(useWeb), context, out, now -> {
+			var first = !chats.hasMessages(chatId);
+			var quotes = access.useNotes() ? quotesFor(owner.id(), text) : List.<Quote>of();
+			chats.addMessage(chatId, Model.Role.USER, List.of(new ContentBlock.Text(text)), "COMPLETE", null, quotes, now);
+			if (useNotes != null || useApplications != null || useKnowledge != null) {
+				chats.setSwitches(chatId, access.useNotes(), access.useApplications(), access.useKnowledge());
+			}
+			if (first) {
+				chats.setTitle(chatId, titleFrom(text));
+			}
+		});
+	}
+
+	/**
+	 * Answers the question the last reply ended on (issue #376) and continues the conversation: the answer is stored as
+	 * the result of the model's {@code ask_user_question} call, and the reply streams to {@code out} like any other. The
+	 * question must still be the last thing in the Chat; a stale or invented id is refused, so only a real pending call can
+	 * be answered. The model's other calls in the same step were not run, and are answered as such.
+	 */
+	public void answerQuestion(User owner, UUID chatId, String toolUseId, String text, SseEmitter out) {
+		var chat = require(owner.id(), chatId);
+		start(owner, chatId, ToolAccess.of(chat, null, null, null), false, null, out, now -> {
+			var last = chats.messages(chatId).stream().reduce((a, b) -> b).orElse(null);
+			var calls = last == null || last.role() != Model.Role.ASSISTANT ? List.<ContentBlock.ToolUse>of()
+					: last.blocks().stream().filter(b -> b instanceof ContentBlock.ToolUse).map(b -> (ContentBlock.ToolUse) b).toList();
+			if (calls.stream().noneMatch(c -> ChatTools.ASK.equals(c.name()) && c.id().equals(toolUseId))) {
+				throw new ApiException(HttpStatus.CONFLICT, "NO_PENDING_QUESTION", "There is no question waiting for an answer.");
+			}
+			var results = calls.stream().<ContentBlock>map(c -> c.id().equals(toolUseId) ? new ContentBlock.ToolResult(c.id(), text, false)
+					: new ContentBlock.ToolResult(c.id(), "Not run: the User's question had to be answered first.", true)).toList();
+			chats.addMessage(chatId, Model.Role.USER, results, "COMPLETE", null, List.of(), now);
+		});
+	}
+
+	/**
+	 * Claims the Chat, lets {@code store} add what starts the reply (the User's text, or an answer), and runs the reply on
+	 * the server, which streams its events to {@code out}. Refusals (AI off, budget spent, a reply already running) are
+	 * thrown before anything is streamed.
+	 */
+	private void start(User owner, UUID chatId, ToolAccess access, boolean web, ChatContext context, SseEmitter out,
+			Consumer<Instant> store) {
+		ai.requireOn(owner.id());
+		ai.requireRoom(owner.id());
+		// The claim's token: the database keeps microseconds, so the release must match the claim to the microsecond.
+		var now = clock.instant().truncatedTo(ChronoUnit.MICROS);
+		if (!chats.claim(owner.id(), chatId, now, now.minus(properties.staleClaim()))) {
+			throw new ApiException(HttpStatus.CONFLICT, "CHAT_BUSY",
+					"This Chat is still answering the last message. Wait for it, or press Stop.");
+		}
+		var reply = new ChatReply(chats, ai, tools, proposals, properties, clock, owner, chatId, access, web, context, sources,
+				assets, out);
+		try {
+			chats.failStreaming(chatId);
+			store.accept(now);
+			chats.touch(chatId, now);
+			running.put(chatId, reply);
+			replies.execute(() -> reply.run(() -> finish(chatId, reply, now)));
+		}
+		catch (RuntimeException e) {
+			running.remove(chatId, reply);
+			chats.release(chatId, now);
+			throw e;
+		}
+	}
+
+	/** The pending Proposals for one Note across the owner's Chats (see {@link ChatProposals#pendingForNote}). */
+	List<Proposal> pendingForNote(UUID owner, UUID noteId) {
+		return proposals.pendingForNote(owner, noteId);
+	}
+
+	/**
+	 * Approves or rejects Proposals of the Chat (see {@link ChatProposals#answer}). Refused while a reply is running, since
+	 * the reply is still writing the results the answers are written into.
+	 */
+	List<Proposal> answerProposals(User owner, UUID chatId, List<UUID> ids, boolean approve, Map<UUID, String> edits) {
+		require(owner.id(), chatId);
+		if (running.containsKey(chatId)) {
+			throw new ApiException(HttpStatus.CONFLICT, "CHAT_BUSY", "This Chat is still writing a reply. Wait for it to finish.");
+		}
+		return proposals.answer(owner, chatId, ids, approve, edits);
+	}
+
+	/** The closest pieces of the User's Notes to the message, above Semantic search's line: at most {@link #UP_FRONT}. */
+	private List<Quote> quotesFor(UUID owner, String text) {
+		return search.chunks(owner, text, UP_FRONT).stream()
+				.map(c -> new Quote(c.id(), c.type(), c.title(), c.headingPath(), c.text())).toList();
+	}
+
+	private void finish(UUID chatId, ChatReply reply, Instant claimedAt) {
+		chats.release(chatId, claimedAt);
+		running.remove(chatId, reply);
+	}
+
+	private void stopRunning(UUID chatId) {
+		var reply = running.get(chatId);
+		if (reply != null) {
+			reply.requestStop();
+		}
+	}
+
+	private Chat require(UUID owner, UUID id) {
+		return chats.find(owner, id)
+				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "That Chat does not exist."));
+	}
+
+	/** The first line of the first message, spaces collapsed and cut at sixty characters with an ellipsis. */
+	static String titleFrom(String text) {
+		var line = text.lines().findFirst().orElse("").strip().replaceAll("\\s+", " ");
+		return line.length() > 60 ? line.substring(0, 60) + "…" : line;
+	}
+
+}

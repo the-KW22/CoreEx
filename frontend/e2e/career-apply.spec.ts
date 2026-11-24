@@ -3,7 +3,8 @@ import { expectNoViolations, newApplication, signIn } from "./helpers";
 
 // Needs the API started with COREEX_AI_PROVIDER=fake (and E2E_FAKE_AI=1 here): the fake Draft is an 11-word answer that
 // cites the first active Fact, and the fake Tighten keeps the first half of the words of the answer it is given.
-test("writes form answers within a limit, drafts and tightens, reuses a library answer and marks the Application applied", async ({ page }) => {
+// The Apply tab is hidden (#366); add it back to SHOWN in workspace.tsx and remove .skip.
+test.skip("writes form answers within a limit, drafts and tightens, reuses a library answer and marks the Application applied", async ({ page }) => {
   test.skip(process.env.E2E_FAKE_AI !== "1", "Requires the local fake AI provider");
   test.setTimeout(240_000);
   const stamp = Date.now();
@@ -20,7 +21,7 @@ test("writes form answers within a limit, drafts and tightens, reuses a library 
   await page.getByRole("button", { name: "Add Fact" }).click();
   await expect(page.getByText(fact)).toBeVisible();
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const resumeDialog = page.getByRole("dialog", { name: "New Resume" });
   await resumeDialog.getByLabel("Name").fill(company);
   await resumeDialog.getByRole("button", { name: "Create Resume" }).click();

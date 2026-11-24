@@ -55,17 +55,63 @@ public class CareerService {
 
 	private static final int RESUME_MAX = 30_000;
 
+	/** The most characters of a Fit check an agent may save; 15 requirements cut to their limits fit well inside it. */
+	private static final int FIT_MAX = 60_000;
+
 	public enum Verdict { SUPPORTED, PARTLY, MISSING }
 
 	/** What a prompt was built from: its text, the ids it may cite and the hash of the text. */
 	record Gathered(String data, Set<UUID> ids, String fingerprint) {
 	}
 
-	public record Requirement(String requirement, Verdict verdict, List<UUID> evidence, String note) {
+	/** MUST and GATE weigh 2 in the score, NICE weighs 1. A GATE is a condition the posting asks of everyone (work rights, a language). */
+	public enum Kind { MUST, NICE, GATE }
+
+	/** What to do about a gap: present it truthfully, close it fast, or do not claim it. NONE for a requirement that needs no plan. */
+	public enum Plan { NONE, FRAME, CLOSE, DO_NOT_CLAIM }
+
+	/**
+	 * {@code kind}, {@code plan}, {@code planNote} and {@code confirm} are null or empty in a Fit result stored before the
+	 * analysis fields existed. {@code confirm} is a question for the User, set on a GATE the evidence does not show.
+	 */
+	public record Requirement(String requirement, Verdict verdict, List<UUID> evidence, String note, Kind kind, Plan plan, String planNote,
+			String confirm) {
 	}
 
-	/** What is stored for a Fit result; the evidence is ids only, so a forgotten Fact leaves no words behind. */
-	public record Fit(int score, String question, List<Requirement> requirements) {
+	/**
+	 * What is stored for a Fit result; the evidence is ids only, so a forgotten Fact leaves no words behind. The score is worked out
+	 * from the verdicts ({@link #score}), never taken from the model or an agent. {@code source} is COREEX, or AGENT when the
+	 * User's own agent saved it over MCP; null in an older result. {@code priorities} and {@code keywords} are empty in an older result.
+	 */
+	public record Fit(int score, String question, List<Requirement> requirements, List<String> priorities, List<String> keywords, String source) {
+
+		public Fit {
+			priorities = priorities == null ? List.of() : priorities;
+			keywords = keywords == null ? List.of() : keywords;
+		}
+	}
+
+	/** The points and the most they could be, in half points: SUPPORTED 1, PARTLY 0.5, MISSING 0, times 2 for MUST and GATE and 1 for NICE. */
+	public static int[] points(List<Requirement> requirements) {
+		int got = 0;
+		int most = 0;
+		for (var r : requirements) {
+			if (r.kind() == null) continue;
+			int weight = r.kind() == Kind.NICE ? 1 : 2;
+			most += weight * 2;
+			got += weight * switch (r.verdict()) {
+				case SUPPORTED -> 2;
+				case PARTLY -> 1;
+				case MISSING -> 0;
+			};
+		}
+		return new int[] { got, most };
+	}
+
+	/** The score from 0 to 100: the points over the most they could be, rounded; 0 when there is nothing to score. */
+	public static int score(List<Requirement> requirements) {
+		var p = points(requirements);
+		return p[1] == 0 ? 0 : (int) Math.round(100.0 * p[0] / p[1]);
 	}
 
 	/** What is stored for a Draft or Tighten result: the proposed text, and for a Draft the evidence it cited (ids only). */
@@ -374,8 +420,24 @@ public class CareerService {
 
 	/** Runs the Fit check and stores its result. */
 	public Stored fit(UUID owner, UUID applicationId) {
-		return run(owner, applicationId, CareerTask.FIT, Subject.NONE, CareerService::parseFit,
+		return run(owner, applicationId, CareerTask.FIT, Subject.NONE, (answer, given) -> parseFit(answer, given, "COREEX"),
 				"Your posting or Knowledge changed while the AI was working. Run the check again.");
+	}
+
+	/**
+	 * Stores a Fit check the User's own agent made, with no model call and no budget. It is held to the same rules as one CoreEx made:
+	 * the same shape and limits, only evidence the Fit check could see, and a score worked out here.
+	 */
+	public Stored saveFit(UUID owner, UUID applicationId, String answer) {
+		if (answer != null && answer.length() > FIT_MAX) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "The Fit check is too long to save.");
+		}
+		requirePosting(owner, applicationId, CareerTask.FIT);
+		// shortcut: every save adds a result and the agent's wording of a gate question is not checked, only the prompt tells the model never to say the person lacks something; keep only the newest and screen the words when abuse shows up.
+		var before = gather(owner, applicationId, CareerTask.FIT, Subject.NONE);
+		var fit = parseFit(answer == null ? "" : answer, before.ids(), "AGENT");
+		return store(owner, applicationId, CareerTask.FIT, Subject.NONE, before, fit, 0, 0,
+				"Your posting or Knowledge changed while the Fit check was saved. Save it again.");
 	}
 
 	/** Drafts an answer to a form question from the posting and the User's evidence; kept as a result until accepted or rejected. */
@@ -395,17 +457,27 @@ public class CareerService {
 				"Your answer changed while the AI was working. Tighten again.");
 	}
 
-	private Stored run(UUID owner, UUID applicationId, CareerTask task, Subject subject,
-			java.util.function.BiFunction<String, Set<UUID>, Object> parse, String changed) {
+	private void requirePosting(UUID owner, UUID applicationId, CareerTask task) {
 		if (task.inputs().contains(CareerTask.Input.POSTING)) {
 			var posting = applications.get(owner, applicationId).postingText();
 			if (posting == null || posting.isBlank()) {
 				throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Add the posting text to this Application first.");
 			}
 		}
+	}
+
+	private Stored run(UUID owner, UUID applicationId, CareerTask task, Subject subject,
+			java.util.function.BiFunction<String, Set<UUID>, Object> parse, String changed) {
+		requirePosting(owner, applicationId, task);
 		var before = gather(owner, applicationId, task, subject);
 		var reply = ai.askWithUse(owner, task.system(), before.data(), task.schema());
 		var result = parse.apply(reply.text(), before.ids());
+		return store(owner, applicationId, task, subject, before, result, reply.inputTokens(), reply.outputTokens(), changed);
+	}
+
+	/** Keeps a result, unless the inputs it was made from changed since {@code before} was gathered. */
+	private Stored store(UUID owner, UUID applicationId, CareerTask task, Subject subject, Gathered before, Object result,
+			long inputTokens, long outputTokens, String changed) {
 		Set<UUID> evidence = switch (result) {
 			case Fit fit -> fit.requirements().stream().flatMap(r -> r.evidence().stream()).collect(Collectors.toCollection(LinkedHashSet::new));
 			case Answer answer -> new LinkedHashSet<>(answer.evidence());
@@ -426,7 +498,7 @@ public class CareerService {
 					where i.id = :app and i.owner_id = :owner and i.deleted_at is null returning id, created_at""")
 					.param("owner", owner).param("app", applicationId).param("kind", task.kind())
 					.param("data", json.writeValueAsString(result)).param("evidence", evidence.toArray(UUID[]::new))
-					.param("fingerprint", now.fingerprint()).param("in", reply.inputTokens()).param("out", reply.outputTokens())
+					.param("fingerprint", now.fingerprint()).param("in", inputTokens).param("out", outputTokens)
 					.query((rs, n) -> new Stored(rs.getObject("id", UUID.class), task.kind(), result, null, false,
 							rs.getObject("created_at", OffsetDateTime.class).toInstant()))
 					.optional().orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Application not found."));
@@ -907,19 +979,20 @@ public class CareerService {
 		}
 	}
 
-	/** The answer, checked: a score outside 0-100 or a broken shape is refused; a cited id that was not given is dropped. */
-	static Fit parseFit(String answer, Set<UUID> given) {
+	/**
+	 * The answer, checked: a broken shape or an unknown kind, verdict or plan is refused; a cited id that was not given is dropped, and a
+	 * requirement left with no evidence becomes MISSING. Any score in the answer is ignored: it is worked out from the verdicts. Text is cut to its limit.
+	 */
+	static Fit parseFit(String answer, Set<UUID> given, String source) {
 		try {
 			var root = JsonMapper.builder().build().readTree(answer);
-			var score = root.path("score");
-			if (!score.isIntegralNumber() || score.asInt() < 0 || score.asInt() > 100 || !root.path("requirements").isArray()
-					|| root.path("requirements").size() > 15) {
+			if (!root.path("requirements").isArray() || root.path("requirements").size() > 15) {
 				throw new IllegalArgumentException();
 			}
 			var requirements = new ArrayList<Requirement>();
 			for (JsonNode r : root.path("requirements")) {
 				var text = r.path("requirement").asString("").trim();
-				if (text.isEmpty() || !r.path("verdict").isString()) throw new IllegalArgumentException();
+				if (text.isEmpty() || !r.path("verdict").isString() || !r.path("kind").isString()) throw new IllegalArgumentException();
 				var cited = new LinkedHashSet<UUID>();
 				for (JsonNode e : r.path("evidence")) {
 					try {
@@ -933,15 +1006,33 @@ public class CareerService {
 				var verdict = Verdict.valueOf(r.path("verdict").asString());
 				// Evidence rule: a requirement is only shown as met when something the User gave shows it.
 				if (cited.isEmpty()) verdict = Verdict.MISSING;
-				requirements.add(new Requirement(cut(text, 500), verdict, List.copyOf(cited), cut(r.path("note").asString("").trim(), 500)));
+				var kind = Kind.valueOf(r.path("kind").asString());
+				var plan = r.path("plan").isString() ? Plan.valueOf(r.path("plan").asString()) : Plan.NONE;
+				var confirm = cut(r.path("confirm").asString("").trim(), 300);
+				// Only a GATE the evidence does not show asks the User anything.
+				if (kind != Kind.GATE || verdict == Verdict.SUPPORTED) confirm = "";
+				requirements.add(new Requirement(cut(text, 500), verdict, List.copyOf(cited), cut(r.path("note").asString("").trim(), 500),
+						kind, verdict == Verdict.SUPPORTED ? Plan.NONE : plan, cut(r.path("planNote").asString("").trim(), 300), confirm));
 			}
-			return new Fit(score.asInt(), cut(root.path("question").asString("").trim(), 500), requirements);
+			return new Fit(score(requirements), cut(root.path("question").asString("").trim(), 500), requirements,
+					lines(root.path("priorities"), 5, 300), lines(root.path("keywords"), 20, 60), source);
 		}
 		catch (RuntimeException e) {
 			if (e instanceof ApiException api) throw api;
 			throw new ApiException(HttpStatus.BAD_GATEWAY, "AI_BAD_ANSWER",
 					"The AI answered in a form CoreEx could not use, so nothing was saved. Try again.");
 		}
+	}
+
+	/** Up to {@code max} distinct non-blank strings of an array, each cut to {@code length}; anything else is left out. */
+	private static List<String> lines(JsonNode array, int max, int length) {
+		var out = new ArrayList<String>();
+		if (!array.isArray()) return out;
+		for (JsonNode n : array) {
+			var text = cut(n.asString("").trim(), length);
+			if (!text.isEmpty() && !out.contains(text) && out.size() < max) out.add(text);
+		}
+		return out;
 	}
 
 	/**

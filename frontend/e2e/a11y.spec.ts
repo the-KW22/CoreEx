@@ -58,6 +58,7 @@ for (const [colorScheme, background] of [
       await expect(page.getByRole("complementary", { name: "Details" })).toBeVisible();
       await expectNoViolations(page);
       await page.getByRole("button", { name: "Move to Trash" }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
       await expect(page).toHaveURL(/\/items$/);
     });
 
@@ -89,8 +90,8 @@ for (const [colorScheme, background] of [
       await expect(page.getByRole("link", { name: tagName })).toHaveCount(0);
 
       await page.goto("/items");
-      await page.getByRole("button", { name: `Actions for Tag probe ${stamp}` }).click();
-      await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+      await page.getByRole("button", { name: `Move Tag probe ${stamp} to the Trash` }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
     });
 
     test("the Trash and Search pages have no WCAG 2.2 AA violations", async ({ page }) => {
@@ -109,6 +110,7 @@ for (const [colorScheme, background] of [
 
       await page.getByRole("link", { name: new RegExp(word) }).click();
       await page.getByRole("button", { name: "Move to Trash" }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
       await expect(page).toHaveURL(/\/items$/);
       await page.goto("/trash");
       const row = page.getByRole("row").filter({ hasText: word });
@@ -198,11 +200,12 @@ test("the phone menu closes on Escape, gives focus back and keeps Tab inside", a
   }
 });
 
-test("on a tablet the Knowledge Base panel opens from the rail", async ({ page }) => {
+test("on a tablet the Knowledge Base panel is in the rail, and a collapsed rail opens it in a Sheet", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await signIn(page);
   await page.goto("/items");
-  await expect(page.getByRole("heading", { name: "Knowledge Base", exact: true })).toBeHidden();
+  await expect(page.getByRole("complementary", { name: "Knowledge Base" }).getByRole("radio", { name: "Folders" })).toBeVisible();
+  await page.getByRole("button", { name: "Collapse sidebar" }).click();
   await page.getByRole("button", { name: "Show the Knowledge Base panel" }).click();
   await expect(page.getByRole("dialog", { name: "Knowledge Base" }).getByRole("radio", { name: "Folders" })).toBeVisible();
 });
@@ -259,6 +262,7 @@ test("the command palette finds a Note by title and searches all text", async ({
   await palette.getByRole("option", { name: title, exact: true }).click();
   await expect(page).toHaveURL(/\/notes\//);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).not.toHaveURL(/\/notes\//);
 });
 
@@ -338,6 +342,7 @@ test("Import Markdown from the command palette adds the Note and says so", async
   await added.getByRole("button", { name: "Open" }).click();
   await expect(page).toHaveURL(/\/notes\//);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).not.toHaveURL(/\/notes\//);
 });
 
@@ -376,16 +381,16 @@ test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
 
   await page.goto("/items");
   const row = page.getByRole("row").filter({ hasText: title });
-  const menu = row.getByRole("button", { name: `Actions for ${title}` });
+  const moveButton = row.getByRole("button", { name: `Move ${title} to a Folder` });
+  const trashButton = row.getByRole("button", { name: `Move ${title} to the Trash` });
   await expectNoViolations(page);
 
-  await menu.click();
-  await page.getByRole("menuitem", { name: "Move to Folder…" }).click();
+  await moveButton.click();
   const move = page.getByRole("dialog", { name: "Move to Folder" });
   await chooseFolder(page, move, "Folder", folderName);
   await move.getByRole("button", { name: "Move" }).click();
   await expect(row.getByRole("cell", { name: folderName })).toBeVisible();
-  await expect(menu).toBeFocused();
+  await expect(moveButton).toBeFocused();
 
   // The right-click menu has the same actions.
   await row.click({ button: "right" });
@@ -398,15 +403,15 @@ test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
   const [tab] = await Promise.all([
     page.waitForEvent("popup"),
     (async () => {
-      await menu.click();
+      await row.click({ button: "right" });
       await page.getByRole("menuitem", { name: "Open in new tab" }).click();
     })(),
   ]);
   await expect(tab).toHaveURL(/\/notes\//);
   await tab.close();
 
-  await menu.click();
-  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await trashButton.click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(row).toHaveCount(0);
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(row).toBeVisible();
@@ -420,8 +425,8 @@ test("an Item's row menu moves, tags, trashes and undoes", async ({ page }) => {
   // Tidy up: the Note and the Folder go to the Trash, the Tag is deleted.
   await deleteTag(page, tagName);
   await page.goto("/items");
-  await menu.click();
-  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await trashButton.click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(row).toHaveCount(0);
   await page.getByRole("main").getByRole("link", { name: folderName }).click();
   await trashFolder(page, folderName);
@@ -436,13 +441,13 @@ test("on a phone Item rows stack and the page does not scroll sideways", async (
   await newNote(page, title);
   await page.goto("/items");
   const row = page.getByRole("row").filter({ hasText: title });
-  await expect(row.getByRole("button", { name: `Actions for ${title}` })).toBeVisible();
+  await expect(row.getByRole("button", { name: `Move ${title} to the Trash` })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Title" })).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   await expectNoViolations(page);
 
-  await row.getByRole("button", { name: `Actions for ${title}` }).click();
-  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await row.getByRole("button", { name: `Move ${title} to the Trash` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(row).toHaveCount(0);
 });
 
@@ -500,8 +505,8 @@ test("the Tags page sets a colour, renames, refuses a taken name and deletes aft
   await page.getByRole("button", { name: `Delete ${one}-renamed` }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete Tag" }).click();
   await page.goto("/items");
-  await page.getByRole("button", { name: `Actions for ${title}` }).click();
-  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await page.getByRole("button", { name: `Move ${title} to the Trash` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
 });
 
 test("the Trash shows days left, restores, and deletes for good after a confirm", async ({ page }) => {
@@ -522,8 +527,8 @@ test("the Trash shows days left, restores, and deletes for good after a confirm"
   await expect(item).toBeVisible();
 
   // Trash it again from the row menu; Cancel keeps it, the confirm deletes it.
-  await item.getByRole("button", { name: `Actions for ${title}` }).click();
-  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await item.getByRole("button", { name: `Move ${title} to the Trash` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await page.goto("/trash");
   await row.getByRole("button", { name: `Delete forever: ${title}` }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
@@ -579,6 +584,7 @@ test("Search highlights the match, filters by type and says when nothing matches
   await page.goto(`/search?q=${word}`);
   await hit.getByRole("link").click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -615,6 +621,7 @@ test("a Note card previews whole lines of its text, and an empty Note shows its 
   for (const title of [empty, full]) {
     await card(title).getByRole("link", { name: new RegExp(title) }).click();
     await page.getByRole("button", { name: "Move to Trash" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
     await expect(page).toHaveURL(/\/items$/);
   }
 });
@@ -637,6 +644,7 @@ test("a long Tag name keeps the Search filters inside the window", async ({ page
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(note);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
   await page.goto("/tags");
   await deleteTag(page, tagName);
@@ -787,6 +795,7 @@ test("an Agent's edit is named in the Details panel until you edit the Note your
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
   await page.goto("/settings/tokens");
   await page.getByRole("row").filter({ hasText: name }).getByRole("button", { name: `Revoke ${name}` }).click();
@@ -824,6 +833,7 @@ test("History keeps the text a save replaced, previews it, and restores it", asy
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -874,9 +884,11 @@ test("Load theirs keeps your text as a (mine) Note in the same Folder with the s
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
   await page.goto(original);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -915,6 +927,7 @@ test("text typed while the API cannot be reached comes back after a reload, and 
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -957,6 +970,7 @@ test("a Note changed in another tab shows the change without a reload", async ({
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -992,6 +1006,7 @@ test("unsaved text meeting a change made elsewhere opens the conflict by itself"
   await page.getByRole("button", { name: "Keep mine" }).click();
   await expect(page.getByRole("status").filter({ hasText: /^Saved at/ })).toBeVisible();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1021,6 +1036,7 @@ test("logging out removes the unsaved text kept in the browser", async ({ page }
   await signIn(page);
   await page.goto(noteUrl);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1061,6 +1077,7 @@ test("unsaved text for a Note that changed meanwhile comes back in conflict", as
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1098,6 +1115,7 @@ test("Export downloads a zip with the Note, and a second one inside the minute s
   // Tidy up.
   await page.goto(noteUrl);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1229,6 +1247,7 @@ test("Home shows a new Note under Recently edited and Jump back in", async ({ pa
   // Tidy up.
   await card.click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1265,6 +1284,7 @@ test("Home truncates a long title inside its Recently edited card, and other lis
 
   await page.getByRole("region", { name: "Recently edited" }).getByRole("link", { name: new RegExp(title) }).click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
   for (const size of sizes) {
     await page.setViewportSize(size);
@@ -1310,6 +1330,7 @@ test("the Note screen tags, moves, and remembers hidden Details", async ({ page 
 
   // Tidy up: the Note, the Folder and the Tag.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
   await page.getByRole("main").getByRole("link", { name: folderName }).click();
   await trashFolder(page, folderName);
@@ -1357,10 +1378,11 @@ test("hovering a Link previews its target", async ({ page }) => {
 
   // Tidy up both Notes.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await page.goto("/items");
   const row = page.getByRole("row").filter({ hasText: target });
-  await row.getByRole("button", { name: `Actions for ${target}` }).click();
-  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await row.getByRole("button", { name: `Move ${target} to the Trash` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(row).toHaveCount(0);
 });
 
@@ -1376,6 +1398,7 @@ test("on a phone the Note's Details open as a bottom Sheet", async ({ page }) =>
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1398,6 +1421,7 @@ test("dropping files anywhere in the Knowledge Base shows the overlay and upload
   // Tidy up.
   await dialog.getByRole("link", { name }).click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1451,6 +1475,8 @@ test("an uploaded image opens on the Asset screen, edits in place and downloads"
   await expect(details.getByLabel("Description")).toHaveValue("A single pixel, for testing.");
 
   await page.getByRole("button", { name: "Move to Trash" }).click();
+
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1554,6 +1580,7 @@ test("Ctrl+B is still bold in the Note editor, not the rail", async ({ page }) =
 
   await expectSaved(page);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1578,6 +1605,7 @@ test("the Assets page lists Assets only, with no Knowledge Base panel", async ({
 
   await page.getByRole("link", { name }).click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1638,6 +1666,7 @@ test("the panel has Notes, Folders and Tags tabs, a plus that follows them, and 
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
   await page.goto("/tags");
   await deleteTag(page, tagName);
@@ -1682,6 +1711,7 @@ test("the Items open as a grid, the view is chosen and remembered, and a section
   await view.getByRole("radio", { name: "Grid" }).click();
   await page.getByRole("button", { name: `Actions for ${title}` }).click();
   await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page.getByText(`Moved "${title}" to the Trash`)).toBeVisible();
   await expect(cards.getByRole("link", { name: title })).toHaveCount(0);
 });
@@ -1726,6 +1756,8 @@ test("the editor toolbar formats text, shows where the caret is, and moves with 
   }
 
   await page.getByRole("button", { name: "Move to Trash" }).click();
+
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -1775,12 +1807,13 @@ test("a Note's first-line heading and its title stay in step, both ways", async 
 
   // Tidy up.
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
-  await page.getByRole("button", { name: /^Actions for renamed/ }).first().click();
-  await page.getByRole("menuitem", { name: "Move to Trash" }).click();
+  await page.getByRole("button", { name: /^Move renamed.* to the Trash$/ }).first().click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
 });
 
-test("a Folder opens as a Graph, its Items reached by keyboard and listed as a table", async ({ page }) => {
+test("a Folder opens as a Graph, its Items reached by keyboard", async ({ page }) => {
   test.setTimeout(60_000);
   await signIn(page);
   const stamp = Date.now();
@@ -1813,12 +1846,6 @@ test("a Folder opens as a Graph, its Items reached by keyboard and listed as a t
   }
   await expect(targetNode).toBeFocused();
 
-  // The same graph as a table.
-  await page.getByRole("button", { name: "Show as table" }).click();
-  await expect(page.getByRole("row", { name: `${source} Note ${target} None` })).toBeVisible();
-  await expectNoViolations(page);
-  await page.getByRole("button", { name: "Show as graph" }).click();
-  await targetNode.focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/notes\//);
   await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(target);
@@ -1826,6 +1853,13 @@ test("a Folder opens as a Graph, its Items reached by keyboard and listed as a t
   // Tidy up both Notes.
   await trashRows(page, [source, target]);
 });
+
+// The Graph's Filters popover: open it, run `choose`, and close it again.
+async function inFilters(page: Page, choose: () => Promise<unknown>) {
+  await page.getByRole("button", { name: /^Filters/ }).click();
+  await choose();
+  await page.keyboard.press("Escape");
+}
 
 test("the Graph filters by Tag and type and colours by Tag, all kept in the address", async ({ page }) => {
   test.setTimeout(90_000);
@@ -1838,7 +1872,10 @@ test("the Graph filters by Tag and type and colours by Tag, all kept in the addr
   await noteWithTag(page, tagged, tagName);
 
   await page.goto("/graph");
-  await page.getByRole("toolbar", { name: "Filter by Tag" }).getByRole("button", { name: tagName }).click();
+  await inFilters(page, async () => {
+    await page.getByRole("combobox", { name: "Find a Tag" }).fill(tagName);
+    await page.getByRole("option", { name: tagName }).click();
+  });
   await expect(page).toHaveURL(/[?&]tag=/);
   // The other Note fades, and a keyboard User can still reach it and hear why.
   const faded = page.getByRole("link", { name: new RegExp(`^${plain}, .*not in the filter$`) });
@@ -1846,27 +1883,23 @@ test("the Graph filters by Tag and type and colours by Tag, all kept in the addr
   await expect(faded).toHaveClass(/opacity-25/);
   await expect(page.getByRole("link", { name: new RegExp(`^${tagged}, .*Tags: ${tagName}$`) })).toBeVisible();
 
-  await page.getByRole("radiogroup", { name: "Colour by" }).getByRole("radio", { name: "Tag" }).click();
+  await inFilters(page, () => page.getByRole("combobox", { name: "Colour by" }).selectOption("tag"));
   await expect(page.getByRole("list", { name: "Colours" }).getByText(tagName)).toBeVisible();
   await expectNoViolations(page);
 
-  // A reload keeps the view, and the table lists only what matches.
+  // A reload keeps the view.
   await page.reload();
   await expect(page.getByRole("list", { name: "Colours" }).getByText(tagName)).toBeVisible();
-  await page.getByRole("button", { name: "Show as table" }).click();
-  await expect(page.getByRole("rowheader", { name: tagged })).toBeVisible();
-  await expect(page.getByRole("rowheader", { name: plain })).toHaveCount(0);
-  await page.getByRole("button", { name: "Show as graph" }).click();
 
   // Type: nothing that is an Asset here, so the Note fades too and Clear filters brings everything back.
-  await page.getByRole("radiogroup", { name: "Show only" }).getByRole("radio", { name: "Assets" }).click();
+  await inFilters(page, () => page.getByRole("combobox", { name: "Type" }).selectOption("ASSET"));
   await expect(page.getByRole("link", { name: new RegExp(`^${tagged}, .*not in the filter$`) })).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page.getByRole("link", { name: new RegExp(`^${plain}, Note`) })).toBeVisible();
   await expect(page.getByRole("link", { name: /not in the filter$/ })).toHaveCount(0);
 
   // Only linked Items hides what has no Links.
-  await page.getByRole("button", { name: "Only linked Items" }).click();
+  await inFilters(page, () => page.getByRole("checkbox", { name: "Only linked Items" }).check());
   await expect(page).toHaveURL(/linked=1/);
   await expect(page.getByRole("link", { name: new RegExp(`^${plain}, Note`) })).toHaveCount(0);
 
@@ -1874,57 +1907,6 @@ test("the Graph filters by Tag and type and colours by Tag, all kept in the addr
   await trashRows(page, [plain, tagged]);
   await page.goto("/tags");
   await deleteTag(page, tagName);
-});
-
-test("Graph Insights answer in the canvas, and the table sorts and shows only orphans", async ({ page }) => {
-  await signIn(page);
-  const stamp = Date.now();
-  const target = `Insight hub ${stamp}`;
-  const source = `Insight source ${stamp}`;
-  const lone = `Insight lone ${stamp}`;
-  await newNote(page, lone);
-  await newNote(page, target);
-  await newNote(page, source);
-  await page.getByRole("textbox", { name: "Note content" }).click();
-  await page.keyboard.press("Control+End");
-  await page.keyboard.type(`See [[${target}`);
-  await page.getByRole("option", { name: new RegExp(target) }).click();
-  await page.keyboard.press("Enter");
-  await expectSaved(page);
-
-  await page.goto("/graph");
-  await page.getByRole("button", { name: "Insights" }).click();
-  const panel = page.getByRole("complementary", { name: "Insights" });
-  await expectNoViolations(page);
-
-  // An answer lights its nodes and dims the rest; pressing it again clears it.
-  const groupHeading = panel.getByRole("heading", { name: /separate group/ });
-  await expect(groupHeading).toBeVisible();
-  const answer = panel.getByRole("button", { name: /Items? with no Links/ });
-  const hub = page.getByRole("link", { name: new RegExp(`^${target}, Note`) });
-  await answer.click();
-  await expect(answer).toHaveAttribute("aria-pressed", "true");
-  await expect(hub).toHaveClass(/opacity-25/);
-  await expect(page.getByRole("link", { name: new RegExp(`^${lone}, Note`) })).toHaveClass(/opacity-100/);
-  await answer.click();
-  await expect(hub).toHaveClass(/opacity-100/);
-
-  // Kept open across a reload.
-  await page.reload();
-  await expect(panel).toBeVisible();
-
-  await page.getByRole("button", { name: "Show as table" }).click();
-  await page.getByRole("button", { name: "Linked from" }).click();
-  await expect(page.getByRole("columnheader", { name: "Linked from" })).toHaveAttribute("aria-sort", "descending");
-  await page.getByRole("button", { name: "Only orphans" }).click();
-  await expect(page.getByRole("rowheader", { name: lone })).toBeVisible();
-  await expect(page.getByRole("rowheader", { name: target })).toHaveCount(0);
-
-  // Leave the panel closed for the tests that follow.
-  await page.getByRole("button", { name: "Show as graph" }).click();
-  await page.getByRole("button", { name: "Insights" }).click();
-  await page.goto("/items");
-  await trashRows(page, [source, target, lone]);
 });
 
 test("the Graph finds a node by title, with / and from the palette, and keeps it lit until you click away", async ({ page }) => {
@@ -2110,15 +2092,12 @@ test("the Graph's Similar switch says what it finds, and is kept in the address"
   const title = await page.getByRole("textbox", { name: "Title" }).inputValue();
 
   await page.goto("/graph");
-  await page.getByRole("button", { name: "Similar" }).click();
+  await inFilters(page, () => page.getByRole("checkbox", { name: "Similar" }).check());
   await expect(page).toHaveURL(/similar=1/);
   // Whether or not this stack can embed, the answer is said in words, and nothing is drawn as a Link.
   await expect(page.getByRole("status").filter({ hasText: /similar/i })).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "Looking for" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Insights" }).click();
-  await expect(page.getByRole("complementary", { name: "Insights" }).getByRole("heading", { name: "Suggested Links" })).toBeVisible();
   await expectNoViolations(page);
-  await page.getByRole("button", { name: "Insights" }).click();
 
   await page.goto("/items");
   await trashRows(page, [title]);
@@ -2159,6 +2138,7 @@ test("a dragged Graph node stays where it was dropped, until Reset layout", asyn
   await node.locator("circle:not(.hidden)").click();
   await expect(page).toHaveURL(/\/notes\//);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 });
 
@@ -2744,6 +2724,7 @@ test("an Application sits in a Folder, takes a Tag shown on its row, and goes to
   // Move to Trash from its page; the Trash lists it and Restore brings it back with its Folder.
   await page.getByRole("link", { name: new RegExp(title) }).click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/career\/applications$/);
   await expect(page.getByRole("link", { name: new RegExp(title) })).toHaveCount(0);
   await page.goto("/trash");
@@ -2758,6 +2739,7 @@ test("an Application sits in a Folder, takes a Tag shown on its row, and goes to
   // Tidy up: trash it for good, then the Folder and the Tag.
   await page.getByRole("link", { name: new RegExp(title) }).click();
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await page.goto("/trash");
   await row.getByRole("button", { name: `Delete forever: ${title}` }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete forever" }).click();
@@ -3034,14 +3016,16 @@ test("Career opens from the rail with its panel and the Applications list, and N
   await page.goto("/items");
 
   // The rail entry opens Career, which lands on Applications, and the entry shows as the current page.
+  // On a Knowledge Base page the rail shows its panel, so Back brings the module list first.
+  await page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: "Back to the menu" }).click();
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Career" }).click();
   await expect(page).toHaveURL(/\/career\/applications$/);
   await expect(page.getByRole("heading", { name: "Applications", level: 1 })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Career" })).toHaveAttribute("aria-current", "page");
   const panel = page.getByRole("navigation", { name: "Career" });
   await expect(panel.getByRole("link", { name: "Applications" })).toHaveAttribute("aria-current", "page");
-  // Only Applications is live; the rest of the design's entries wait for their epics.
-  await expect(panel.getByRole("link")).toHaveCount(1);
+  // Today and Offers are hidden (#367), so the panel has three entries.
+  await expect(panel.getByRole("link")).toHaveCount(3);
   await expectNoViolations(page);
 
   // A new Application lands on its page, keeps the Career panel, and is listed when you go back.
@@ -3055,18 +3039,18 @@ test("Career opens from the rail with its panel and the Applications list, and N
   await expect(page.getByRole("navigation", { name: "Career" })).toHaveCount(0);
 });
 
-test("Resumes & Letters lists Resumes, and a Resume is created blank or with sample content, renamed and duplicated", async ({ page }) => {
+test("Resumes lists Resumes, and a Resume is created blank or with sample content, renamed and duplicated", async ({ page }) => {
   await signIn(page);
   const stamp = Date.now();
   const blank = `Blank ${stamp}`;
   const sample = `Sample ${stamp}`;
 
-  await page.goto("/career/library");
-  await expect(page.getByRole("heading", { name: "Resumes & Letters", level: 1 })).toBeVisible();
+  await page.goto("/career/resumes");
+  await expect(page.getByRole("heading", { name: "Resumes", level: 1 })).toBeVisible();
   await expectNoViolations(page);
 
   const create = async (name: string, withSample: boolean) => {
-    await page.getByRole("button", { name: "New Resume" }).click();
+    await page.getByRole("button", { name: "New Resume", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "New Resume" });
     await dialog.getByLabel("Name").fill(name);
     if (withSample) await dialog.getByLabel("Start with sample content").check();
@@ -3095,7 +3079,7 @@ test("Resumes & Letters lists Resumes, and a Resume is created blank or with sam
   await expect(rows.getByText(sample, { exact: true })).toBeVisible();
 
   // The Career panel keeps the entry, and it is the current page.
-  await expect(page.getByRole("navigation", { name: "Career" }).getByRole("link", { name: "Resumes & Letters" })).toHaveAttribute(
+  await expect(page.getByRole("navigation", { name: "Career" }).getByRole("link", { name: "Resumes", exact: true })).toHaveAttribute(
     "aria-current",
     "page",
   );
@@ -3104,7 +3088,7 @@ test("Resumes & Letters lists Resumes, and a Resume is created blank or with sam
 // A new Resume made through the library, opened in its editor.
 async function openNewResume(page: Page, name: string) {
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByRole("button", { name: "Create Resume" }).click();
@@ -3213,7 +3197,7 @@ test("the Resume preview shows the page at real size, follows typing, zooms, and
   await signIn(page);
   const name = `Preview ${Date.now()}`;
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Start with sample content").check();
@@ -3357,7 +3341,7 @@ test("a click on the page jumps to that field in the editor, on page 1 and on pa
   await signIn(page);
   const name = `Map ${Date.now()}`;
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Start with sample content").check();
@@ -3387,7 +3371,7 @@ test("Design mode shows each template with the Resume's own content, previews on
   await signIn(page);
   const name = `Templates ${Date.now()}`;
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Start with sample content").check();
@@ -3430,7 +3414,7 @@ test("the design controls change the page, warn about a hard-to-read accent, mov
   await signIn(page);
   const name = `Design ${Date.now()}`;
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Start with sample content").check();
@@ -3484,7 +3468,7 @@ test("an overflowing Resume is fitted back onto its page in one Undo step, a hop
   await signIn(page);
   const name = `Fit ${Date.now()}`;
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Start with sample content").check();
@@ -3582,7 +3566,7 @@ test("the library searches and sorts Resumes, draws their first page, files them
 
   const make = async (name: string, sample: boolean) => {
     await page.goto("/career/library");
-    await page.getByRole("button", { name: "New Resume" }).click();
+    await page.getByRole("button", { name: "New Resume", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "New Resume" });
     await dialog.getByLabel("Name").fill(name);
     if (sample) await dialog.getByLabel("Start with sample content").check();
@@ -3719,7 +3703,7 @@ test("custom style rules change the page, bad ones are explained and not saved, 
   await signIn(page);
   const name = `Style ${Date.now()}`;
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New Resume" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Start with sample content").check();

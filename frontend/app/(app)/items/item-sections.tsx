@@ -29,7 +29,7 @@ export async function ItemBacklinks({ itemId }: { itemId: string }) {
       ) : (
         <ul className="grid gap-2">
           {backlinks.data.items.map((backlink) => (
-            <li key={backlink.id}>
+            <li key={backlink.id} className="min-w-0">
               <Link
                 href={itemHref({ id: backlink.id, type: "NOTE" })}
                 className="flex items-center gap-2 rounded-[10px] border border-border bg-surface px-3 py-2 text-sm hover:border-link"
@@ -119,7 +119,7 @@ export async function ItemConnections({
                 {linksTo.map((n) => {
                   const Icon = n.type === "NOTE" ? FileTextIcon : ImageIcon;
                   return (
-                    <li key={n.id}>
+                    <li key={n.id} className="min-w-0">
                       <Link
                         href={itemHref(n)}
                         className="flex items-center gap-2 rounded-[10px] border border-border bg-surface px-3 py-2 text-sm hover:border-link"

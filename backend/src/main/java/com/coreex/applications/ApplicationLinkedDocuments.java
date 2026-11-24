@@ -17,6 +17,7 @@ import com.coreex.common.ApiException;
 import com.coreex.resumes.CoverLetterService;
 import com.coreex.resumes.Resume;
 import com.coreex.resumes.ResumeCheckScore;
+import com.coreex.resumes.ResumeKind;
 import com.coreex.resumes.ResumeService;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -129,7 +130,10 @@ class ApplicationLinkedDocuments {
 					.param("owner", owner).param("app", app).param("kind", kind.name()).update();
 			return list(owner, app);
 		}
-		if (kind == Kind.RESUME) resumes.get(owner, item); else letters.get(owner, item);
+		if (kind == Kind.RESUME) {
+			if (resumes.get(owner, item).kind() == ResumeKind.CV) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "A CV cannot be linked to an Application. Make a Resume from it first.");
+		}
+		else letters.get(owner, item);
 		jdbc.sql("""
 				insert into application_linked_documents (owner_id, application_id, kind, item_id)
 				values (:owner, :app, :kind, :item)

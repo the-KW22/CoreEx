@@ -14,7 +14,8 @@ const employerEmail = [
   "> earlier text from the thread",
 ].join("\n");
 
-test("reads an employer's email, edits and saves the reply, and opens it in the mail app", async ({ page }) => {
+// The Messages tab is hidden (#366); add it back to SHOWN in workspace.tsx and remove .skip.
+test.skip("reads an employer's email, edits and saves the reply, and opens it in the mail app", async ({ page }) => {
   test.skip(process.env.E2E_FAKE_AI !== "1", "Requires the local fake AI provider");
   test.setTimeout(180_000);
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: test.info().project.use.baseURL! });

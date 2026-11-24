@@ -2,8 +2,9 @@
 
 import { ChevronRightIcon, PanelRightIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
-import { useState, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 
+import { ConfirmTrash } from "@/components/confirm-trash";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -40,6 +41,9 @@ type Props = {
 export function ItemFrame({ crumbs, current, status, extra, trash, detailsCookie, details, children }: Props) {
   const [detailsChoice, setDetailsChoice] = useState(detailsCookie);
   const [drawer, setDrawer] = useState(false);
+  // The Trash confirm: the names it asks about, or null when closed. Confirming submits the hidden form.
+  const [confirming, setConfirming] = useState<string[] | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const isWide = useSyncExternalStore(wide.subscribe, wide.get, () => false);
   const isTablet = useSyncExternalStore(tablet.subscribe, tablet.get, () => false);
 
@@ -56,8 +60,9 @@ export function ItemFrame({ crumbs, current, status, extra, trash, detailsCookie
   }
 
   // Each child of `details` is a section; a divider sits between them.
+  // The body is one column that never grows past the panel, so a long title truncates instead of widening the page.
   const body = (
-    <div className="grid content-start divide-y divide-border-subtle [&>*]:py-5 [&>:first-child]:pt-0 [&>:last-child]:pb-0">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start divide-y divide-border-subtle [&>*]:py-5 [&>:first-child]:pt-0 [&>:last-child]:pb-0">
       {details}
     </div>
   );
@@ -83,11 +88,11 @@ export function ItemFrame({ crumbs, current, status, extra, trash, detailsCookie
           </nav>
           {status}
           {extra}
-          <form action={trash.action}>
+          <form ref={formRef} action={trash.action}>
             <input type="hidden" name="id" value={trash.id} />
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button type="submit" variant="ghost" size="icon" aria-label="Move to Trash">
+                <Button type="button" variant="ghost" size="icon" onClick={() => setConfirming([current])} aria-label="Move to Trash">
                   <Trash2Icon aria-hidden />
                 </Button>
               </TooltipTrigger>
@@ -113,10 +118,11 @@ export function ItemFrame({ crumbs, current, status, extra, trash, detailsCookie
         {children}
       </div>
 
-      {/* Tablets and up: a panel beside the page. With no choice made, it follows the screen width. */}
+      {/* Tablets and up: a panel beside the page. With no choice made, it follows the screen width.
+          It is the rightmost thing on screen, so anything wider than it scrolls inside it rather than widening the page. */}
       <aside
         aria-label="Details"
-        className={`w-72 shrink-0 border-l border-border bg-panel p-5 max-md:hidden ${
+        className={`w-72 min-w-0 shrink-0 overflow-x-auto border-l border-border bg-panel p-5 max-md:hidden ${
           detailsChoice === null ? "hidden xl:block" : detailsOpen ? "md:block" : "hidden"
         }`}
       >
@@ -129,6 +135,14 @@ export function ItemFrame({ crumbs, current, status, extra, trash, detailsCookie
           {body}
         </SheetContent>
       </Sheet>
+      <ConfirmTrash
+        names={confirming}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          formRef.current?.requestSubmit();
+          setConfirming(null);
+        }}
+      />
     </div>
   );
 }

@@ -70,7 +70,7 @@ test.beforeAll(async ({ browser }) => {
 
   // A Resume cannot go to the Trash yet (#255), so this one stays behind.
   await page.goto("/career/library");
-  await page.getByRole("button", { name: "New Resume" }).click();
+  await page.getByRole("button", { name: "New Resume", exact: true }).click();
   const made = page.getByRole("dialog", { name: "New Resume" });
   await made.getByLabel("Name").fill(`Matrix ${word}`);
   await made.getByRole("button", { name: "Create Resume" }).click();
@@ -80,6 +80,7 @@ test.beforeAll(async ({ browser }) => {
 
   await newNote(page, trashed);
   await page.getByRole("button", { name: "Move to Trash" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
   await expect(page).toHaveURL(/\/items$/);
 
   await page.goto("/items");
@@ -178,11 +179,11 @@ for (const colorScheme of ["dark", "light"] as const) {
           await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(noteA);
         });
         await screen(page, failures, "applications", "/career/applications", heading("Applications"));
-        await screen(page, failures, "resumes library", "/career/library", heading("Resumes & Letters"));
-        await screen(page, failures, "resumes library list", "/career/library?view=list", heading("Resumes & Letters"));
+        await screen(page, failures, "resumes", "/career/resumes", heading("Resumes"));
+        await screen(page, failures, "resumes list", "/career/resumes?view=list", heading("Resumes"));
+        await screen(page, failures, "cv", "/career/cv", heading("CV"));
+        await screen(page, failures, "cover letters", "/career/cover-letters", heading("Cover Letters"));
         await screen(page, failures, "knowledge", "/career/knowledge", heading("Knowledge"));
-        await screen(page, failures, "today", "/career", heading("Today"));
-        await screen(page, failures, "offers", "/career/offers", heading("Offers"));
         await screen(page, failures, "applications needs you", "/career/applications?needs=1", heading("Applications"));
         await screen(page, failures, "applications board", "/career/applications?view=board", heading("Applications"));
         await screen(page, failures, "applications calendar", "/career/applications?view=calendar", heading("Applications"));
@@ -202,25 +203,10 @@ for (const colorScheme of ["dark", "light"] as const) {
           await page.getByRole("tab", { name: "Emails" }).click();
           await expect(page.getByRole("heading", { name: "Emails", level: 2 })).toBeVisible();
         });
-        await screen(page, failures, "application messages", seed.application, async () => {
-          await page.getByRole("tab", { name: "Messages" }).click();
-          await expect(page.getByRole("heading", { name: "Messages", level: 2 })).toBeVisible();
-        });
+        // The Messages, Practice, Debrief and Library tabs are hidden (#366); their screens return with them in SHOWN in workspace.tsx.
         await screen(page, failures, "application interview prep", seed.application, async () => {
           await page.getByRole("tab", { name: "Interview prep" }).click();
           await expect(page.getByRole("heading", { name: "Interview prep", level: 2 })).toBeVisible();
-        });
-        await screen(page, failures, "application practice", seed.application, async () => {
-          await page.getByRole("tab", { name: "Practice" }).click();
-          await expect(page.getByRole("heading", { name: "Practice", level: 2, exact: true })).toBeVisible();
-        });
-        await screen(page, failures, "application debrief", seed.application, async () => {
-          await page.getByRole("tab", { name: "Debrief" }).click();
-          await expect(page.getByRole("heading", { name: "Debrief", level: 2 })).toBeVisible();
-        });
-        await screen(page, failures, "application library", seed.application, async () => {
-          await page.getByRole("tab", { name: "Library" }).click();
-          await expect(page.getByRole("heading", { name: "Library", level: 2 })).toBeVisible();
         });
         await screen(page, failures, "resume", seed.resume, async () => {
           await expect(page.getByRole("textbox", { name: "Resume name" })).toHaveValue(`Matrix ${word}`);
@@ -246,12 +232,6 @@ for (const colorScheme of ["dark", "light"] as const) {
         await screen(page, failures, "graph coloured", "/graph?colour=tag", async () => {
           await expect(page.getByRole("list", { name: "Colours" })).toBeVisible();
         });
-        await screen(page, failures, "graph insights", "/graph", async () => {
-          const opener = page.getByRole("button", { name: "Insights" }).locator("visible=true");
-          await opener.click();
-          await expect(page.getByRole("heading", { name: "Most linked" }).locator("visible=true")).toBeVisible();
-        });
-        await page.keyboard.press("Escape");
         await screen(page, failures, "graph find", "/graph", async () => {
           await page.getByRole("combobox", { name: "Find an Item in the graph" }).fill(word);
           await expect(page.getByRole("option", { name: noteB })).toBeVisible();
@@ -301,6 +281,7 @@ for (const colorScheme of ["dark", "light"] as const) {
         await scan(page, failures, "upload dialog with a file");
         await upload.getByRole("link", { name: extra }).click();
         await page.getByRole("button", { name: "Move to Trash" }).click();
+        await page.getByRole("alertdialog").getByRole("button", { name: "Move to Trash" }).click();
         await expect(page).toHaveURL(/\/items$/);
         // The page's title arrives a moment after the address changes; axe fails a page without one.
         await expect(page).toHaveTitle(/.+/);
@@ -316,14 +297,11 @@ for (const colorScheme of ["dark", "light"] as const) {
 
         // The Item row menu, its right-click menu, and the two dialogs it opens.
         await page.goto("/items");
-        const menu = page.getByRole("button", { name: `Actions for ${noteA}` });
-        await menu.click();
-        await scan(page, failures, "row menu");
-        await page.getByRole("menuitem", { name: "Move to Folder…" }).click();
+        await scan(page, failures, "row buttons");
+        await page.getByRole("button", { name: `Move ${noteA} to a Folder` }).click();
         await scan(page, failures, "move dialog");
         await page.keyboard.press("Escape");
-        await menu.click();
-        await page.getByRole("menuitem", { name: "Add Tag…" }).click();
+        await page.getByRole("button", { name: `Add a Tag to ${noteA}` }).click();
         await scan(page, failures, "add tag dialog");
         await page.keyboard.press("Escape");
         if (!phone) {
@@ -378,6 +356,10 @@ for (const colorScheme of ["dark", "light"] as const) {
         await page.getByRole("button", { name: "Empty Trash" }).click();
         await scan(page, failures, "empty trash confirm");
         await page.keyboard.press("Escape");
+        // Chat: the start page, which has no Chats to depend on (the Chat spec scans a conversation).
+        await page.goto("/chat");
+        await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+        await scan(page, failures, "chat");
         await page.goto("/admin");
         await page.getByRole("row").filter({ hasText: invited }).getByRole("button", { name: /^Revoke/ }).click();
         await scan(page, failures, "revoke confirm");
@@ -400,6 +382,9 @@ for (const colorScheme of ["dark", "light"] as const) {
           await scan(page, failures, "phone menu");
         } else {
           await page.setViewportSize({ width: 1024, height: 768 });
+          await expect(page.getByRole("complementary", { name: "Knowledge Base" })).toBeVisible();
+          await scan(page, failures, "tablet panel in the rail");
+          await page.getByRole("button", { name: "Collapse sidebar" }).click();
           await page.getByRole("button", { name: "Show the Knowledge Base panel" }).click();
           await expect(page.getByRole("dialog", { name: "Knowledge Base" })).toBeVisible();
           await scan(page, failures, "tablet panel");

@@ -20,7 +20,7 @@ class ResumeRepository {
 			where i.owner_id = :owner and i.type = 'RESUME' and i.deleted_at is null""";
 
 	/** One row of the list: no document, so a page of Resumes stays small. */
-	record Summary(UUID id, String title, UUID folderId, Instant createdAt, Instant updatedAt) {
+	record Summary(UUID id, String title, ResumeKind kind, UUID folderId, Instant createdAt, Instant updatedAt) {
 	}
 
 	private final JsonMapper json = JsonMapper.builder().build();
@@ -36,23 +36,23 @@ class ResumeRepository {
 	}
 
 	/** A null {@code wanted} id means a new one; an id already used by any Item makes this return empty. */
-	Optional<UUID> insert(UUID ownerId, UUID wanted, String title, String document, String plain, String markdown) {
+	Optional<UUID> insert(UUID ownerId, UUID wanted, String title, String document, String plain, String markdown, ResumeKind kind) {
 		var made = jdbc.sql("""
 				insert into items (id, owner_id, type, title)
 				values (coalesce(:wanted, gen_random_uuid()), :owner, 'RESUME', :title)
 				on conflict (id) do nothing returning id""").param("wanted", wanted).param("owner", ownerId)
 				.param("title", title).query(UUID.class).optional();
 		made.ifPresent(id -> jdbc.sql("""
-				insert into resume_contents (item_id, document, plain_text, markdown) values (:id, :doc::jsonb, :plain, :md)""")
-				.param("id", id).param("doc", document).param("plain", plain).param("md", markdown).update());
+				insert into resume_contents (item_id, document, plain_text, markdown, kind) values (:id, :doc::jsonb, :plain, :md, :kind)""")
+				.param("id", id).param("doc", document).param("plain", plain).param("md", markdown).param("kind", kind.name()).update());
 		return made;
 	}
 
 	Optional<Resume> find(UUID ownerId, UUID id) {
-		return jdbc.sql("select i.id, i.title, c.document::text as document, c.version, c.locked, i.folder_id, i.created_at, i.updated_at "
+		return jdbc.sql("select i.id, i.title, c.kind, c.document::text as document, c.version, c.locked, i.folder_id, i.created_at, i.updated_at "
 				+ FROM + " and i.id = :id").param("owner", ownerId).param("id", id)
 				.query((rs, n) -> new Resume(rs.getObject("id", UUID.class), rs.getString("title"),
-						json.readValue(rs.getString("document"), ResumeDocument.class), rs.getInt("version"), rs.getBoolean("locked"),
+						ResumeKind.valueOf(rs.getString("kind")), json.readValue(rs.getString("document"), ResumeDocument.class), rs.getInt("version"), rs.getBoolean("locked"),
 						rs.getObject("folder_id", UUID.class), rs.getObject("created_at", OffsetDateTime.class).toInstant(),
 						rs.getObject("updated_at", OffsetDateTime.class).toInstant()))
 				.optional();
@@ -60,6 +60,9 @@ class ResumeRepository {
 
 	// A title that contains the text, in any case; % and _ in the text are letters.
 	private static final String MATCH = " and (:q = '' or i.title ilike :contains escape '\\')";
+
+	// The kind filter: a null kind means every kind.
+	private static final String KIND = " and (:kind::text is null or c.kind = :kind)";
 
 	private static String contains(String q) {
 		return "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
@@ -74,12 +77,12 @@ class ResumeRepository {
 		};
 	}
 
-	List<Summary> list(UUID ownerId, String q, String sort, int limit, long offset) {
-		return jdbc.sql("select i.id, i.title, i.folder_id, i.created_at, i.updated_at " + FROM + MATCH + order(sort)
+	List<Summary> list(UUID ownerId, String q, String sort, ResumeKind kind, int limit, long offset) {
+		return jdbc.sql("select i.id, i.title, c.kind, i.folder_id, i.created_at, i.updated_at " + FROM + MATCH + KIND + order(sort)
 				+ " limit :limit offset :offset").param("owner", ownerId).param("q", q).param("contains", contains(q))
-				.param("limit", limit).param("offset", offset)
+				.param("kind", kind == null ? null : kind.name()).param("limit", limit).param("offset", offset)
 				.query((rs, n) -> new Summary(rs.getObject("id", UUID.class), rs.getString("title"),
-						rs.getObject("folder_id", UUID.class), rs.getObject("created_at", OffsetDateTime.class).toInstant(),
+						ResumeKind.valueOf(rs.getString("kind")), rs.getObject("folder_id", UUID.class), rs.getObject("created_at", OffsetDateTime.class).toInstant(),
 						rs.getObject("updated_at", OffsetDateTime.class).toInstant()))
 				.list();
 	}
@@ -100,9 +103,9 @@ class ResumeRepository {
 				  and f.mime_type like 'image/%'""").param("asset", assetId).param("owner", ownerId).query(Long.class).single() > 0;
 	}
 
-	long count(UUID ownerId, String q) {
-		return jdbc.sql("select count(*) " + FROM + MATCH).param("owner", ownerId).param("q", q).param("contains", contains(q))
-				.query(Long.class).single();
+	long count(UUID ownerId, String q, ResumeKind kind) {
+		return jdbc.sql("select count(*) " + FROM + MATCH + KIND).param("owner", ownerId).param("q", q).param("contains", contains(q))
+				.param("kind", kind == null ? null : kind.name()).query(Long.class).single();
 	}
 
 	/** False when the Resume is missing or its stored version is not the one the caller saw. */

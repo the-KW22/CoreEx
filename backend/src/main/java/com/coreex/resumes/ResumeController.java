@@ -49,6 +49,7 @@ class ResumeController {
 
 	record CreateResumeRequest(@Size(max = ResumeService.MAX_TITLE) @Pattern(regexp = NO_NUL) String title,
 			@Schema(description = "Start from made-up sample content instead of a blank Resume") Boolean sample,
+			@Schema(nullable = true, description = "RESUME (the default), or CV for the User's master document, which can never be linked to an Application") ResumeKind kind,
 			@Schema(nullable = true, description = "An id you make up. Sending the same request again returns that Resume instead of making a second one; an id already used for anything else is refused with INVALID_REQUEST") UUID id,
 			@Schema(nullable = true, description = "A Resume to start from, such as one imported from a file. Checked and sanitised like a save; when sent, sample is ignored") @Valid ResumeDocument document) {
 	}
@@ -70,6 +71,7 @@ class ResumeController {
 
 	record ResumeResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) ResumeKind kind,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) ResumeDocument document,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int version,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "A locked Resume cannot be saved or renamed until it is unlocked") boolean locked,
@@ -78,7 +80,7 @@ class ResumeController {
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt) {
 
 		static ResumeResponse of(Resume r) {
-			return new ResumeResponse(r.id(), r.title(), r.document(), r.version(), r.locked(), r.folderId(), r.createdAt(),
+			return new ResumeResponse(r.id(), r.title(), r.kind(), r.document(), r.version(), r.locked(), r.folderId(), r.createdAt(),
 					r.updatedAt());
 		}
 
@@ -86,12 +88,13 @@ class ResumeController {
 
 	record ResumeSummary(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) ResumeKind kind,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID folderId,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt) {
 
 		static ResumeSummary of(ResumeService.Row s) {
-			return new ResumeSummary(s.id(), s.title(), s.folderId(), s.createdAt(), s.updatedAt());
+			return new ResumeSummary(s.id(), s.title(), s.kind(), s.folderId(), s.createdAt(), s.updatedAt());
 		}
 
 	}
@@ -123,7 +126,7 @@ class ResumeController {
 	ResumeResponse create(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@Valid @RequestBody CreateResumeRequest request) {
 		return ResumeResponse.of(resumes.create(user.id(), request.id(), request.title(), Boolean.TRUE.equals(request.sample()),
-				request.document()).resume());
+				request.kind(), request.document()).resume());
 	}
 
 	@GetMapping
@@ -132,8 +135,9 @@ class ResumeController {
 	ResumePage list(@Parameter(hidden = true) @RequestAttribute(CurrentUserInterceptor.ATTRIBUTE) User user,
 			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size,
 			@Parameter(description = "Only Resumes whose title contains this, in any case") @RequestParam(defaultValue = "") String q,
-			@Parameter(description = "updated (newest change first, the default), name or created (newest first)") @RequestParam(defaultValue = "updated") String sort) {
-		var listed = resumes.list(user.id(), q, sort, Math.max(0, page), Math.min(MAX_PAGE_SIZE, Math.max(1, size)));
+			@Parameter(description = "updated (newest change first, the default), name or created (newest first)") @RequestParam(defaultValue = "updated") String sort,
+			@Parameter(description = "Only CVs or only Resumes") @RequestParam(required = false) ResumeKind kind) {
+		var listed = resumes.list(user.id(), q, sort, kind, Math.max(0, page), Math.min(MAX_PAGE_SIZE, Math.max(1, size)));
 		var tagged = tags.forItems(user.id(), listed.items().stream().map(ResumeService.Row::id).toList());
 		var chips = new LinkedHashMap<UUID, List<ResumeTag>>();
 		tagged.forEach((id, list) -> chips.put(id, list.stream().map(t -> new ResumeTag(t.id(), t.name(), t.colour())).toList()));

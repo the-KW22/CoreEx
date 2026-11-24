@@ -42,11 +42,20 @@ class CareerController {
 	record RequirementResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String requirement,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Verdict verdict,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String note,
-			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "What shows it; a forgotten or switched-off Fact is left out") List<EvidenceResponse> evidence) {
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "What shows it; a forgotten or switched-off Fact is left out") List<EvidenceResponse> evidence,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "MUST, NICE or GATE; empty in a result made before kinds existed") CareerService.Kind kind,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "What to do about a gap: NONE, FRAME, CLOSE or DO_NOT_CLAIM") CareerService.Plan plan,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "One short line on the plan; empty when there is none") String planNote,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "A question for the User on a GATE the evidence does not show; empty otherwise") String confirm) {
 	}
 
-	record FitResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "An estimate from 0 to 100, never a measurement") int score,
+	record FitResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "0 to 100, worked out from the verdicts and the weights (an estimate of the match, not a measurement)") int score,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "The points behind the score, SUPPORTED 1 and PARTLY 0.5, times the weight; empty in a result made before kinds existed") Double points,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "The most the points could be") Integer maximum,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String question,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "What really decides the hire, read from the posting") List<String> priorities,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Words copied from the posting to reuse in an email or Cover Letter") List<String> keywords,
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "COREEX, or AGENT when the User's agent saved it over MCP") String source,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<RequirementResponse> requirements) {
 	}
 
@@ -140,8 +149,12 @@ class CareerController {
 	private ResultResponse respond(Stored stored, Map<UUID, CareerService.Evidence> evidence, Map<Integer, ReplyService.State> states) {
 		FitResponse fit = null;
 		if (stored.fit() != null) {
-			fit = new FitResponse(stored.fit().score(), stored.fit().question(), stored.fit().requirements().stream()
-					.map(r -> new RequirementResponse(r.requirement(), r.verdict(), r.note(), evidence(r.evidence(), evidence))).toList());
+			var pts = CareerService.points(stored.fit().requirements());
+			fit = new FitResponse(stored.fit().score(), pts[1] == 0 ? null : pts[0] / 2.0, pts[1] == 0 ? null : pts[1] / 2,
+					stored.fit().question(), stored.fit().priorities(), stored.fit().keywords(), stored.fit().source(),
+					stored.fit().requirements().stream().map(r -> new RequirementResponse(r.requirement(), r.verdict(), r.note(),
+							evidence(r.evidence(), evidence), r.kind(), r.plan(), r.planNote() == null ? "" : r.planNote(),
+							r.confirm() == null ? "" : r.confirm())).toList());
 		}
 		var answer = stored.answer() == null ? null
 				: new AnswerResponse(stored.answer().questionId(), stored.answer().text(), evidence(stored.answer().evidence(), evidence));

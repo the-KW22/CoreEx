@@ -24,3 +24,15 @@ Each **Career result** stores a fingerprint of its inputs and shows "Out of date
 - Forgetting a Fact erases its text, keeps a content-free key so no import, retry or AI can bring it back, and removes it from every Career result.
 - Background AI (scheduled briefings, automatic job discovery) is out for now, so no AI runs without the User pressing a button.
 - Reading a posting from a link is the first time the backend fetches arbitrary URLs: it fetches only public hosts, with few redirects and a size cap, and reads the page's own job data before asking the model.
+
+## Update: tabs hidden for now (#366)
+
+An Application's workspace shows only **Details, Fit, Emails and Interview prep**, the User's own flow from the job description to the interview. **Apply, Messages, Practice, Debrief and Library** are hidden, not removed: their panels, API, data and AI results stay, so the rule above still holds for every result already stored, and a name added to `SHOWN` in `applications/[id]/workspace.tsx` brings a tab back. Mark as applied moved to Details; the employer's form questions and the answer library are hidden with Apply. Nothing in this ADR changes: the AI still works only from the User's evidence and only when a button is pressed.
+
+## Update: the match score is worked out, and the Fit check reads the role (#395 #396 #397 #398)
+
+The Fit check's **score is no longer the model's guess.** Each requirement has a kind (MUST, NICE or GATE, a condition asked of every candidate such as work rights or a language) and a verdict; CoreEx counts SUPPORTED as 1, PARTLY as 0.5 and MISSING as 0, weighs MUST and GATE 2 and NICE 1, and shows the sum next to the score, so the number can be checked line by line. The score is still an estimate shown beside the requirements, never instead of them.
+
+The Fit check also gives what decides the hire, keywords copied from the posting, a plan for each gap (FRAME, CLOSE or DO_NOT_CLAIM) and, for a GATE the evidence does not show, a question for the User. These follow the evidence rule: a question asks and never says the User lacks something.
+
+The User's own agent can run the check (`run_fit_check`) or do the analysis itself and save it (`save_fit_check`, no CoreEx model call and no budget spent). A saved check passes the same parser as the model's answer: only ids the Fit check could see are kept, text is cut to its limits, the score is worked out here and any score sent is ignored, and it goes stale the same way. It is marked as made by the agent.

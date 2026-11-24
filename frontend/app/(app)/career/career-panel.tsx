@@ -1,30 +1,33 @@
 "use client";
 
-import { BookOpenIcon, BriefcaseBusinessIcon, CalendarCheckIcon, FileUserIcon, HandshakeIcon } from "lucide-react";
+import { BookOpenIcon, BriefcaseBusinessIcon, CalendarCheckIcon, FileUserIcon, IdCardIcon, MailIcon, HandshakeIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { SHOW } from "@/lib/career-entries";
 import { cn } from "@/lib/utils";
 
 import { itemLink } from "../kb-panel";
 
 // The Career entries of docs/DESIGN.md section 3.4.
 const ENTRIES = [
-  { href: "/career", label: "Today", icon: CalendarCheckIcon },
-  { href: "/career/applications", label: "Applications", icon: BriefcaseBusinessIcon },
-  { href: "/career/library", label: "Resumes & Letters", icon: FileUserIcon },
-  { href: "/career/knowledge", label: "Knowledge", icon: BookOpenIcon },
-  { href: "/career/offers", label: "Offers", icon: HandshakeIcon },
+  { href: "/career", label: "Today", icon: CalendarCheckIcon, show: SHOW.today },
+  { href: "/career/applications", label: "Applications", icon: BriefcaseBusinessIcon, show: true },
+  { href: "/career/cv", label: "CV", icon: IdCardIcon, show: true },
+  { href: "/career/resumes", label: "Resumes", icon: FileUserIcon, IdCardIcon, MailIcon, show: true },
+  { href: "/career/cover-letters", label: "Cover Letters", icon: MailIcon, show: true },
+  { href: "/career/knowledge", label: "Knowledge", icon: BookOpenIcon, show: true },
+  { href: "/career/offers", label: "Offers", icon: HandshakeIcon, show: SHOW.offers },
 ];
 
 export function CareerPanel() {
   const pathname = usePathname();
   return (
-    <div className="flex h-full w-72 max-w-full flex-col gap-4 overflow-y-auto border-r border-border bg-panel p-4">
+    <div className="flex h-full w-full flex-col gap-4 overflow-y-auto p-4">
       <h2 className="text-sm font-semibold">Career</h2>
       <nav aria-label="Career">
         <ul className="grid gap-0.5">
-          {ENTRIES.map(({ href, label, icon: Icon }) => {
+          {ENTRIES.filter(({ show }) => show).map(({ href, label, icon: Icon }) => {
             // Today is /career itself, so only an exact match counts for it.
             const current = pathname === href || (href !== "/career" && pathname.startsWith(`${href}/`));
             return (

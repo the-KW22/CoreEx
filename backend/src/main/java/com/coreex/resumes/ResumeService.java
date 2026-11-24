@@ -36,7 +36,7 @@ public class ResumeService {
 	}
 
 	/** A Resume in a list, without its document. */
-	public record Row(UUID id, String title, UUID folderId, Instant createdAt, Instant updatedAt) {
+	public record Row(UUID id, String title, ResumeKind kind, UUID folderId, Instant createdAt, Instant updatedAt) {
 	}
 
 	public record Page(List<Row> items, long total) {
@@ -46,17 +46,12 @@ public class ResumeService {
 	 * With an {@code id} the caller made up, a repeated request returns the Resume as stored instead of making a second
 	 * one. Any other use of the id is refused with one answer, so it does not say whose it is.
 	 */
-	@Transactional
-	public Created create(UUID ownerId, UUID id, String title, boolean sample) {
-		return create(ownerId, id, title, sample, null);
-	}
-
 	/**
 	 * With an {@code imported} document (a file the User brought in) the Resume starts from it, checked and sanitised
-	 * exactly like a save; a refused one makes nothing. It wins over {@code sample}.
+	 * exactly like a save; a refused one makes nothing. It wins over {@code sample}. A null {@code kind} is a RESUME.
 	 */
 	@Transactional
-	public Created create(UUID ownerId, UUID id, String title, boolean sample, ResumeDocument imported) {
+	public Created create(UUID ownerId, UUID id, String title, boolean sample, ResumeKind kind, ResumeDocument imported) {
 		if (id != null) {
 			var existing = resumes.find(ownerId, id);
 			if (existing.isPresent()) {
@@ -67,7 +62,8 @@ public class ResumeService {
 			requirePhoto(ownerId, "", imported.basics().photo().assetId());
 		}
 		var document = imported != null ? imported : sample ? ResumeSample.document() : ResumeDocument.blank();
-		var made = insert(ownerId, id, title == null || title.isBlank() ? "My Resume" : title.strip(), document);
+		var made = insert(ownerId, id, title == null || title.isBlank() ? "My Resume" : title.strip(), document,
+				kind == null ? ResumeKind.RESUME : kind);
 		if (made == null) {
 			var raced = resumes.find(ownerId, id).orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST,
 					"INVALID_REQUEST", "That id cannot be used for a new Resume."));
@@ -85,12 +81,15 @@ public class ResumeService {
 		return ResumeText.markdown(document);
 	}
 
-	/** A page of the User's Resumes whose title contains {@code q} (all when empty), by "updated" (default), "name" or "created". */
-	public Page list(UUID ownerId, String q, String sort, int page, int size) {
+	/**
+	 * A page of the User's Resumes whose title contains {@code q} (all when empty), by "updated" (default), "name" or
+	 * "created". A null {@code kind} lists both RESUMEs and CVs; otherwise only that kind.
+	 */
+	public Page list(UUID ownerId, String q, String sort, ResumeKind kind, int page, int size) {
 		var text = q == null ? "" : q.strip();
-		var rows = resumes.list(ownerId, text, sort == null ? "" : sort, size, (long) page * size).stream()
-				.map(s -> new Row(s.id(), s.title(), s.folderId(), s.createdAt(), s.updatedAt())).toList();
-		return new Page(rows, resumes.count(ownerId, text));
+		var rows = resumes.list(ownerId, text, sort == null ? "" : sort, kind, size, (long) page * size).stream()
+				.map(s -> new Row(s.id(), s.title(), s.kind(), s.folderId(), s.createdAt(), s.updatedAt())).toList();
+		return new Page(rows, resumes.count(ownerId, text, kind));
 	}
 
 	/** Moves the Resume to the Trash, where Restore brings it back unchanged; its versions leave with it for good. */
@@ -200,7 +199,7 @@ public class ResumeService {
 		// A photo whose Asset has gone is not carried over: the copy would otherwise name an Asset it cannot show.
 		var photo = source.document().basics().photo().assetId();
 		var document = photo.isEmpty() || resumes.isImageAsset(ownerId, UUID.fromString(photo)) ? source.document() : source.document().withoutPhoto();
-		return get(ownerId, insert(ownerId, null, title + " (copy)", document));
+		return get(ownerId, insert(ownerId, null, title + " (copy)", document, ResumeKind.RESUME));
 	}
 
 	/** Makes the independent Resume for an Application using a caller-assigned id. */
@@ -210,7 +209,7 @@ public class ResumeService {
 		var title = source.title().length() > MAX_TITLE - 7 ? source.title().substring(0, MAX_TITLE - 7) : source.title();
 		var photo = source.document().basics().photo().assetId();
 		var doc = photo.isEmpty() || resumes.isImageAsset(ownerId, UUID.fromString(photo)) ? source.document() : source.document().withoutPhoto();
-		var made = insert(ownerId, copyId, title + " (copy)", doc);
+		var made = insert(ownerId, copyId, title + " (copy)", doc, ResumeKind.RESUME);
 		if (made == null) throw new ApiException(HttpStatus.CONFLICT, "VERSION_CONFLICT", "That copy id is already used.");
 		return get(ownerId, made);
 	}
@@ -226,9 +225,9 @@ public class ResumeService {
 		}
 	}
 
-	private UUID insert(UUID ownerId, UUID id, String title, ResumeDocument document) {
+	private UUID insert(UUID ownerId, UUID id, String title, ResumeDocument document, ResumeKind kind) {
 		var clean = ResumeText.clean(document);
-		return resumes.insert(ownerId, id, title, checked(clean), ResumeText.plain(clean), ResumeText.markdown(clean))
+		return resumes.insert(ownerId, id, title, checked(clean), ResumeText.plain(clean), ResumeText.markdown(clean), kind)
 				.orElse(null);
 	}
 

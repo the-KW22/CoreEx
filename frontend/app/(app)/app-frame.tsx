@@ -13,6 +13,7 @@ import type { RailState } from "@/lib/prefs";
 import type { TagColour } from "@/lib/tag-colour";
 
 import { CareerPanel } from "./career/career-panel";
+import { ChatDock } from "./chat/chat-dock";
 import { KbPanel } from "./kb-panel";
 import { Rail, railButton } from "./rail";
 import { Uploads } from "./assets/uploads";
@@ -29,7 +30,8 @@ type Props = {
 };
 
 // The layout around every signed-in page (docs/DESIGN.md section 8):
-// ≥ 1280px rail + panel; 768–1279px rail, panel in a Sheet; < 768px top bar, rail + panel in a Sheet.
+// ≥ 768px one sidebar: the rail, which shows the Knowledge Base or Career panel in its place. < 768px a top bar and the
+// same sidebar in a Sheet. A collapsed rail opens the panel in a Sheet.
 export function AppFrame({ email, isAdmin, rail, folders, tags, children }: Props) {
   const pathname = usePathname();
   // The Knowledge Base and Career each have a panel; every other module's pages get the whole width.
@@ -64,13 +66,8 @@ export function AppFrame({ email, isAdmin, rail, folders, tags, children }: Prop
         </header>
 
         <div className="sticky top-0 hidden h-dvh shrink-0 md:block">
-          <Rail email={email} isAdmin={isAdmin} saved={rail} onShowPanel={(button) => show("panel", button)} />
+          <Rail email={email} isAdmin={isAdmin} saved={rail} panel={showPanel ? panel : undefined} onShowPanel={(button) => show("panel", button)} />
         </div>
-        {showPanel && (
-          <aside aria-label={panelName} className="sticky top-0 hidden h-dvh shrink-0 xl:block">
-            {panel}
-          </aside>
-        )}
 
         <main className="min-w-0 flex-1 px-4 pt-18 pb-8 md:p-8">{children}</main>
       </div>
@@ -92,18 +89,19 @@ export function AppFrame({ email, isAdmin, rail, folders, tags, children }: Prop
         >
           <SheetTitle className="sr-only">{sheet?.kind === "menu" ? "Menu" : panelName}</SheetTitle>
           <div className="flex h-full min-w-0">
-            {/* The rail with its labels is too wide to sit beside the panel on a phone, so its Panel button opens it alone. */}
             {sheet?.kind === "menu" ? (
-              <Rail email={email} isAdmin={isAdmin} onShowPanel={(button) => show("panel", button)} />
+              <Rail email={email} isAdmin={isAdmin} panel={showPanel ? panel : undefined} />
             ) : (
-              <div className="min-w-0 flex-1">{panel}</div>
+              <div className="w-72 min-w-0 max-w-full">{panel}</div>
             )}
           </div>
         </SheetContent>
       </Sheet>
       <CommandPalette />
       <Uploads folders={folders} />
-      <Toaster />
+      <ChatDock />
+      {/* Bottom-centre, so a toast never covers the Chat button in the corner. */}
+      <Toaster position="bottom-center" />
     </TooltipProvider>
   );
 }

@@ -17,6 +17,7 @@ import { ApplicationView } from "./application-view";
 import { Documents } from "./documents";
 import { LinkedDocuments } from "./linked-documents";
 import { Workspace } from "./workspace";
+import { CareerChatLink } from "../../../chat/career-chat-link";
 
 // The Application screen: the Item frame (breadcrumb, Move to Trash, and a Details panel with its Folder and Tags)
 // around its fields edited in place, the Stage stepper, the timeline and the posting.
@@ -65,6 +66,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
           })),
         ]}
         current={application.title}
+        extra={<CareerChatLink start={{ scope: "APPLICATION", applicationId: application.id }}>Chat about this Application</CareerChatLink>}
         trash={{ id: application.id, action: deleteApplication }}
         detailsCookie={remembered === "open" || remembered === "closed" ? remembered : null}
         details={

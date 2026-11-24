@@ -388,6 +388,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ai/preferences/model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["pickModel"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["saveKey"];
+        post?: never;
+        delete: operations["deleteKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{id}/quota": {
         parameters: {
             query?: never;
@@ -399,6 +431,22 @@ export interface paths {
         put: operations["setQuota"];
         post?: never;
         delete: operations["resetQuota"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/chat-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_5"];
+        put: operations["update_2"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -932,6 +980,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/chats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The User's Chats, most recently used first */
+        get: operations["list_8"];
+        put?: never;
+        /** Starts an empty Chat: in the general scope unless a scope is given */
+        post: operations["create_6"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chats/{id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["stop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chats/{id}/proposals/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approves or rejects Proposals */
+        post: operations["answerProposals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chats/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sends a message and streams the reply
+         * @description The reply streams as Server-Sent Events. `text` carries a piece of the answer ({text}), `tool` a tool the model is running ({name}), `done` ends the reply ({status}: COMPLETE or STOPPED, {sources}: the Items the turn used, and {webSources}: the web pages it retrieved), and `error` ends it with a failure ({code}, {message}); the failure is also stored on the message. Refusals come before the stream, as JSON: AI_OFF (503), AI_BUDGET_SPENT (429), CHAT_BUSY (409), NOT_FOUND (404).
+         */
+        post: operations["send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chats/{id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answers the model's question and streams the rest of the reply
+         * @description The reply streams as Server-Sent Events. `text` carries a piece of the answer ({text}), `tool` a tool the model is running ({name}), `done` ends the reply ({status}: COMPLETE or STOPPED, {sources}: the Items the turn used, and {webSources}: the web pages it retrieved), and `error` ends it with a failure ({code}, {message}); the failure is also stored on the message. Refusals come before the stream, as JSON: AI_OFF (503), AI_BUDGET_SPENT (429), CHAT_BUSY (409), NOT_FOUND (404).
+         */
+        post: operations["answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assets/uploads": {
         parameters: {
             query?: never;
@@ -971,9 +1110,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_8"];
+        get: operations["list_9"];
         put?: never;
-        post: operations["create_6"];
+        post: operations["create_7"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1019,9 +1158,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_9"];
+        get: operations["list_10"];
         put?: never;
-        post: operations["create_7"];
+        post: operations["create_8"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1467,9 +1606,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_10"];
+        get: operations["list_11"];
         put?: never;
-        post: operations["create_8"];
+        post: operations["create_9"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1499,9 +1638,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_11"];
+        get: operations["list_12"];
         put?: never;
-        post: operations["create_9"];
+        post: operations["create_10"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1515,7 +1654,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_12"];
+        get: operations["list_13"];
         put?: never;
         post?: never;
         delete: operations["empty"];
@@ -1563,7 +1702,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_5"];
+        get: operations["get_6"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1643,7 +1782,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_13"];
+        get: operations["list_14"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1659,7 +1798,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_6"];
+        get: operations["get_7"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1771,7 +1910,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_14"];
+        get: operations["list_15"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1787,7 +1926,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_15"];
+        get: operations["list_16"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1803,7 +1942,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_16"];
+        get: operations["list_17"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1924,6 +2063,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/chats/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One Chat with all its messages, in order */
+        get: operations["get_8"];
+        put?: never;
+        post?: never;
+        delete: operations["delete_5"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chats/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The pending Proposals for one Note, across the User's Chats, oldest first */
+        get: operations["pendingForNote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/career/today": {
         parameters: {
             query?: never;
@@ -1947,7 +2120,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_17"];
+        get: operations["list_18"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2027,7 +2200,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_18"];
+        get: operations["list_19"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2043,7 +2216,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_7"];
+        get: operations["get_9"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2068,6 +2241,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ai/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["usage_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ai/status": {
         parameters: {
             query?: never;
@@ -2084,6 +2273,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ai/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_10"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users": {
         parameters: {
             query?: never;
@@ -2091,7 +2296,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_19"];
+        get: operations["list_20"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2384,6 +2589,8 @@ export interface components {
             /** Format: uuid */
             id: string;
             title: string;
+            /** @enum {string} */
+            kind: "RESUME" | "CV";
             document: components["schemas"]["ResumeDocument"];
             /** Format: int32 */
             version: number;
@@ -2823,10 +3030,26 @@ export interface components {
         FitResponse: {
             /**
              * Format: int32
-             * @description An estimate from 0 to 100, never a measurement
+             * @description 0 to 100, worked out from the verdicts and the weights (an estimate of the match, not a measurement)
              */
             score: number;
+            /**
+             * Format: double
+             * @description The points behind the score, SUPPORTED 1 and PARTLY 0.5, times the weight; empty in a result made before kinds existed
+             */
+            points: number | null;
+            /**
+             * Format: int32
+             * @description The most the points could be
+             */
+            maximum: number | null;
             question: string;
+            /** @description What really decides the hire, read from the posting */
+            priorities: string[];
+            /** @description Words copied from the posting to reuse in an email or Cover Letter */
+            keywords: string[];
+            /** @description COREEX, or AGENT when the User's agent saved it over MCP */
+            source: string | null;
             requirements: components["schemas"]["RequirementResponse"][];
         };
         PointResponse: {
@@ -2884,6 +3107,20 @@ export interface components {
             note: string;
             /** @description What shows it; a forgotten or switched-off Fact is left out */
             evidence: components["schemas"]["EvidenceResponse"][];
+            /**
+             * @description MUST, NICE or GATE; empty in a result made before kinds existed
+             * @enum {string|null}
+             */
+            kind: "MUST" | "NICE" | "GATE" | null;
+            /**
+             * @description What to do about a gap: NONE, FRAME, CLOSE or DO_NOT_CLAIM
+             * @enum {string|null}
+             */
+            plan: "NONE" | "FRAME" | "CLOSE" | "DO_NOT_CLAIM" | null;
+            /** @description One short line on the plan; empty when there is none */
+            planNote: string;
+            /** @description A question for the User on a GATE the evidence does not show; empty otherwise */
+            confirm: string;
         };
         ResultResponse: {
             /** Format: uuid */
@@ -2973,6 +3210,15 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        ModelRequest: {
+            model: string;
+        };
+        KeyRequest: {
+            /** @description The provider: only anthropic */
+            provider: string;
+            /** @description The key, up to 400 characters */
+            key: string;
+        };
         SetQuotaRequest: {
             /**
              * Format: int64
@@ -3010,6 +3256,44 @@ export interface components {
             /** @description True when an Admin set this User's quota */
             customQuota: boolean;
         };
+        UpdateRequest: {
+            enabled: boolean;
+            model: string;
+            /**
+             * Format: double
+             * @description Dollars per User per UTC day, 0 to 100
+             */
+            dailyBudgetUsd: number;
+        };
+        ChatSettings: {
+            /** @description The Shared key's switch: off refuses every new AI call, Chat and Career alike */
+            enabled: boolean;
+            /** @description The id of the model in use, one of models */
+            model: string;
+            /**
+             * Format: double
+             * @description Dollars per User per UTC day
+             */
+            dailyBudgetUsd: number;
+            /** @description The models an Admin can pick, with their prices */
+            models: components["schemas"]["ModelOption"][];
+            /** @description False when the server has no key: AI is then off whatever the switch says */
+            keyConfigured: boolean;
+        };
+        ModelOption: {
+            id: string;
+            name: string;
+            /**
+             * Format: double
+             * @description Dollars per million input tokens
+             */
+            inputUsdPerMillion: number;
+            /**
+             * Format: double
+             * @description Dollars per million output tokens
+             */
+            outputUsdPerMillion: number;
+        };
         CreateTagRequest: {
             name: string;
         };
@@ -3017,6 +3301,11 @@ export interface components {
             title?: string;
             /** @description Start from made-up sample content instead of a blank Resume */
             sample?: boolean;
+            /**
+             * @description RESUME (the default), or CV for the User's master document, which can never be linked to an Application
+             * @enum {string|null}
+             */
+            kind?: "RESUME" | "CV" | null;
             /**
              * Format: uuid
              * @description An id you make up. Sending the same request again returns that Resume instead of making a second one; an id already used for anything else is refused with INVALID_REQUEST
@@ -3270,6 +3559,220 @@ export interface components {
             /** Format: date-time */
             acceptedAt: string | null;
         };
+        CreateRequest: {
+            /**
+             * @description GENERAL (the default), CAREER or APPLICATION
+             * @enum {string|null}
+             */
+            scope?: "GENERAL" | "CAREER" | "APPLICATION" | null;
+            /**
+             * Format: uuid
+             * @description The User's Application, for an APPLICATION Chat only
+             */
+            applicationId?: string | null;
+        };
+        ChangeView: {
+            /** @description What the change is about, such as the Item's title */
+            subject?: string | null;
+            /** @description Where it is now or its state before */
+            before?: string | null;
+            /** @description Where it would be or its state after */
+            after?: string | null;
+        };
+        ChatDetail: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastUsedAt: string;
+            /** @description The Use my Notes switch, as the Chat remembers it */
+            useNotes: boolean;
+            /**
+             * @description GENERAL, CAREER or APPLICATION; fixed when the Chat is made
+             * @enum {string}
+             */
+            scope: "GENERAL" | "CAREER" | "APPLICATION";
+            /**
+             * Format: uuid
+             * @description The Application of an APPLICATION Chat; null otherwise
+             */
+            applicationId?: string | null;
+            /** @description The Use my Applications switch, as the Chat remembers it */
+            useApplications: boolean;
+            /** @description The Use my Knowledge switch, as the Chat remembers it */
+            useKnowledge: boolean;
+            messages: components["schemas"]["MessageView"][];
+            /** @description The Proposals of the Chat, oldest first */
+            proposals: components["schemas"]["ProposalView"][];
+        };
+        ContentBlock: {
+            type: string;
+        };
+        LinkView: {
+            /** Format: uuid */
+            id: string;
+            /** @description NOTE or ASSET */
+            type: string;
+            title: string;
+        };
+        MessageView: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            role: "USER" | "ASSISTANT";
+            /** @description The content blocks: text, tool_use or tool_result */
+            blocks: (components["schemas"]["Text"] | components["schemas"]["ToolResult"] | components["schemas"]["ToolUse"])[];
+            /** @description STREAMING, COMPLETE, STOPPED or FAILED */
+            status: string;
+            /** @description Set when the status is FAILED, for example AI_UNAVAILABLE */
+            errorCode?: string | null;
+            /** @description On the last assistant message of a turn: the Items the turn used; empty elsewhere */
+            sources: components["schemas"]["SourceView"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** @description The web pages the reply retrieved, http or https only; empty when none */
+            webSources: components["schemas"]["WebSource"][];
+        };
+        ProposalView: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description The Chat it was made in: answer it there
+             */
+            chatId: string;
+            /**
+             * Format: uuid
+             * @description The reply that made it: Proposals with the same batch can be approved together
+             */
+            batchId: string;
+            /**
+             * Format: uuid
+             * @description The assistant message it was made in
+             */
+            messageId: string;
+            tool: string;
+            /** @description What it would do, in words */
+            label: string;
+            /** @description PENDING, APPLIED, REJECTED or REPLACED */
+            status: string;
+            /** @description The Note's text now, for a Note edit */
+            before?: string | null;
+            /** @description The Note's text as it would be, for a Note tool; the User may edit it */
+            after?: string | null;
+            /** @description The other inputs of the tool, for the card's details */
+            details: {
+                [key: string]: unknown;
+            };
+            /** @description The Note or Asset an applied Proposal made or changed */
+            link?: components["schemas"]["LinkView"];
+            /** @description The words for an organising change (move, Tags, Trash, rename); null for a Note or a create */
+            change?: components["schemas"]["ChangeView"];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        SourceView: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "NOTE" | "ASSET" | "APPLICATION" | "RESUME" | "COVER_LETTER";
+            title: string;
+            removed: boolean;
+            /** @description The heading of the piece the model used, which the link opens the Note at */
+            heading?: string | null;
+        };
+        Text: {
+            type: "Text";
+        } & (Omit<components["schemas"]["ContentBlock"], "type"> & {
+            text?: string;
+        });
+        ToolResult: {
+            type: "ToolResult";
+        } & (Omit<components["schemas"]["ContentBlock"], "type"> & {
+            toolUseId?: string;
+            content?: string;
+            isError?: boolean;
+            /** Format: uuid */
+            assetId?: string;
+            mediaType?: string;
+        });
+        ToolUse: {
+            type: "ToolUse";
+        } & (Omit<components["schemas"]["ContentBlock"], "type"> & {
+            id?: string;
+            name?: string;
+            input?: {
+                [key: string]: unknown;
+            };
+        });
+        WebSource: {
+            url?: string;
+            title?: string;
+        };
+        AnswerProposalsRequest: {
+            ids: string[];
+            /**
+             * @description APPROVE or REJECT
+             * @enum {string}
+             */
+            decision: "APPROVE" | "REJECT";
+            /** @description The User's own text for a Note Proposal, by its id, saved in place of the model's */
+            edits?: {
+                [key: string]: string;
+            } | null;
+        };
+        ProposalList: {
+            items: components["schemas"]["ProposalView"][];
+        };
+        /** @description Where the User is in CoreEx when they send this message. It shapes this reply only and is never stored. */
+        ChatContext: {
+            /** @description The Note or Asset the User has open */
+            open?: components["schemas"]["OpenItem"];
+            /** @description Text the User selected in the Note editor */
+            selection?: string | null;
+            /** @description The User's recent actions, oldest first */
+            trail?: components["schemas"]["TrailStep"][] | null;
+        };
+        OpenItem: {
+            /** @enum {string} */
+            kind: "NOTE" | "ASSET";
+            /** Format: uuid */
+            id: string;
+            /** @description The Item's title */
+            title?: string | null;
+        };
+        SendRequest: {
+            text: string;
+            /** @description The Use my Notes switch for this message; absent keeps the Chat's own setting */
+            useNotes?: boolean | null;
+            /** @description The Use the web switch for this message only, off when absent; never remembered */
+            useWeb?: boolean | null;
+            /** @description The Use my Applications switch (Career and Application Chats); absent keeps the Chat's own setting */
+            useApplications?: boolean | null;
+            /** @description The Use my Knowledge switch (Career and Application Chats); absent keeps the Chat's own setting */
+            useKnowledge?: boolean | null;
+            /** @description Where the User is in CoreEx, for this reply only; never stored */
+            context?: components["schemas"]["ChatContext"];
+        };
+        TrailStep: {
+            /** @enum {string} */
+            action: "OPENED" | "CREATED" | "EDITED" | "MOVED" | "TRASHED" | "SEARCHED";
+            /** @enum {string|null} */
+            kind?: "NOTE" | "ASSET" | "FOLDER" | "TAG" | "SEARCH" | null;
+            /**
+             * Format: uuid
+             * @description The Item's id, absent for a search
+             */
+            id?: string | null;
+            /** @description The Item's title, or the search words for SEARCHED */
+            title?: string | null;
+        };
+        AnswerQuestionRequest: {
+            toolUseId: string;
+            text: string;
+        };
         UploadIntentRequest: {
             filename: string;
             mimeType: string;
@@ -3347,6 +3850,8 @@ export interface components {
             /** Format: uuid */
             id?: string;
             title?: string;
+            /** @enum {string} */
+            kind?: "RESUME" | "CV";
             document?: components["schemas"]["ResumeDocument"];
             /** Format: int32 */
             version?: number;
@@ -3615,6 +4120,8 @@ export interface components {
             /** Format: uuid */
             id: string;
             title: string;
+            /** @enum {string} */
+            kind: "RESUME" | "CV";
             /** Format: uuid */
             folderId: string | null;
             /** Format: date-time */
@@ -3873,6 +4380,29 @@ export interface components {
             /** Format: int32 */
             version: number;
         };
+        ChatList: {
+            items: components["schemas"]["ChatSummary"][];
+            /** Format: int64 */
+            total: number;
+        };
+        ChatSummary: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastUsedAt: string;
+            /** @enum {string} */
+            scope: "GENERAL" | "CAREER" | "APPLICATION";
+            /**
+             * Format: uuid
+             * @description The Application of an APPLICATION Chat; null otherwise
+             */
+            applicationId?: string | null;
+            useApplications: boolean;
+            useKnowledge: boolean;
+        };
         EntryResponse: {
             /** Format: uuid */
             applicationId: string;
@@ -3997,9 +4527,46 @@ export interface components {
         EarlierList: {
             items: components["schemas"]["EarlierApplication"][];
         };
-        Status: {
-            /** @description False until the owner sets the Shared key: AI features then show as pending */
+        Usage: {
+            /**
+             * Format: double
+             * @description What this User has used today (UTC), in dollars
+             */
+            spentUsd: number;
+            /**
+             * Format: double
+             * @description The Daily AI budget, in dollars
+             */
+            budgetUsd: number;
+            /**
+             * Format: date-time
+             * @description When the budget starts again: the next midnight UTC
+             */
+            resetsAt: string;
+            /** @description False when AI is off for this User, by the Shared key or by an Admin */
             available: boolean;
+            /** @description True when this User uses their own key, which is not counted in the budget */
+            ownKey: boolean;
+        };
+        Status: {
+            /** @description False until the owner sets the Shared key, or while an Admin has switched it off: AI features then show as pending */
+            available: boolean;
+        };
+        KeyView: {
+            /** @description The provider the key is for: anthropic */
+            provider: string;
+            /** @description The last four characters of the key, the only part ever shown */
+            last4: string;
+        };
+        Preferences: {
+            /** @description The model in force for this User's Chats */
+            model: string;
+            /** @description The models a User may pick, with their prices */
+            models: components["schemas"]["ModelOption"][];
+            /** @description This User's own key, or null when none is stored */
+            key?: components["schemas"]["KeyView"];
+            /** @description False when the server has no vault secret, so keys cannot be stored */
+            keysAvailable: boolean;
         };
         UserPage: {
             items: components["schemas"]["UserResponse"][];
@@ -5464,6 +6031,81 @@ export interface operations {
             };
         };
     };
+    pickModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelRequest"];
+            };
+        };
+        responses: {
+            /** @description Code UNKNOWN_MODEL: the model is not in the list */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    saveKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Code UNKNOWN_PROVIDER: the provider is not anthropic. Code KEY_REJECTED: the provider did not accept the key */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code KEYS_OFF: the server has no vault secret, so keys cannot be stored */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    deleteKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     setQuota: {
         parameters: {
             query?: never;
@@ -5530,6 +6172,59 @@ export interface operations {
             };
             /** @description Code NOT_FOUND */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    get_5: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSettings"];
+                };
+            };
+        };
+    };
+    update_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The settings now in force */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSettings"];
+                };
+            };
+            /** @description Code INVALID_REQUEST: a model that is not in the list, or a budget outside 0 to 100 dollars */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5668,6 +6363,8 @@ export interface operations {
                 q?: string;
                 /** @description updated (newest change first, the default), name or created (newest first) */
                 sort?: string;
+                /** @description Only CVs or only Resumes */
+                kind?: "RESUME" | "CV";
             };
             header?: never;
             path?: never;
@@ -6875,6 +7572,229 @@ export interface operations {
             };
         };
     };
+    list_8: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatList"];
+                };
+            };
+        };
+    };
+    create_6: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CreateRequest"];
+            };
+        };
+        responses: {
+            /** @description The new Chat, titled New chat */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatDetail"];
+                };
+            };
+            /** @description Code INVALID_REQUEST: an APPLICATION Chat without its Application, or another scope with one */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code NOT_FOUND: the Application is not the User's */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    stop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stop asked (or nothing was running) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND (also for another User's Chat) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    answerProposals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerProposalsRequest"];
+            };
+        };
+        responses: {
+            /** @description The Proposals as they are now */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalList"];
+                };
+            };
+            /** @description Code NOT_FOUND: no such Chat or Proposal (also for another User's) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code ALREADY_ANSWERED, CHAT_BUSY (a reply is running) or VERSION_CONFLICT (the Note changed since: ask Chat to redo it); nothing was applied */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendRequest"];
+            };
+        };
+        responses: {
+            /** @description The reply as Server-Sent Events (text/event-stream) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Code CHAT_BUSY: a reply is still running in this Chat */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code AI_BUDGET_SPENT: today's AI budget is used up */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code AI_OFF: AI is not switched on */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerQuestionRequest"];
+            };
+        };
+        responses: {
+            /** @description The reply as Server-Sent Events (text/event-stream) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Code NO_PENDING_QUESTION or CHAT_BUSY */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     createUpload: {
         parameters: {
             query?: never;
@@ -7020,7 +7940,7 @@ export interface operations {
             };
         };
     };
-    list_8: {
+    list_9: {
         parameters: {
             query?: {
                 page?: number;
@@ -7054,7 +7974,7 @@ export interface operations {
             };
         };
     };
-    create_6: {
+    create_7: {
         parameters: {
             query?: never;
             header?: never;
@@ -7202,7 +8122,7 @@ export interface operations {
             };
         };
     };
-    list_9: {
+    list_10: {
         parameters: {
             query?: never;
             header?: never;
@@ -7224,7 +8144,7 @@ export interface operations {
             };
         };
     };
-    create_7: {
+    create_8: {
         parameters: {
             query?: never;
             header?: never;
@@ -8158,7 +9078,7 @@ export interface operations {
             };
         };
     };
-    list_10: {
+    list_11: {
         parameters: {
             query?: {
                 page?: number;
@@ -8181,7 +9101,7 @@ export interface operations {
             };
         };
     };
-    create_8: {
+    create_9: {
         parameters: {
             query?: never;
             header?: never;
@@ -8263,7 +9183,7 @@ export interface operations {
             };
         };
     };
-    list_11: {
+    list_12: {
         parameters: {
             query?: never;
             header?: never;
@@ -8283,7 +9203,7 @@ export interface operations {
             };
         };
     };
-    create_9: {
+    create_10: {
         parameters: {
             query?: never;
             header?: never;
@@ -8325,7 +9245,7 @@ export interface operations {
             };
         };
     };
-    list_12: {
+    list_13: {
         parameters: {
             query?: {
                 page?: number;
@@ -8433,7 +9353,7 @@ export interface operations {
             };
         };
     };
-    get_5: {
+    get_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -8561,7 +9481,7 @@ export interface operations {
             };
         };
     };
-    list_13: {
+    list_14: {
         parameters: {
             query?: never;
             header?: never;
@@ -8592,7 +9512,7 @@ export interface operations {
             };
         };
     };
-    get_6: {
+    get_7: {
         parameters: {
             query?: never;
             header?: never;
@@ -8791,7 +9711,7 @@ export interface operations {
             };
         };
     };
-    list_14: {
+    list_15: {
         parameters: {
             query?: {
                 folderId?: string;
@@ -8826,7 +9746,7 @@ export interface operations {
             };
         };
     };
-    list_15: {
+    list_16: {
         parameters: {
             query?: {
                 size?: number;
@@ -8859,7 +9779,7 @@ export interface operations {
             };
         };
     };
-    list_16: {
+    list_17: {
         parameters: {
             query?: never;
             header?: never;
@@ -9079,6 +9999,89 @@ export interface operations {
             };
         };
     };
+    get_8: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Chat */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatDetail"];
+                };
+            };
+            /** @description Code NOT_FOUND (also for another User's Chat) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    delete_5: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND (also for another User's Chat) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    pendingForNote: {
+        parameters: {
+            query: {
+                /** @description The Note's id */
+                noteId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Proposals; answer each in its chatId, with the answer endpoint */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalList"];
+                };
+            };
+        };
+    };
     today: {
         parameters: {
             query?: never;
@@ -9099,7 +10102,7 @@ export interface operations {
             };
         };
     };
-    list_17: {
+    list_18: {
         parameters: {
             query?: never;
             header?: never;
@@ -9226,7 +10229,7 @@ export interface operations {
             };
         };
     };
-    list_18: {
+    list_19: {
         parameters: {
             query?: never;
             header?: never;
@@ -9248,7 +10251,7 @@ export interface operations {
             };
         };
     };
-    get_7: {
+    get_9: {
         parameters: {
             query?: never;
             header?: never;
@@ -9303,6 +10306,26 @@ export interface operations {
             };
         };
     };
+    usage_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Usage"];
+                };
+            };
+        };
+    };
     status_1: {
         parameters: {
             query?: never;
@@ -9323,7 +10346,27 @@ export interface operations {
             };
         };
     };
-    list_19: {
+    get_10: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preferences"];
+                };
+            };
+        };
+    };
+    list_20: {
         parameters: {
             query?: {
                 page?: number;

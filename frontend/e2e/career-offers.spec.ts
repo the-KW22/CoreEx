@@ -23,7 +23,8 @@ async function addOffer(page: Page, company: string, fields: { basePay: string; 
   await expect(page.getByRole("list").filter({ has: page.getByRole("link", { name: titleOf(company) }) })).toBeVisible();
 }
 
-test("adds an Offer with only pay, edits it, and reads its earlier versions", async ({ page }) => {
+// Today/Offers are hidden (#367); turn SHOW back on in lib/career-entries.ts and remove .skip.
+test.skip("adds an Offer with only pay, edits it, and reads its earlier versions", async ({ page }) => {
   test.setTimeout(180_000);
   const stamp = Date.now();
   const company = `Offer ${stamp}`;
@@ -61,7 +62,7 @@ test("adds an Offer with only pay, edits it, and reads its earlier versions", as
   await expectNoViolations(page);
 });
 
-test("flags an Offer below the minimum pay in Preferences", async ({ page }) => {
+test.skip("flags an Offer below the minimum pay in Preferences", async ({ page }) => {
   test.setTimeout(180_000);
   const stamp = Date.now();
   const company = `Floor ${stamp}`;
@@ -82,7 +83,7 @@ test("flags an Offer below the minimum pay in Preferences", async ({ page }) => 
   await expectNoViolations(page);
 });
 
-test("compares two Offers: refuses different currencies, and shows the same-currency pair side by side", async ({ page }) => {
+test.skip("compares two Offers: refuses different currencies, and shows the same-currency pair side by side", async ({ page }) => {
   test.setTimeout(180_000);
   const stamp = Date.now();
   const usd = `CmpUsd ${stamp}`;

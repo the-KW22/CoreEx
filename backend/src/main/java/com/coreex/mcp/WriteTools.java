@@ -1,8 +1,11 @@
 package com.coreex.mcp;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.ai.mcp.annotation.McpTool;
@@ -15,6 +18,7 @@ import com.coreex.assets.AssetService;
 import com.coreex.common.ApiException;
 import com.coreex.folders.Folder;
 import com.coreex.folders.FolderService;
+import com.coreex.identity.User;
 import com.coreex.items.Item;
 import com.coreex.items.ItemService;
 import com.coreex.notes.Note;
@@ -36,6 +40,8 @@ import io.modelcontextprotocol.common.McpTransportContext;
  */
 @Component
 class WriteTools {
+
+	private static final tools.jackson.databind.json.JsonMapper JSON = tools.jackson.databind.json.JsonMapper.builder().build();
 
 	record NoteSaved(UUID id, String title, int version, Instant updatedAt) {
 	}
@@ -63,6 +69,12 @@ class WriteTools {
 	private static final int MIME_MAX = 100;
 
 	private static final String TRASH_HINT = " Use restore to bring it back.";
+
+	private static final String TOP_LEVEL = "At the top level";
+
+	private static final String IN_TRASH = "In the Trash";
+
+	private static final String BACK = "Back where it was";
 
 	private final ItemService items;
 
@@ -138,7 +150,16 @@ class WriteTools {
 		if (current.version() != version) {
 			throw conflict();
 		}
-		var text = current.body();
+		var text = applyEdits(current.body(), edits);
+		// As in the editor, the title follows the heading only when the edit touched the first line.
+		var firstLineChanged = !text.lines().findFirst().equals(current.body().lines().findFirst());
+		return save(agent, current, firstLineChanged ? Input.title(null, text, current.title()) : current.title(), text,
+				version);
+	}
+
+	/** The text after the replacements, each applied in order; the first that cannot be applied cancels all of them. */
+	private static String applyEdits(String original, List<TextEdit> edits) {
+		var text = original;
 		for (int i = 0; i < edits.size(); i++) {
 			var oldText = edits.get(i).oldText();
 			if (oldText == null || oldText.isEmpty()) {
@@ -154,11 +175,153 @@ class WriteTools {
 			var newText = edits.get(i).newText() == null ? "" : edits.get(i).newText();
 			text = text.substring(0, at) + newText + text.substring(at + oldText.length());
 		}
-		text = Input.markdown(text);
-		// As in the editor, the title follows the heading only when the edit touched the first line.
-		var firstLineChanged = !text.lines().findFirst().equals(current.body().lines().findFirst());
-		return save(agent, current, firstLineChanged ? Input.title(null, text, current.title()) : current.title(), text,
-				version);
+		return Input.markdown(text);
+	}
+
+	/**
+	 * What a Note tool would write, worked out without writing it, for Chat to show as a diff before the User approves.
+	 * Refuses what the tool itself would refuse (a stale version, an edit that does not apply), so the model hears of it at
+	 * once. Only create_note, update_note and edit_note have a preview.
+	 */
+	ToolCatalogue.NotePreview preview(User user, String tool, Map<String, Object> input) {
+		return switch (tool) {
+			case "create_note" -> new ToolCatalogue.NotePreview(null, null, null, Input.markdown(text(input, "markdown")));
+			case "update_note" -> {
+				var current = notes.get(user.id(), noteId(input));
+				if (current.version() != version(input)) {
+					throw conflict();
+				}
+				yield new ToolCatalogue.NotePreview(current.id(), current.version(), current.body(),
+						Input.markdown(text(input, "markdown")));
+			}
+			case "edit_note" -> {
+				var current = notes.get(user.id(), noteId(input));
+				if (current.version() != version(input)) {
+					throw conflict();
+				}
+				var edits = JSON.convertValue(input.get("edits"), JSON.getTypeFactory().constructCollectionType(List.class, TextEdit.class));
+				if (edits == null || ((List<?>) edits).isEmpty()) {
+					throw Input.invalid("Give at least one edit.");
+				}
+				@SuppressWarnings("unchecked")
+				var list = (List<TextEdit>) edits;
+				yield new ToolCatalogue.NotePreview(current.id(), current.version(), current.body(), applyEdits(current.body(), list));
+			}
+			default -> throw Input.invalid("This tool has no preview.");
+		};
+	}
+
+	/**
+	 * The words for an organising change's card, worked out before anything changes: what it is about, and where it is
+	 * or its state before and after. Null for the tools that have none (Note tools and creates). Throws when a lookup
+	 * fails; {@link ToolCatalogue#describe} turns that into no words.
+	 */
+	ToolCatalogue.Change describe(User user, String tool, Map<String, Object> input) {
+		var userId = user.id();
+		return switch (tool) {
+			case "move_item" -> {
+				var item = itemNamed(userId, input);
+				yield new ToolCatalogue.Change(item.title(), place(userId, item.folderId()), place(userId, id(input, "folderId")));
+			}
+			case "trash_item" -> {
+				var item = itemNamed(userId, input);
+				yield new ToolCatalogue.Change(item.title(), place(userId, item.folderId()), IN_TRASH);
+			}
+			case "set_tags" -> {
+				var item = itemNamed(userId, input);
+				var now = tagService.forItem(userId, item.id()).stream().map(Tag::name).toList();
+				var listed = input.get("tags") instanceof List<?> tags ? tags.stream().map(String::valueOf).toList() : List.<String>of();
+				yield new ToolCatalogue.Change(item.title(), tagNames(now), tagNames(listed));
+			}
+			case "restore" -> new ToolCatalogue.Change(null, IN_TRASH, BACK);
+			case "add_fact" -> new ToolCatalogue.Change(text(input, "category"), null,
+					Objects.requireNonNullElse(text(input, "text"), "") + "\n“" + Objects.requireNonNullElse(text(input, "quote"), "") + "”");
+			case "add_story" -> new ToolCatalogue.Change(text(input, "title"), null,
+					"Situation: " + Objects.requireNonNullElse(text(input, "situation"), "") + "\nAction: "
+							+ Objects.requireNonNullElse(text(input, "action"), "") + "\nResult: "
+							+ Objects.requireNonNullElse(text(input, "result"), ""));
+			case "move_folder", "trash_folder" -> {
+				var folder = folders.requireLive(userId, id(input, "id"));
+				yield new ToolCatalogue.Change(folder.name(), place(userId, folder.parentId()),
+						tool.equals("trash_folder") ? IN_TRASH : place(userId, id(input, "parentId")));
+			}
+			case "rename_folder" -> {
+				var folder = folders.requireLive(userId, id(input, "id"));
+				yield new ToolCatalogue.Change("Folder", folder.name(), text(input, "name"));
+			}
+			case "rename_tag" -> {
+				var tag = tagService.requireTag(userId, id(input, "id"));
+				yield new ToolCatalogue.Change("Tag", tag.name(), text(input, "name"));
+			}
+			case "set_tag_colour" -> {
+				var tag = tagService.requireTag(userId, id(input, "id"));
+				yield new ToolCatalogue.Change(tag.name(), colour(tag.colour()), colour(input.get("colour")));
+			}
+			case "update_asset" -> {
+				var asset = assets.get(user, id(input, "id"));
+				var title = text(input, "title");
+				var description = text(input, "description");
+				var was = new ArrayList<String>();
+				var becomes = new ArrayList<String>();
+				if (title != null) {
+					was.add("Title: " + asset.title());
+					becomes.add("Title: " + title);
+				}
+				if (description != null) {
+					was.add("Description: " + Objects.requireNonNullElse(asset.description(), "none"));
+					becomes.add("Description: " + description);
+				}
+				yield new ToolCatalogue.Change(asset.title(), String.join("; ", was), String.join("; ", becomes));
+			}
+			default -> null;
+		};
+	}
+
+	private Item itemNamed(UUID userId, Map<String, Object> input) {
+		return items.findLive(userId, List.of(id(input, "id"))).stream().findFirst()
+				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "There is no such Item."));
+	}
+
+	/** Where a Folder is: its full path, or the top level when it is none. */
+	private String place(UUID userId, UUID folderId) {
+		if (folderId == null) {
+			return TOP_LEVEL;
+		}
+		var path = folders.paths(userId).get(folderId);
+		if (path == null) {
+			throw new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "There is no such Folder.");
+		}
+		return "In the Folder “" + path + "”";
+	}
+
+	private static String tagNames(List<String> names) {
+		return names.isEmpty() ? "No Tags" : String.join(", ", names);
+	}
+
+	private static String colour(Object colour) {
+		return colour == null ? "Automatic" : colour.toString().toLowerCase(Locale.ROOT);
+	}
+
+	/** The id in the input under this field, or null when it is not given. */
+	private static UUID id(Map<String, Object> input, String field) {
+		return input.get(field) == null ? null : UUID.fromString(String.valueOf(input.get(field)));
+	}
+
+	private static String text(Map<String, Object> input, String field) {
+		return input.get(field) instanceof String value ? value : null;
+	}
+
+	private static UUID noteId(Map<String, Object> input) {
+		try {
+			return UUID.fromString(String.valueOf(input.get("id")));
+		}
+		catch (IllegalArgumentException e) {
+			throw Input.invalid("id is not a valid id.");
+		}
+	}
+
+	private static int version(Map<String, Object> input) {
+		return input.get("version") instanceof Number number ? number.intValue() : -1;
 	}
 
 	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "create_folder", description = "Create a Folder, at the top level or inside another Folder.")

@@ -69,6 +69,18 @@ class SentDocumentApiTest extends ApiTest {
 	}
 
 	@Test
+	void aCvCannotBeLinkedToAnApplicationButAResumeCan() throws Exception {
+		var cv = id(post("/api/resumes", owner, "{\"title\":\"Master\",\"kind\":\"CV\"}").body());
+		var refused = put("/api/applications/" + application + "/linked-documents", owner,
+				"{\"kind\":\"RESUME\",\"itemId\":\"" + cv + "\"}");
+		assertThat(refused.statusCode()).as(refused.body()).isEqualTo(400);
+		assertThat(refused.body()).contains("INVALID_REQUEST", "A CV cannot be linked to an Application. Make a Resume from it first.");
+		assertThat(get("/api/applications/" + application + "/linked-documents", owner).body()).doesNotContain(cv);
+		assertThat(put("/api/applications/" + application + "/linked-documents", owner,
+				"{\"kind\":\"RESUME\",\"itemId\":\"" + resume + "\"}").statusCode()).isEqualTo(200);
+	}
+
+	@Test
 	void replacingAnUnsentLinkRequiresAnExplicitChoice() throws Exception {
 		var first = "{\"kind\":\"RESUME\",\"itemId\":\"" + resume + "\"}";
 		assertThat(put("/api/applications/" + application + "/linked-documents", owner, first).statusCode()).isEqualTo(200);

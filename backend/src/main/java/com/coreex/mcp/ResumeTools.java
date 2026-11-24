@@ -15,6 +15,7 @@ import com.coreex.common.ApiException;
 import com.coreex.items.ItemService;
 import com.coreex.resumes.Resume;
 import com.coreex.resumes.ResumeDocument;
+import com.coreex.resumes.ResumeKind;
 import com.coreex.resumes.ResumeService;
 
 import io.modelcontextprotocol.common.McpTransportContext;
@@ -48,13 +49,13 @@ class ResumeTools {
 	private static final Set<String> FIELDS = Set.of("locale", "basics", "summary", "sections", "metadata", "privateNotes",
 			"ignoredChecks");
 
-	record ResumeRow(UUID id, String title, UUID folderId, Instant updatedAt) {
+	record ResumeRow(UUID id, String title, ResumeKind kind, UUID folderId, Instant updatedAt) {
 	}
 
 	record Listed(List<ResumeRow> resumes, long total, Integer nextPage) {
 	}
 
-	record ResumeView(UUID id, String title, String markdown, ResumeDocument document, int version, boolean locked,
+	record ResumeView(UUID id, String title, ResumeKind kind, String markdown, ResumeDocument document, int version, boolean locked,
 			UUID folderId, Instant updatedAt) {
 	}
 
@@ -63,7 +64,7 @@ class ResumeTools {
 			@McpToolParam(required = false, description = "The value for add, replace and test") Object value) {
 	}
 
-	record ResumeSaved(UUID id, String title, int version, Instant updatedAt) {
+	record ResumeSaved(UUID id, String title, ResumeKind kind, int version, Instant updatedAt) {
 	}
 
 	private final ResumeService resumes;
@@ -75,20 +76,22 @@ class ResumeTools {
 		this.items = items;
 	}
 
-	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "list_resumes", description = "List the User's Resumes, most recently changed first, 50 at a time: id, title, Folder and when each last changed. Use get_resume to read one. nextPage is the page to ask for next, if any.")
+	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "list_resumes", description = "List the User's Resumes, most recently changed first, 50 at a time: id, title, kind (RESUME or CV), Folder and when each last changed. Pass kind to list only CVs or only Resumes. Use get_resume to read one. nextPage is the page to ask for next, if any.")
 	Listed listResumes(McpTransportContext context,
-			@McpToolParam(required = false, description = "The page, starting at 0") Integer page) {
+			@McpToolParam(required = false, description = "The page, starting at 0") Integer page,
+			@McpToolParam(required = false, description = "RESUME or CV: list only that kind") ResumeKind kind) {
 		var at = page == null || page < 0 ? 0 : page;
-		var listed = resumes.list(owner(context), "", "updated", at, PAGE);
-		return new Listed(listed.items().stream().map(r -> new ResumeRow(r.id(), r.title(), r.folderId(), r.updatedAt())).toList(),
+		var listed = resumes.list(owner(context), "", "updated", kind, at, PAGE);
+		return new Listed(listed.items().stream().map(r -> new ResumeRow(r.id(), r.title(), r.kind(), r.folderId(), r.updatedAt())).toList(),
 				listed.total(), (long) (at + 1) * PAGE < listed.total() ? at + 1 : null);
 	}
 
-	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "create_resume", description = "Start a new, blank Resume with a title; then fill it with patch_resume (use the id and version 1 it returns). Pass an id you made up (a UUID) to make a retry safe: sending the same call again returns that Resume as it is, with nothing applied twice, instead of making a second one.")
+	@McpTool(annotations = @McpTool.McpAnnotations(destructiveHint = false), name = "create_resume", description = "Start a new, blank Resume with a title; kind is RESUME (the default) or CV, the master document that cannot be linked to an Application. Then fill it with patch_resume (use the id and version 1 it returns). Pass an id you made up (a UUID) to make a retry safe: sending the same call again returns that Resume as it is, with nothing applied twice, instead of making a second one.")
 	ResumeSaved createResume(McpTransportContext context, @McpToolParam(description = "The Resume's title") String title,
-			@McpToolParam(required = false, description = "An id you made up (a UUID), so a retry makes no second Resume") UUID id) {
-		var made = resumes.create(owner(context), id, Input.required("title", title, Input.TITLE_MAX), false).resume();
-		return new ResumeSaved(made.id(), made.title(), made.version(), made.updatedAt());
+			@McpToolParam(required = false, description = "An id you made up (a UUID), so a retry makes no second Resume") UUID id,
+			@McpToolParam(required = false, description = "RESUME (the default) or CV") ResumeKind kind) {
+		var made = resumes.create(owner(context), id, Input.required("title", title, Input.TITLE_MAX), false, kind, null).resume();
+		return new ResumeSaved(made.id(), made.title(), made.kind(), made.version(), made.updatedAt());
 	}
 
 	@McpTool(annotations = @McpTool.McpAnnotations(readOnlyHint = true), name = "get_resume", description = "Read one Resume: its Markdown view, its JSON document (the contents and the design, with the fields a patch_resume path names) and its version, the save counter you need to change it with patch_resume. Locked says whether it can be changed at all now.")
@@ -116,7 +119,7 @@ class ResumeTools {
 		}
 		var saved = resumes.saveByAgent(userId, id, current.title(), patched(current.document(), operations), version);
 		items.recordAgentEdit(userId, id, agent.tokenName());
-		return new ResumeSaved(saved.id(), saved.title(), saved.version(), saved.updatedAt());
+		return new ResumeSaved(saved.id(), saved.title(), saved.kind(), saved.version(), saved.updatedAt());
 	}
 
 	/** The document with the operations applied to its JSON, read back as the records. Nothing is saved here. */
@@ -242,7 +245,7 @@ class ResumeTools {
 	}
 
 	private ResumeView view(Resume resume) {
-		return new ResumeView(resume.id(), resume.title(), resumes.markdown(resume.document()), resume.document(),
+		return new ResumeView(resume.id(), resume.title(), resume.kind(), resumes.markdown(resume.document()), resume.document(),
 				resume.version(), resume.locked(), resume.folderId(), resume.updatedAt());
 	}
 

@@ -76,6 +76,17 @@ _Avoid_: Segment, passage, fragment, block
 A saved back-and-forth in which a User asks a model questions or for work, and the model can read that User's Items to answer, showing the Notes it read as sources. It is kept until the User deletes it, does not go through the Trash, and is not an Item. It is also the name of the module.
 _Avoid_: Conversation, thread, assistant, bot, AI search
 
+**Career Chat**:
+A Chat whose scope is Career or one Application, fixed when it is made. Only these Chats may use the User's Facts, Stories and Career results, and only they may propose a Fact or a Story; a General Chat never does.
+
+**Proposal**:
+A change to the knowledge base that the model in a Chat offers, such as a new Note, an edit or a move to the Trash, and that happens only if the User approves it. An edit shows as a diff the User can change before approving, and is drawn on the Note itself when its page is open (Accept and Reject there answer the same Proposal); Proposals made in one reply can be approved together, all or nothing. Each is answered once (Applied, Rejected, or Replaced by a newer one for the same Note), and the record stays in the Chat. An Agent on `/mcp` makes the same changes straight away; a Proposal is how Chat makes them.
+_Avoid_: Suggestion, action, tool call, Suggested Link
+
+**Own key**:
+A model provider key a User stores in Chat and AI settings. While they have one, every Chat turn and Career AI action of theirs uses it instead of the Shared key: it is billed to them by the provider, is not counted toward the Daily Chat budget and works when an Admin has switched the Shared key off. It is stored encrypted, write-only (only its last 4 characters are shown), and removing it returns the User to the Shared key.
+_Avoid_: personal key, BYOK
+
 **Shared key**:
 The model provider key CoreEx pays for, which every User's Chats use. An Admin can turn it off at any time.
 _Avoid_: Platform key, default key
@@ -103,8 +114,12 @@ The one thing an Application needs from the User now, worked out from its Stage,
 _Avoid_: Task, to-do, action item
 
 **Resume**:
-An Item holding a User's resume: its content (contact details, sections and entries) and its design (template, fonts, colours, layout) together, printed to PDF. A Resume can be copied for one Application; the version sent to an employer is kept unchanged.
-_Avoid_: CV (in the UI and code), document, profile
+An Item holding a User's resume: its content (contact details, sections and entries) and its design (template, fonts, colours, layout) together, printed to PDF. A Resume is tailored to one Application and linked to it; the version sent to an employer is kept unchanged. A Resume is made from a CV by copying it.
+_Avoid_: document, profile
+
+**CV**:
+The User's master Resume: complete, kept up to date and never linked to an Application. It is a Resume of kind CV (ADR 0014), so it has the same content, design, editor and PDF; the User may keep several. **New Resume from CV** copies it into a Resume for one Application.
+_Avoid_: master Resume (in the UI)
 
 **Cover Letter**:
 An Item holding a letter to one employer, with its recipient, greeting, body and sign-off. Its sender details and design come from a Resume while the two stay linked; unlinking keeps an editable copy.

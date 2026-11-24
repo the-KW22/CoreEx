@@ -242,3 +242,22 @@ th {
 }
 
 }
+
+/* A Proposal drawn on the Note (docs/DESIGN.md section 6.14): not colour alone, removed text is struck out and added text has a rule and a plus. */
+.note-editor .cm-proposal-del {
+  text-decoration: line-through;
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
+}
+.note-editor .cm-proposal-add {
+  border-left: 3px solid var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  padding-left: 0.5rem;
+  white-space: pre-wrap;
+}
+.note-editor .cm-proposal-add::before {
+  content: "+ ";
+  color: var(--muted-foreground);
+}
+.note-editor .cm-proposal-new {
+  background: color-mix(in srgb, var(--primary) 25%, transparent);
+}

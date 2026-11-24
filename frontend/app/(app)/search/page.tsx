@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Alert } from "@/components/alert";
 import { PageGone, Pager } from "@/components/pager";
 import { Button } from "@/components/ui/button";
+import { AskChat } from "../chat/ask-chat";
+import { SearchTrail } from "../chat/page-context";
 import { getApi } from "@/lib/api/server";
 import { itemHref, parseType, TYPE_LOOK } from "@/lib/items";
 import { pageInfo } from "@/lib/pages";
@@ -59,7 +61,11 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
 
   return (
     <div className="mx-auto grid max-w-3xl gap-6">
-      <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Search</h1>
+      <SearchTrail q={q} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Search</h1>
+        {q && <AskChat text={`Search my Notes for "${q}" and tell me what you find.`}>Ask Chat</AskChat>}
+      </div>
 
       <form action="/search" method="get" role="search" className="grid gap-3">
         <div className="flex gap-2">

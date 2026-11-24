@@ -1,25 +1,76 @@
 package com.coreex.ai;
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.core.JsonValue;
+import com.anthropic.core.RequestOptions;
+import com.anthropic.errors.AnthropicServiceException;
+import com.anthropic.helpers.BetaMessageAccumulator;
+import com.anthropic.models.beta.messages.BetaAssistantMessageParam;
+import com.anthropic.models.beta.messages.BetaBase64ImageSource;
+import com.anthropic.models.beta.messages.BetaBase64PdfSource;
+import com.anthropic.models.beta.messages.BetaCacheControlEphemeral;
+import com.anthropic.models.beta.messages.BetaCitationsConfigParam;
+import com.anthropic.models.beta.messages.BetaClearToolUses20250919Edit;
+import com.anthropic.models.beta.messages.BetaContentBlockParam;
+import com.anthropic.models.beta.messages.BetaContextManagementConfig;
+import com.anthropic.models.beta.messages.BetaMessage;
+import com.anthropic.models.beta.messages.BetaServerToolUsage;
+import com.anthropic.models.beta.messages.BetaStopReason;
+import com.anthropic.models.beta.messages.BetaTextBlockParam;
+import com.anthropic.models.beta.messages.BetaTool;
+import com.anthropic.models.beta.messages.BetaToolResultBlockParam;
+import com.anthropic.models.beta.messages.BetaToolUnion;
+import com.anthropic.models.beta.messages.BetaToolUseBlock;
+import com.anthropic.models.beta.messages.BetaToolUseBlockParam;
+import com.anthropic.models.beta.messages.BetaUserMessageParam;
+import com.anthropic.models.beta.messages.BetaWebFetchTool20250910;
+import com.anthropic.models.beta.messages.BetaWebFetchTool20260209;
+import com.anthropic.models.beta.messages.BetaWebSearchTool20250305;
+import com.anthropic.models.beta.messages.BetaWebSearchTool20260209;
 import com.anthropic.models.messages.JsonOutputFormat;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.OutputConfig;
 
 /** Claude, on the Shared key, through the official Java SDK. The key never leaves the backend. */
-class AnthropicModel implements Model {
+class AnthropicModel implements Model, AutoCloseable {
 
-	private final String model;
+	private static final Logger log = LoggerFactory.getLogger(AnthropicModel.class);
+
+	/** The beta that lets the provider clear old tool results (context editing). */
+	private static final String CONTEXT_EDITING_BETA = "context-management-2025-06-27";
+
+	/** The beta that the basic web fetch tool needs (the newer one does not). */
+	private static final String WEB_FETCH_BETA = "web-fetch-2025-09-10";
+
+	private static final String FAILED = "The model could not answer";
+
+	/** A streamed reply gives up well inside the five-minute reply limit (ChatProperties). */
+	private static final RequestOptions CONVERSE_TIMEOUT = RequestOptions.builder().timeout(Duration.ofMinutes(2)).build();
+
+	/** The model this instance calls; a Shared key keeps one instance per model, and an own key makes a fresh one. */
+	private final String modelId;
+
+	private final long contextClearTokens;
 
 	private final AnthropicClient client;
 
-	AnthropicModel(AiProperties properties) {
-		this.model = properties.model();
-		var builder = AnthropicOkHttpClient.builder().apiKey(properties.apiKey());
+	AnthropicModel(AiProperties properties, String apiKey, String modelId, long contextClearTokens) {
+		this.modelId = modelId;
+		this.contextClearTokens = contextClearTokens;
+		// shortcut: no SDK retries for any call (the SDK has no per-call setting), so asks also fail at once, upgrade with a second client for asks when Career sees overloaded errors often.
+		var builder = AnthropicOkHttpClient.builder().apiKey(apiKey).maxRetries(0);
 		if (!properties.baseUrl().isBlank()) {
 			builder.baseUrl(properties.baseUrl());
 		}
@@ -31,7 +82,7 @@ class AnthropicModel implements Model {
 		try {
 			var shape = JsonOutputFormat.Schema.builder();
 			schema.forEach((name, value) -> shape.putAdditionalProperty(name, JsonValue.from(value)));
-			var params = MessageCreateParams.builder().model(model).maxTokens(maxTokens).system(system)
+			var params = MessageCreateParams.builder().model(modelId).maxTokens(maxTokens).system(system)
 					.outputConfig(OutputConfig.builder().format(JsonOutputFormat.builder().schema(shape.build()).build()).build())
 					.addUserMessage(data).build();
 			var response = client.messages().create(params);
@@ -40,8 +91,230 @@ class AnthropicModel implements Model {
 			return new Reply(text, response.usage().inputTokens(), response.usage().outputTokens());
 		}
 		catch (RuntimeException e) {
-			throw new Failure(e);
+			throw failure(e);
 		}
+	}
+
+	@Override
+	public Turn converse(String system, List<Message> messages, List<ToolSpec> tools, Consumer<String> onText, long maxTokens) {
+		try {
+			var accumulator = BetaMessageAccumulator.create();
+			try (var events = client.beta().messages().createStreaming(params(system, messages, tools, maxTokens), CONVERSE_TIMEOUT)) {
+				events.stream().forEach(event -> {
+					event.contentBlockDelta().flatMap(delta -> delta.delta().text()).ifPresent(text -> onText.accept(text.text()));
+					accumulator.accumulate(event);
+				});
+			}
+			var message = accumulator.message();
+			var usage = message.usage();
+			// shortcut: cache writes and reads are counted as plain input tokens and not priced at their discounts, which
+			// overstates the cost of cached turns. Upgrade to price cache reads and writes when the budget needs the accuracy.
+			var input = usage.inputTokens() + usage.cacheCreationInputTokens().orElse(0L) + usage.cacheReadInputTokens().orElse(0L);
+			var webSearches = usage.serverToolUse().map(BetaServerToolUsage::webSearchRequests).orElse(0L);
+			return new Turn(blocks(message), stopReason(message), input, usage.outputTokens(), webSearches, webSources(message));
+		}
+		catch (RuntimeException e) {
+			throw failure(e);
+		}
+	}
+
+	@Override
+	public void check() {
+		try {
+			client.messages().create(MessageCreateParams.builder().model(modelId).maxTokens(1).addUserMessage("Hi").build());
+		}
+		catch (RuntimeException e) {
+			throw failure(e);
+		}
+	}
+
+	@Override
+	public void close() {
+		client.close();
+	}
+
+	/** The request: the instructions and the tools are cached, and old tool results are cleared past the threshold. */
+	private com.anthropic.models.beta.messages.MessageCreateParams params(String system, List<Message> messages, List<ToolSpec> tools,
+			long maxTokens) {
+		var builder = com.anthropic.models.beta.messages.MessageCreateParams.builder().model(modelId).maxTokens(maxTokens)
+				.system(com.anthropic.models.beta.messages.MessageCreateParams.System.ofBetaTextBlockParams(List.of(
+						BetaTextBlockParam.builder().text(system).cacheControl(cache()).build())));
+		// The cache covers the tools and the instructions up to the last client tool, so that tool carries the marker.
+		var lastClient = -1;
+		for (var i = 0; i < tools.size(); i++) {
+			if (!tools.get(i).server()) {
+				lastClient = i;
+			}
+		}
+		for (var i = 0; i < tools.size(); i++) {
+			if (tools.get(i).server()) {
+				builder.addTool(serverTool(tools.get(i)));
+				continue;
+			}
+			var tool = BetaTool.builder().name(tools.get(i).name()).description(tools.get(i).description())
+					.inputSchema(schema(tools.get(i).inputSchema()));
+			if (i == lastClient) {
+				tool.cacheControl(cache());
+			}
+			builder.addTool(BetaToolUnion.ofBetaTool(tool.build()));
+		}
+		if (basicWeb() && tools.stream().anyMatch(t -> t.server() && t.name().equals("web_fetch"))) {
+			builder.addBeta(WEB_FETCH_BETA);
+		}
+		for (var message : messages) {
+			var blocks = message.blocks().stream().map(AnthropicModel::param).toList();
+			if (message.role() == Role.USER) {
+				builder.addMessage(BetaUserMessageParam.ofContentBlockParams(blocks));
+			}
+			else {
+				builder.addMessage(BetaAssistantMessageParam.ofContentBlockParams(blocks));
+			}
+		}
+		if (contextClearTokens > 0) {
+			builder.addBeta(CONTEXT_EDITING_BETA).contextManagement(BetaContextManagementConfig.builder()
+					.addEdit(BetaContextManagementConfig.Edit.ofClearToolUses20250919(BetaClearToolUses20250919Edit.builder()
+							.trigger(BetaClearToolUses20250919Edit.Trigger.ofInputTokens(contextClearTokens)).build()))
+					.build());
+		}
+		return builder.build();
+	}
+
+	private static BetaCacheControlEphemeral cache() {
+		return BetaCacheControlEphemeral.builder().build();
+	}
+
+	/**
+	 * Haiku takes the basic web tools; every other model the newest ones. The search's max_uses comes from the spec's
+	 * inputSchema, and fetched pages are cited.
+	 */
+	private BetaToolUnion serverTool(ToolSpec spec) {
+		var citations = BetaCitationsConfigParam.builder().enabled(true).build();
+		return switch (spec.name()) {
+			case "web_search" -> {
+				var maxUses = ((Number) spec.inputSchema().get("max_uses")).longValue();
+				yield basicWeb() ? BetaToolUnion.ofWebSearchTool20250305(BetaWebSearchTool20250305.builder().maxUses(maxUses).build())
+						: BetaToolUnion.ofWebSearchTool20260209(BetaWebSearchTool20260209.builder().maxUses(maxUses).build());
+			}
+			case "web_fetch" -> basicWeb()
+					? BetaToolUnion.ofWebFetchTool20250910(BetaWebFetchTool20250910.builder().citations(citations).build())
+					: BetaToolUnion.ofWebFetchTool20260209(BetaWebFetchTool20260209.builder().citations(citations).build());
+			default -> throw new IllegalArgumentException("Not a provider tool: " + spec.name());
+		};
+	}
+
+	private boolean basicWeb() {
+		return modelId.startsWith("claude-haiku");
+	}
+
+	private static BetaTool.InputSchema schema(Map<String, Object> schema) {
+		var shape = BetaTool.InputSchema.builder();
+		// The SDK writes "type": "object" itself, so that key is left out of the schema's own properties.
+		schema.forEach((name, value) -> {
+			if (!name.equals("type")) {
+				shape.putAdditionalProperty(name, JsonValue.from(value));
+			}
+		});
+		return shape.build();
+	}
+
+	private static BetaContentBlockParam param(ContentBlock block) {
+		return switch (block) {
+			case ContentBlock.Text text -> BetaContentBlockParam.ofText(text.text());
+			case ContentBlock.ToolUse use -> BetaContentBlockParam.ofToolUse(BetaToolUseBlockParam.builder().id(use.id())
+					.name(use.name()).input(toolInput(use.input())).build());
+			case ContentBlock.ToolResult result -> BetaContentBlockParam.ofToolResult(toolResult(result));
+		};
+	}
+
+	/** A tool result; a file read from an Asset follows its text as an image or a PDF. */
+	private static BetaToolResultBlockParam toolResult(ContentBlock.ToolResult result) {
+		var builder = BetaToolResultBlockParam.builder().toolUseId(result.toolUseId()).isError(result.isError());
+		if (result.data() == null) {
+			return builder.content(result.content()).build();
+		}
+		var data = Base64.getEncoder().encodeToString(result.data());
+		var file = "application/pdf".equals(result.mediaType())
+				? BetaToolResultBlockParam.Content.Block.ofDocument(BetaBase64PdfSource.builder().data(data).build())
+				: BetaToolResultBlockParam.Content.Block.ofImage(BetaBase64ImageSource.builder().data(data)
+						.mediaType(BetaBase64ImageSource.MediaType.of(result.mediaType())).build());
+		return builder.contentOfBlocks(List.of(BetaToolResultBlockParam.Content.Block.ofText(result.content()), file)).build();
+	}
+
+	private static BetaToolUseBlockParam.Input toolInput(Map<String, Object> input) {
+		var shape = BetaToolUseBlockParam.Input.builder();
+		input.forEach((name, value) -> shape.putAdditionalProperty(name, JsonValue.from(value)));
+		return shape.build();
+	}
+
+	private static List<ContentBlock> blocks(BetaMessage message) {
+		var blocks = new ArrayList<ContentBlock>();
+		for (var block : message.content()) {
+			if (block.isText()) {
+				blocks.add(new ContentBlock.Text(block.text().orElseThrow().text()));
+			}
+			else if (block.isToolUse()) {
+				var use = block.toolUse().orElseThrow();
+				blocks.add(new ContentBlock.ToolUse(use.id(), use.name(), toolInput(use)));
+			}
+		}
+		return blocks;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static Map<String, Object> toolInput(BetaToolUseBlock use) {
+		return use.input(Map.class);
+	}
+
+	/** Only a tool call or the token limit says more is coming; any other stop is a finished answer. */
+	private static StopReason stopReason(BetaMessage message) {
+		var reason = message.stopReason().orElse(BetaStopReason.END_TURN);
+		if (reason.equals(BetaStopReason.TOOL_USE)) {
+			return StopReason.TOOL_USE;
+		}
+		if (reason.equals(BetaStopReason.MAX_TOKENS)) {
+			return StopReason.MAX_TOKENS;
+		}
+		// shortcut: a pause_turn (the provider paused a long web search) ends the reply with what was written; upgrade by sending the turn back to resume it.
+		return StopReason.END_TURN;
+	}
+
+	/** The pages the provider retrieved: its search results and fetched pages, and the web citations of the text. */
+	private static List<WebSource> webSources(BetaMessage message) {
+		var found = new ArrayList<WebSource>();
+		for (var block : message.content()) {
+			if (block.isWebSearchToolResult()) {
+				var content = block.asWebSearchToolResult().content();
+				if (content.isResultBlocks()) {
+					content.asResultBlocks().forEach(result -> found.add(new WebSource(result.url(), result.title())));
+				}
+			}
+			else if (block.isWebFetchToolResult()) {
+				var content = block.asWebFetchToolResult().content();
+				if (content.isBetaWebFetchBlock()) {
+					var fetched = content.asBetaWebFetchBlock();
+					found.add(new WebSource(fetched.url(), fetched.content().title().orElse(fetched.url())));
+				}
+			}
+			else if (block.isText()) {
+				for (var citation : block.asText().citations().orElse(List.of())) {
+					if (citation.isWebSearchResultLocation()) {
+						var location = citation.asWebSearchResultLocation();
+						found.add(new WebSource(location.url(), location.title().orElse(location.url())));
+					}
+				}
+			}
+		}
+		return WebSource.keep(found);
+	}
+
+	/**
+	 * Errors are chosen by HTTP status only (402 is out of credit, anything else, including no answer at all, is
+	 * unavailable). The provider's body and message are never kept: not in the Failure, not in the log.
+	 */
+	private static Failure failure(RuntimeException e) {
+		var status = e instanceof AnthropicServiceException service ? service.statusCode() : 0;
+		log.warn("The model call failed: {}, HTTP status {}", e.getClass().getSimpleName(), status == 0 ? "none" : status);
+		return new Failure(status == 402 ? Failure.Kind.OUT_OF_CREDIT : Failure.Kind.UNAVAILABLE, FAILED);
 	}
 
 }
