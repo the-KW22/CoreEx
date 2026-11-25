@@ -31,9 +31,13 @@ export function Agents() {
           {LINES.map((l, i) => {
             const shown = l.text.slice(0, Math.max(0, typed - STARTS[i]));
             return (
-              <p key={l.text} className={l.prompt ? "text-foreground" : "text-muted-foreground"} style={{ minHeight: "1.5rem" }}>
-                {l.prompt && <span className="mr-2 text-link">&gt;</span>}
-                {shown}
+              <p key={l.text} className={l.prompt ? "relative text-foreground" : "relative text-muted-foreground"}>
+                {/* The full line, invisible, holds the line's final height so the page below never moves while it types. */}
+                <span className="invisible">{l.prompt && <span className="mr-2">&gt;</span>}{l.text}</span>
+                <span className="absolute inset-0">
+                  {l.prompt && <span className="mr-2 text-link">&gt;</span>}
+                  {shown}
+                </span>
               </p>
             );
           })}

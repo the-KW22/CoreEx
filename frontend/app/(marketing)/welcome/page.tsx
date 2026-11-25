@@ -5,6 +5,7 @@ import { Career } from "@/components/marketing/career";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { Modules } from "@/components/marketing/modules";
 import { MarketingNav } from "@/components/marketing/nav";
+import { SmoothScroll } from "@/components/marketing/smooth-scroll";
 import { Story } from "@/components/marketing/story";
 import { CallToAction, Trust } from "@/components/marketing/trust-cta";
 
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
 export default function WelcomePage() {
   return (
     <div className="marketing">
+      <SmoothScroll />
       <MarketingNav />
       <main>
         <Story />
