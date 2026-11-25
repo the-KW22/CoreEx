@@ -3,13 +3,17 @@ package com.coreex.access;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.coreex.common.ApiException;
 import com.coreex.identity.IdentityService;
+import com.coreex.invites.InviteService;
 
 @Service
 class AccessRequestService {
@@ -25,6 +29,8 @@ class AccessRequestService {
 
 	private final IdentityService identity;
 
+	private final InviteService invites;
+
 	private final AccessRequestProperties properties;
 
 	private final Clock clock;
@@ -34,10 +40,11 @@ class AccessRequestService {
 	// Upgrade to a shared store when the API runs on more than one instance.
 	private final ConcurrentHashMap<String, Window> windows = new ConcurrentHashMap<>();
 
-	AccessRequestService(AccessRequestRepository requests, IdentityService identity, AccessRequestProperties properties,
-			Clock clock) {
+	AccessRequestService(AccessRequestRepository requests, IdentityService identity, InviteService invites,
+			AccessRequestProperties properties, Clock clock) {
 		this.requests = requests;
 		this.identity = identity;
+		this.invites = invites;
 		this.properties = properties;
 		this.clock = clock;
 	}
@@ -57,6 +64,32 @@ class AccessRequestService {
 		if (!identity.hasUser(normalized)) {
 			requests.insertIfNew(normalized);
 		}
+	}
+
+	List<AccessRequestRepository.AccessRequest> listOpen(int page, int size) {
+		return requests.findOpenPage(size, (long) page * size);
+	}
+
+	long totalOpen() {
+		return requests.countOpen();
+	}
+
+	/** Makes the Invite and closes the request together: if the Invite cannot be made (the email has an account), the request stays open. */
+	@Transactional
+	void invite(UUID id) {
+		var email = close(id, "INVITED");
+		invites.issue(email);
+	}
+
+	@Transactional
+	void dismiss(UUID id) {
+		close(id, "DISMISSED");
+	}
+
+	private String close(UUID id, String status) {
+		return requests.close(id, status).orElseThrow(() -> requests.exists(id)
+				? new ApiException(HttpStatus.CONFLICT, "REQUEST_NOT_OPEN", "This request has already been dealt with.")
+				: new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "There is no such request."));
 	}
 
 	private void limitPerAddress(String address, Instant now) {

@@ -4,6 +4,7 @@ import { PageGone, Pager } from "@/components/pager";
 import { getApi } from "@/lib/api/server";
 import { pageInfo } from "@/lib/pages";
 
+import { AccessRequestsTable } from "./access-requests-table";
 import { InviteForm } from "./invite-form";
 import { InvitesTable } from "./invites-table";
 
@@ -11,9 +12,14 @@ const PAGE_SIZE = 50;
 
 // The Invites tab, and the Admin area's home.
 export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
-  const { page: raw } = await searchParams;
+  const { page: raw, requests: rawRequests } = await searchParams;
   const requested = pageInfo(0, raw, PAGE_SIZE).page;
   const api = await getApi();
+  const requests = await api
+    .GET("/api/admin/access-requests", {
+      params: { query: { page: pageInfo(0, rawRequests, PAGE_SIZE).page, size: PAGE_SIZE } },
+    })
+    .catch(() => null);
   const result = await api
     .GET("/api/admin/invites", { params: { query: { page: requested, size: PAGE_SIZE } } })
     .catch(() => null);
@@ -36,6 +42,23 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
         </p>
         <InviteForm />
       </div>
+
+      {requests?.data && requests.data.total > 0 && (
+        <section aria-labelledby="access-requests" className="grid gap-3">
+          <h2 id="access-requests" className="text-sm font-semibold">
+            Access requests ({requests.data.total})
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            People who asked for an Invite on the public page. Invite makes the Invite listed below.
+          </p>
+          <AccessRequestsTable requests={requests.data.items} />
+          <Pager
+            label="Access request pages"
+            page={pageInfo(requests.data.total, rawRequests, PAGE_SIZE)}
+            href={(n) => `/admin?${raw ? `page=${raw}&` : ""}requests=${n}`}
+          />
+        </section>
+      )}
 
       {data.total === 0 ? (
         <p className="rounded-[14px] border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
