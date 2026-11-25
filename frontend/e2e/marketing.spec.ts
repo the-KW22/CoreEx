@@ -80,3 +80,28 @@ test("the Connect scene draws a named Graph", async ({ page }) => {
     expect(drawn).toBe(true);
   }).toPass();
 });
+
+for (const colorScheme of ["dark", "light"] as const) {
+  test(`every section renders and passes axe once scrolled through, ${colorScheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    for (const name of ["Your AI agent can use it too.", "Run your job search from the same place.", "One place, built from modules.", "Your notes stay yours.", "Ask for an Invite."]) {
+      const heading = page.getByRole("heading", { level: 2, name });
+      await heading.scrollIntoViewIfNeeded();
+      await expect(heading).toBeVisible();
+    }
+    await expect(page.getByText("Changed by Claude Desktop just now")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Request access" }).last()).toBeVisible();
+    await expectNoViolations(page);
+  });
+}
+
+test("on a phone the module cards wrap and the page does not scroll sideways", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 3, name: "Knowledge Base" })).toBeAttached();
+  const tops = await page.locator("#modules li").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBeGreaterThan(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

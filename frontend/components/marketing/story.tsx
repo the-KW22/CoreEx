@@ -2,13 +2,14 @@
 
 import { motion, useMotionValueEvent, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { STORY_STEPS, storyAt } from "@/lib/story";
 
 import { SCENES } from "./scenes";
+import { usePinned } from "./use-pinned";
 import { AppWindow } from "./window";
 
 const STEP_TEXT = [
@@ -17,16 +18,6 @@ const STEP_TEXT = [
   "Every Link joins two Items, so what you know forms a Graph you can see and walk through.",
   "Ask a question in plain words. The answer comes from your own Notes and Assets, with its sources.",
 ];
-
-// Pinned only from 800px up and when motion is welcome. Below that, and with reduced motion, nothing pins: the
-// copy, then each step with its scene in its final state.
-const PINNED = "(min-width: 800px) and (prefers-reduced-motion: no-preference)";
-const subscribe = (on: () => void) => {
-  const query = window.matchMedia(PINNED);
-  query.addEventListener("change", on);
-  return () => query.removeEventListener("change", on);
-};
-const usePinned = () => useSyncExternalStore(subscribe, () => window.matchMedia(PINNED).matches, () => false);
 
 // The same condition in CSS is the min-[800px]:motion-safe: prefix, written out in full because Tailwind reads whole class names.
 
