@@ -48,6 +48,7 @@ export function Story() {
       <div className={cn("mx-auto max-w-6xl px-4 sm:px-6", "min-[800px]:motion-safe:sticky", "min-[800px]:motion-safe:top-14", "min-[800px]:motion-safe:h-[calc(100dvh-3.5rem)]")}>
         <div className="relative h-full">
           <motion.div
+            inert={pinned && progress > 0.13}
             style={pinned ? { opacity: copyOpacity, y: copyY, pointerEvents: copyEvents } : undefined}
             className={cn("pt-16 text-center sm:pt-24", "min-[800px]:motion-safe:absolute", "min-[800px]:motion-safe:inset-x-0", "min-[800px]:motion-safe:top-[4%]", "min-[800px]:motion-safe:pt-0")}
           >
