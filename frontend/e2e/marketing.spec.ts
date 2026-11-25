@@ -65,3 +65,18 @@ test("on a phone nothing pins and every step shows", async ({ page }) => {
   expect(await page.evaluate(() => document.querySelector("#story")!.clientHeight < innerHeight * 6)).toBe(true);
   await expect(steps.locator("[aria-current=step]")).toHaveCount(0);
 });
+
+test("the Connect scene draws a named Graph", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.evaluate(() => {
+    const s = document.querySelector("#story")!;
+    window.scrollTo(0, s.getBoundingClientRect().top + scrollY + (s.clientHeight - innerHeight) * 0.79);
+  });
+  const graph = page.getByRole("img", { name: /A Graph of about 60 Items/ });
+  await expect(graph).toBeVisible();
+  await expect(async () => {
+    const drawn = await graph.evaluate((c: HTMLCanvasElement) => c.getContext("2d")!.getImageData(0, 0, c.width, c.height).data.some((v, i) => i % 4 === 3 && v > 0));
+    expect(drawn).toBe(true);
+  }).toPass();
+});

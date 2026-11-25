@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 // The product window of the marketing page: a live mockup built from the app's tokens (docs/DESIGN.md 3.1), so it stays
 // sharp and follows the theme. It is decoration: the copy beside it says the same in words, so it is hidden from
-// assistive technology.
+// assistive technology, except when a scene has a picture of its own to name (the Graph).
 const RAIL = [
   { id: "home", Icon: HouseIcon },
   { id: "kb", Icon: LibraryIcon },
@@ -15,9 +15,9 @@ const RAIL = [
 ] as const;
 export type RailId = (typeof RAIL)[number]["id"];
 
-export function AppWindow({ active, title, children, className }: { active: RailId; title: string; children: React.ReactNode; className?: string }) {
+export function AppWindow({ active, title, children, className, decorative = true }: { active: RailId; title: string; children: React.ReactNode; className?: string; decorative?: boolean }) {
   return (
-    <div aria-hidden className={cn("flex aspect-[16/11] w-full overflow-hidden rounded-[18px] border border-border bg-background text-left shadow-2xl shadow-black/20", className)}>
+    <div aria-hidden={decorative || undefined} className={cn("flex aspect-[16/11] w-full overflow-hidden rounded-[18px] border border-border bg-background text-left shadow-2xl shadow-black/20", className)}>
       <div className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-border bg-panel py-3 sm:w-14">
         <span className="mb-2 grid size-7 place-items-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">C</span>
         {RAIL.map(({ id, Icon }) => (

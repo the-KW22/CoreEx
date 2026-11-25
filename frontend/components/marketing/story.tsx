@@ -79,7 +79,7 @@ export function Story() {
             style={pinned ? { x: winX, y: winY, scale: winScale, rotateX: winTilt, transformPerspective: 1400 } : undefined}
             className={cn("hidden", "min-[800px]:motion-safe:block", "min-[800px]:motion-safe:absolute", "min-[800px]:motion-safe:top-1/2", "min-[800px]:motion-safe:right-0", "min-[800px]:motion-safe:w-[58%]", "min-[800px]:motion-safe:-translate-y-1/2")}
           >
-            <AppWindow active={shown.rail} title={shown.title}>
+            <AppWindow active={shown.rail} title={shown.title} decorative={shown.rail !== "graph"}>
               <div key={shown.title} className="absolute inset-0 animate-in fade-in duration-(--duration-base)">
                 <shown.Scene p={step < 0 ? 0 : local} />
               </div>
@@ -102,7 +102,7 @@ export function Story() {
                   </h2>
                   <p className={cn("text-muted-foreground", active && "text-foreground")}>{STEP_TEXT[i]}</p>
                   {!pinned && (
-                    <AppWindow active={SCENES[i].rail} title={SCENES[i].title} className={"min-[800px]:motion-safe:hidden"}>
+                    <AppWindow active={SCENES[i].rail} title={SCENES[i].title} decorative={SCENES[i].rail !== "graph"} className={"min-[800px]:motion-safe:hidden"}>
                       <Scene p={1} />
                     </AppWindow>
                   )}
