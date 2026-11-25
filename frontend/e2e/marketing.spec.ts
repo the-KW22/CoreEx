@@ -161,3 +161,15 @@ test.describe("Request access form", () => {
   });
 
 });
+
+test("the page has no link to Docs, which needs a sign-in", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await expect(page.locator("a[href=\"/docs\"]")).toHaveCount(0);
+});
+
+test("the Request access form says it is an early placeholder", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText("Early access")).toBeVisible();
+  await expect(page.getByText(/saved for the owner to read by hand/)).toBeVisible();
+});

@@ -7,7 +7,6 @@ const links = [
   { href: "#story", label: "Product" },
   { href: "#agents", label: "Agents" },
   { href: "#career", label: "Career" },
-  { href: "/docs", label: "Docs" },
 ];
 
 export function MarketingNav() {
