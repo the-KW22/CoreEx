@@ -42,10 +42,10 @@ export async function openPalette(page: Page) {
 }
 
 export async function expectNoViolations(page: Page) {
-  // Text that is still fading in fails contrast, so let opening animations finish (endless ones, like spinners, aside).
+  // Text that is still fading in fails contrast, so let opening animations finish (endless ones, like spinners, and scroll-linked ones, which only move when the page scrolls, aside).
   await page.waitForFunction(
     () =>
-      document.getAnimations().every((a) => a.playState !== "running" || a.effect?.getComputedTiming().iterations === Infinity) &&
+      document.getAnimations().every((a) => !(a.timeline instanceof DocumentTimeline) || a.playState !== "running" || a.effect?.getComputedTiming().iterations === Infinity) &&
       // Motion fades with inline styles rather than CSS animations. Fully transparent parts are skipped by axe anyway.
       [...document.querySelectorAll<HTMLElement>("[style*=opacity]")].every((el) => {
         const opacity = Number(el.style.opacity);

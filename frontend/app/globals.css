@@ -261,3 +261,10 @@ th {
 .note-editor .cm-proposal-new {
   background: color-mix(in srgb, var(--primary) 25%, transparent);
 }
+
+/* The marketing page has sideways-moving parts; clip them on html as well as body so the page never scrolls sideways
+   (clip, not hidden, so position: sticky keeps working). */
+html:has(.marketing),
+body:has(.marketing) {
+  overflow-x: clip;
+}

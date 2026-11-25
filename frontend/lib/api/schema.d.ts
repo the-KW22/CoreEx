@@ -1631,6 +1631,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/access-requests/{id}/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["invite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/access-requests/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["dismiss"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/access-tokens": {
         parameters: {
             query?: never;
@@ -1641,6 +1673,22 @@ export interface paths {
         get: operations["list_12"];
         put?: never;
         post: operations["create_10"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/access-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["request"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2313,6 +2361,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["overview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/access-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_21"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4024,6 +4088,10 @@ export interface components {
             /** @description The secret. It is shown only now. */
             token: string;
         };
+        RequestAccessBody: {
+            /** Format: email */
+            email: string;
+        };
         TrashEntryResponse: {
             /** Format: uuid */
             id: string;
@@ -4593,6 +4661,18 @@ export interface components {
             items: components["schemas"]["InviteResponse"][];
             /** Format: int64 */
             total: number;
+        };
+        AccessRequestPage: {
+            items: components["schemas"]["AccessRequestResponse"][];
+            /** Format: int64 */
+            total: number;
+        };
+        AccessRequestResponse: {
+            /** Format: uuid */
+            id: string;
+            email: string;
+            /** Format: date-time */
+            createdAt: string;
         };
         TokenList: {
             items: components["schemas"]["TokenResponse"][];
@@ -9183,6 +9263,82 @@ export interface operations {
             };
         };
     };
+    invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Invite was made and the request closed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code REQUEST_NOT_OPEN or USER_EXISTS */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    dismiss: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request was closed without an Invite */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code REQUEST_NOT_OPEN */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     list_12: {
         parameters: {
             query?: never;
@@ -9236,6 +9392,49 @@ export interface operations {
             };
             /** @description Code TOKEN_LIMIT: the User has too many live Access tokens */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    request: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The visitor's address, forwarded by the web app */
+                "X-Visitor-IP"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestAccessBody"];
+            };
+        };
+        responses: {
+            /** @description Received (the same answer whether or not the email was new) */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code RATE_LIMITED */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10405,6 +10604,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OverviewResponse"];
+                };
+            };
+        };
+    };
+    list_21: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessRequestPage"];
                 };
             };
         };

@@ -175,6 +175,10 @@ _Avoid_: Bot, assistant, integration, client
 Permission for one email address to create a CoreEx account. Sign-up is only possible with an Invite.
 _Avoid_: Allowlist entry, whitelist, access code
 
+**Access request**:
+An email address a visitor left on the public page to ask for an Invite. It is only the email, the date and where it stands (open, invited or dismissed). An Admin can turn an open one into an Invite or dismiss it. The answer to a visitor is the same whether or not the email was new, so it never says who asked before.
+_Avoid_: Waitlist entry, signup, lead
+
 **Disabled User**:
 A User who can no longer log in, but whose Items, Folders, and Tags are kept intact.
 _Avoid_: Banned, suspended, deleted, deactivated

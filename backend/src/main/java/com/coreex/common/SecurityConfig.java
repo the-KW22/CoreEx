@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -41,7 +42,7 @@ class SecurityConfig {
 		return http.cors(Customizer.withDefaults()).csrf(csrf -> csrf.disable())
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(requests -> requests.requestMatchers("/api/health", "/v3/api-docs/**", "/internal/trash/purge")
-						.permitAll().anyRequest().authenticated())
+						.permitAll().requestMatchers(HttpMethod.POST, "/api/access-requests").permitAll().anyRequest().authenticated())
 				.oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults())).build();
 	}
 

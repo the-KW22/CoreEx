@@ -41,6 +41,11 @@ public abstract class ApiTest {
 		return send("POST", path, token, json);
 	}
 
+	protected HttpResponse<String> post(String path, String token, String json, String header, String value)
+			throws IOException, InterruptedException {
+		return send("POST", path, token, json, header, value);
+	}
+
 	protected HttpResponse<String> put(String path, String token, String json) throws IOException, InterruptedException {
 		return send("PUT", path, token, json);
 	}
