@@ -53,7 +53,8 @@ The panel belongs to the Knowledge Base module: it shows only on Knowledge Base 
 
 | Route | Screen |
 |---|---|
-| `/` | Home |
+| `/` | Home for a signed-in User; the Marketing page (section 6.15) for a signed-out visitor |
+| `/welcome` | The Marketing page at its own address (public) |
 | `/items` | Knowledge Base: All Items (new route; today's list moves here from `/`) |
 | `/folders/[id]`, `/tags/[id]` | Same layout as All Items, scoped |
 | `/notes/[id]`, `/assets/[id]` | Note, Asset |
@@ -358,6 +359,16 @@ A module of its own in the rail (after Career, a speech-bubbles icon), with no p
 - **Chat everywhere (the floating button and panel, #200, #202):** a round **Open Chat** button (a speech-bubble icon, Tooltip "Open Chat (Ctrl+J)", `aria-expanded`) sits in the bottom-right corner of every signed-in page except `/chat` itself. It opens a panel of about 400 x 600 px over the page (full screen under 768px) that is not modal, so the page stays readable and selectable behind it. The panel has a **New chat** button, **Expand** (opens the same Chat at `/chat/[id]`, or `/chat`) and **Close**, then the usage bar and the same conversation as the page. It opens the most recent saved Chat, or a new one when there is none: the same Chats as the module, not a second kind. Escape closes it and gives focus back to the button; Escape inside a Dialog of the panel closes only that Dialog. **Delete Chat** is on the full page only. Sonner toasts sit at the bottom centre so they never cover the button.
 - **Page awareness:** with each message, Chat is told which Note or Asset is open (its id and title only), the text the User has selected in the editor (up to 2,000 characters) and a **session trail**: the User's last 20 actions in this browser tab (opened, created, edited, moved, moved to Trash, searched), as titles and ids, with a repeat of the same action on the same Item counted once. The trail lives in the tab (session storage, gone when it closes); the server stores none of it, and none of it is Note text. The model reads an Item with its tools only when it needs the text. No keystrokes, scrolling or time on page are recorded.
 - **Hand-offs:** **Ask Chat about this Note** (a speech-bubble icon button in the Note's header bar) and **Ask Chat** on the Search page (beside the heading, when there is a search) open the panel with a new Chat and a prepared message in the box. The User still sends it. The text is passed in memory, never in a URL or history. **Ctrl+J** (Cmd+J on a Mac) opens and closes the panel from anywhere; it is listed on **Docs > Keyboard shortcuts** (`/docs/shortcuts`).
+
+### 6.15 Marketing page (`/` signed out, `/welcome`)
+
+The public face of CoreEx (#402). `proxy.ts` rewrites a signed-out `/` to `/welcome` (the address stays `/`), so a signed-in User still gets Home. The page lives in `app/(marketing)/welcome`, has no rail, makes no API calls, is rendered at build time and has its own `loading.tsx`. The Request access form is bundle M2.
+
+- **Layout:** a sticky nav (CoreEx wordmark; Product, Agents, Career, Docs from the md breakpoint; theme toggle, Sign in, Request access), then the sections in one centred column (max 72rem), then a footer. `html` and `body` carry `overflow-x: clip` while the page shows, so nothing ever scrolls sideways.
+- **Hero:** the headline, one line of copy and two buttons, with the product window below it, tilted back and flattening as the page scrolls.
+- **Product window:** a live React mockup built from the tokens, with a rail that mirrors the real one (section 3.1). It is decoration (`aria-hidden`); the copy says the same in words.
+- **Colour:** Tag colours add colour to the mockups; Mint stays the only colour of buttons and links (principle 3).
+- **Motion:** Motion's `useScroll` and `useTransform` drive the scroll effects, and only transform and opacity change (section 9). With `prefers-reduced-motion`, and below 800px, nothing pins or tilts: every part shows in its final state.
 
 ## 7. Component map (shadcn/ui)
 
