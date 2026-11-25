@@ -105,3 +105,28 @@ test("on a phone the module cards wrap and the page does not scroll sideways", a
   expect(new Set(tops).size).toBeGreaterThan(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test("smooth scroll runs on the marketing page only", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("html.lenis")).toHaveCount(1);
+  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/login/);
+  await expect(page.locator("html.lenis")).toHaveCount(0);
+});
+
+test("reduced motion keeps native scrolling", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.locator("html.lenis")).toHaveCount(0);
+});
+
+test("an anchor link lands on its section below the sticky nav", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Career" }).click();
+  await expect(async () => {
+    const top = await page.locator("#career").evaluate((el) => Math.round(el.getBoundingClientRect().top));
+    expect(Math.abs(top - 56)).toBeLessThan(8);
+  }).toPass();
+});
