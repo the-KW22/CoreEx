@@ -1,6 +1,6 @@
 # CoreEx
 
-[![CI](https://github.com/the-KW22/CoreEx/actions/workflows/ci.yml/badge.svg?branch=staging)](https://github.com/the-KW22/CoreEx/actions/workflows/ci.yml)
+[![CI](https://github.com/the-KW22/CoreEx/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/the-KW22/CoreEx/actions/workflows/ci.yml)
 
 A personal knowledge base with a job-search tracker built in. Write Markdown Notes, upload images and PDFs, organise everything with Folders and Tags, connect it with `[[Links]]`, and find it again by words or by meaning. AI agents such as Claude Code can work with it too, through a built-in MCP server.
 
