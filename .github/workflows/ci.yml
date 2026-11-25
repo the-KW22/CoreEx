@@ -3,6 +3,9 @@ name: CI
 on:
   pull_request:
     branches: [staging, main]
+  # Runs on the merged result too, so the README badge for main shows a real status.
+  push:
+    branches: [main]
 
 jobs:
   backend:
