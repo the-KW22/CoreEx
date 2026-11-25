@@ -1647,6 +1647,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/access-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/trash": {
         parameters: {
             query?: never;
@@ -4023,6 +4039,10 @@ export interface components {
             expiresAt?: string | null;
             /** @description The secret. It is shown only now. */
             token: string;
+        };
+        RequestAccessBody: {
+            /** Format: email */
+            email: string;
         };
         TrashEntryResponse: {
             /** Format: uuid */
@@ -9236,6 +9256,49 @@ export interface operations {
             };
             /** @description Code TOKEN_LIMIT: the User has too many live Access tokens */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    request: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The visitor's address, forwarded by the web app */
+                "X-Visitor-IP"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestAccessBody"];
+            };
+        };
+        responses: {
+            /** @description Received (the same answer whether or not the email was new) */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code INVALID_REQUEST */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Code RATE_LIMITED */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

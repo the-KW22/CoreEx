@@ -15,7 +15,7 @@ class IdentityWebConfig implements WebMvcConfigurer {
 
 	@Override
 	public void addInterceptors(InterceptorRegistry registry) {
-		registry.addInterceptor(currentUser).addPathPatterns("/api/**").excludePathPatterns("/api/health");
+		registry.addInterceptor(currentUser).addPathPatterns("/api/**").excludePathPatterns("/api/health", "/api/access-requests");
 	}
 
 }
