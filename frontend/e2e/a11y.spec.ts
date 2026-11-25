@@ -1029,7 +1029,9 @@ test("logging out removes the unsaved text kept in the browser", async ({ page }
   await page.unroute("**/notes/**");
   await page.getByRole("button", { name: /^Account/ }).click();
   await page.getByRole("menuitem", { name: "Log out" }).click();
-  await expect(page).toHaveURL(/\/login/);
+  // Logging out lands on the public marketing page.
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Everything you know, connected." })).toBeVisible();
   expect(await kept()).toBe(0);
 
   // Tidy up.

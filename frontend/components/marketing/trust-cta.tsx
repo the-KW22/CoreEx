@@ -1,3 +1,5 @@
+import { TagBadge } from "@/components/tag-badge";
+
 import { RequestForm } from "./request-form";
 
 const TRUST = [
@@ -27,8 +29,12 @@ export function CallToAction() {
   return (
     <section id="request-access" className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-28 sm:px-6">
       <div className="rounded-[18px] border border-border bg-surface px-6 py-14 text-center sm:px-12">
+        <TagBadge name="Early access" colour="yellow" className="mb-4" />
         <h2 className="mx-auto max-w-xl text-3xl font-semibold tracking-[-0.03em] text-balance sm:text-4xl">Ask for an Invite.</h2>
         <p className="mx-auto mt-4 max-w-md text-lg text-pretty text-muted-foreground">CoreEx is invite-only for now. Tell us where to send yours.</p>
+        <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
+          This form is a first version. Your request is saved for the owner to read by hand, and no email is sent automatically yet.
+        </p>
         <RequestForm />
       </div>
     </section>

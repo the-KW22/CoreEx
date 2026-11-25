@@ -8,7 +8,6 @@ export function MarketingFooter() {
           <span aria-hidden className="grid size-7 place-items-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">C</span>
           CoreEx
         </span>
-        <Link href="/docs" className="hover:text-foreground">Docs</Link>
         <Link href="/login" className="hover:text-foreground">Sign in</Link>
         <Link href="#request-access" className="hover:text-foreground">Request access</Link>
         <span>Your personal knowledge base.</span>
