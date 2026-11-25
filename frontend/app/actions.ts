@@ -52,5 +52,6 @@ async function requestPasswordReset(email: string): Promise<AuthState> {
 export async function signOut() {
   const supabase = await createSupabase();
   await supabase.auth.signOut();
-  redirect("/login");
+  // Signed out, / is the public marketing page.
+  redirect("/");
 }
