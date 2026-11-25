@@ -130,3 +130,34 @@ test("an anchor link lands on its section below the sticky nav", async ({ page }
     expect(Math.abs(top - 56)).toBeLessThan(8);
   }).toPass();
 });
+
+test.describe("Request access form", () => {
+  test("a Request access link in the nav takes the visitor to the form and focuses the field", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Request access" }).click();
+    await expect(page.getByLabel("Email")).toBeFocused();
+    await expect(page.getByLabel("Email")).toBeInViewport();
+  });
+
+  test("submitting an email shows the sent state, and the same email again looks the same", async ({ page }) => {
+    const email = `visitor-${Date.now()}@example.com`;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await page.goto("/");
+      await page.getByLabel("Email").fill(email);
+      await page.getByRole("button", { name: "Request access" }).last().click();
+      await expect(page.getByRole("status")).toHaveText("Thanks. We'll email you an invite.");
+    }
+  });
+
+  test("an email the API refuses shows what to do, and keeps what was typed", async ({ page }) => {
+    await page.goto("/");
+    // The browser's own check is skipped so the API's message is what shows.
+    await page.getByRole("button", { name: "Request access" }).last().evaluate((b) => b.closest("form")!.setAttribute("novalidate", ""));
+    await page.getByLabel("Email").fill("not-an-email");
+    await page.getByRole("button", { name: "Request access" }).last().click();
+    await expect(page.getByRole("alert").filter({ hasText: "Enter a valid email address." })).toBeVisible();
+    await expect(page.getByLabel("Email")).toHaveValue("not-an-email");
+  });
+
+});

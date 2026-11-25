@@ -1,6 +1,4 @@
-import Link from "next/link";
-
-import { Button } from "@/components/ui/button";
+import { RequestForm } from "./request-form";
 
 const TRUST = [
   { title: "Your data is scoped to you", text: "Every read and write is checked against your account. Even an Admin cannot read your Notes." },
@@ -25,16 +23,13 @@ export function Trust() {
   );
 }
 
-// shortcut: the button only scrolls to this section, the Request access form comes with bundle M2 (#407).
 export function CallToAction() {
   return (
     <section id="request-access" className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-28 sm:px-6">
       <div className="rounded-[18px] border border-border bg-surface px-6 py-14 text-center sm:px-12">
         <h2 className="mx-auto max-w-xl text-3xl font-semibold tracking-[-0.03em] text-balance sm:text-4xl">Ask for an Invite.</h2>
         <p className="mx-auto mt-4 max-w-md text-lg text-pretty text-muted-foreground">CoreEx is invite-only for now. Tell us where to send yours.</p>
-        <Button asChild size="lg" className="mt-8">
-          <Link href="#request-access">Request access</Link>
-        </Button>
+        <RequestForm />
       </div>
     </section>
   );

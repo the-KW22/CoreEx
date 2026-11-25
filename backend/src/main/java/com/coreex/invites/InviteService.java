@@ -11,7 +11,7 @@ import com.coreex.common.ApiException;
 import com.coreex.identity.IdentityService;
 
 @Service
-class InviteService {
+public class InviteService {
 
 	private final InviteRepository invites;
 
@@ -20,6 +20,15 @@ class InviteService {
 	InviteService(InviteRepository invites, IdentityService identity) {
 		this.invites = invites;
 		this.identity = identity;
+	}
+
+	/** For other features: invites an email, and does nothing when it already has a pending Invite. */
+	public void issue(String email) {
+		var normalized = email.trim().toLowerCase();
+		if (identity.hasUser(normalized)) {
+			throw new ApiException(HttpStatus.CONFLICT, "USER_EXISTS", "Someone with this email already has an account.");
+		}
+		invites.insertUnlessPending(normalized);
 	}
 
 	Invite create(String email) {

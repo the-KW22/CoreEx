@@ -2,6 +2,11 @@ import createClient from "openapi-fetch";
 
 import type { paths } from "./schema";
 
+// The client for the few public endpoints, which need no sign-in (the Request access form).
+export function publicApiClient() {
+  return createClient<paths>({ baseUrl: process.env.API_URL ?? "http://localhost:8080" });
+}
+
 // Server-side only (no NEXT_PUBLIC_): the browser never sees the API address.
 // `timezone` is the User's own (a zone name like Asia/Tokyo): the API works out "due" and times in it.
 export function apiClient(accessToken: string, timezone?: string) {

@@ -34,6 +34,12 @@ class InviteRepository {
 				.query(MAPPER).single();
 	}
 
+	/** Like insert, but does nothing (and raises no error, which would abort a surrounding transaction) when the email already has a PENDING Invite. */
+	void insertUnlessPending(String email) {
+		jdbc.sql("insert into invites (email) values (:email) on conflict (email) where status = 'PENDING' do nothing")
+				.param("email", email).update();
+	}
+
 	List<Invite> findPage(int limit, long offset) {
 		return jdbc.sql("select " + COLUMNS + " from invites order by created_at desc, id limit :limit offset :offset")
 				.param("limit", limit).param("offset", offset).query(MAPPER).list();

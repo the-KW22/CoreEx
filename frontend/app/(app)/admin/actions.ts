@@ -37,6 +37,27 @@ export async function revokeInvite(id: string): Promise<boolean> {
   return !!result?.data;
 }
 
+// Both answer an error message, or nothing when it worked, so the table can say so in a toast.
+export async function inviteAccessRequest(id: string): Promise<string | undefined> {
+  const api = await getApi();
+  const result = await api
+    .POST("/api/admin/access-requests/{id}/invite", { params: { path: { id } } })
+    .catch(() => null);
+  revalidatePath("/admin");
+  if (result?.response.ok) return undefined;
+  return result?.error?.message ?? "Could not invite. Try again.";
+}
+
+export async function dismissAccessRequest(id: string): Promise<string | undefined> {
+  const api = await getApi();
+  const result = await api
+    .POST("/api/admin/access-requests/{id}/dismiss", { params: { path: { id } } })
+    .catch(() => null);
+  revalidatePath("/admin");
+  if (result?.response.ok) return undefined;
+  return result?.error?.message ?? "Could not dismiss. Try again.";
+}
+
 export type ChatSettingsResult = { ok: true } | { error: string };
 
 // The Chat card's save. A 400 carries the API's words for a bad model or budget; anything else gets a plain line.
