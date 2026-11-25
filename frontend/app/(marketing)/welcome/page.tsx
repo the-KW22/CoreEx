@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 import { MarketingFooter } from "@/components/marketing/footer";
-import { Hero } from "@/components/marketing/hero";
 import { MarketingNav } from "@/components/marketing/nav";
+import { Story } from "@/components/marketing/story";
 
 const description = "Write Notes, keep Assets, and let Links turn them into a Graph. Ask your own knowledge a question, or let your AI agent use it too.";
 
@@ -18,7 +18,7 @@ export default function WelcomePage() {
     <div className="marketing">
       <MarketingNav />
       <main>
-        <Hero />
+        <Story />
       </main>
       <MarketingFooter />
     </div>
