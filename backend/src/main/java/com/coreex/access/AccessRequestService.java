@@ -22,6 +22,8 @@ class AccessRequestService {
 
 	private static final int TRIM_ABOVE = 1_000;
 
+	private static final int MAX_ADDRESSES = 10_000;
+
 	private record Window(Instant start, int calls) {
 	}
 
@@ -96,7 +98,10 @@ class AccessRequestService {
 		if (windows.size() > TRIM_ABOVE) {
 			windows.values().removeIf(w -> !now.isBefore(w.start().plus(WINDOW)));
 		}
-		var window = windows.compute(address,
+		// The address comes from a header anyone can set, so the map cannot be allowed to grow with made-up ones: past
+		// the cap, new addresses share one bucket (and one limit).
+		var bucket = windows.size() >= MAX_ADDRESSES && !windows.containsKey(address) ? "*" : address;
+		var window = windows.compute(bucket,
 				(key, old) -> old == null || !now.isBefore(old.start().plus(WINDOW)) ? new Window(now, 1)
 						: new Window(old.start(), old.calls() + 1));
 		if (window.calls() > properties.perIpPerHour()) {

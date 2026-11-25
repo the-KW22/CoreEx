@@ -18,9 +18,13 @@ export function RequestForm() {
     const onClick = (event: MouseEvent) => {
       if ((event.target as Element).closest('a[href="#request-access"]')) focus();
     };
+    const onHash = () => location.hash === "#request-access" && focus();
     document.addEventListener("click", onClick);
-    window.addEventListener("hashchange", () => location.hash === "#request-access" && focus());
-    return () => document.removeEventListener("click", onClick);
+    window.addEventListener("hashchange", onHash);
+    return () => {
+      document.removeEventListener("click", onClick);
+      window.removeEventListener("hashchange", onHash);
+    };
   }, []);
 
   if (state?.status === "sent") {
