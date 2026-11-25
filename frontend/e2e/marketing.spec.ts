@@ -129,6 +129,7 @@ test("an anchor link lands on its section below the sticky nav", async ({ page }
     const top = await page.locator("#career").evaluate((el) => Math.round(el.getBoundingClientRect().top));
     expect(Math.abs(top - 56)).toBeLessThan(8);
   }).toPass();
+});
 
 test.describe("Request access form", () => {
   test("a Request access link in the nav takes the visitor to the form and focuses the field", async ({ page }) => {
